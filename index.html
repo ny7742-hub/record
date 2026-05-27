@@ -374,7 +374,11 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
         <option value="W4">W4</option>
       </select>
       <button class="apply-btn" onclick="loadDeptWeek()">불러오기</button>
+      <label style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:#4f46e5;color:white;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">
+        📂 전체 파일 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadFullReport(this)"/>
+      </label>
     </div>
+    <div style="font-size:10px;color:#9ca3af;margin-top:6px">※ 파일 업로드 시 매장별 매출·수량·베스트 상품이 자동으로 기입됩니다.</div>
   </div>
   <div class="card" style="margin-bottom:14px">
     <div class="sec-title" style="margin-bottom:12px">🏪 매장 선택</div>
@@ -993,6 +997,190 @@ function deptCalc(){
   gEl.textContent="신장률 "+(growth!=="-"?growth+"%":"-");
   gEl.className="calc "+(growth==="-"?"neutral":Number(growth)>=0?"":"neg");
   document.getElementById("d_avgPrice").textContent="객단가 "+(avgPrice?avgPrice.toLocaleString()+"원":"-");
+}
+
+function loadFullReport(input){
+  var file=input.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var wb=XLSX.read(e.target.result,{type:"array"});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    parseAndApplyReport(rows);
+    input.value="";
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function getNum(row,col){
+  if(col<0||col>=row.length)return 0;
+  var v=row[col];
+  if(typeof v==="number")return v;
+  return parseFloat(String(v).replace(/[^0-9.-]/g,""))||0;
+}
+
+function matchStoreName(cellVal){
+  var stripped=String(cellVal||"").trim().replace(/^\d+[\.\)]\s*/,"");
+  for(var i=0;i<deptStores.length;i++){
+    var s=deptStores[i];
+    if(s===stripped||s===cellVal||
+       stripped.indexOf(s)>=0||s.indexOf(stripped)>=0||
+       cellVal.indexOf(s)>=0||s.indexOf(cellVal)>=0) return s;
+  }
+  return null;
+}
+
+function parseAndApplyReport(rows){
+  var colDept=-1,colOnline=-1;
+  var colProdName=-1,colProdQty=-1,colProdInv=-1,colProdSt=-1,colProdAct=-1;
+
+  // 헤더 행 스캔: 백화점/온라인, 상품명/판매수량/매장재고 컬럼 위치 파악
+  for(var r=0;r<Math.min(30,rows.length);r++){
+    var row=rows[r];
+    var rowStr=row.map(function(c){return String(c||"").trim();}).join("|");
+    if(colDept<0&&rowStr.indexOf("백화점")>=0&&rowStr.indexOf("온라인")>=0){
+      for(var c=0;c<row.length;c++){
+        var v=String(row[c]||"").trim();
+        if(v==="백화점"&&colDept<0)colDept=c;
+        if(v==="온라인"&&colOnline<0)colOnline=c;
+      }
+    }
+    if(colProdName<0&&rowStr.indexOf("상품명")>=0&&rowStr.indexOf("판매수량")>=0){
+      for(var c=0;c<row.length;c++){
+        var v=String(row[c]||"").trim();
+        if(v==="상품명"&&colProdName<0)colProdName=c;
+        if(v==="판매수량"&&colProdQty<0)colProdQty=c;
+        if((v==="매장재고"||v==="재고")&&colProdInv<0)colProdInv=c;
+        if(v==="재고상태"&&colProdSt<0)colProdSt=c;
+        if(v==="조치사항"&&colProdAct<0)colProdAct=c;
+      }
+    }
+  }
+
+  // 데이터 파싱
+  var results={};
+  var curStore=null;
+  var prodMode=false;
+
+  for(var r=0;r<rows.length;r++){
+    var row=rows[r];
+    // 첫 번째 비어있지 않은 셀 찾기
+    var firstVal="";
+    var firstCol=-1;
+    for(var c=0;c<row.length;c++){
+      var v=String(row[c]||"").trim();
+      if(v){firstVal=v;firstCol=c;break;}
+    }
+    if(!firstVal)continue;
+
+    // 매장명 매칭
+    var matched=matchStoreName(firstVal);
+    if(matched){
+      curStore=matched;
+      if(!results[curStore])results[curStore]={sales:{},products:[]};
+      prodMode=false;
+      // 같은 행에서 순위/상품명 헤더도 확인 (매장명과 같은 행에 상품 헤더가 있는 경우)
+      var rowStr2=row.map(function(c){return String(c||"").trim();}).join("|");
+      if(rowStr2.indexOf("상품명")>=0&&rowStr2.indexOf("판매수량")>=0){
+        for(var c=0;c<row.length;c++){
+          var v2=String(row[c]||"").trim();
+          if(v2==="상품명")colProdName=c;
+          if(v2==="판매수량")colProdQty=c;
+          if((v2==="매장재고"||v2==="재고"))colProdInv=c;
+          if(v2==="재고상태")colProdSt=c;
+          if(v2==="조치사항")colProdAct=c;
+        }
+        prodMode=true;
+      }
+      continue;
+    }
+
+    if(!curStore)continue;
+
+    // 상품 헤더 행 감지
+    var rowStr3=row.map(function(c){return String(c||"").trim();}).join("|");
+    if(/순위/.test(firstVal)&&rowStr3.indexOf("상품명")>=0){
+      prodMode=true;
+      for(var c=0;c<row.length;c++){
+        var v3=String(row[c]||"").trim();
+        if(v3==="상품명")colProdName=c;
+        if(v3==="판매수량")colProdQty=c;
+        if(v3==="매장재고"||v3==="재고")colProdInv=c;
+        if(v3==="재고상태")colProdSt=c;
+        if(v3==="조치사항")colProdAct=c;
+      }
+      continue;
+    }
+
+    // 매출/수량 행 파싱
+    if(/진주\s*매출|이번\s*주\s*매출/.test(firstVal)){
+      results[curStore].sales.thisDept=getNum(row,colDept);
+      results[curStore].sales.thisOnline=getNum(row,colOnline);
+      prodMode=false;
+    } else if(/진년\s*매출|전년\s*매출/.test(firstVal)){
+      results[curStore].sales.lastDept=getNum(row,colDept);
+      results[curStore].sales.lastOnline=getNum(row,colOnline);
+      prodMode=false;
+    } else if(/진주\s*판매\s*수량|이번\s*주\s*판매/.test(firstVal)){
+      results[curStore].sales.thisQtyDept=getNum(row,colDept);
+      results[curStore].sales.thisQtyOnline=getNum(row,colOnline);
+      prodMode=false;
+    } else if(/진년\s*판매\s*수량|전년\s*판매\s*수량/.test(firstVal)){
+      results[curStore].sales.lastQtyDept=getNum(row,colDept);
+      results[curStore].sales.lastQtyOnline=getNum(row,colOnline);
+      prodMode=false;
+    } else if(/누적매출/.test(rowStr3)){
+      // 누적매출은 별도 셀에서 찾기
+      for(var c=0;c<row.length-1;c++){
+        if(String(row[c]||"").trim()==="누적매출"){
+          results[curStore].sales.cumul=getNum(row,c+1)||getNum(row,c+2);
+          break;
+        }
+      }
+    } else if(/목표금액|목표/.test(rowStr3)){
+      for(var c=0;c<row.length-1;c++){
+        var vt=String(row[c]||"").trim();
+        if(vt==="목표금액"||vt==="목표"){
+          results[curStore].sales.target=getNum(row,c+1);
+          break;
+        }
+      }
+    } else if(prodMode){
+      // 상품 행: 첫 셀이 1~10 숫자
+      var rank=parseInt(firstVal);
+      if(rank>=1&&rank<=10){
+        var pName=colProdName>=0?String(row[colProdName]||"").trim():"";
+        var pQty=colProdQty>=0?getNum(row,colProdQty):0;
+        var pInv=colProdInv>=0?getNum(row,colProdInv):0;
+        var pSt=colProdSt>=0?String(row[colProdSt]||"").trim():"";
+        if(!pSt)pSt=(pInv>0&&pInv<10)?"부족":"정상";
+        var pAct=colProdAct>=0?String(row[colProdAct]||"").trim():"";
+        results[curStore].products.push({name:pName,qty:pQty,inv:pInv,status:pSt,action:pAct});
+      }
+    }
+  }
+
+  // 결과 저장
+  var key=curDeptKey||getDKey();
+  if(!deptDB[key])deptDB[key]={};
+  var count=0;
+  Object.keys(results).forEach(function(storeName){
+    var r=results[storeName];
+    if(!deptDB[key][storeName])deptDB[key][storeName]={};
+    if(Object.keys(r.sales).length)deptDB[key][storeName].sales=r.sales;
+    if(r.products.length){
+      while(r.products.length<10)r.products.push({name:"",qty:"",inv:"",status:"정상",action:""});
+      deptDB[key][storeName].products=r.products.slice(0,10);
+    }
+    count++;
+  });
+  localStorage.setItem("deptDB",JSON.stringify(deptDB));
+  renderDeptContent();
+  renderDeptTabs();
+  var msg=document.getElementById("deptSaveMsg");
+  msg.textContent="✅ "+count+"개 매장 데이터 자동 기입 완료!";
+  setTimeout(function(){msg.textContent="";},3000);
 }
 
 function loadBestFile(input){
