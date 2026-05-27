@@ -337,10 +337,9 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
     <div class="ri">
       <div class="sec-title" style="margin:0">📋 회의일지</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <select id="mYear" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
-        <select id="mMonth" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
-        <button class="apply-btn" onclick="loadMeetingMonth()">불러오기</button>
-        <button class="meeting-save-btn" id="mSaveAllBtn" onclick="saveMeetingAll()" style="padding:7px 18px;font-size:12px;flex:none">💾 전체 저장</button>
+        <select id="mYear" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white" onchange="renderMeetingGrid()"></select>
+        <select id="mMonth" style="padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white" onchange="renderMeetingGrid()"></select>
+        <span id="mAutoSaveMsg" style="font-size:11px;color:#059669;font-weight:600;margin-left:4px"></span>
       </div>
     </div>
   </div>
@@ -1264,9 +1263,6 @@ function getWeekRanges(year,month){
   return result;
 }
 
-function loadMeetingMonth(){
-  renderMeetingGrid();
-}
 
 function renderMeetingGrid(){
   var yr=parseInt(document.getElementById("mYear").value);
@@ -1288,7 +1284,7 @@ function renderMeetingGrid(){
     html+='<div class="week-col" id="wkcol-'+wk+'">';
     html+='<div class="week-col-hd">'+r.label+'</div>';
     html+='<div class="m-sec-title">📌 주간 내용</div>';
-    html+='<textarea class="meeting-textarea" id="mContent-'+wk+'" placeholder="주요 내용 입력..." style="min-height:160px">'+escH(rec.weekContent||"")+'</textarea>';
+    html+='<textarea class="meeting-textarea" id="mContent-'+wk+'" placeholder="주요 내용 입력..." style="min-height:160px" oninput="autoSaveMeeting()">'+escH(rec.weekContent||"")+'</textarea>';
     html+='<div class="m-sec-title" style="margin-top:10px">✅ 체크리스트</div>';
     html+='<div id="mChecklist-'+wk+'"></div>';
     html+='<div class="wci-add">';
@@ -1310,9 +1306,9 @@ function renderMCiWeek(wk){
   var h="";
   list.forEach(function(item,i){
     h+='<div class="wci-row">'+
-      '<input type="checkbox" '+(item.done?"checked":"")+' onchange="mCiLists[\''+wk+'\']['+i+'].done=this.checked;renderMCiWeek(\''+wk+'\')"/>'+
+      '<input type="checkbox" '+(item.done?"checked":"")+' onchange="mCiLists[\''+wk+'\']['+i+'].done=this.checked;renderMCiWeek(\''+wk+'\');autoSaveMeeting()"/>'+
       '<span class="ci-text'+(item.done?" done":"")+'">'+escH(item.text)+'</span>'+
-      '<button class="ci-del" onclick="mCiLists[\''+wk+'\'].splice('+i+',1);renderMCiWeek(\''+wk+'\')">×</button>'+
+      '<button class="ci-del" onclick="mCiLists[\''+wk+'\'].splice('+i+',1);renderMCiWeek(\''+wk+'\');autoSaveMeeting()">×</button>'+
       '</div>';
   });
   el.innerHTML=h;
@@ -1327,6 +1323,17 @@ function addMCiWeek(wk){
   inp.value="";
   renderMCiWeek(wk);
   inp.focus();
+  autoSaveMeeting();
+}
+
+var mSaveTimer=null;
+function autoSaveMeeting(){
+  clearTimeout(mSaveTimer);
+  mSaveTimer=setTimeout(function(){
+    saveMeetingAll();
+    var msg=document.getElementById("mAutoSaveMsg");
+    if(msg){msg.textContent="저장됨";setTimeout(function(){msg.textContent="";},1200);}
+  },500);
 }
 
 function saveMeetingAll(){
@@ -1341,8 +1348,6 @@ function saveMeetingAll(){
   });
   meetingDB[key].savedAt=new Date().toISOString();
   localStorage.setItem("meetingDB",JSON.stringify(meetingDB));
-  var btn=document.getElementById("mSaveAllBtn");
-  if(btn){var orig=btn.textContent;btn.textContent="✅ 저장됨!";btn.style.background="#059669";setTimeout(function(){btn.textContent=orig;btn.style.background="";},1500);}
 }
 
 
