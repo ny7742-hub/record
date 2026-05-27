@@ -354,29 +354,19 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">🏬 백화점 주간 현황</div>
       <button class="bs" style="padding:4px 10px;font-size:11px" onclick="addDeptStore()">+ 매장</button>
-      <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#4f46e5;color:white;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">
-        📂 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadFullReport(this)"/>
-      </label>
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:4px">영업기간</span>
-      <input type="date" id="dPeriodStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="updateDayLabels()"/>
-      <span class="day-lbl" id="dPeriodStartDay"></span>
+      <input type="date" id="dPeriodStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px"/>
       <span style="color:#9ca3af;font-size:11px">~</span>
-      <input type="date" id="dPeriodEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="updateDayLabels()"/>
-      <span class="day-lbl" id="dPeriodEndDay"></span>
+      <input type="date" id="dPeriodEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px"/>
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:6px">대비기간</span>
-      <input type="date" id="dCompStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="updateDayLabels()"/>
-      <span class="day-lbl" id="dCompStartDay"></span>
+      <input type="date" id="dCompStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px"/>
       <span style="color:#9ca3af;font-size:11px">~</span>
-      <input type="date" id="dCompEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="updateDayLabels()"/>
-      <span class="day-lbl" id="dCompEndDay"></span>
+      <input type="date" id="dCompEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px"/>
       <button class="apply-btn" style="padding:4px 12px;font-size:11px" onclick="loadDeptByPeriod()">불러오기</button>
       <span id="deptSaveMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
     </div>
   </div>
   <div id="deptAllStores"></div>
-  <div style="margin-top:8px">
-    <button class="dept-save-btn" onclick="saveDept()">💾 전체 저장</button>
-  </div>
 </div>
 </div><!-- /page-dept -->
 
@@ -827,15 +817,7 @@ var DAYS_KO=["일","월","화","수","목","금","토"];
   updateDayLabels();
 })();
 
-function updateDayLabels(){
-  [["dPeriodStart","dPeriodStartDay"],["dPeriodEnd","dPeriodEndDay"],
-   ["dCompStart","dCompStartDay"],["dCompEnd","dCompEndDay"]].forEach(function(p){
-    var v=document.getElementById(p[0]).value;
-    var el=document.getElementById(p[1]);
-    if(v){var d=new Date(v);el.textContent=DAYS_KO[d.getDay()]+"요";}
-    else el.textContent="";
-  });
-}
+function updateDayLabels(){}
 
 function getDPKey(){
   var s=document.getElementById("dPeriodStart").value;
@@ -880,15 +862,19 @@ function renderDeptAllStores(){
     var lastQtyDept=Number(s.lastQtyDept)||0,lastQtyOnline=Number(s.lastQtyOnline)||0;
     var thisQtyTotal=thisQtyDept+thisQtyOnline,lastQtyTotal=lastQtyDept+lastQtyOnline;
     var avgPrice=thisQtyTotal?Math.round(thisTotal/thisQtyTotal):0;
-    var growthClass=growth==="-"?"neutral":Number(growth)>=0?"":"neg";
     function fmt(n){return n?Number(n).toLocaleString():"-";}
-    var sEsc=store.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
     h+='<div class="dept-col">';
     h+='<div class="dept-col-hd">';
     h+='<span class="store-name">🏪 '+store+'</span>';
-    h+='<button class="meeting-del-btn" style="padding:2px 7px;font-size:10px" onclick="removeDeptStore(\''+sEsc+'\')">삭제</button>';
+    h+='<span style="display:flex;gap:3px">';
+    if(si>0)h+='<button class="meeting-del-btn" style="padding:2px 6px;font-size:12px" onclick="moveDeptStore('+si+',-1)">&#9664;</button>';
+    if(si<deptStores.length-1)h+='<button class="meeting-del-btn" style="padding:2px 6px;font-size:12px" onclick="moveDeptStore('+si+',1)">&#9654;</button>';
+    h+='</span>';
     h+='</div>';
-    // Sales table
+    h+='<div style="display:flex;gap:4px;margin-bottom:7px">';
+    h+='<label style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:#6366f1;color:white;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">📂 매출<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadStoreSales(this,'+si+')"/></label>';
+    h+='<label style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:#0891b2;color:white;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">📂 베스트<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadStoreBest(this,'+si+')"/></label>';
+    h+='</div>';
     h+='<div class="m-sec-title">📊 매출 현황</div>';
     h+='<table class="s-tbl"><thead><tr>';
     h+='<th style="width:56px"></th><th>백화점</th><th>온라인</th><th>합계</th>';
@@ -914,16 +900,14 @@ function renderDeptAllStores(){
     h+='<td class="calc neutral" id="d_lastQtyTotal_'+si+'">'+fmt(lastQtyTotal)+'</td>';
     h+='</tr>';
     h+='</tbody></table>';
-    // Info row: growth + avgprice + target + cumul
     h+='<div class="dept-info-row">';
-    h+='<span class="growth'+( growth!=="-"&&Number(growth)<0?" neg":"")+'">신장률 '+(growth!=="-"?growth+"%":"-")+'</span>';
-    h+='<span class="avgp">객단가 '+(avgPrice?fmt(avgPrice)+"원":"-")+'</span>';
+    h+='<span id="d_growth_'+si+'" class="growth'+(growth!=="-"&&Number(growth)<0?" neg":"")+'">신장률 '+(growth!=="-"?growth+"%":"-")+'</span>';
+    h+='<span id="d_avgPrice_'+si+'" class="avgp">객단가 '+(avgPrice?fmt(avgPrice)+"원":"-")+'</span>';
     h+='</div>';
     h+='<div style="display:flex;gap:6px;margin-top:5px;font-size:10px;color:#6b7280;align-items:center">';
-    h+='목표 <input class="sn" id="d_target_'+si+'" type="number" value="'+(s.target||"")+'" placeholder="0" style="width:70px;font-size:10px;display:inline-block"/>';
-    h+='누적 <input class="sn" id="d_cumul_'+si+'" type="number" value="'+(s.cumul||"")+'" placeholder="0" style="width:70px;font-size:10px;display:inline-block"/>';
+    h+='목표 <input class="sn" id="d_target_'+si+'" type="number" value="'+(s.target||"")+'" placeholder="0" style="width:70px;font-size:10px;display:inline-block" oninput="deptAutoSave()"/>';
+    h+='누적 <input class="sn" id="d_cumul_'+si+'" type="number" value="'+(s.cumul||"")+'" placeholder="0" style="width:70px;font-size:10px;display:inline-block" oninput="deptAutoSave()"/>';
     h+='</div>';
-    // TOP 10
     h+='<div class="m-sec-title" style="margin-top:10px">🏆 베스트 TOP10</div>';
     h+='<table class="b-tbl"><thead><tr>';
     h+='<th style="width:24px">#</th><th>상품명</th>';
@@ -937,24 +921,24 @@ function renderDeptAllStores(){
       var stCls=stVal==="부족"?"lack":stVal==="과잉"?"over":"ok";
       h+='<tr>';
       h+='<td style="text-align:center"><span class="rnk '+rnCls+'">'+rn+'</span></td>';
-      h+='<td><input class="pn-input" type="text" value="'+(p.name||"").replace(/"/g,"&quot;")+'" placeholder="상품명" id="dp_name_'+si+'_'+pi+'"/></td>';
-      h+='<td><input class="sn" type="number" value="'+(p.qty||"")+'" placeholder="0" id="dp_qty_'+si+'_'+pi+'"/></td>';
-      h+='<td><input class="sn" type="number" value="'+(p.inv||"")+'" placeholder="0" id="dp_inv_'+si+'_'+pi+'"/></td>';
-      h+='<td><select class="st-sel '+stCls+'" id="dp_st_'+si+'_'+pi+'" onchange="this.className=\'st-sel \'+(this.value===\'부족\'?\'lack\':this.value===\'과잉\'?\'over\':\'ok\')">';
+      h+='<td><input class="pn-input" type="text" value="'+(p.name||"").replace(/"/g,"&quot;")+'" placeholder="상품명" id="dp_name_'+si+'_'+pi+'" oninput="deptAutoSave()"/></td>';
+      h+='<td><input class="sn" type="number" value="'+(p.qty||"")+'" placeholder="0" id="dp_qty_'+si+'_'+pi+'" oninput="deptAutoSave()"/></td>';
+      h+='<td><input class="sn" type="number" value="'+(p.inv||"")+'" placeholder="0" id="dp_inv_'+si+'_'+pi+'" oninput="deptAutoSave()"/></td>';
+      h+='<td><select class="st-sel '+stCls+'" id="dp_st_'+si+'_'+pi+'" onchange="this.className=\'st-sel \'+(this.value===\'부족\'?\'lack\':this.value===\'과잉\'?\'over\':\'ok\');deptAutoSave()">';
       h+='<option'+(stVal==="정상"?" selected":"")+'>정상</option>';
       h+='<option'+(stVal==="부족"?" selected":"")+'>부족</option>';
       h+='<option'+(stVal==="과잉"?" selected":"")+'>과잉</option>';
       h+='</select></td>';
-      // hidden action input for save compatibility
       h+='<input type="hidden" value="'+(p.action||"").replace(/"/g,"&quot;")+'" id="dp_ac_'+si+'_'+pi+'"/>';
       h+='</tr>';
     });
     h+='</tbody></table>';
-    h+='</div>'; // .dept-col
+    h+='</div>';
   });
-  h+='</div>'; // .dept-grid
+  h+='</div>';
   document.getElementById("deptAllStores").innerHTML=h;
 }
+
 
 
 function deptCalcStore(si){
@@ -977,6 +961,7 @@ function deptCalcStore(si){
   sc("d_growth_"+si,"calc "+(growth==="-"?"neutral":Number(growth)>=0?"":"neg"));
   st("d_growth_"+si,"신장률 "+(growth!=="-"?growth+"%":"-"));
   st("d_avgPrice_"+si,"객단가 "+(avgPrice?avgPrice.toLocaleString()+"원":"-"));
+  deptAutoSave();
 }
 
 function getNum(row,col){
@@ -1166,6 +1151,118 @@ function parseAndApplyReport(rows){
   setTimeout(function(){msg.textContent="";},3000);
 }
 
+function moveDeptStore(si,dir){
+  var j=si+dir;
+  if(j<0||j>=deptStores.length)return;
+  var tmp=deptStores[si];deptStores[si]=deptStores[j];deptStores[j]=tmp;
+  localStorage.setItem("deptStores",JSON.stringify(deptStores));
+  renderDeptAllStores();
+}
+
+var deptSaveTimer=null;
+function deptAutoSave(){
+  clearTimeout(deptSaveTimer);
+  deptSaveTimer=setTimeout(function(){
+    saveDept();
+    var msg=document.getElementById("deptSaveMsg");
+    if(msg){msg.textContent="저장됨";setTimeout(function(){msg.textContent="";},1000);}
+  },600);
+}
+
+function loadStoreSales(input,si){
+  var file=input.files[0];if(!file)return;
+  var storeName=deptStores[si];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    detectPeriodFromRows(rows);
+    var colDept=-1,colOnline=-1;
+    for(var r=0;r<Math.min(30,rows.length);r++){
+      var row=rows[r];
+      var rs=row.map(function(c){return String(c||"").trim();}).join("|");
+      if(colDept<0&&rs.indexOf("백화점")>=0&&rs.indexOf("온라인")>=0){
+        for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();
+          if(v==="백화점"&&colDept<0)colDept=c;
+          if(v==="온라인"&&colOnline<0)colOnline=c;}
+      }
+    }
+    var sales={};
+    for(var r=0;r<rows.length;r++){
+      var row=rows[r];var fv="";
+      for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();if(v){fv=v;break;}}
+      if(!fv)continue;
+      if(/진주\s*매출|영업기간\s*매출/.test(fv)){sales.thisDept=getNum(row,colDept);sales.thisOnline=getNum(row,colOnline);}
+      else if(/진년\s*매출|대비기간\s*매출|전년\s*매출/.test(fv)){sales.lastDept=getNum(row,colDept);sales.lastOnline=getNum(row,colOnline);}
+      else if(/진주\s*판매\s*수량|영업기간\s*수량/.test(fv)){sales.thisQtyDept=getNum(row,colDept);sales.thisQtyOnline=getNum(row,colOnline);}
+      else if(/진년\s*판매\s*수량|대비기간\s*수량|전년\s*판매/.test(fv)){sales.lastQtyDept=getNum(row,colDept);sales.lastQtyOnline=getNum(row,colOnline);}
+    }
+    var key=getDPKey()||("upload_"+Date.now());
+    curDeptKey=key;
+    if(!deptDB[key])deptDB[key]={};
+    if(!deptDB[key][storeName])deptDB[key][storeName]={};
+    if(Object.keys(sales).length)deptDB[key][storeName].sales=sales;
+    localStorage.setItem("deptDB",JSON.stringify(deptDB));
+    renderDeptAllStores();
+    var msg=document.getElementById("deptSaveMsg");
+    if(msg){msg.textContent="✅ "+storeName+" 매출 기입 완료!";setTimeout(function(){msg.textContent="";},2500);}
+    input.value="";
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function loadStoreBest(input,si){
+  var file=input.files[0];if(!file)return;
+  var storeName=deptStores[si];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    var colProdName=-1,colProdQty=-1,colProdInv=-1,colProdSt=-1;
+    var products=[],headerFound=false;
+    for(var r=0;r<rows.length;r++){
+      var row=rows[r];
+      var rs=row.map(function(c){return String(c||"").trim();}).join("|");
+      if(!headerFound&&rs.indexOf("상품명")>=0){
+        for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();
+          if(v==="상품명")colProdName=c;
+          if(v==="판매수량")colProdQty=c;
+          if(v==="매장재고"||v==="재고")colProdInv=c;
+          if(v==="재고상태")colProdSt=c;}
+        headerFound=true;continue;
+      }
+      if(headerFound){
+        var fv="";for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();if(v){fv=v;break;}}
+        var rank=parseInt(fv);
+        if(rank>=1&&rank<=10){
+          var pName=colProdName>=0?String(row[colProdName]||"").trim():"";
+          var pQty=colProdQty>=0?getNum(row,colProdQty):0;
+          var pInv=colProdInv>=0?getNum(row,colProdInv):0;
+          var pSt=colProdSt>=0?String(row[colProdSt]||"").trim():"";
+          if(!pSt)pSt=(pInv>0&&pInv<10)?"부족":"정상";
+          products.push({name:pName,qty:pQty,inv:pInv,status:pSt,action:""});
+        }
+      }
+    }
+    if(products.length){
+      var key=getDPKey()||("upload_"+Date.now());
+      curDeptKey=key;
+      if(!deptDB[key])deptDB[key]={};
+      if(!deptDB[key][storeName])deptDB[key][storeName]={};
+      while(products.length<10)products.push({name:"",qty:"",inv:"",status:"정상",action:""});
+      deptDB[key][storeName].products=products.slice(0,10);
+      localStorage.setItem("deptDB",JSON.stringify(deptDB));
+      renderDeptAllStores();
+      var msg=document.getElementById("deptSaveMsg");
+      if(msg){msg.textContent="✅ "+storeName+" 베스트상품 기입 완료!";setTimeout(function(){msg.textContent="";},2500);}
+    }
+    input.value="";
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function saveDept(){
   var key=getDPKey();
   if(!key){alert("기간을 선택해 주세요.");return;}
@@ -1198,7 +1295,7 @@ function saveDept(){
   });
   localStorage.setItem("deptDB",JSON.stringify(deptDB));
   var msg=document.getElementById("deptSaveMsg");
-  msg.textContent="✅ 저장됨!";
+  msg.textContent="";
   setTimeout(function(){msg.textContent="";},2000);
 }
 
