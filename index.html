@@ -140,6 +140,37 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
 .mcard .mc-cl{font-size:11px;color:#6366f1;margin-top:3px;font-weight:600}
 .mcard .mc-pv{font-size:11px;color:#9ca3af;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .m-empty{text-align:center;padding:32px 0;color:#c4c9d4;font-size:12px}
+.dst-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:0}
+.dst{padding:7px 16px;background:#f3f4f6;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:600;color:#555;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.dst:hover{border-color:#a5b4fc;color:#4f46e5}
+.dst.active{background:#ede9fe;border-color:#6366f1;color:#4f46e5}
+.dst-del{font-size:13px;color:#dc2626;background:none;border:none;cursor:pointer;padding:0;line-height:1;margin-left:2px}
+.sales-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:700px){.sales-grid{grid-template-columns:1fr}}
+.s-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.s-tbl th{background:#f8fafc;padding:7px 8px;text-align:center;font-weight:600;color:#6b7280;border:1px solid #e5e7eb;font-size:11px;white-space:nowrap}
+.s-tbl td{padding:5px 7px;border:1px solid #e5e7eb;vertical-align:middle}
+.s-tbl td.row-label{font-size:12px;font-weight:600;color:#374151;white-space:nowrap;background:#fafafa}
+.s-tbl td.calc{background:#f0fdf4;text-align:center;font-size:12px;font-weight:700;color:#059669}
+.s-tbl td.calc.neg{background:#fef2f2;color:#dc2626}
+.s-tbl td.calc.neutral{background:#f8fafc;color:#374151;font-weight:600}
+.sn{width:100%;padding:5px 7px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right;color:#111}
+.sn:focus{outline:none;border-color:#6366f1}
+.b-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.b-tbl th{background:#f8fafc;padding:7px 6px;text-align:center;font-weight:600;color:#6b7280;border:1px solid #e5e7eb;font-size:11px;white-space:nowrap}
+.b-tbl td{padding:5px 6px;border:1px solid #e5e7eb;vertical-align:middle}
+.rnk{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:700;background:#e0e7ff;color:#4f46e5}
+.rnk.r1{background:#fef3c7;color:#b45309}
+.rnk.r2{background:#f1f5f9;color:#475569}
+.rnk.r3{background:#fde8d0;color:#c2410c}
+.st-sel{padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;width:100%;background:white}
+.st-sel.lack{background:#fef2f2;border-color:#fca5a5;color:#dc2626}
+.st-sel.ok{background:#f0fdf4;border-color:#86efac;color:#16a34a}
+.st-sel.over{background:#eff6ff;border-color:#93c5fd;color:#2563eb}
+.pn-input{width:100%;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit}
+.pn-input:focus{outline:none;border-color:#6366f1}
+.dept-save-btn{padding:11px 32px;background:#4f46e5;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
+.dept-save-btn:hover{background:#4338ca}
 </style>
 </head>
 <body>
@@ -159,6 +190,7 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
 <div class="tab-nav">
   <button class="tab-btn active" id="tab-sales" onclick="switchTab('sales')">📊 판매일보</button>
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
+  <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
 </div>
 
 <!-- 업로드 모달 -->
@@ -322,6 +354,39 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
   </div>
 </div>
 </div><!-- /page-meeting -->
+
+<!-- ===== 백화점 페이지 ===== -->
+<div id="page-dept" style="display:none">
+<div class="main">
+  <div class="card" style="margin-bottom:14px">
+    <div class="ri" style="margin-bottom:14px">
+      <div class="sec-title" style="margin:0">🏬 백화점 주간 현황</div>
+      <button class="bs" style="padding:6px 14px;font-size:12px" onclick="addPopupStore()">+ 팝업스토어</button>
+    </div>
+    <div class="week-sel-bar">
+      <label style="font-size:12px;font-weight:600;color:#555">주차 선택</label>
+      <select id="dYear"></select>
+      <select id="dMonth"></select>
+      <select id="dWeek">
+        <option value="W1">W1</option>
+        <option value="W2">W2</option>
+        <option value="W3">W3</option>
+        <option value="W4">W4</option>
+      </select>
+      <button class="apply-btn" onclick="loadDeptWeek()">불러오기</button>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="sec-title" style="margin-bottom:12px">🏪 매장 선택</div>
+    <div class="dst-tabs" id="deptTabs"></div>
+  </div>
+  <div id="deptContent"></div>
+  <div class="m-section" style="display:flex;gap:10px;align-items:center">
+    <button class="dept-save-btn" onclick="saveDept()">💾 저장</button>
+    <span id="deptSaveMsg" style="font-size:12px;color:#059669;font-weight:600"></span>
+  </div>
+</div>
+</div><!-- /page-dept -->
 
 <script>
 
@@ -750,13 +815,251 @@ function clrSearch(){
   document.getElementById("rCount").textContent="0";
 }
 
+/* ── 백화점 ── */
+var DEPT_FIXED=["현대 청주점","롯데 센텀점","롯데 동부산점","롯데 김포공항점","롯데 산본점"];
+var deptDB=JSON.parse(localStorage.getItem("deptDB")||"{}");
+var curDeptStore=DEPT_FIXED[0];
+var curDeptKey="";
+
+(function initDeptSel(){
+  var yEl=document.getElementById("dYear");
+  var mEl=document.getElementById("dMonth");
+  var now=new Date();
+  for(var y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
+    var o=document.createElement("option");
+    o.value=y;o.textContent=y+"년";
+    if(y===now.getFullYear())o.selected=true;
+    yEl.appendChild(o);
+  }
+  for(var m=1;m<=12;m++){
+    var o2=document.createElement("option");
+    o2.value=String(m).padStart(2,"0");
+    o2.textContent=m+"월";
+    if(m===now.getMonth()+1)o2.selected=true;
+    mEl.appendChild(o2);
+  }
+  // 전일 기준 주차 자동 선택
+  var d=new Date(); d.setDate(d.getDate()-1);
+  var day=d.getDate();
+  var wk=day<=7?"W1":day<=14?"W2":day<=21?"W3":"W4";
+  document.getElementById("dWeek").value=wk;
+})();
+
+function getDKey(){
+  return document.getElementById("dYear").value+"-"+document.getElementById("dMonth").value+"-"+document.getElementById("dWeek").value;
+}
+
+function getDeptStores(){
+  var key=getDKey();
+  var popups=(deptDB[key]&&deptDB[key].popups)||[];
+  return DEPT_FIXED.concat(popups);
+}
+
+function addPopupStore(){
+  var name=prompt("팝업스토어 이름을 입력하세요:");
+  if(!name||!name.trim())return;
+  name=name.trim();
+  var key=getDKey();
+  if(!deptDB[key])deptDB[key]={stores:{},popups:[]};
+  if(!deptDB[key].popups)deptDB[key].popups=[];
+  if(deptDB[key].popups.indexOf(name)>=0){alert("이미 추가된 매장입니다.");return;}
+  deptDB[key].popups.push(name);
+  localStorage.setItem("deptDB",JSON.stringify(deptDB));
+  renderDeptPage();
+}
+
+function removePopupStore(name){
+  if(!confirm(name+"을(를) 삭제하시겠습니까?"))return;
+  var key=getDKey();
+  if(deptDB[key]&&deptDB[key].popups){
+    deptDB[key].popups=deptDB[key].popups.filter(function(s){return s!==name;});
+    if(deptDB[key].stores&&deptDB[key].stores[name]) delete deptDB[key].stores[name];
+    localStorage.setItem("deptDB",JSON.stringify(deptDB));
+  }
+  if(curDeptStore===name)curDeptStore=DEPT_FIXED[0];
+  renderDeptPage();
+}
+
+function loadDeptWeek(){
+  curDeptKey=getDKey();
+  renderDeptPage();
+}
+
+function renderDeptPage(){
+  curDeptKey=getDKey();
+  renderDeptTabs();
+  renderDeptContent();
+}
+
+function renderDeptTabs(){
+  var stores=getDeptStores();
+  var popups=(deptDB[curDeptKey]&&deptDB[curDeptKey].popups)||[];
+  var h="";
+  stores.forEach(function(s){
+    var isPopup=popups.indexOf(s)>=0;
+    h+='<button class="dst'+(s===curDeptStore?" active":"")+'" onclick="selectDeptStore(\''+s.replace(/'/g,"\\'")+'\')">'
+      +s
+      +(isPopup?'<button class="dst-del" onclick="event.stopPropagation();removePopupStore(\''+s.replace(/'/g,"\\'")+'\')" title="삭제">×</button>':'')
+      +'</button>';
+  });
+  document.getElementById("deptTabs").innerHTML=h;
+}
+
+function selectDeptStore(name){
+  curDeptStore=name;
+  renderDeptTabs();
+  renderDeptContent();
+}
+
+function getDeptStoreData(store){
+  var key=curDeptKey||getDKey();
+  if(!deptDB[key]||!deptDB[key].stores||!deptDB[key].stores[store]) return null;
+  return deptDB[key].stores[store];
+}
+
+function renderDeptContent(){
+  var data=getDeptStoreData(curDeptStore)||{};
+  var s=data.sales||{};
+  var prods=data.products||Array(10).fill(null).map(function(){return{name:"",qty:"",inv:"",status:"정상",action:""};});
+  while(prods.length<10)prods.push({name:"",qty:"",inv:"",status:"정상",action:""});
+
+  // 합계/신장률 계산
+  var thisDept=Number(s.thisDept)||0, thisOnline=Number(s.thisOnline)||0;
+  var lastDept=Number(s.lastDept)||0, lastOnline=Number(s.lastOnline)||0;
+  var thisTotal=thisDept+thisOnline, lastTotal=lastDept+lastOnline;
+  var growth=lastTotal?((thisTotal-lastTotal)/lastTotal*100).toFixed(1):"-";
+  var thisQtyDept=Number(s.thisQtyDept)||0, thisQtyOnline=Number(s.thisQtyOnline)||0;
+  var lastQtyDept=Number(s.lastQtyDept)||0, lastQtyOnline=Number(s.lastQtyOnline)||0;
+  var thisQtyTotal=thisQtyDept+thisQtyOnline, lastQtyTotal=lastQtyDept+lastQtyOnline;
+  var avgPrice=thisQtyTotal?Math.round(thisTotal/thisQtyTotal):0;
+  var growthClass=growth==="-"?"neutral":Number(growth)>=0?"":"neg";
+
+  function fmt(n){return n?Number(n).toLocaleString():"";}
+
+  var h='<div class="m-section" style="margin-bottom:14px">'
+    +'<div class="m-sec-title">📊 매출 현황 — '+curDeptStore+'</div>'
+    +'<table class="s-tbl"><thead><tr>'
+    +'<th style="width:100px"></th><th>백화점</th><th>온라인</th><th>합계</th><th></th></tr></thead><tbody>'
+    +'<tr><td class="row-label">진주 매출</td>'
+    +'<td><input class="sn" id="d_thisDept" type="number" value="'+(s.thisDept||"")+'" placeholder="0" oninput="deptCalc()"/></td>'
+    +'<td><input class="sn" id="d_thisOnline" type="number" value="'+(s.thisOnline||"")+'" placeholder="0" oninput="deptCalc()"/></td>'
+    +'<td class="calc neutral" id="d_thisTotal">'+fmt(thisTotal)+'</td>'
+    +'<td class="calc '+growthClass+'" id="d_growth" style="white-space:nowrap">신장률 '+(growth!=="-"?growth+"%":"-")+'</td></tr>'
+    +'<tr><td class="row-label">진년 매출</td>'
+    +'<td><input class="sn" id="d_lastDept" type="number" value="'+(s.lastDept||"")+'" placeholder="0" oninput="deptCalc()"/></td>'
+    +'<td><input class="sn" id="d_lastOnline" type="number" value="'+(s.lastOnline||"")+'" placeholder="0" oninput="deptCalc()"/></td>'
+    +'<td class="calc neutral" id="d_lastTotal">'+fmt(lastTotal)+'</td>'
+    +'<td style="white-space:nowrap;font-size:11px;color:#6b7280">목표 <input class="sn" id="d_target" type="number" value="'+(s.target||"")+'" placeholder="0" style="width:100px;display:inline-block"/></td></tr>'
+    +'<tr><td class="row-label">진주 판매수량</td>'
+    +'<td><input class="sn" id="d_thisQtyDept" type="number" value="'+(s.thisQtyDept||"")+'" placeholder="0" oninput="deptCalc()"/></td>'
+    +'<td><input class="sn" id="d_thisQtyOnline" type="number" value="'+(s.thisQtyOnline||"")+'" placeholder="0" oninput="deptCalc()"/></td>'
+    +'<td class="calc neutral" id="d_thisQtyTotal">'+fmt(thisQtyTotal)+'</td>'
+    +'<td class="calc neutral" id="d_avgPrice" style="white-space:nowrap;font-size:11px">객단가 '+(avgPrice?fmt(avgPrice)+"원":"-")+'</td></tr>'
+    +'<tr><td class="row-label">진년 판매수량</td>'
+    +'<td><input class="sn" id="d_lastQtyDept" type="number" value="'+(s.lastQtyDept||"")+'" placeholder="0" oninput="deptCalc()"/></td>'
+    +'<td><input class="sn" id="d_lastQtyOnline" type="number" value="'+(s.lastQtyOnline||"")+'" placeholder="0" oninput="deptCalc()"/></td>'
+    +'<td class="calc neutral" id="d_lastQtyTotal">'+fmt(lastQtyTotal)+'</td>'
+    +'<td style="white-space:nowrap;font-size:11px;color:#6b7280">누적매출 <input class="sn" id="d_cumul" type="number" value="'+(s.cumul||"")+'" placeholder="0" style="width:100px;display:inline-block"/></td></tr>'
+    +'</tbody></table></div>';
+
+  // 베스트 상품 TOP10
+  h+='<div class="m-section"><div class="m-sec-title">🏆 베스트 상품 TOP 10</div>'
+    +'<table class="b-tbl"><thead><tr>'
+    +'<th style="width:32px">순위</th><th>상품명</th><th style="width:64px">판매수량</th>'
+    +'<th style="width:64px">매장재고</th><th style="width:72px">재고상태</th><th style="width:110px">조치사항</th>'
+    +'</tr></thead><tbody>';
+
+  prods.slice(0,10).forEach(function(p,i){
+    var rn=i+1;
+    var rnCls=rn===1?"r1":rn===2?"r2":rn===3?"r3":"";
+    var stCls=p.status==="부족"?"lack":p.status==="과잉"?"over":"ok";
+    h+='<tr>'
+      +'<td style="text-align:center"><span class="rnk '+rnCls+'">'+rn+'</span></td>'
+      +'<td><input class="pn-input" type="text" value="'+(p.name||"")+'" placeholder="상품명" id="dp_name_'+i+'"/></td>'
+      +'<td><input class="sn" type="number" value="'+(p.qty||"")+'" placeholder="0" id="dp_qty_'+i+'"/></td>'
+      +'<td><input class="sn" type="number" value="'+(p.inv||"")+'" placeholder="0" id="dp_inv_'+i+'"/></td>'
+      +'<td><select class="st-sel '+stCls+'" id="dp_st_'+i+'" onchange="this.className=\'st-sel \'+(this.value===\'부족\'?\'lack\':this.value===\'과잉\'?\'over\':\'ok\')">'
+      +'<option'+(p.status==="정상"?" selected":"")+'> 정상</option>'
+      +'<option'+(p.status==="부족"?" selected":"")+'> 부족</option>'
+      +'<option'+(p.status==="과잉"?" selected":"")+'> 과잉</option>'
+      +'</select></td>'
+      +'<td><input class="pn-input" type="text" value="'+(p.action||"")+'" placeholder="조치사항" id="dp_ac_'+i+'"/></td>'
+      +'</tr>';
+  });
+  h+='</tbody></table></div>';
+  document.getElementById("deptContent").innerHTML=h;
+}
+
+function deptCalc(){
+  var thisDept=Number(document.getElementById("d_thisDept").value)||0;
+  var thisOnline=Number(document.getElementById("d_thisOnline").value)||0;
+  var lastDept=Number(document.getElementById("d_lastDept").value)||0;
+  var lastOnline=Number(document.getElementById("d_lastOnline").value)||0;
+  var thisQtyDept=Number(document.getElementById("d_thisQtyDept").value)||0;
+  var thisQtyOnline=Number(document.getElementById("d_thisQtyOnline").value)||0;
+  var lastQtyDept=Number(document.getElementById("d_lastQtyDept").value)||0;
+  var lastQtyOnline=Number(document.getElementById("d_lastQtyOnline").value)||0;
+  var thisTotal=thisDept+thisOnline, lastTotal=lastDept+lastOnline;
+  var thisQtyTotal=thisQtyDept+thisQtyOnline, lastQtyTotal=lastQtyDept+lastQtyOnline;
+  var growth=lastTotal?((thisTotal-lastTotal)/lastTotal*100).toFixed(1):"-";
+  var avgPrice=thisQtyTotal?Math.round(thisTotal/thisQtyTotal):0;
+  function fmt(n){return n?n.toLocaleString():"-";}
+  document.getElementById("d_thisTotal").textContent=fmt(thisTotal);
+  document.getElementById("d_lastTotal").textContent=fmt(lastTotal);
+  document.getElementById("d_thisQtyTotal").textContent=fmt(thisQtyTotal);
+  document.getElementById("d_lastQtyTotal").textContent=fmt(lastQtyTotal);
+  var gEl=document.getElementById("d_growth");
+  gEl.textContent="신장률 "+(growth!=="-"?growth+"%":"-");
+  gEl.className="calc "+(growth==="-"?"neutral":Number(growth)>=0?"":"neg");
+  document.getElementById("d_avgPrice").textContent="객단가 "+(avgPrice?avgPrice.toLocaleString()+"원":"-");
+}
+
+function saveDept(){
+  var key=curDeptKey||getDKey();
+  if(!deptDB[key])deptDB[key]={stores:{},popups:[]};
+  if(!deptDB[key].stores)deptDB[key].stores={};
+  var prods=[];
+  for(var i=0;i<10;i++){
+    var stEl=document.getElementById("dp_st_"+i);
+    prods.push({
+      name:(document.getElementById("dp_name_"+i).value||"").trim(),
+      qty:document.getElementById("dp_qty_"+i).value||"",
+      inv:document.getElementById("dp_inv_"+i).value||"",
+      status:stEl?stEl.value.trim():"정상",
+      action:(document.getElementById("dp_ac_"+i).value||"").trim()
+    });
+  }
+  deptDB[key].stores[curDeptStore]={
+    sales:{
+      thisDept:document.getElementById("d_thisDept").value,
+      thisOnline:document.getElementById("d_thisOnline").value,
+      lastDept:document.getElementById("d_lastDept").value,
+      lastOnline:document.getElementById("d_lastOnline").value,
+      target:document.getElementById("d_target").value,
+      thisQtyDept:document.getElementById("d_thisQtyDept").value,
+      thisQtyOnline:document.getElementById("d_thisQtyOnline").value,
+      lastQtyDept:document.getElementById("d_lastQtyDept").value,
+      lastQtyOnline:document.getElementById("d_lastQtyOnline").value,
+      cumul:document.getElementById("d_cumul").value
+    },
+    products:prods
+  };
+  localStorage.setItem("deptDB",JSON.stringify(deptDB));
+  var msg=document.getElementById("deptSaveMsg");
+  msg.textContent="✅ 저장됨!";
+  setTimeout(function(){msg.textContent="";},2000);
+}
+
 /* ── 탭 전환 ── */
 function switchTab(tab){
   document.getElementById("page-sales").style.display=tab==="sales"?"block":"none";
   document.getElementById("page-meeting").style.display=tab==="meeting"?"block":"none";
+  document.getElementById("page-dept").style.display=tab==="dept"?"block":"none";
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
+  document.getElementById("tab-dept").classList.toggle("active",tab==="dept");
   if(tab==="meeting") renderMeetingList();
+  if(tab==="dept") renderDeptPage();
 }
 
 /* ── 회의일지 ── */
