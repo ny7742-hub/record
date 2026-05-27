@@ -979,7 +979,7 @@ function loadFullReport(input){
   if(!file)return;
   var reader=new FileReader();
   reader.onload=function(e){
-    var wb=XLSX.read(e.target.result,{type:"array"});
+    var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
     var ws=wb.Sheets[wb.SheetNames[0]];
     var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
     parseAndApplyReport(rows);
@@ -988,7 +988,62 @@ function loadFullReport(input){
   reader.readAsArrayBuffer(file);
 }
 
+function detectPeriodFromRows(rows){
+  function toDateStr(v){
+    if(v instanceof Date&&!isNaN(v.getTime())){
+      return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0")+"-"+String(v.getDate()).padStart(2,"0");
+    }
+    var s=String(v||"").trim();
+    var m=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if(m)return m[1]+"-"+String(m[2]).padStart(2,"0")+"-"+String(m[3]).padStart(2,"0");
+    return null;
+  }
+  var found=[];
+  var ctx="this";
+  for(var r=0;r<Math.min(60,rows.length);r++){
+    var row=rows[r];
+    for(var c=0;c<row.length;c++){
+      var v=row[c];
+      var vs=String(v||"").trim();
+      if(!vs)continue;
+      if(/영업기간|판매기간|이번\s*주|당기/.test(vs))ctx="this";
+      else if(/대비기간|전년|전주|전기/.test(vs))ctx="comp";
+      // Date range: YYYY-MM-DD~YYYY-MM-DD
+      var mr=vs.match(/(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})\s*~\s*(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/);
+      if(mr){
+        var s1=toDateStr(mr[1].replace(/\//g,"-"));
+        var s2=toDateStr(mr[2].replace(/\//g,"-"));
+        if(s1&&s2)found.push({ctx:ctx,start:s1,end:s2});
+        continue;
+      }
+      // Individual date
+      var ds=toDateStr(v);
+      if(ds)found.push({ctx:ctx,date:ds});
+    }
+  }
+  function applyRange(ctx,startId,endId){
+    var range=found.filter(function(d){return d.ctx===ctx&&d.start;});
+    if(range.length){
+      document.getElementById(startId).value=range[0].start;
+      document.getElementById(endId).value=range[0].end;
+      return true;
+    }
+    var singles=found.filter(function(d){return d.ctx===ctx&&d.date;}).map(function(d){return d.date;}).sort();
+    if(singles.length>=2){
+      document.getElementById(startId).value=singles[0];
+      document.getElementById(endId).value=singles[singles.length-1];
+      return true;
+    }
+    return false;
+  }
+  var ok1=applyRange("this","dPeriodStart","dPeriodEnd");
+  var ok2=applyRange("comp","dCompStart","dCompEnd");
+  if(ok1||ok2)updateDayLabels();
+  return ok1;
+}
+
 function parseAndApplyReport(rows){
+  detectPeriodFromRows(rows);
   var colDept=-1,colOnline=-1;
   var colProdName=-1,colProdQty=-1,colProdInv=-1,colProdSt=-1,colProdAct=-1;
   for(var r=0;r<Math.min(30,rows.length);r++){
@@ -1218,8 +1273,6 @@ function renderMeetingGrid(){
     html+='<input type="text" id="mCiInput-'+wk+'" placeholder="항목 입력 후 Enter" onkeydown="if(event.key===\'Enter\')addMCiWeek(\''+wk+'\')"/>';
     html+='<button onclick="addMCiWeek(\''+wk+'\')">+</button>';
     html+='</div>';
-    html+='<div class="m-sec-title" style="margin-top:10px">📝 조치사항</div>';
-    html+='<textarea class="meeting-textarea" id="mActions-'+wk+'" placeholder="조치사항 입력...">'+escH(rec.actions||"")+'</textarea>';
     html+='</div>';
   });
   grid.innerHTML=html;
@@ -1261,7 +1314,7 @@ function saveMeetingAll(){
     meetingDB[key][wk]={
       weekContent:document.getElementById("mContent-"+wk)?document.getElementById("mContent-"+wk).value:"",
       checklist:mCiLists[wk].map(function(c){return{text:c.text,done:c.done};}),
-      actions:document.getElementById("mActions-"+wk)?document.getElementById("mActions-"+wk).value:""
+      actions:""
     };
   });
   meetingDB[key].savedAt=new Date().toISOString();
