@@ -107,6 +107,39 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
 @media(max-width:1000px){.cat-disc-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){.two-col{grid-template-columns:1fr}.grid3{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.grid3{grid-template-columns:1fr}.cat-disc-grid{grid-template-columns:1fr 1fr}}
+.tab-nav{display:flex;background:#0f172a;padding:0 32px;gap:2px}
+.tab-btn{padding:11px 22px;background:none;border:none;border-bottom:3px solid transparent;color:rgba(255,255,255,0.55);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;font-family:inherit}
+.tab-btn:hover{color:rgba(255,255,255,0.9)}
+.tab-btn.active{color:white;border-bottom-color:#6366f1}
+.meeting-textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#111;background:white;resize:vertical;min-height:90px;font-family:inherit;line-height:1.6;transition:border .15s}
+.meeting-textarea:focus{outline:none;border-color:#6366f1}
+.checklist-item{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid #f3f4f6}
+.checklist-item:last-child{border-bottom:none}
+.checklist-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:#4f46e5;flex-shrink:0}
+.ci-text{flex:1;font-size:13px;color:#374151;line-height:1.4}
+.ci-text.done{text-decoration:line-through;color:#9ca3af}
+.ci-del{background:none;border:none;color:#dc2626;cursor:pointer;font-size:15px;padding:2px 6px;border-radius:4px;opacity:0.5;flex-shrink:0}
+.ci-del:hover{opacity:1;background:#fef2f2}
+.add-ci-row{display:flex;gap:8px;margin-top:10px}
+.add-ci-input{flex:1;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;font-family:inherit}
+.add-ci-input:focus{outline:none;border-color:#6366f1}
+.add-ci-btn{padding:8px 16px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.week-sel-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.week-sel-bar select{padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white}
+.m-section{background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:18px 20px;margin-bottom:14px}
+.m-sec-title{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.meeting-save-btn{flex:1;padding:12px;background:#4f46e5;color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.meeting-save-btn:hover{background:#4338ca}
+.meeting-del-btn{padding:12px 18px;background:white;border:1.5px solid #dc2626;color:#dc2626;border-radius:10px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.meeting-del-btn:hover{background:#fef2f2}
+.mcard-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:4px}
+.mcard{background:white;border-radius:10px;border:1.5px solid #e5e7eb;padding:14px;cursor:pointer;transition:all .15s}
+.mcard:hover{border-color:#a5b4fc;box-shadow:0 2px 8px rgba(99,102,241,.12)}
+.mcard.active{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.mcard .mc-wk{font-size:13px;font-weight:700;color:#1a1a2e}
+.mcard .mc-cl{font-size:11px;color:#6366f1;margin-top:3px;font-weight:600}
+.mcard .mc-pv{font-size:11px;color:#9ca3af;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-empty{text-align:center;padding:32px 0;color:#c4c9d4;font-size:12px}
 </style>
 </head>
 <body>
@@ -121,6 +154,11 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
       상품 데이터 업데이트
     </button>
   </div>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" id="tab-sales" onclick="switchTab('sales')">📊 판매일보</button>
+  <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
 </div>
 
 <!-- 업로드 모달 -->
@@ -141,6 +179,7 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
   </div>
 </div>
 
+<div id="page-sales">
 <div class="main">
   <div class="card">
     <div class="sec-title">📋 판매 기본 정보</div>
@@ -221,6 +260,69 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
     </div>
   </div>
 </div>
+</div><!-- /page-sales -->
+
+<!-- ===== 전략회의 페이지 ===== -->
+<div id="page-meeting" style="display:none">
+<div class="main">
+  <!-- 주차 선택 -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="ri" style="margin-bottom:14px">
+      <div class="sec-title" style="margin:0">📋 회의일지</div>
+      <button class="bs" style="padding:6px 14px;font-size:12px" onclick="newMeetingForm()">+ 새 기록</button>
+    </div>
+    <div class="week-sel-bar">
+      <label style="font-size:12px;font-weight:600;color:#555">주차 선택</label>
+      <select id="mYear"></select>
+      <select id="mMonth"></select>
+      <select id="mWeek">
+        <option value="W1">W1</option>
+        <option value="W2">W2</option>
+        <option value="W3">W3</option>
+        <option value="W4">W4</option>
+      </select>
+      <button class="apply-btn" onclick="loadMeetingBySelector()">불러오기</button>
+    </div>
+  </div>
+
+  <!-- 저장된 기록 목록 -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="sec-title">📁 저장된 기록</div>
+    <div id="meetingList"><div class="m-empty">저장된 회의일지가 없습니다</div></div>
+  </div>
+
+  <!-- 회의일지 폼 -->
+  <div id="meetingFormWrap">
+    <div class="m-section">
+      <div class="m-sec-title">📌 주간 내용</div>
+      <textarea class="meeting-textarea" id="mContent" placeholder="이번 주 주요 내용을 입력하세요..."></textarea>
+    </div>
+    <div class="m-section">
+      <div class="m-sec-title">✅ 체크리스트</div>
+      <div id="mChecklistEl"></div>
+      <div class="add-ci-row">
+        <input type="text" class="add-ci-input" id="mCiInput" placeholder="항목 입력 후 Enter 또는 추가 버튼" onkeydown="if(event.key==='Enter')addMCi()"/>
+        <button class="add-ci-btn" onclick="addMCi()">+ 추가</button>
+      </div>
+    </div>
+    <div class="m-section">
+      <div class="m-sec-title">📝 조치사항</div>
+      <textarea class="meeting-textarea" id="mActions" placeholder="조치해야 할 사항을 입력하세요..."></textarea>
+    </div>
+    <div class="m-section">
+      <div class="m-sec-title">👥 담당자별</div>
+      <textarea class="meeting-textarea" id="mByPerson" placeholder="담당자별 내용을 입력하세요..."></textarea>
+    </div>
+    <div class="m-section">
+      <div style="display:flex;gap:10px">
+        <button class="meeting-save-btn" onclick="saveMeeting()">💾 저장</button>
+        <button class="meeting-del-btn" onclick="deleteMeeting()">삭제</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div><!-- /page-meeting -->
+
 <script>
 
 /* ── 기본 내장 데이터 ── */
@@ -646,6 +748,144 @@ function clrSearch(){
   cur=[];
   document.getElementById("tbl").innerHTML="<div class='es'><div class='ei'>🔍</div><div class='et'>상품명과 칼라를 입력하여 검색하세요</div></div>";
   document.getElementById("rCount").textContent="0";
+}
+
+/* ── 탭 전환 ── */
+function switchTab(tab){
+  document.getElementById("page-sales").style.display=tab==="sales"?"block":"none";
+  document.getElementById("page-meeting").style.display=tab==="meeting"?"block":"none";
+  document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
+  document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
+  if(tab==="meeting") renderMeetingList();
+}
+
+/* ── 회의일지 ── */
+var meetingDB=JSON.parse(localStorage.getItem("meetingDB")||"{}");
+var curMKey=null;
+var mCiList=[];
+
+(function initMeetingSel(){
+  var yEl=document.getElementById("mYear");
+  var mEl=document.getElementById("mMonth");
+  var now=new Date();
+  for(var y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
+    var o=document.createElement("option");
+    o.value=y;o.textContent=y+"년";
+    if(y===now.getFullYear())o.selected=true;
+    yEl.appendChild(o);
+  }
+  for(var m=1;m<=12;m++){
+    var o2=document.createElement("option");
+    o2.value=String(m).padStart(2,"0");
+    o2.textContent=m+"월";
+    if(m===now.getMonth()+1)o2.selected=true;
+    mEl.appendChild(o2);
+  }
+  renderMeetingList();
+})();
+
+function getMKey(){
+  return document.getElementById("mYear").value+"-"+document.getElementById("mMonth").value+"-"+document.getElementById("mWeek").value;
+}
+
+function renderMeetingList(){
+  var keys=Object.keys(meetingDB).sort().reverse();
+  if(!keys.length){document.getElementById("meetingList").innerHTML="<div class='m-empty'>저장된 회의일지가 없습니다</div>";return;}
+  var h='<div class="mcard-grid">';
+  keys.forEach(function(k){
+    var rec=meetingDB[k];
+    var p=k.split("-");
+    var title=p[0]+"년 "+parseInt(p[1])+"월 "+p[2];
+    var done=(rec.checklist||[]).filter(function(c){return c.done;}).length;
+    var tot=(rec.checklist||[]).length;
+    var pv=(rec.weekContent||"(내용 없음)").replace(/\n/g," ").substring(0,35);
+    h+='<div class="mcard'+(k===curMKey?" active":"")+'" onclick="selectMeeting(\''+k+'\')">'+
+      '<div class="mc-wk">'+title+'</div>'+
+      (tot?'<div class="mc-cl">✅ '+done+'/'+tot+'</div>':'')+
+      '<div class="mc-pv">'+pv+'</div></div>';
+  });
+  h+='</div>';
+  document.getElementById("meetingList").innerHTML=h;
+}
+
+function selectMeeting(key){
+  curMKey=key;
+  var p=key.split("-");
+  document.getElementById("mYear").value=p[0];
+  document.getElementById("mMonth").value=p[1];
+  document.getElementById("mWeek").value=p[2];
+  var rec=meetingDB[key]||{};
+  document.getElementById("mContent").value=rec.weekContent||"";
+  document.getElementById("mActions").value=rec.actions||"";
+  document.getElementById("mByPerson").value=rec.byPerson||"";
+  mCiList=(rec.checklist||[]).map(function(c){return{text:c.text,done:c.done};});
+  renderMCi();
+  renderMeetingList();
+  document.getElementById("meetingFormWrap").scrollIntoView({behavior:"smooth"});
+}
+
+function loadMeetingBySelector(){
+  selectMeeting(getMKey());
+}
+
+function newMeetingForm(){
+  curMKey=null;
+  document.getElementById("mContent").value="";
+  document.getElementById("mActions").value="";
+  document.getElementById("mByPerson").value="";
+  mCiList=[];
+  renderMCi();
+  renderMeetingList();
+  document.getElementById("meetingFormWrap").scrollIntoView({behavior:"smooth"});
+}
+
+function renderMCi(){
+  var h="";
+  mCiList.forEach(function(item,i){
+    h+='<div class="checklist-item">'+
+      '<input type="checkbox" '+(item.done?"checked":"")+' onchange="mCiList['+i+'].done=this.checked;renderMCi()"/>'+
+      '<span class="ci-text'+(item.done?" done":"")+'">'+item.text.replace(/</g,"&lt;")+'</span>'+
+      '<button class="ci-del" onclick="mCiList.splice('+i+',1);renderMCi()">×</button>'+
+      '</div>';
+  });
+  document.getElementById("mChecklistEl").innerHTML=h;
+}
+
+function addMCi(){
+  var inp=document.getElementById("mCiInput");
+  var t=inp.value.trim();
+  if(!t)return;
+  mCiList.push({text:t,done:false});
+  inp.value="";
+  renderMCi();
+  inp.focus();
+}
+
+function saveMeeting(){
+  var key=getMKey();
+  meetingDB[key]={
+    weekContent:document.getElementById("mContent").value,
+    checklist:mCiList.map(function(c){return{text:c.text,done:c.done};}),
+    actions:document.getElementById("mActions").value,
+    byPerson:document.getElementById("mByPerson").value,
+    savedAt:new Date().toISOString()
+  };
+  curMKey=key;
+  localStorage.setItem("meetingDB",JSON.stringify(meetingDB));
+  renderMeetingList();
+  var btn=document.querySelector(".meeting-save-btn");
+  var orig=btn.textContent;
+  btn.textContent="✅ 저장됨!";btn.style.background="#059669";
+  setTimeout(function(){btn.textContent=orig;btn.style.background="";},1500);
+}
+
+function deleteMeeting(){
+  if(!curMKey||!meetingDB[curMKey])return;
+  if(!confirm("이 회의일지를 삭제하시겠습니까?"))return;
+  delete meetingDB[curMKey];
+  localStorage.setItem("meetingDB",JSON.stringify(meetingDB));
+  curMKey=null;
+  newMeetingForm();
 }
 
 </script>
