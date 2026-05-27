@@ -144,7 +144,7 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
 @media(max-width:900px){.week-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:540px){.week-grid{grid-template-columns:1fr}}
 .week-col{background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:16px 14px}
-.week-col-hd{font-size:14px;font-weight:700;color:#4f46e5;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e0e7ff;text-align:center}
+.week-col-hd{font-size:11px;font-weight:700;color:#4f46e5;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e0e7ff;text-align:center}
 .week-col .m-sec-title{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
 .week-col .meeting-textarea{min-height:72px;font-size:12px}
 .wci-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
@@ -1160,10 +1160,31 @@ var WEEKS=["W1","W2","W3","W4"];
     if(m===now.getMonth()+1)o2.selected=true;
     mEl.appendChild(o2);
   }
+  renderMeetingGrid();
 })();
 
 function getMMonthKey(){
   return document.getElementById("mYear").value+"-"+document.getElementById("mMonth").value;
+}
+
+function getWeekRanges(year,month){
+  var d=new Date(year,month-1,1);
+  var dow=d.getDay();
+  var daysToMon=(dow===1)?0:(dow===0)?1:(8-dow);
+  d.setDate(d.getDate()+daysToMon);
+  var result=[];
+  var keys=["W1","W2","W3","W4"];
+  for(var i=0;i<4;i++){
+    var s=new Date(d);
+    var e=new Date(d);e.setDate(e.getDate()+6);
+    var sm=s.getMonth()+1,sd=s.getDate(),em=e.getMonth()+1,ed=e.getDate();
+    var label;
+    if(sm===em){label=sm+"월 "+sd+"일~"+ed+"일";}
+    else{label=sm+"월 "+sd+"일~"+em+"월 "+ed+"일";}
+    result.push({key:keys[i],label:label});
+    d.setDate(d.getDate()+7);
+  }
+  return result;
 }
 
 function loadMeetingMonth(){
@@ -1171,26 +1192,31 @@ function loadMeetingMonth(){
 }
 
 function renderMeetingGrid(){
+  var yr=parseInt(document.getElementById("mYear").value);
+  var mo=parseInt(document.getElementById("mMonth").value);
   var key=getMMonthKey();
+  var ranges=getWeekRanges(yr,mo);
   var monthData=meetingDB[key]||{};
   var grid=document.getElementById("meetingGrid");
   if(!grid)return;
-  WEEKS.forEach(function(wk){
+  ranges.forEach(function(r){
+    var wk=r.key;
     var rec=monthData[wk]||{};
     mCiLists[wk]=(rec.checklist||[]).map(function(c){return{text:c.text,done:c.done};});
   });
   var html="";
-  WEEKS.forEach(function(wk){
+  ranges.forEach(function(r){
+    var wk=r.key;
     var rec=monthData[wk]||{};
     html+='<div class="week-col" id="wkcol-'+wk+'">';
-    html+='<div class="week-col-hd">'+wk+'</div>';
+    html+='<div class="week-col-hd">'+r.label+'</div>';
     html+='<div class="m-sec-title">📌 주간 내용</div>';
     html+='<textarea class="meeting-textarea" id="mContent-'+wk+'" placeholder="주요 내용 입력...">'+escH(rec.weekContent||"")+'</textarea>';
     html+='<div class="m-sec-title" style="margin-top:10px">✅ 체크리스트</div>';
     html+='<div id="mChecklist-'+wk+'"></div>';
     html+='<div class="wci-add">';
-    html+='<input type="text" id="mCiInput-'+wk+'" placeholder="항목 입력 후 Enter" onkeydown="if(event.key==='Enter')addMCiWeek(''+wk+'')"/>';
-    html+='<button onclick="addMCiWeek(''+wk+'')">+</button>';
+    html+='<input type="text" id="mCiInput-'+wk+'" placeholder="항목 입력 후 Enter" onkeydown="if(event.key===\'Enter\')addMCiWeek(\''+wk+'\')"/>';
+    html+='<button onclick="addMCiWeek(\''+wk+'\')">+</button>';
     html+='</div>';
     html+='<div class="m-sec-title" style="margin-top:10px">📝 조치사항</div>';
     html+='<textarea class="meeting-textarea" id="mActions-'+wk+'" placeholder="조치사항 입력...">'+escH(rec.actions||"")+'</textarea>';
@@ -1199,7 +1225,7 @@ function renderMeetingGrid(){
     html+='</div>';
   });
   grid.innerHTML=html;
-  WEEKS.forEach(function(wk){renderMCiWeek(wk);});
+  ranges.forEach(function(r){renderMCiWeek(r.key);});
 }
 
 function escH(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
@@ -1211,9 +1237,9 @@ function renderMCiWeek(wk){
   var h="";
   list.forEach(function(item,i){
     h+='<div class="wci-row">'+
-      '<input type="checkbox" '+(item.done?"checked":"")+' onchange="mCiLists[''+wk+'']['+i+'].done=this.checked;renderMCiWeek(''+wk+'')"/>'+
+      '<input type="checkbox" '+(item.done?"checked":"")+' onchange="mCiLists[\''+wk+'\']['+i+'].done=this.checked;renderMCiWeek(\''+wk+'\')"/>'+
       '<span class="ci-text'+(item.done?" done":"")+'">'+escH(item.text)+'</span>'+
-      '<button class="ci-del" onclick="mCiLists[''+wk+''].splice('+i+',1);renderMCiWeek(''+wk+'')">×</button>'+
+      '<button class="ci-del" onclick="mCiLists[\''+wk+'\'].splice('+i+',1);renderMCiWeek(\''+wk+'\')">×</button>'+
       '</div>';
   });
   el.innerHTML=h;
