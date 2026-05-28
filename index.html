@@ -2085,7 +2085,7 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"크리스티",price:31990, colors:["샌드","블랙"]},
     {name:"로슬라", price:26990, colors:["블랙","베이지"]},
     {name:"소니아", price:25990, colors:["베이지","블랙","아이보리"]},
-    {name:"이다나", price:15990, colors:["블랙","화이트","라이트그레이","스킨"]},
+    {name:"아다나", price:15990, colors:["블랙","화이트","라이트그레이","스킨"]},
     {name:"린다우", price:15990, colors:["블랙","라이트그레이","스킨","화이트"]},
     {name:"메르신", price:17990, colors:["블랙","라이트그레이","화이트"]}
   ],
@@ -2095,18 +2095,18 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
 
 
 /* ── 코스트코 파일 업로드 파싱 ── */
-var CC_SET_PRODS=["이다나","린다우","메르신"]; // 2개 1세트 (수량÷2, 금액유지)
+var CC_SET_PRODS=["아다나","린다우","메르신"]; // 2개 1세트 (수량÷2, 금액유지)
 
 /* 색상 정규화 맵 (파일 → 내부) */
 var CC_COLOR_MAP={
   "애쉬":"에쉬","에쉬":"에쉬","ash":"에쉬",
-  "베이지":"베이지","beige":"베이지",
+  "베이지":"베이지","beige":"베이지","(핑크&크림)베이지":"베이지","핑크&크림":"베이지",
   "블랙":"블랙","black":"블랙","bk":"블랙",
   "아이보리":"아이보리","ivory":"아이보리","iv":"아이보리",
   "샌드":"샌드","sand":"샌드","sd":"샌드",
   "화이트":"화이트","white":"화이트","wh":"화이트",
-  "라이트그레이":"라이트그레이","lightgray":"라이트그레이","light gray":"라이트그레이","lg":"라이트그레이",
-  "스킨":"스킨","skin":"스킨","sk":"스킨"
+  "라이트그레이":"라이트그레이","lightgray":"라이트그레이","light gray":"라이트그레이","lg":"라이트그레이","lgy":"라이트그레이",
+  "스킨":"스킨","skin":"스킨","sk":"스킨","sn":"스킨"
 };
 
 function loadCostcoFile(input){
@@ -2177,7 +2177,7 @@ function parseCostcoRows(rows){
     if(!prodName)continue;
     /* 색상 매칭: 칼라명 컬럼 우선, 없으면 상품명에서 추출 */
     var colorCell=cColor>=0?String(row[cColor]||"").trim():"";
-    var colorName=ccNormColor(colorCell)||ccMatchColor(prodCell,prodName);
+    var colorName=ccNormColor(colorCell)||ccMatchColor(colorCell,prodName)||ccMatchColor(prodCell,prodName);
     if(!colorName)continue;
     /* 수량·금액 (반품은 음수 그대로 합산 → 순판매) */
     var qty=Number(row[cQty])||0;
