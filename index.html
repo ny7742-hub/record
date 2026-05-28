@@ -2095,7 +2095,19 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
 
 
 /* ── 코스트코 파일 업로드 파싱 ── */
-var CC_SET_PRODS=["이다나","린다우","메르신"]; // 2개 1세트
+var CC_SET_PRODS=["이다나","린다우","메르신"]; // 2개 1세트 (수량÷2, 금액유지)
+
+/* 색상 정규화 맵 (파일 → 내부) */
+var CC_COLOR_MAP={
+  "애쉬":"에쉬","에쉬":"에쉬","ash":"에쉬",
+  "베이지":"베이지","beige":"베이지",
+  "블랙":"블랙","black":"블랙","bk":"블랙",
+  "아이보리":"아이보리","ivory":"아이보리","iv":"아이보리",
+  "샌드":"샌드","sand":"샌드","sd":"샌드",
+  "화이트":"화이트","white":"화이트","wh":"화이트",
+  "라이트그레이":"라이트그레이","lightgray":"라이트그레이","light gray":"라이트그레이","lg":"라이트그레이",
+  "스킨":"스킨","skin":"스킨","sk":"스킨"
+};
 
 function loadCostcoFile(input){
   var file=input.files[0]; if(!file)return;
@@ -2113,98 +2125,71 @@ function loadCostcoFile(input){
 }
 
 function parseCostcoRows(rows){
-  /* ─ 헤더 탐색 ─ */
-  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1;
+  /* ─ 헤더 행 탐색 & 컬럼 매핑 ─ */
+  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1,cSaleDiv=-1;
   for(var r=0;r<Math.min(20,rows.length);r++){
-    var row=rows[r];
+    var row=rows[r]; var found=false;
     for(var c=0;c<row.length;c++){
-      var v=String(row[c]||"").replace(/\s/g,"").toLowerCase();
+      var v=String(row[c]||"").replace(/\s/g,"");
       if(!v)continue;
-      if(/날짜|일자|판매일|거래일|date/.test(v)&&cDate<0){cDate=c;hRow=r;}
-      if(/상품명|품명|아이템|item/.test(v)&&cProd<0)cProd=c;
-      if(/색상|컬러|color/.test(v)&&cColor<0)cColor=c;
-      if(/수량|qty/.test(v)&&!/누적|반품|합계/.test(v)&&cQty<0)cQty=c;
-      if(/금액|매출|amount/.test(v)&&!/할인|부가|취소/.test(v)&&cAmt<0)cAmt=c;
+      var vl=v.toLowerCase();
+      /* 날짜 */
+      if(/판매일자|날짜|일자|거래일|date/i.test(vl)&&cDate<0){cDate=c;hRow=r;found=true;}
+      /* 상품명: "상품명" 정확 우선, 그 다음 포함 */
+      if(v==="상품명"&&cProd<0)cProd=c;
+      else if(/상품명|품명|아이템/i.test(vl)&&cProd<0)cProd=c;
+      /* 색상: 칼라명 > 색상명 > 칼라(코드제외) */
+      if(/칼라명|색상명|컬러명/i.test(vl)&&cColor<0)cColor=c;
+      else if(/칼라|색상|컬러/i.test(vl)&&!/코드|code/i.test(vl)&&cColor<0)cColor=c;
+      /* 판매수량: 정확 매치 우선 */
+      if(v==="판매수량"&&cQty<0)cQty=c;
+      else if(/수량|qty/i.test(vl)&&!/누적|반품|합계|교환|재고/i.test(vl)&&cQty<0)cQty=c;
+      /* 판매금액: 정확 매치 우선 */
+      if(v==="판매금액"&&cAmt<0)cAmt=c;
+      else if(/금액|amount/i.test(vl)&&!/할인|부가|에누리|즉시|tag|예정|원가/i.test(vl)&&cAmt<0)cAmt=c;
+      /* 판매구분 (반품 필터) */
+      if(v==="판매구분"&&cSaleDiv<0)cSaleDiv=c;
     }
-    if(hRow>=0&&cProd>=0&&cQty>=0)break;
+    if(found&&cProd>=0&&cQty>=0)break;
   }
-
-  /* 헤더 못 찾으면 피봇형 시도 */
-  if(hRow<0||cProd<0){
-    parseCostcoPivot(rows);
+  if(hRow<0||cProd<0||cQty<0){
+    alert("파일 형식을 인식할 수 없습니다.\n판매일자·상품명·판매수량 컬럼이 필요합니다.");
     return;
   }
 
-  /* ─ 데이터 행 처리 ─ */
-  var weekMap={}; // {period:{prod:{color:{qty,amount}}}}
+  /* ─ 데이터 처리 ─ */
+  var weekMap={};
   for(var r=hRow+1;r<rows.length;r++){
     var row=rows[r];
-    if(!row||!row[cProd])continue;
-
-    /* 날짜 */
+    if(!row||row[cProd]==="")continue;
+    /* 반품 제외 */
+    if(cSaleDiv>=0){
+      var sd=String(row[cSaleDiv]||"").trim();
+      if(/반품|취소|cancel/i.test(sd))continue;
+    }
+    /* 날짜 → 주기간 */
     var dt=ccParseDate(cDate>=0?row[cDate]:null);
     if(!dt)continue;
     var period=ccWeekPeriod(dt);
-
-    /* 상품명·색상 */
+    /* 상품 매칭 */
     var prodCell=String(row[cProd]||"").trim();
-    var colorCell=cColor>=0?String(row[cColor]||"").trim():"";
     var prodName=ccMatchProd(prodCell);
     if(!prodName)continue;
-    var colorName=colorCell?ccMatchColor(colorCell,prodName):null;
-    if(!colorName)colorName=ccMatchColor(prodCell,prodName);
+    /* 색상 매칭: 칼라명 컬럼 우선, 없으면 상품명에서 추출 */
+    var colorCell=cColor>=0?String(row[cColor]||"").trim():"";
+    var colorName=ccNormColor(colorCell)||ccMatchColor(prodCell,prodName);
     if(!colorName)continue;
-
-    /* 수량·금액 */
-    var qty=cQty>=0?Math.abs(Number(row[cQty])||0):0;
-    var amt=cAmt>=0?Math.abs(Number(row[cAmt])||0):0;
-    /* 2개 1세트 보정 */
-    if(CC_SET_PRODS.indexOf(prodName)>=0){qty=Math.round(qty/2);amt=Math.round(amt/2);}
+    /* 수량·금액 (반품은 음수 그대로 합산 → 순판매) */
+    var qty=Number(row[cQty])||0;
+    var amt=cAmt>=0?(Number(row[cAmt])||0):0;
+    /* 2개 1세트: 수량만 ÷2 (금액은 세트 전체금액 유지) */
+    if(CC_SET_PRODS.indexOf(prodName)>=0)qty=qty/2;
 
     if(!weekMap[period])weekMap[period]={};
     if(!weekMap[period][prodName])weekMap[period][prodName]={};
     if(!weekMap[period][prodName][colorName])weekMap[period][prodName][colorName]={qty:0,amount:0};
     weekMap[period][prodName][colorName].qty+=qty;
     weekMap[period][prodName][colorName].amount+=amt;
-  }
-  ccMergeWeekMap(weekMap);
-}
-
-/* 피봇형 파싱: 행=상품×색상, 열=날짜 */
-function parseCostcoPivot(rows){
-  /* 날짜 열 탐색 (첫 행) */
-  if(!rows.length)return;
-  var dateRow=rows[0];
-  var dateCols=[]; // [{col, date}]
-  for(var c=3;c<dateRow.length;c++){
-    var dt=ccParseDate(dateRow[c]);
-    if(dt)dateCols.push({col:c,date:dt});
-  }
-  if(!dateCols.length){
-    alert("피봇 형식에서 날짜 열을 찾을 수 없습니다."); return;
-  }
-  var weekMap={};
-  for(var r=1;r<rows.length;r++){
-    var row=rows[r];
-    var prodCell=String(row[0]||"").trim();
-    var colorCell=String(row[1]||row[2]||"").trim();
-    var prodName=ccMatchProd(prodCell);
-    if(!prodName)prodName=ccMatchProd(colorCell);
-    if(!prodName)continue;
-    var colorName=ccMatchColor(colorCell,prodName)||ccMatchColor(prodCell,prodName);
-    if(!colorName)continue;
-    dateCols.forEach(function(dc){
-      var qty=Math.abs(Number(row[dc.col])||0);
-      if(!qty)return;
-      var period=ccWeekPeriod(dc.date);
-      var amt=0; // 피봇에 금액 없으면 0
-      if(CC_SET_PRODS.indexOf(prodName)>=0){qty=Math.round(qty/2);}
-      if(!weekMap[period])weekMap[period]={};
-      if(!weekMap[period][prodName])weekMap[period][prodName]={};
-      if(!weekMap[period][prodName][colorName])weekMap[period][prodName][colorName]={qty:0,amount:0};
-      weekMap[period][prodName][colorName].qty+=qty;
-      weekMap[period][prodName][colorName].amount+=amt;
-    });
   }
   ccMergeWeekMap(weekMap);
 }
@@ -2218,14 +2203,15 @@ function ccMergeWeekMap(weekMap){
     Object.keys(weekMap[period]).forEach(function(prod){
       if(!costcoDB.sales[period][prod])costcoDB.sales[period][prod]={};
       Object.keys(weekMap[period][prod]).forEach(function(color){
-        costcoDB.sales[period][prod][color]=weekMap[period][prod][color];
+        var d=weekMap[period][prod][color];
+        costcoDB.sales[period][prod][color]={
+          qty:Math.round(d.qty),
+          amount:Math.round(d.amount)
+        };
       });
     });
   });
-  /* 기간 정렬 */
-  costcoDB.periods.sort(function(a,b){
-    return ccPeriodToMs(a)-ccPeriodToMs(b);
-  });
+  costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
   saveCostcoDB();
   renderCostcoPage();
   var msg=document.getElementById("costcoMsg");
@@ -2237,18 +2223,14 @@ function ccMergeWeekMap(weekMap){
 
 function ccParseDate(val){
   if(!val&&val!==0)return null;
-  if(val instanceof Date)return isNaN(val)?null:val;
+  if(val instanceof Date)return isNaN(val.getTime())?null:val;
   var s=String(val).trim();
-  /* YYYY-MM-DD / YYYY/MM/DD */
   var m=s.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
   if(m)return new Date(+m[1],+m[2]-1,+m[3]);
-  /* YYYYMMDD */
   m=s.match(/^(\d{4})(\d{2})(\d{2})$/);
   if(m)return new Date(+m[1],+m[2]-1,+m[3]);
-  /* MM/DD/YYYY or MM-DD-YYYY */
   m=s.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
   if(m)return new Date(+m[3],+m[1]-1,+m[2]);
-  /* 엑셀 시리얼 */
   var n=Number(s);
   if(!isNaN(n)&&n>30000&&n<60000){
     var d=new Date(Math.round((n-25569)*86400000));
@@ -2256,24 +2238,19 @@ function ccParseDate(val){
   }
   return null;
 }
-
 function ccWeekPeriod(date){
   var d=new Date(date);
-  var day=d.getDay(); // 0=일
+  var day=d.getDay();
   var toMon=day===0?-6:1-day;
   var mon=new Date(d); mon.setDate(d.getDate()+toMon);
   var fri=new Date(mon); fri.setDate(mon.getDate()+4);
   return (mon.getMonth()+1)+"/"+mon.getDate()+"~"+(fri.getMonth()+1)+"/"+fri.getDate();
 }
-
 function ccPeriodToMs(p){
   var m=p.match(/(\d+)\/(\d+)/);
   if(!m)return 0;
-  var yr=new Date().getFullYear();
-  var mo=parseInt(m[1])-1;
-  return new Date(yr,mo,parseInt(m[2])).getTime();
+  return new Date(new Date().getFullYear(),+m[1]-1,+m[2]).getTime();
 }
-
 function ccMatchProd(v){
   v=String(v||"").trim();
   for(var i=0;i<costcoDB.products.length;i++){
@@ -2281,18 +2258,20 @@ function ccMatchProd(v){
   }
   return null;
 }
-
+function ccNormColor(v){
+  /* 칼라명 컬럼 값을 내부 색상명으로 정규화 */
+  if(!v)return null;
+  var k=v.trim().toLowerCase().replace(/\s/g,"");
+  return CC_COLOR_MAP[k]||null;
+}
 function ccMatchColor(v,prodName){
+  /* 상품명 셀에서 색상 추출 */
   v=String(v||"").trim();
   var prod=costcoDB.products.find(function(p){return p.name===prodName;});
-  var colors=prod?prod.colors:["베이지","블랙","아이보리","에쉬","샌드","화이트","라이트그레이","스킨"];
+  var colors=prod?prod.colors:Object.values?Object.values(CC_COLOR_MAP).filter(function(c,i,a){return a.indexOf(c)===i;}):["베이지","블랙","아이보리","에쉬","샌드","화이트","라이트그레이","스킨"];
   for(var i=0;i<colors.length;i++){if(v.indexOf(colors[i])>=0)return colors[i];}
-  /* 영문 별칭 */
-  var alias={"BEIGE":"베이지","BLACK":"블랙","IVORY":"아이보리","ASH":"에쉬",
-             "SAND":"샌드","WHITE":"화이트","LIGHTGRAY":"라이트그레이",
-             "LIGHT GRAY":"라이트그레이","SKIN":"스킨"};
-  var vu=v.toUpperCase().replace(/\s/g,"");
-  for(var k in alias){if(vu.indexOf(k.replace(/\s/g,""))>=0)return alias[k];}
+  /* 파일 색상명으로도 시도 */
+  for(var k in CC_COLOR_MAP){if(v.toLowerCase().indexOf(k)>=0)return CC_COLOR_MAP[k];}
   return null;
 }
 
