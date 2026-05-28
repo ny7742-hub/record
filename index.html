@@ -192,7 +192,7 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
 .dept-save-btn{padding:11px 32px;background:#4f46e5;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
 .dept-save-btn:hover{background:#4338ca}
 .dept-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;align-items:flex-start;width:100%}
-.dept-col{flex-shrink:0;width:290px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:12px}
+.dept-col{flex-shrink:0;width:320px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:12px}
 .dept-col-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1.5px solid #e0e7ff}
 .dept-col-hd .store-name{font-size:12px;font-weight:700;color:#1a1a2e}
 .dept-col .m-sec-title{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin:8px 0 5px}
@@ -210,6 +210,11 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
 .dept-info-row{display:flex;gap:8px;margin-top:4px;font-size:10px;font-weight:600}
 .dept-info-row .growth{color:#059669}.dept-info-row .growth.neg{color:#dc2626}
 .dept-info-row .avgp{color:#4f46e5}
+/* 백화점 페이지 전체 너비 사용 */
+#page-dept>.main{max-width:none;padding:16px 20px}
+/* 베스트 상품 이미지 */
+.b-img{width:38px;height:38px;object-fit:cover;border-radius:5px;cursor:pointer;border:1px solid #e5e7eb;display:block;vertical-align:middle}
+.b-img-ph{width:38px;height:38px;border-radius:5px;border:1.5px dashed #d1d5db;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#f9fafb;font-size:17px;color:#c4c9d4}
 </style>
 </head>
 <body>
@@ -914,19 +919,24 @@ function renderDeptAllStores(){
       h+='<label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#9ca3af;cursor:pointer;padding:14px 0;border:1.5px dashed #e5e7eb;border-radius:8px;background:#fafafa" for="si'+si+'_best">📂 베스트 파일을 클릭하여 업로드</label>';
     }else{
       h+='<table class="b-tbl"><thead><tr>';
-      h+='<th style="width:24px">#</th><th>상품명</th><th style="width:40px">수량</th><th style="width:40px">재고</th><th style="width:52px">상태</th>';
+      h+='<th style="width:42px">이미지</th><th style="width:22px">#</th><th>상품명</th><th style="width:36px">수량</th><th style="width:36px">재고</th><th style="width:48px">상태</th>';
       h+='</tr></thead><tbody>';
       realProds.slice(0,10).forEach(function(p,pi){
         var rn=pi+1;
         var rnCls=rn===1?"r1":rn===2?"r2":rn===3?"r3":"";
         var stVal=(p.status||"정상").trim();
         var stCls=stVal==="부족"?"lack":stVal==="과잉"?"over":"ok";
+        var imgSrc=p.img||"";
+        var imgCell=imgSrc
+          ?'<img class="b-img" src="'+escH(imgSrc)+'" title="클릭하여 변경" onclick="setBestImg('+si+','+pi+')" onerror="this.outerHTML=\'<div class=b-img-ph onclick=setBestImg('+si+','+pi+')>📷</div>\'">'
+          :'<div class="b-img-ph" onclick="setBestImg('+si+','+pi+')" title="클릭하여 이미지 추가">📷</div>';
         h+='<tr>';
+        h+='<td style="text-align:center;padding:2px 3px">'+imgCell+'</td>';
         h+='<td style="text-align:center"><span class="rnk '+rnCls+'">'+rn+'</span></td>';
-        h+='<td style="font-size:11px;color:#374151;padding:3px 4px">'+escH(p.name)+'</td>';
+        h+='<td style="font-size:11px;color:#374151;padding:3px 4px;line-height:1.3">'+escH(p.name)+'</td>';
         h+='<td style="text-align:center;font-size:11px">'+fmt(p.qty)+'</td>';
         h+='<td style="text-align:center;font-size:11px">'+fmt(p.inv)+'</td>';
-        h+='<td style="text-align:center"><span class="st-sel '+stCls+'" style="padding:2px 6px;border-radius:4px;font-size:10px;display:inline-block">'+escH(stVal)+'</span></td>';
+        h+='<td style="text-align:center"><span class="st-sel '+stCls+'" style="padding:2px 4px;border-radius:4px;font-size:10px;display:inline-block">'+escH(stVal)+'</span></td>';
         h+='</tr>';
       });
       h+='</tbody></table>';
@@ -946,6 +956,17 @@ function renderDeptAllStores(){
 
 
 
+
+function setBestImg(si,pi){
+  var url=prompt("이미지 URL을 입력하세요 (비워두면 삭제)","");
+  if(url===null)return;
+  var key=curDeptKey||getDPKey();
+  var sn=deptStores[si];
+  if(!key||!sn||!deptDB[key]||!deptDB[key][sn]||!deptDB[key][sn].products)return;
+  deptDB[key][sn].products[pi].img=url.trim();
+  localStorage.setItem("deptDB",JSON.stringify(deptDB));
+  renderDeptAllStores();
+}
 
 function getNum(row,col){
   if(col<0||col>=row.length)return 0;
