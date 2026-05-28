@@ -879,7 +879,8 @@ var deptDB=JSON.parse(localStorage.getItem("deptDB")||"{}");
 
 // 팝업 기간 종료 여부 판정
 function parseKoreanDate(s){
-  var m=s.match(/(\d+)월\s*(\d+)일/);
+  var m=s.match(/(\d+)월\s*(\d+)일/); // "5월15일"
+  if(!m)m=s.match(/(\d+)\/(\d+)/);    // "5/15"
   if(!m)return null;
   var today=new Date();
   return new Date(today.getFullYear(),parseInt(m[1])-1,parseInt(m[2]));
@@ -1088,9 +1089,11 @@ function renderDeptAllStores(){
     var _popupBadge="";
     if(_meta.popup){
       if(_meta.popupPeriod&&isPopupEnded(_meta.popupPeriod)){
-        _popupBadge='<span class="popup-badge popup-ended">팝업 종료</span>';
+        _popupBadge='<span class="popup-badge popup-ended">팝업종료</span>';
+      } else if(_meta.popupPeriod){
+        _popupBadge='<span class="popup-badge">팝업매장<span style="margin-left:4px;opacity:.75;font-weight:600">'+_meta.popupPeriod+'</span></span>';
       } else {
-        _popupBadge='<span class="popup-badge">'+(_meta.popupPeriod||'🎪 팝업')+'</span>';
+        _popupBadge='<span class="popup-badge">팝업매장</span>';
       }
     }
     h+='<div class="dept-col-hd">';
