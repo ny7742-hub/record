@@ -243,6 +243,22 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
 .store-modal-btns .cancel{padding:7px 16px;background:white;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer;color:#555}
 .store-modal-btns .confirm{padding:7px 18px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
 .store-modal-btns .confirm:hover{background:#4338ca}
+
+/* ── 코스트코 테이블 ── */
+#page-costco>.main{max-width:none;padding:16px 20px}
+.cc-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.cc-tbl th{background:#374151;color:white;padding:5px 7px;text-align:center;border:1px solid #4b5563;white-space:nowrap;font-size:10px;font-weight:600}
+.cc-tbl td{padding:4px 7px;border:1px solid #d1d5db;text-align:center;white-space:nowrap;font-size:10px}
+.cc-tbl .cc-total-row td{background:#e8eaf0;font-weight:700}
+.cc-tbl .cc-prod-cell{background:#f1f5f9;font-weight:700;vertical-align:middle;font-size:11px;min-width:72px}
+.cc-tbl .cc-cumul-cell{background:#fef08a;font-weight:700;cursor:text;min-width:52px}
+.cc-tbl .cc-color-cell{background:#f9fafb;font-size:10px;min-width:62px}
+.cc-tbl .cc-num-cell{text-align:right;cursor:text;min-width:52px}
+.cc-tbl .cc-amt-cell{text-align:right;cursor:text;min-width:72px}
+.cc-tbl .cc-nodata{background:#c8ccd4}
+.cc-tbl [contenteditable]:focus{outline:2px solid #6366f1;background:#eff6ff!important}
+.cc-period-th{position:relative}
+.cc-del-period{position:absolute;top:2px;right:3px;font-size:9px;cursor:pointer;color:#fca5a5;font-weight:900;line-height:1}
 </style>
 </head>
 <body>
@@ -258,6 +274,7 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
   <button class="tab-btn active" id="tab-sales" onclick="switchTab('sales')">📊 판매일보</button>
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
+  <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
 </div>
 
 <!-- 업로드 모달 -->
@@ -429,6 +446,21 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
   <div id="deptAllStores"></div>
 </div>
 </div><!-- /page-dept -->
+<div id="page-costco" style="display:none">
+<div class="main">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">&#128722; 코스트코 판매 현황</div>
+      <button class="bs" style="padding:4px 10px;font-size:11px" onclick="addCostcoPeriod()">+ 기간 추가</button>
+      <span id="costcoMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="costcoTableWrap" style="overflow-x:auto;padding:0"></div>
+  </div>
+</div>
+</div><!-- /page-costco -->
+
 
 <script>
 
@@ -1894,11 +1926,14 @@ function switchTab(tab){
   document.getElementById("page-sales").style.display=tab==="sales"?"block":"none";
   document.getElementById("page-meeting").style.display=tab==="meeting"?"block":"none";
   document.getElementById("page-dept").style.display=tab==="dept"?"block":"none";
+  document.getElementById("page-costco").style.display=tab==="costco"?"block":"none";
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
   document.getElementById("tab-dept").classList.toggle("active",tab==="dept");
+  document.getElementById("tab-costco").classList.toggle("active",tab==="costco");
   if(tab==="meeting") renderMeetingGrid();
   if(tab==="dept") renderDeptPage();
+  if(tab==="costco") renderCostcoPage();
 }
 
 /* ── 회의일지 ── */
@@ -2037,6 +2072,151 @@ function saveMeetingAll(){
   localStorage.setItem("meetingDB",JSON.stringify(meetingDB));
 }
 
+
+
+/* ═══════════════════════════════════════════════════════
+   코스트코 판매 현황
+═══════════════════════════════════════════════════════ */
+var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
+  periods:["1/26~2/1","4/20~4/26","4/27~5/3","5/4~5/10","5/11~5/17","5/18~5/24"],
+  products:[
+    {name:"루시",   price:23990, colors:["베이지","블랙","아이보리","에쉬"]},
+    {name:"크리스티",price:31990, colors:["샌드","블랙"]},
+    {name:"로슬라", price:26990, colors:["블랙","베이지"]},
+    {name:"소니아", price:25990, colors:["베이지","블랙","아이보리"]},
+    {name:"이다나", price:15990, colors:["블랙","화이트","라이트그레이","스킨"]},
+    {name:"린다우", price:15990, colors:["블랙","라이트그레이","스킨","화이트"]},
+    {name:"메르신", price:17990, colors:["블랙","라이트그레이","화이트"]}
+  ],
+  cumul:{},
+  sales:{}
+}));
+
+function saveCostcoDB(){localStorage.setItem("costcoDB",JSON.stringify(costcoDB));}
+
+function ccTotalCumul(){
+  var t=0;
+  costcoDB.products.forEach(function(p){
+    p.colors.forEach(function(c){t+=Number((costcoDB.cumul[p.name]||{})[c]||0);});
+  });
+  return t;
+}
+function ccProdCumul(pName){
+  var t=0;
+  var prod=costcoDB.products.find(function(p){return p.name===pName;});
+  if(!prod)return 0;
+  prod.colors.forEach(function(c){t+=Number((costcoDB.cumul[pName]||{})[c]||0);});
+  return t;
+}
+function ccPeriodTotal(period){
+  var qty=0,amt=0;
+  costcoDB.products.forEach(function(p){
+    p.colors.forEach(function(c){
+      var d=((costcoDB.sales[period]||{})[p.name]||{})[c]||{};
+      qty+=Number(d.qty||0); amt+=Number(d.amount||0);
+    });
+  });
+  return {qty:qty,amount:amt};
+}
+function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocaleString():"";}
+
+function renderCostcoPage(){
+  var periods=costcoDB.periods;
+  var prods=costcoDB.products;
+  var h='<table class="cc-tbl"><colgroup>';
+  h+='<col style="width:76px"><col style="width:54px"><col style="width:70px">';
+  periods.forEach(function(){h+='<col style="width:54px"><col style="width:80px">';});
+  h+='</colgroup><thead><tr>';
+  h+='<th rowspan="2">구분</th>';
+  h+='<th rowspan="2">누적<br>판매수량</th>';
+  h+='<th rowspan="2">색상</th>';
+  periods.forEach(function(p,i){
+    h+='<th colspan="2" class="cc-period-th" style="padding-right:16px">'+p+
+      '<span class="cc-del-period" onclick="deleteCostcoPeriod('+i+')" title="기간 삭제">&times;</span></th>';
+  });
+  h+='</tr><tr>';
+  periods.forEach(function(){h+='<th>판매수량</th><th>판매금액</th>';});
+  h+='</tr></thead><tbody>';
+
+  /* 누계 행 */
+  var totCumul=ccTotalCumul();
+  h+='<tr class="cc-total-row">';
+  h+='<td style="font-size:11px">누계</td>';
+  h+='<td class="cc-cumul-cell" style="cursor:default">'+fmtCC(totCumul)+'</td>';
+  h+='<td style="font-size:10px;color:#6b7280">컬러</td>';
+  periods.forEach(function(p){
+    var t=ccPeriodTotal(p);
+    h+='<td>'+fmtCC(t.qty)+'</td><td style="text-align:right">'+fmtCC(t.amount)+'</td>';
+  });
+  h+='</tr>';
+
+  /* 상품별 행 */
+  prods.forEach(function(prod){
+    prod.colors.forEach(function(color,ci){
+      h+='<tr>';
+      if(ci===0){
+        h+='<td class="cc-prod-cell" rowspan="'+prod.colors.length+'">'+prod.name+
+          '<br><span style="font-size:9px;color:#6b7280;font-weight:400">'+prod.price.toLocaleString()+'&#xC6D0;</span></td>';
+      }
+      var cumulVal=Number((costcoDB.cumul[prod.name]||{})[color]||0);
+      var pn=prod.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      var cn=color.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      h+='<td class="cc-cumul-cell" contenteditable="true" '+
+        'onblur="ccSaveCumul(this,\''+pn+'\',\''+cn+'\')">'+(cumulVal||'')+'</td>';
+      h+='<td class="cc-color-cell">'+color+'</td>';
+      periods.forEach(function(period,pi){
+        var per=period.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        var d=((costcoDB.sales[period]||{})[prod.name]||{})[color]||{};
+        var nodata=!(d.qty||d.amount);
+        var nd=nodata?' cc-nodata':'';
+        h+='<td class="cc-num-cell'+nd+'" contenteditable="true" '+
+          'onblur="ccSave(this,\''+pn+'\',\''+cn+'\',\''+per+'\',\'qty\')">'+(d.qty?fmtCC(d.qty):'')+'</td>';
+        h+='<td class="cc-amt-cell'+nd+'" contenteditable="true" '+
+          'onblur="ccSave(this,\''+pn+'\',\''+cn+'\',\''+per+'\',\'amount\')">'+(d.amount?fmtCC(d.amount):'')+'</td>';
+      });
+      h+='</tr>';
+    });
+  });
+  h+='</tbody></table>';
+  document.getElementById("costcoTableWrap").innerHTML=h;
+}
+
+function ccSave(el,prod,color,period,type){
+  var raw=el.textContent.replace(/,/g,'').trim();
+  var val=raw&&!isNaN(raw)?parseInt(raw):0;
+  if(!costcoDB.sales[period])costcoDB.sales[period]={};
+  if(!costcoDB.sales[period][prod])costcoDB.sales[period][prod]={};
+  if(!costcoDB.sales[period][prod][color])costcoDB.sales[period][prod][color]={};
+  if(val)costcoDB.sales[period][prod][color][type]=val;
+  else delete costcoDB.sales[period][prod][color][type];
+  saveCostcoDB();
+  renderCostcoPage();
+}
+function ccSaveCumul(el,prod,color){
+  var raw=el.textContent.replace(/,/g,'').trim();
+  var val=raw&&!isNaN(raw)?parseInt(raw):0;
+  if(!costcoDB.cumul[prod])costcoDB.cumul[prod]={};
+  if(val)costcoDB.cumul[prod][color]=val;
+  else delete costcoDB.cumul[prod][color];
+  saveCostcoDB();
+  renderCostcoPage();
+}
+function addCostcoPeriod(){
+  var p=prompt("새 기간 입력 (예: 5/25~5/31):");
+  if(!p||!p.trim())return;
+  p=p.trim();
+  if(costcoDB.periods.indexOf(p)>=0){alert("이미 있는 기간입니다.");return;}
+  costcoDB.periods.push(p);
+  saveCostcoDB();
+  renderCostcoPage();
+}
+function deleteCostcoPeriod(idx){
+  var p=costcoDB.periods[idx];
+  if(!p||!confirm("\""+p+"\" 기간을 삭제하시겠습니까?"))return;
+  costcoDB.periods.splice(idx,1);
+  saveCostcoDB();
+  renderCostcoPage();
+}
 
 </script>
 </body>
