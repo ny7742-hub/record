@@ -364,7 +364,7 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
       <div class="sec-title" style="margin:0;font-size:13px">🏬 백화점 주간 현황</div>
       <button class="bs" style="padding:4px 10px;font-size:11px" onclick="addDeptStore()">+ 매장</button>
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:4px">영업기간</span>
-      <input type="date" id="dPeriodStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px"/>
+      <input type="date" id="dPeriodStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="deptWeekSnap(this.value)"/>
       <span style="color:#9ca3af;font-size:11px">~</span>
       <input type="date" id="dPeriodEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px"/>
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:6px">대비기간</span>
@@ -812,17 +812,43 @@ var deptDB=JSON.parse(localStorage.getItem("deptDB")||"{}");
 var curDeptKey="";
 var DAYS_KO=["일","월","화","수","목","금","토"];
 
+function dFmt(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function dMonday(d){
+  // d의 주(週) 월요일 반환
+  var day=d.getDay(); // 0=일,1=월..6=토
+  var diff=(day===0)?-6:1-day;
+  var mon=new Date(d);mon.setDate(d.getDate()+diff);
+  return mon;
+}
+function deptWeekSnap(dateStr){
+  if(!dateStr)return;
+  var d=new Date(dateStr+"T00:00:00");
+  var mon=dMonday(d);
+  var sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  document.getElementById("dPeriodStart").value=dFmt(mon);
+  document.getElementById("dPeriodEnd").value=dFmt(sun);
+  // 전년 동기간: 364일(52주) 전 → 요일 정렬 유지
+  var cMon=new Date(mon);cMon.setDate(mon.getDate()-364);
+  var cSun=new Date(sun);cSun.setDate(sun.getDate()-364);
+  document.getElementById("dCompStart").value=dFmt(cMon);
+  document.getElementById("dCompEnd").value=dFmt(cSun);
+}
+
 (function initDeptDates(){
+  // 가장 최근 완료된 주(일요일까지 끝난 주)의 월요일 기준으로 초기화
   var now=new Date();
-  var yest=new Date(now);yest.setDate(now.getDate()-1);
-  var ps=new Date(yest);ps.setDate(yest.getDate()-6);
-  var cs=new Date(ps);cs.setFullYear(ps.getFullYear()-1);
-  var ce=new Date(yest);ce.setFullYear(yest.getFullYear()-1);
-  function fmt(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-  document.getElementById("dPeriodStart").value=fmt(ps);
-  document.getElementById("dPeriodEnd").value=fmt(yest);
-  document.getElementById("dCompStart").value=fmt(cs);
-  document.getElementById("dCompEnd").value=fmt(ce);
+  var day=now.getDay(); // 0=일,1=월..6=토
+  // 오늘이 일요일이면 이번 주 월~일, 그 외에는 지난 주 월~일
+  var lastSun=new Date(now);
+  if(day!==0)lastSun.setDate(now.getDate()-day); // 지난 일요일
+  var mon=dMonday(lastSun);
+  var sun=new Date(lastSun);
+  document.getElementById("dPeriodStart").value=dFmt(mon);
+  document.getElementById("dPeriodEnd").value=dFmt(sun);
+  var cMon=new Date(mon);cMon.setDate(mon.getDate()-364);
+  var cSun=new Date(sun);cSun.setDate(sun.getDate()-364);
+  document.getElementById("dCompStart").value=dFmt(cMon);
+  document.getElementById("dCompEnd").value=dFmt(cSun);
   updateDayLabels();
 })();
 
