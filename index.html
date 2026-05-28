@@ -992,7 +992,7 @@ function renderDeptAllStores(){
     // ── 목표/누적 ──
     var cumul=calcMonthlyCumul(store);
     h+='<div style="display:flex;gap:6px;margin-top:6px;font-size:10px;color:#6b7280;align-items:center;flex-wrap:wrap">';
-    h+='목표 <input class="sn" id="d_target_'+si+'" type="number" value="'+(s.target||"")+'" placeholder="0" style="width:70px;font-size:10px;display:inline-block" oninput="deptAutoSave()"/>';
+    h+='목표 <input class="sn" id="d_target_'+si+'" type="text" inputmode="numeric" value="'+(s.target?Number(String(s.target).replace(/,/g,"")).toLocaleString():"")+'" placeholder="0" style="width:80px;font-size:10px;display:inline-block;text-align:right" oninput="fmtTargetInput(this);deptAutoSave()"/>';
     h+='<span style="color:#6b7280">누적</span><span style="font-size:10px;font-weight:700;color:#4f46e5;white-space:nowrap">'+(cumul?fmt(cumul):"-")+'</span>';
     h+='</div>';
     // ── 베스트 TOP10 ──
@@ -1296,6 +1296,15 @@ function moveDeptStore(si,dir){
 }
 
 var deptSaveTimer=null;
+function fmtTargetInput(el){
+  var raw=el.value.replace(/[^0-9]/g,"");
+  var pos=el.selectionStart;
+  var oldLen=el.value.length;
+  el.value=raw?Number(raw).toLocaleString():"";
+  // 커서 위치 보정
+  var newLen=el.value.length;
+  el.selectionStart=el.selectionEnd=Math.max(0,pos+(newLen-oldLen));
+}
 function deptAutoSave(){
   clearTimeout(deptSaveTimer);
   deptSaveTimer=setTimeout(function(){
@@ -1732,7 +1741,7 @@ function saveDept(){
     function gv(id){return(document.getElementById(id)||{value:""}).value;}
     if(!deptDB[key][store])deptDB[key][store]={};
     if(!deptDB[key][store].sales)deptDB[key][store].sales={};
-    deptDB[key][store].sales.target=gv("d_target_"+si);
+    deptDB[key][store].sales.target=gv("d_target_"+si).replace(/,/g,"");
   });
   localStorage.setItem("deptDB",JSON.stringify(deptDB));
 }
