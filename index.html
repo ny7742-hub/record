@@ -224,6 +224,24 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
 /* 베스트 상품 이미지 */
 .b-img{width:38px;height:38px;object-fit:cover;border-radius:5px;cursor:pointer;border:1px solid #e5e7eb;display:block;vertical-align:middle}
 .b-img-ph{width:38px;height:38px;border-radius:5px;border:1.5px dashed #d1d5db;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#f9fafb;font-size:17px;color:#c4c9d4}
+/* 팝업 매장 배지 */
+.popup-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fde68a;white-space:nowrap;flex-shrink:0;margin-left:3px;vertical-align:middle}
+/* 매장 추가/수정 모달 */
+.store-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;align-items:center;justify-content:center}
+.store-modal-overlay.show{display:flex}
+.store-modal{background:white;border-radius:14px;padding:24px 24px 20px;width:340px;max-width:92vw;box-shadow:0 16px 48px rgba(0,0,0,0.18)}
+.store-modal h3{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:16px}
+.store-modal .fg{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.store-modal label{font-size:12px;font-weight:600;color:#555}
+.store-modal input[type=text]{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:100%}
+.store-modal input[type=text]:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.store-modal-check{display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer}
+.store-modal-check input[type=checkbox]{width:15px;height:15px;accent-color:#6366f1;cursor:pointer}
+.store-modal-check span{font-size:13px;font-weight:600;color:#374151}
+.store-modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.store-modal-btns .cancel{padding:7px 16px;background:white;border:1px solid #d1d5db;border-radius:8px;font-size:13px;cursor:pointer;color:#555}
+.store-modal-btns .confirm{padding:7px 18px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.store-modal-btns .confirm:hover{background:#4338ca}
 </style>
 </head>
 <body>
@@ -255,6 +273,29 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
     <div class="upload-status" id="uploadStatus"></div>
     <div class="modal-btns">
       <button class="modal-cancel" onclick="closeUpdateModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 매장 추가/수정 모달 -->
+<div class="store-modal-overlay" id="storeModal" onclick="if(event.target===this)closeStoreModal()">
+  <div class="store-modal">
+    <h3 id="storeModalTitle">🏪 매장 추가</h3>
+    <div class="fg">
+      <label>매장명</label>
+      <input type="text" id="smName" placeholder="예) 현대 청주점" onkeydown="if(event.key==='Enter')confirmStoreModal()"/>
+    </div>
+    <label class="store-modal-check">
+      <input type="checkbox" id="smIsPopup" onchange="toggleSmPopup(this)"/>
+      <span>🎪 팝업 매장</span>
+    </label>
+    <div id="smPopupWrap" style="display:none" class="fg">
+      <label>팝업 기간</label>
+      <input type="text" id="smPopupPeriod" placeholder="예) 5월15일~5월31일" onkeydown="if(event.key==='Enter')confirmStoreModal()"/>
+    </div>
+    <div class="store-modal-btns">
+      <button class="cancel" onclick="closeStoreModal()">취소</button>
+      <button class="confirm" id="storeModalConfirmBtn" onclick="confirmStoreModal()">추가</button>
     </div>
   </div>
 </div>
@@ -817,6 +858,7 @@ function clrSearch(){
 
 /* ── 백화점 ── */
 var deptStores=JSON.parse(localStorage.getItem("deptStores")||JSON.stringify(["현대 청주점","롯데 센텀점","롯데 동부산점","롯데 김포공항점","롯데 산본점"]));
+var deptStoresMeta=JSON.parse(localStorage.getItem("deptStoresMeta")||"{}");
 var deptDB=JSON.parse(localStorage.getItem("deptDB")||"{}");
 var curDeptKey="";
 var DAYS_KO=["일","월","화","수","목","금","토"];
@@ -870,13 +912,63 @@ function getDPKey(){
   return (s&&e)?s+"~"+e:"";
 }
 
+var _smMode="add"; // "add" | "edit"
+var _smEditSi=-1;
+
 function addDeptStore(){
-  var name=prompt("매장 이름을 입력하세요:");
-  if(!name||!name.trim())return;
-  name=name.trim();
-  if(deptStores.indexOf(name)>=0){alert("이미 추가된 매장입니다.");return;}
-  deptStores.push(name);
+  _smMode="add"; _smEditSi=-1;
+  document.getElementById("storeModalTitle").textContent="🏪 매장 추가";
+  document.getElementById("storeModalConfirmBtn").textContent="추가";
+  document.getElementById("smName").value="";
+  document.getElementById("smIsPopup").checked=false;
+  document.getElementById("smPopupWrap").style.display="none";
+  document.getElementById("smPopupPeriod").value="";
+  document.getElementById("storeModal").classList.add("show");
+  setTimeout(function(){document.getElementById("smName").focus();},80);
+}
+
+function closeStoreModal(){
+  document.getElementById("storeModal").classList.remove("show");
+}
+
+function toggleSmPopup(cb){
+  document.getElementById("smPopupWrap").style.display=cb.checked?"block":"none";
+  if(cb.checked)setTimeout(function(){document.getElementById("smPopupPeriod").focus();},60);
+}
+
+function confirmStoreModal(){
+  var name=(document.getElementById("smName").value||"").trim();
+  if(!name){alert("매장명을 입력해주세요.");document.getElementById("smName").focus();return;}
+  var isPopup=document.getElementById("smIsPopup").checked;
+  var period=(document.getElementById("smPopupPeriod").value||"").trim();
+
+  if(_smMode==="add"){
+    if(deptStores.indexOf(name)>=0){alert("이미 추가된 매장입니다.");return;}
+    deptStores.push(name);
+  } else {
+    var oldName=deptStores[_smEditSi];
+    if(name!==oldName && deptStores.indexOf(name)>=0){alert("이미 있는 매장명입니다.");return;}
+    if(name!==oldName){
+      Object.keys(deptDB).forEach(function(key){
+        if(deptDB[key][oldName]!==undefined){
+          deptDB[key][name]=deptDB[key][oldName];
+          delete deptDB[key][oldName];
+        }
+      });
+      if(deptStoresMeta[oldName]){deptStoresMeta[name]=deptStoresMeta[oldName];delete deptStoresMeta[oldName];}
+      deptStores[_smEditSi]=name;
+      localStorage.setItem("deptDB",JSON.stringify(deptDB));
+    }
+  }
+
+  if(isPopup){
+    deptStoresMeta[name]={popup:true,popupPeriod:period};
+  } else {
+    delete deptStoresMeta[name];
+  }
   localStorage.setItem("deptStores",JSON.stringify(deptStores));
+  localStorage.setItem("deptStoresMeta",JSON.stringify(deptStoresMeta));
+  closeStoreModal();
   renderDeptAllStores();
 }
 
@@ -892,28 +984,25 @@ function deleteDeptStore(si){
   if(!name)return;
   if(!confirm("「"+name+"」을(를) 삭제하시겠습니까?"))return;
   deptStores.splice(si,1);
+  delete deptStoresMeta[name];
   localStorage.setItem("deptStores",JSON.stringify(deptStores));
+  localStorage.setItem("deptStoresMeta",JSON.stringify(deptStoresMeta));
   renderDeptAllStores();
 }
 
 function editDeptStore(si){
-  var oldName=deptStores[si];
-  if(!oldName)return;
-  var newName=prompt("새 매장명을 입력하세요:",oldName);
-  if(!newName||!newName.trim()||newName.trim()===oldName)return;
-  newName=newName.trim();
-  if(deptStores.indexOf(newName)>=0){alert("이미 있는 매장명입니다.");return;}
-  // deptDB 내 모든 기간키에서 oldName → newName 이전
-  Object.keys(deptDB).forEach(function(key){
-    if(deptDB[key][oldName]!==undefined){
-      deptDB[key][newName]=deptDB[key][oldName];
-      delete deptDB[key][oldName];
-    }
-  });
-  deptStores[si]=newName;
-  localStorage.setItem("deptStores",JSON.stringify(deptStores));
-  localStorage.setItem("deptDB",JSON.stringify(deptDB));
-  renderDeptAllStores();
+  var name=deptStores[si];
+  if(!name)return;
+  var meta=deptStoresMeta[name]||{};
+  _smMode="edit"; _smEditSi=si;
+  document.getElementById("storeModalTitle").textContent="✏ 매장 수정";
+  document.getElementById("storeModalConfirmBtn").textContent="저장";
+  document.getElementById("smName").value=name;
+  document.getElementById("smIsPopup").checked=!!meta.popup;
+  document.getElementById("smPopupWrap").style.display=meta.popup?"block":"none";
+  document.getElementById("smPopupPeriod").value=meta.popupPeriod||"";
+  document.getElementById("storeModal").classList.add("show");
+  setTimeout(function(){document.getElementById("smName").focus();},80);
 }
 
 // 월 누적: 현재 영업기간 시작월과 같은 달의 모든 주 매출 합산
@@ -962,8 +1051,10 @@ function renderDeptAllStores(){
        ' ondrop="deptDrop(event,'+si+')"'+
        ' ondragend="deptDragEnd()">';
     // Header
+    var _meta=deptStoresMeta[store]||{};
+    var _popupBadge=_meta.popup?'<span class="popup-badge">'+(_meta.popupPeriod||'🎪 팝업')+'</span>':'';
     h+='<div class="dept-col-hd">';
-    h+='<span class="store-name" style="cursor:grab;user-select:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&#8942; 🏪 '+store+'</span>';
+    h+='<span class="store-name" style="cursor:grab;user-select:none;flex:1;min-width:0;display:flex;align-items:center;gap:2px;overflow:hidden"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&#8942; 🏪 '+store+'</span>'+_popupBadge+'</span>';
     h+='<div style="display:flex;gap:3px;flex-shrink:0;margin-left:4px">';
     h+='<button onclick="editDeptStore('+si+')" style="padding:1px 5px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#4b5563" title="매장명 수정">✏</button>';
     h+='<button onclick="deleteDeptStore('+si+')" style="padding:1px 5px;font-size:11px;border:1px solid #fca5a5;border-radius:4px;background:#fff;cursor:pointer;color:#dc2626" title="매장 삭제">🗑</button>';
