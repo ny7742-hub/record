@@ -859,6 +859,21 @@ function clrSearch(){
 /* ── 백화점 ── */
 var deptStores=JSON.parse(localStorage.getItem("deptStores")||JSON.stringify(["현대 청주점","롯데 센텀점","롯데 동부산점","롯데 김포공항점","롯데 산본점"]));
 var deptStoresMeta=JSON.parse(localStorage.getItem("deptStoresMeta")||"{}");
+// 팝업 매장 자동 표시: 처음 로드 시 해당 매장명에 popup 플래그 설정
+(function(){
+  var popupKw=["센텀점","동부산점","김포공항점","산본점","판교점"];
+  var changed=false;
+  deptStores.forEach(function(s){
+    if(deptStoresMeta[s]!==undefined)return; // 이미 설정된 매장은 건드리지 않음
+    for(var i=0;i<popupKw.length;i++){
+      if(s.indexOf(popupKw[i])>=0){
+        deptStoresMeta[s]={popup:true,popupPeriod:""};
+        changed=true;break;
+      }
+    }
+  });
+  if(changed)localStorage.setItem("deptStoresMeta",JSON.stringify(deptStoresMeta));
+})();
 var deptDB=JSON.parse(localStorage.getItem("deptDB")||"{}");
 var curDeptKey="";
 var DAYS_KO=["일","월","화","수","목","금","토"];
@@ -1080,11 +1095,16 @@ function renderDeptAllStores(){
       h+='<span class="avgp">객단가 '+(avgPrice?fmt(avgPrice)+"원":"-")+'</span>';
       h+='</div>';
     }
-    // ── 목표/누적 ──
+    // ── 목표/누적/달성율 ──
     var cumul=calcMonthlyCumul(store);
+    var targetNum=s.target?Number(String(s.target).replace(/,/g,"")):0;
+    var achRate=(targetNum>0&&cumul>0)?Math.round(cumul/targetNum*100):null;
+    var achColor=achRate===null?"#9ca3af":achRate>=100?"#059669":achRate>=80?"#d97706":"#dc2626";
+    var achBg=achRate===null?"#f3f4f6":achRate>=100?"#d1fae5":achRate>=80?"#fef3c7":"#fee2e2";
     h+='<div style="display:flex;gap:6px;margin-top:6px;font-size:10px;color:#6b7280;align-items:center;flex-wrap:wrap">';
     h+='목표 <input class="sn" id="d_target_'+si+'" type="text" inputmode="numeric" value="'+(s.target?Number(String(s.target).replace(/,/g,"")).toLocaleString():"")+'" placeholder="0" style="width:80px;font-size:10px;display:inline-block;text-align:right" oninput="fmtTargetInput(this);deptAutoSave()"/>';
     h+='<span style="color:#6b7280">누적</span><span style="font-size:10px;font-weight:700;color:#4f46e5;white-space:nowrap">'+(cumul?fmt(cumul):"-")+'</span>';
+    if(achRate!==null)h+='<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:'+achBg+';color:'+achColor+';white-space:nowrap">'+achRate+'%</span>';
     h+='</div>';
     // ── 베스트 TOP10 ──
     var realProds=prods.filter(function(p){return p.name;});
