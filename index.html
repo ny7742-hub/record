@@ -366,12 +366,11 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:4px">영업기간</span>
       <input type="date" id="dPeriodStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="deptWeekSnap(this.value)"/>
       <span style="color:#9ca3af;font-size:11px">~</span>
-      <input type="date" id="dPeriodEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px"/>
+      <input type="date" id="dPeriodEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="renderDeptPage()"/>
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:6px">대비기간</span>
-      <input type="date" id="dCompStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px"/>
+      <input type="date" id="dCompStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="renderDeptPage()"/>
       <span style="color:#9ca3af;font-size:11px">~</span>
-      <input type="date" id="dCompEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px"/>
-      <button class="apply-btn" style="padding:4px 12px;font-size:11px" onclick="loadDeptByPeriod()">불러오기</button>
+      <input type="date" id="dCompEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="renderDeptPage()"/>
       <span id="deptSaveMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
     </div>
   </div>
@@ -832,6 +831,7 @@ function deptWeekSnap(dateStr){
   var cSun=new Date(sun);cSun.setDate(sun.getDate()-364);
   document.getElementById("dCompStart").value=dFmt(cMon);
   document.getElementById("dCompEnd").value=dFmt(cSun);
+  renderDeptPage();
 }
 
 (function initDeptDates(){
@@ -877,6 +877,52 @@ function removeDeptStore(name){
   renderDeptAllStores();
 }
 
+function deleteDeptStore(si){
+  var name=deptStores[si];
+  if(!name)return;
+  if(!confirm("「"+name+"」을(를) 삭제하시겠습니까?"))return;
+  deptStores.splice(si,1);
+  localStorage.setItem("deptStores",JSON.stringify(deptStores));
+  renderDeptAllStores();
+}
+
+function editDeptStore(si){
+  var oldName=deptStores[si];
+  if(!oldName)return;
+  var newName=prompt("새 매장명을 입력하세요:",oldName);
+  if(!newName||!newName.trim()||newName.trim()===oldName)return;
+  newName=newName.trim();
+  if(deptStores.indexOf(newName)>=0){alert("이미 있는 매장명입니다.");return;}
+  // deptDB 내 모든 기간키에서 oldName → newName 이전
+  Object.keys(deptDB).forEach(function(key){
+    if(deptDB[key][oldName]!==undefined){
+      deptDB[key][newName]=deptDB[key][oldName];
+      delete deptDB[key][oldName];
+    }
+  });
+  deptStores[si]=newName;
+  localStorage.setItem("deptStores",JSON.stringify(deptStores));
+  localStorage.setItem("deptDB",JSON.stringify(deptDB));
+  renderDeptAllStores();
+}
+
+// 월 누적: 현재 영업기간 시작월과 같은 달의 모든 주 매출 합산
+function calcMonthlyCumul(storeName){
+  var periodStart=document.getElementById("dPeriodStart").value;
+  if(!periodStart)return 0;
+  var month=periodStart.slice(0,7); // "YYYY-MM"
+  var total=0;
+  Object.keys(deptDB).forEach(function(key){
+    var keyStart=key.split("~")[0]||"";
+    if(keyStart.slice(0,7)!==month)return;
+    var stData=deptDB[key]&&deptDB[key][storeName];
+    if(!stData||!stData.sales)return;
+    var sv=stData.sales;
+    total+=(Number(sv.thisDept)||0)+(Number(sv.thisOnline)||0);
+  });
+  return total;
+}
+
 function loadDeptByPeriod(){curDeptKey=getDPKey();renderDeptAllStores();}
 function renderDeptPage(){curDeptKey=getDPKey();renderDeptAllStores();}
 
@@ -907,7 +953,11 @@ function renderDeptAllStores(){
        ' ondragend="deptDragEnd()">';
     // Header
     h+='<div class="dept-col-hd">';
-    h+='<span class="store-name" style="cursor:grab;user-select:none">&#8942; 🏪 '+store+'</span>';
+    h+='<span class="store-name" style="cursor:grab;user-select:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&#8942; 🏪 '+store+'</span>';
+    h+='<div style="display:flex;gap:3px;flex-shrink:0;margin-left:4px">';
+    h+='<button onclick="editDeptStore('+si+')" style="padding:1px 5px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#4b5563" title="매장명 수정">✏</button>';
+    h+='<button onclick="deleteDeptStore('+si+')" style="padding:1px 5px;font-size:11px;border:1px solid #fca5a5;border-radius:4px;background:#fff;cursor:pointer;color:#dc2626" title="매장 삭제">🗑</button>';
+    h+='</div>';
     h+='</div>';
     // ── 매출 현황 ──
     h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
@@ -923,7 +973,6 @@ function renderDeptAllStores(){
       h+='<tr><td class="row-label">영업매출</td><td class="calc neutral">'+fmt(thisDept)+'</td><td class="calc neutral">'+fmt(thisOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(thisTotal)+'</td></tr>';
       h+='<tr><td class="row-label">대비매출</td><td class="calc neutral">'+fmt(lastDept)+'</td><td class="calc neutral">'+fmt(lastOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(lastTotal)+'</td></tr>';
       h+='<tr><td class="row-label">영업수량</td><td class="calc neutral">'+fmt(thisQtyDept)+'</td><td class="calc neutral">'+fmt(thisQtyOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(thisQtyTotal)+'</td></tr>';
-      h+='<tr><td class="row-label">대비수량</td><td class="calc neutral">'+fmt(lastQtyDept)+'</td><td class="calc neutral">'+fmt(lastQtyOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(lastQtyTotal)+'</td></tr>';
       h+='</tbody></table>';
       h+='<div class="dept-info-row">';
       h+='<span class="growth'+(growth!=="-"&&Number(growth)<0?" neg":"")+'">신장률 '+(growth!=="-"?growth+"%":"-")+'</span>';
@@ -931,9 +980,10 @@ function renderDeptAllStores(){
       h+='</div>';
     }
     // ── 목표/누적 ──
-    h+='<div style="display:flex;gap:6px;margin-top:6px;font-size:10px;color:#6b7280;align-items:center">';
+    var cumul=calcMonthlyCumul(store);
+    h+='<div style="display:flex;gap:6px;margin-top:6px;font-size:10px;color:#6b7280;align-items:center;flex-wrap:wrap">';
     h+='목표 <input class="sn" id="d_target_'+si+'" type="number" value="'+(s.target||"")+'" placeholder="0" style="width:70px;font-size:10px;display:inline-block" oninput="deptAutoSave()"/>';
-    h+='누적 <input class="sn" id="d_cumul_'+si+'" type="number" value="'+(s.cumul||"")+'" placeholder="0" style="width:70px;font-size:10px;display:inline-block" oninput="deptAutoSave()"/>';
+    h+='<span style="color:#6b7280">누적</span><span style="font-size:10px;font-weight:700;color:#4f46e5;white-space:nowrap">'+(cumul?fmt(cumul):"-")+'</span>';
     h+='</div>';
     // ── 베스트 TOP10 ──
     var realProds=prods.filter(function(p){return p.name;});
@@ -1660,7 +1710,6 @@ function saveDept(){
     if(!deptDB[key][store])deptDB[key][store]={};
     if(!deptDB[key][store].sales)deptDB[key][store].sales={};
     deptDB[key][store].sales.target=gv("d_target_"+si);
-    deptDB[key][store].sales.cumul=gv("d_cumul_"+si);
   });
   localStorage.setItem("deptDB",JSON.stringify(deptDB));
 }
