@@ -1199,22 +1199,21 @@ function loadStoreSales(input,si){
     if(!deptDB[key])deptDB[key]={};
     var populated=[];
 
-    // ── 포맷1: 롯데 형식 ──────────────────────────────────────────────────
-    // Row0: 판매수량 | 총매출 | 대비실적 | 신장률 | ...
-    // Row1: 백화점 | 온라인 | 모바일 | 합계 | 백화점 | 온라인 | ...
+    // ─────────────────────────────────────────────────────────────────────
+    // 포맷1: 롯데 형식
+    // Row0: 자점|브랜드|품번|정상/행사|판매수량(merged)|총매출(merged)|대비실적(merged)|...
+    // Row1: 코드|명|코드|명|코드|명|[blank]|백화점|온라인|모바일|합계|백화점|온라인|...
     // 합계행: col0="합계"
+    // ─────────────────────────────────────────────────────────────────────
     var isLotte=false;
     for(var r=0;r<Math.min(4,rows.length);r++){
       var rs=rows[r].map(function(c){return String(c||"").replace(/[\n\r]/g,"").trim();}).join("|");
       if(rs.indexOf("총매출")>=0&&rs.indexOf("대비실적")>=0){isLotte=true;break;}
     }
     if(isLotte){
-      // 상위헤더에서 섹션 시작 컬럼 찾기
-      var secOf={};// col→"qty"|"thisAmt"|"lastAmt"
-      var superRow=-1;
+      var secOf={};var superRow=-1;
       for(var r=0;r<Math.min(4,rows.length);r++){
-        var row=rows[r];
-        var found=false;
+        var row=rows[r];var found=false;
         for(var c=0;c<row.length;c++){
           var v=String(row[c]||"").replace(/[\n\r]/g,"").trim();
           if(/판매수량/.test(v)){secOf[c]="qty";found=true;}
@@ -1223,16 +1222,12 @@ function loadStoreSales(input,si){
         }
         if(found){superRow=r;break;}
       }
-      // 하위헤더에서 백화점/온라인 컬럼 위치 찾기
-      var colQtyDept=-1,colQtyOnline=-1;
-      var colThisDept=-1,colThisOnline=-1;
-      var colLastDept=-1,colLastOnline=-1;
+      var colQtyDept=-1,colQtyOnline=-1,colThisDept=-1,colThisOnline=-1,colLastDept=-1,colLastOnline=-1;
       if(superRow>=0&&superRow+1<rows.length){
         var curSec="";
-        var subRow=rows[superRow+1];
-        for(var c=0;c<subRow.length;c++){
+        for(var c=0;c<rows[superRow+1].length;c++){
           if(secOf[c])curSec=secOf[c];
-          var v=String(subRow[c]||"").trim();
+          var v=String(rows[superRow+1][c]||"").trim();
           if(/백화점/.test(v)){
             if(curSec==="qty"&&colQtyDept<0)colQtyDept=c;
             else if(curSec==="thisAmt"&&colThisDept<0)colThisDept=c;
@@ -1244,16 +1239,11 @@ function loadStoreSales(input,si){
           }
         }
       }
-      // 합계행 찾기 (col0="합계") → 없으면 마지막 데이터행
       var dataRow=null;
       for(var r=superRow+2;r<rows.length;r++){
         if(String(rows[r][0]||"").trim()==="합계"){dataRow=rows[r];break;}
       }
-      if(!dataRow){
-        for(var r=rows.length-1;r>=superRow+2;r--){
-          if(colThisDept>=0&&getNum(rows[r],colThisDept)>0){dataRow=rows[r];break;}
-        }
-      }
+      if(!dataRow){for(var r=rows.length-1;r>=superRow+2;r--){if(colThisDept>=0&&getNum(rows[r],colThisDept)>0){dataRow=rows[r];break;}}}
       if(dataRow&&colThisDept>=0){
         var sales={};
         sales.thisDept=getNum(dataRow,colThisDept);
@@ -1268,7 +1258,71 @@ function loadStoreSales(input,si){
       }
     }
 
-    // ── 포맷2: 멀티매장 컬럼형식 (헤더에 매장명 + EDI 구조) ─────────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // 포맷2: 현대 형식
+    // Row0: 브랜드|영업점|판매채널|[기간날짜]|[월날짜]|기간1|...|월계|...|연계|...
+    // Row1: 매출액|대비매출액|신장률|고객수|신장률(고객수)|객단가|...(반복)
+    // Row2+: 브랜드명|영업점명|채널명|...|수치들...
+    // ─────────────────────────────────────────────────────────────────────
+    if(!populated.length){
+      var isHyundai=false;
+      for(var r=0;r<Math.min(3,rows.length);r++){
+        var rs=rows[r].map(function(c){return String(c||"").replace(/[\n\r]/g,"").trim();}).join("|");
+        if(rs.indexOf("대비매출액")>=0&&rs.indexOf("고객수")>=0){isHyundai=true;break;}
+      }
+      if(isHyundai){
+        // 기간1 또는 첫 번째 매출액 섹션 시작 컬럼 찾기
+        var g1Col=-1;
+        // Row0에서 "기간1" 라벨 탐색
+        for(var c=0;c<rows[0].length;c++){
+          var v=String(rows[0][c]||"").trim();
+          if(/기간\s*1$|^기간1$/.test(v)){g1Col=c;break;}
+        }
+        // Row1에서 "매출액" 첫 등장 위치 (데이터 시작)
+        var firstAmtCol=-1;
+        for(var c=0;c<rows[1].length;c++){
+          if(String(rows[1][c]||"").trim()==="매출액"){firstAmtCol=c;break;}
+        }
+        // g1Col 없으면 firstAmtCol 사용
+        var scanFrom=g1Col>=0?g1Col:firstAmtCol;
+        if(scanFrom<0)scanFrom=3;// fallback
+        // scanFrom 이후 Row1에서 매출액·대비매출액·고객수 컬럼 찾기
+        var colHThis=-1,colHLast=-1,colHQty=-1;
+        for(var c=scanFrom;c<Math.min(scanFrom+12,rows[1].length);c++){
+          var v=String(rows[1][c]||"").replace(/[\n\r]/g,"").trim();
+          if(v==="매출액"&&colHThis<0)colHThis=c;
+          else if((v==="대비매출액"||v==="대비")&&colHLast<0)colHLast=c;
+          else if(v==="고객수"&&colHQty<0)colHQty=c;
+        }
+        // 데이터행: col2="합계"인 행, 또는 storeName 매칭, 또는 첫 데이터행
+        var hDataRow=null;
+        for(var r=2;r<rows.length;r++){
+          var ch2=String(rows[r][2]||"").trim();
+          if(ch2==="합계"||ch2==="소계"){hDataRow=rows[r];break;}
+          // 영업점 컬럼(col1)에서 매장명 매칭
+          if(!hDataRow){
+            var sn=matchStoreName(String(rows[r][1]||"").trim());
+            if(sn===storeName)hDataRow=rows[r];
+          }
+        }
+        if(!hDataRow&&rows.length>2)hDataRow=rows[2];
+        if(hDataRow&&colHThis>=0){
+          var sales={};
+          sales.thisDept=getNum(hDataRow,colHThis);
+          sales.thisOnline=0;
+          if(colHLast>=0){sales.lastDept=getNum(hDataRow,colHLast);sales.lastOnline=0;}
+          // 고객수를 판매수량으로 활용
+          if(colHQty>=0){sales.thisQtyDept=Math.round(getNum(hDataRow,colHQty));sales.thisQtyOnline=0;}
+          if(!deptDB[key][storeName])deptDB[key][storeName]={};
+          deptDB[key][storeName].sales=Object.assign(deptDB[key][storeName].sales||{},sales);
+          populated.push(storeName);
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 포맷3: 멀티매장 컬럼형식 (헤더에 매장명 + EDI 구조)
+    // ─────────────────────────────────────────────────────────────────────
     if(!populated.length){
       var HROW=Math.min(8,rows.length);
       var colMap={};
@@ -1326,7 +1380,9 @@ function loadStoreSales(input,si){
       }
     }
 
-    // ── 포맷3: 레이블행 형식 (영업매출/전년매출 행이 있는 파일) ─────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // 포맷4: 레이블행 형식 (영업매출/전년매출 행이 있는 파일)
+    // ─────────────────────────────────────────────────────────────────────
     if(!populated.length){
       var colDept=-1,colOnline=-1;
       for(var r=0;r<Math.min(30,rows.length);r++){
