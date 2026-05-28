@@ -2079,7 +2079,7 @@ function saveMeetingAll(){
    코스트코 판매 현황
 ═══════════════════════════════════════════════════════ */
 var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
-  periods:["1/26~2/1","4/20~4/26","4/27~5/3","5/4~5/10","5/11~5/17","5/18~5/24"],
+  periods:["1월","4월","5월"],
   products:[
     {name:"루시",   price:23990, colors:["베이지","블랙","아이보리","에쉬"]},
     {name:"크리스티",price:31990, colors:["샌드","블랙"]},
@@ -2170,7 +2170,7 @@ function parseCostcoRows(rows){
     /* 날짜 → 주기간 */
     var dt=ccParseDate(cDate>=0?row[cDate]:null);
     if(!dt)continue;
-    var period=ccWeekPeriod(dt);
+    var period=ccMonthPeriod(dt);
     /* 상품 매칭 */
     var prodCell=String(row[cProd]||"").trim();
     var prodName=ccMatchProd(prodCell);
@@ -2238,18 +2238,18 @@ function ccParseDate(val){
   }
   return null;
 }
-function ccWeekPeriod(date){
+function ccMonthPeriod(date){
   var d=new Date(date);
-  var day=d.getDay();
-  var toMon=day===0?-6:1-day;
-  var mon=new Date(d); mon.setDate(d.getDate()+toMon);
-  var fri=new Date(mon); fri.setDate(mon.getDate()+4);
-  return (mon.getMonth()+1)+"/"+mon.getDate()+"~"+(fri.getMonth()+1)+"/"+fri.getDate();
+  return (d.getMonth()+1)+"월";
 }
 function ccPeriodToMs(p){
-  var m=p.match(/(\d+)\/(\d+)/);
-  if(!m)return 0;
-  return new Date(new Date().getFullYear(),+m[1]-1,+m[2]).getTime();
+  /* "N월" 형식 */
+  var m=p.match(/^(\d+)월$/);
+  if(m)return new Date(new Date().getFullYear(),+m[1]-1,1).getTime();
+  /* 구형 "M/D~M/D" 형식도 지원 */
+  var m2=p.match(/(\d+)\/(\d+)/);
+  if(m2)return new Date(new Date().getFullYear(),+m2[1]-1,+m2[2]).getTime();
+  return 0;
 }
 function ccMatchProd(v){
   v=String(v||"").trim();
@@ -2385,9 +2385,10 @@ function ccSaveCumul(el,prod,color){
   renderCostcoPage();
 }
 function addCostcoPeriod(){
-  var p=prompt("새 기간 입력 (예: 5/25~5/31):");
+  var p=prompt("새 월 입력 (예: 6월):");
   if(!p||!p.trim())return;
   p=p.trim();
+  if(!/^\d+월$/.test(p)){alert("형식이 올바르지 않습니다.\n예) 6월");return;}
   if(costcoDB.periods.indexOf(p)>=0){alert("이미 있는 기간입니다.");return;}
   costcoDB.periods.push(p);
   saveCostcoDB();
