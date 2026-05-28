@@ -1259,10 +1259,11 @@ function loadStoreSales(input,si){
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // 포맷2: 현대 형식
+    // 포맷2: 현대 형식 (멀티매장)
     // Row0: 브랜드|영업점|판매채널|[기간날짜]|[월날짜]|기간1|...|월계|...|연계|...
     // Row1: 매출액|대비매출액|신장률|고객수|신장률(고객수)|객단가|...(반복)
-    // Row2+: 브랜드명|영업점명|채널명|...|수치들...
+    // Row2+: 브랜드명|영업점명|채널명|...|수치들... (매장별 1행)
+    // 합계행: col2="합계" 또는 col0="합계"
     // ─────────────────────────────────────────────────────────────────────
     if(!populated.length){
       var isHyundai=false;
@@ -1271,22 +1272,17 @@ function loadStoreSales(input,si){
         if(rs.indexOf("대비매출액")>=0&&rs.indexOf("고객수")>=0){isHyundai=true;break;}
       }
       if(isHyundai){
-        // 기간1 또는 첫 번째 매출액 섹션 시작 컬럼 찾기
         var g1Col=-1;
-        // Row0에서 "기간1" 라벨 탐색
         for(var c=0;c<rows[0].length;c++){
           var v=String(rows[0][c]||"").trim();
           if(/기간\s*1$|^기간1$/.test(v)){g1Col=c;break;}
         }
-        // Row1에서 "매출액" 첫 등장 위치 (데이터 시작)
         var firstAmtCol=-1;
         for(var c=0;c<rows[1].length;c++){
           if(String(rows[1][c]||"").trim()==="매출액"){firstAmtCol=c;break;}
         }
-        // g1Col 없으면 firstAmtCol 사용
         var scanFrom=g1Col>=0?g1Col:firstAmtCol;
-        if(scanFrom<0)scanFrom=3;// fallback
-        // scanFrom 이후 Row1에서 매출액·대비매출액·고객수 컬럼 찾기
+        if(scanFrom<0)scanFrom=3;
         var colHThis=-1,colHLast=-1,colHQty=-1;
         for(var c=scanFrom;c<Math.min(scanFrom+12,rows[1].length);c++){
           var v=String(rows[1][c]||"").replace(/[\n\r]/g,"").trim();
@@ -1294,28 +1290,55 @@ function loadStoreSales(input,si){
           else if((v==="대비매출액"||v==="대비")&&colHLast<0)colHLast=c;
           else if(v==="고객수"&&colHQty<0)colHQty=c;
         }
-        // 데이터행: col2="합계"인 행, 또는 storeName 매칭, 또는 첫 데이터행
-        var hDataRow=null;
-        for(var r=2;r<rows.length;r++){
-          var ch2=String(rows[r][2]||"").trim();
-          if(ch2==="합계"||ch2==="소계"){hDataRow=rows[r];break;}
-          // 영업점 컬럼(col1)에서 매장명 매칭
-          if(!hDataRow){
-            var sn=matchStoreName(String(rows[r][1]||"").trim());
-            if(sn===storeName)hDataRow=rows[r];
-          }
+        // 현대계열 점포명 정규화 함수 (퍼지 매칭용)
+        function normHyundaiName(s){
+          return s.replace(/커넥트현대|더현대|현대|롯데/g,"")
+                  .replace(/점$|아울렛$|몰$/,"")
+                  .replace(/\s+/g,"").trim();
         }
-        if(!hDataRow&&rows.length>2)hDataRow=rows[2];
-        if(hDataRow&&colHThis>=0){
-          var sales={};
-          sales.thisDept=getNum(hDataRow,colHThis);
-          sales.thisOnline=0;
-          if(colHLast>=0){sales.lastDept=getNum(hDataRow,colHLast);sales.lastOnline=0;}
-          // 고객수를 판매수량으로 활용
-          if(colHQty>=0){sales.thisQtyDept=Math.round(getNum(hDataRow,colHQty));sales.thisQtyOnline=0;}
-          if(!deptDB[key][storeName])deptDB[key][storeName]={};
-          deptDB[key][storeName].sales=Object.assign(deptDB[key][storeName].sales||{},sales);
-          populated.push(storeName);
+        if(colHThis>=0){
+          var hTotalRow=null;
+          // 각 데이터행 순회: 매장별 매칭 후 전체 populate
+          for(var r=2;r<rows.length;r++){
+            var ch0=String(rows[r][0]||"").trim();
+            var ch2=String(rows[r][2]||"").trim();
+            if(ch0==="합계"||ch0==="소계"||ch2==="합계"||ch2==="소계"){hTotalRow=rows[r];continue;}
+            var cellSN=String(rows[r][1]||"").trim();
+            if(!cellSN)continue;
+            // 1) matchStoreName 정확 매칭
+            var sn=matchStoreName(cellSN);
+            // 2) 퍼지 매칭: 브랜드명·점 제거 후 비교
+            if(!sn){
+              var nc=normHyundaiName(cellSN);
+              for(var i=0;i<deptStores.length;i++){
+                var ns=normHyundaiName(deptStores[i]);
+                if(nc&&ns&&(nc===ns||nc.indexOf(ns)>=0||ns.indexOf(nc)>=0)){sn=deptStores[i];break;}
+              }
+            }
+            if(!sn)continue;
+            var sales={};
+            sales.thisDept=getNum(rows[r],colHThis);
+            sales.thisOnline=0;
+            if(colHLast>=0){sales.lastDept=getNum(rows[r],colHLast);sales.lastOnline=0;}
+            if(colHQty>=0){sales.thisQtyDept=Math.round(getNum(rows[r],colHQty));sales.thisQtyOnline=0;}
+            if(!deptDB[key][sn])deptDB[key][sn]={};
+            deptDB[key][sn].sales=Object.assign(deptDB[key][sn].sales||{},sales);
+            if(populated.indexOf(sn)<0)populated.push(sn);
+          }
+          // 특정 매장 매칭 안 된 경우 합계행 또는 첫 데이터행으로 현재 매장 채우기
+          if(populated.indexOf(storeName)<0){
+            var hFall=hTotalRow||(rows.length>2?rows[2]:null);
+            if(hFall){
+              var sales={};
+              sales.thisDept=getNum(hFall,colHThis);
+              sales.thisOnline=0;
+              if(colHLast>=0){sales.lastDept=getNum(hFall,colHLast);sales.lastOnline=0;}
+              if(colHQty>=0){sales.thisQtyDept=Math.round(getNum(hFall,colHQty));sales.thisQtyOnline=0;}
+              if(!deptDB[key][storeName])deptDB[key][storeName]={};
+              deptDB[key][storeName].sales=Object.assign(deptDB[key][storeName].sales||{},sales);
+              populated.push(storeName);
+            }
+          }
         }
       }
     }
@@ -1455,8 +1478,12 @@ function loadStoreBest(input,si){
       for(var c=0;c<row.length;c++){
         var v=String(row[c]||"").trim();
         if(!v)continue;
-        if(/상품명|품명|제품명|상품|아이템/.test(v)&&colName<0){colName=c;hasNameCol=true;}
-        if(/판매수량|수량|판매량|판매|qty/i.test(v)&&colQty<0)colQty=c;
+        // 상품명: "상품코드/번호" 는 제외, 수량: "판매금액/매출" 은 제외
+        if(/상품명|품명|제품명|아이템/.test(v)&&colName<0){colName=c;hasNameCol=true;}
+        else if(/^상품$/.test(v)&&!/코드|번호|code/i.test(v)&&colName<0){colName=c;hasNameCol=true;}
+        if(/판매수량|판매량|qty/i.test(v)&&colQty<0)colQty=c;
+        else if(/^수량$/.test(v)&&colQty<0)colQty=c;
+        else if(/판매/.test(v)&&!/금액|원|매출|액|합계/i.test(v)&&colQty<0)colQty=c;
         if(/매장재고|재고량|재고/i.test(v)&&!(/상태/.test(v))&&colInv<0)colInv=c;
         if(/재고상태|상태|status/i.test(v)&&colSt<0)colSt=c;
       }
@@ -1500,13 +1527,17 @@ function loadStoreBest(input,si){
       for(var r=0;r<Math.min(15,rows.length)&&products.length<10;r++){
         var row=rows[r];
         var pName="";
+        var pNameCol=-1;
         for(var c=0;c<row.length;c++){
           var v=String(row[c]||"").trim();
-          if(v&&isNaN(Number(v))&&v.length>1){pName=v;colName=c;break;}
+          if(v&&isNaN(Number(v))&&v.length>1){pName=v;pNameCol=c;break;}
         }
         if(!pName)continue;
+        // 헤더·집계 행 건너뜀
+        if(/브랜드|영업점|영업일|매출액|기간|합계|소계|총계|상품명|품명|수량|재고|상태/i.test(pName))continue;
+        if(/화이트샌즈|whitesands/i.test(pName)&&pNameCol===0)continue;// 브랜드명 행 스킵
         var pQty=0,pInv=0;
-        for(var c=colName+1;c<row.length;c++){
+        for(var c=pNameCol+1;c<row.length;c++){
           var n=getNum(row,c);if(n>0&&pQty===0)pQty=n;
           else if(n>0&&pInv===0)pInv=n;
         }
