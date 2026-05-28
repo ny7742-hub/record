@@ -1194,58 +1194,152 @@ function loadStoreSales(input,si){
     var ws=wb.Sheets[wb.SheetNames[0]];
     var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
     detectPeriodFromRows(rows);
-    // Find 백화점/온라인 column header
-    var colDept=-1,colOnline=-1;
-    for(var r=0;r<Math.min(30,rows.length);r++){
-      var row=rows[r];
-      var rs=row.map(function(c){return String(c||"").trim();}).join("|");
-      if(colDept<0&&(rs.indexOf("백화점")>=0||rs.indexOf("오프라인")>=0)&&rs.indexOf("온라인")>=0){
-        for(var c=0;c<row.length;c++){
-          var v=String(row[c]||"").trim();
-          if((v==="백화점"||v==="오프라인")&&colDept<0)colDept=c;
-          if(v==="온라인"&&colOnline<0)colOnline=c;
-        }
-      }
-    }
-    var sales={};
-    for(var r=0;r<rows.length;r++){
-      var row=rows[r];
-      var fv="";
-      for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();if(v){fv=v;break;}}
-      if(!fv)continue;
-      var fvN=fv.replace(/\s/g,"");
-      // 영업매출 (this period)
-      if(/금주매출|영업매출|이번주매출|영업기간매출|당기매출|진주매출|당주매출/.test(fvN)){
-        if(colDept>=0)sales.thisDept=getNum(row,colDept);
-        if(colOnline>=0)sales.thisOnline=getNum(row,colOnline);
-      }
-      // 대비매출 (comparison period)
-      else if(/전년매출|대비매출|작년매출|대비기간매출|전기매출|진년매출|전주매출/.test(fvN)){
-        if(colDept>=0)sales.lastDept=getNum(row,colDept);
-        if(colOnline>=0)sales.lastOnline=getNum(row,colOnline);
-      }
-      // 영업수량
-      else if(/금주수량|영업수량|이번주수량|영업기간수량|당기수량|진주수량|금주판매|영업판매/.test(fvN)){
-        if(colDept>=0)sales.thisQtyDept=getNum(row,colDept);
-        if(colOnline>=0)sales.thisQtyOnline=getNum(row,colOnline);
-      }
-      // 대비수량
-      else if(/전년수량|대비수량|작년수량|대비기간수량|전기수량|진년수량|전년판매|전주수량/.test(fvN)){
-        if(colDept>=0)sales.lastQtyDept=getNum(row,colDept);
-        if(colOnline>=0)sales.lastQtyOnline=getNum(row,colOnline);
-      }
-    }
     var key=getDPKey()||("upload_"+Date.now());
     curDeptKey=key;
     if(!deptDB[key])deptDB[key]={};
-    if(!deptDB[key][storeName])deptDB[key][storeName]={};
-    if(Object.keys(sales).length){
-      deptDB[key][storeName].sales=Object.assign(deptDB[key][storeName].sales||{},sales);
+
+    // ── Step 1: scan header rows for store names ──────────────────────────
+    // Multi-store master report format (weekly/monthly):
+    //   Row 0: store names (merged cells)
+    //   Row 1: 전년동기간 labels + totals
+    //   Row 2: 목표금액 etc.
+    //   Row 3: channel labels (백화점|수량|온라인|수량|EDI|수량|PLAY MD)
+    //   Row 4+: daily data (05 -01일- (금) | ...)
+    var HROW=Math.min(8,rows.length);
+    var colMap={};// storeName → first column index
+    for(var r=0;r<HROW;r++){
+      for(var c=0;c<rows[r].length;c++){
+        var v=String(rows[r][c]||"").trim();
+        if(!v)continue;
+        var sn=matchStoreName(v);
+        if(sn&&!(sn in colMap))colMap[sn]=c;
+      }
     }
+
+    var populated=[];
+
+    if(Object.keys(colMap).length){
+      // ── Multi-store column format ─────────────────────────────────────
+      Object.keys(colMap).forEach(function(sn){
+        var sc=colMap[sn];
+        // Find channel sub-columns within sc..sc+14
+        var cDept=-1,cDeptQ=-1,cOnline=-1,cOnlineQ=-1,cEDI=-1,cEDIQ=-1;
+        for(var r=0;r<HROW;r++){
+          for(var c=sc;c<Math.min(sc+14,rows[r].length);c++){
+            var v=String(rows[r][c]||"").trim();
+            if(/^백화점$|^오프라인$/.test(v)&&cDept<0)cDept=c;
+            else if(/^온라인$/.test(v)&&cOnline<0)cOnline=c;
+            else if(/^EDI$/i.test(v)&&cEDI<0)cEDI=c;
+          }
+          if(cDept>=0&&cOnline>=0&&cEDI>=0)break;
+        }
+        // Quantity columns are always immediately after amount columns
+        if(cDept>=0)cDeptQ=cDept+1;
+        if(cOnline>=0)cOnlineQ=cOnline+1;
+        if(cEDI>=0)cEDIQ=cEDI+1;
+
+        // ── Sum daily data rows ──────────────────────────────────────────
+        // Daily rows have dates in col 0: "05 -01일- (금)" style
+        var thisDept=0,thisOnline=0,thisEDI=0;
+        var thisQDept=0,thisQOnline=0,thisQEDI=0;
+        for(var r=0;r<rows.length;r++){
+          var d0=String(rows[r][0]||"").trim();
+          // Accept rows matching daily date patterns (contains digit + 일)
+          if(!/\d+일/.test(d0))continue;
+          if(cDept>=0){thisDept+=getNum(rows[r],cDept);thisQDept+=getNum(rows[r],cDeptQ);}
+          if(cOnline>=0){thisOnline+=getNum(rows[r],cOnline);thisQOnline+=getNum(rows[r],cOnlineQ);}
+          if(cEDI>=0){thisEDI+=getNum(rows[r],cEDI);thisQEDI+=getNum(rows[r],cEDIQ);}
+        }
+        // For stores with only EDI (no 백화점/온라인 breakdown), use EDI as 백화점
+        if(cDept<0&&cEDI>=0){thisDept=thisEDI;thisQDept=thisQEDI;}
+
+        // ── Get 전년동기간 total ──────────────────────────────────────────
+        // In the header row where col[sc] contains "전년",
+        // the 전년 total appears in the 온라인 column (or nearby)
+        var lastAmt=0;
+        for(var r=0;r<HROW;r++){
+          if(/전년/.test(String(rows[r][sc]||""))){
+            var checkCol=cOnline>=0?cOnline:(cEDI>=0?cEDI:sc+2);
+            var n=getNum(rows[r],checkCol);
+            if(n>0){lastAmt=n;}
+            if(!lastAmt){
+              for(var c=sc+1;c<Math.min(sc+10,rows[r].length);c++){
+                n=getNum(rows[r],c);if(n>10000){lastAmt=n;break;}
+              }
+            }
+            break;
+          }
+        }
+
+        if(thisDept||thisOnline||thisEDI){
+          var sales={
+            thisDept:thisDept,thisOnline:thisOnline,
+            thisQtyDept:thisQDept,thisQtyOnline:thisQOnline
+          };
+          // 전년동기간 합계만 있으므로 lastDept에 전체 금액을 넣고 합계로 표시
+          if(lastAmt){sales.lastDept=lastAmt;sales.lastOnline=0;sales.lastQtyDept=0;sales.lastQtyOnline=0;}
+          if(!deptDB[key][sn])deptDB[key][sn]={};
+          deptDB[key][sn].sales=Object.assign(deptDB[key][sn].sales||{},sales);
+          populated.push(sn);
+        }
+      });
+    }
+
+    // ── Fallback: single-store labeled-row format ─────────────────────────
+    if(!populated.length){
+      var colDept=-1,colOnline=-1;
+      for(var r=0;r<Math.min(30,rows.length);r++){
+        var row=rows[r];
+        var rs=row.map(function(c){return String(c||"").trim();}).join("|");
+        if(colDept<0&&(rs.indexOf("백화점")>=0||rs.indexOf("오프라인")>=0)&&rs.indexOf("온라인")>=0){
+          for(var c=0;c<row.length;c++){
+            var v=String(row[c]||"").trim();
+            if((v==="백화점"||v==="오프라인")&&colDept<0)colDept=c;
+            if(v==="온라인"&&colOnline<0)colOnline=c;
+          }
+        }
+      }
+      var sales={};
+      for(var r=0;r<rows.length;r++){
+        var row=rows[r];
+        var fv="";
+        for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();if(v){fv=v;break;}}
+        if(!fv)continue;
+        var fvN=fv.replace(/\s/g,"");
+        if(/금주매출|영업매출|이번주매출|영업기간매출|당기매출|진주매출|당주매출/.test(fvN)){
+          if(colDept>=0)sales.thisDept=getNum(row,colDept);
+          if(colOnline>=0)sales.thisOnline=getNum(row,colOnline);
+        }
+        else if(/전년매출|대비매출|작년매출|대비기간매출|전기매출|진년매출|전주매출/.test(fvN)){
+          if(colDept>=0)sales.lastDept=getNum(row,colDept);
+          if(colOnline>=0)sales.lastOnline=getNum(row,colOnline);
+        }
+        else if(/금주수량|영업수량|이번주수량|영업기간수량|당기수량|진주수량|금주판매|영업판매/.test(fvN)){
+          if(colDept>=0)sales.thisQtyDept=getNum(row,colDept);
+          if(colOnline>=0)sales.thisQtyOnline=getNum(row,colOnline);
+        }
+        else if(/전년수량|대비수량|작년수량|대비기간수량|전기수량|진년수량|전년판매|전주수량/.test(fvN)){
+          if(colDept>=0)sales.lastQtyDept=getNum(row,colDept);
+          if(colOnline>=0)sales.lastQtyOnline=getNum(row,colOnline);
+        }
+      }
+      if(Object.keys(sales).length){
+        if(!deptDB[key][storeName])deptDB[key][storeName]={};
+        deptDB[key][storeName].sales=Object.assign(deptDB[key][storeName].sales||{},sales);
+        populated.push(storeName);
+      }
+    }
+
     localStorage.setItem("deptDB",JSON.stringify(deptDB));
     renderDeptAllStores();
     var msg=document.getElementById("deptSaveMsg");
-    if(msg){msg.textContent="✅ "+storeName+" 매출 기입 완료!";setTimeout(function(){msg.textContent="";},3000);}
+    if(msg){
+      var txt=populated.length
+        ?("✅ "+populated.join(", ")+" 매출 업로드 완료!")
+        :("⚠️ 매출 데이터를 찾을 수 없습니다");
+      msg.textContent=txt;
+      setTimeout(function(){msg.textContent="";},3000);
+    }
     input.value="";
   };
   reader.readAsArrayBuffer(file);
