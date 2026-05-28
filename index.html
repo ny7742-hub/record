@@ -867,60 +867,51 @@ function renderDeptAllStores(){
     var thisQtyTotal=thisQtyDept+thisQtyOnline,lastQtyTotal=lastQtyDept+lastQtyOnline;
     var avgPrice=thisQtyTotal?Math.round(thisTotal/thisQtyTotal):0;
     function fmt(n){return n?Number(n).toLocaleString():"-";}
+    var uid=si+"_"+Date.now();
     h+='<div class="dept-col" draggable="true" id="deptcol-'+si+'"'+
        ' ondragstart="deptDragStart('+si+')"'+
        ' ondragover="deptDragOver(event,'+si+')"'+
        ' ondragleave="deptDragLeave(event,'+si+')"'+
        ' ondrop="deptDrop(event,'+si+')"'+
        ' ondragend="deptDragEnd()">';
+    // Header
     h+='<div class="dept-col-hd">';
     h+='<span class="store-name" style="cursor:grab;user-select:none">&#8942; 🏪 '+store+'</span>';
     h+='</div>';
-    h+='<div style="display:flex;gap:4px;margin-bottom:8px">';
-    h+='<label style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:#6366f1;color:white;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">📂 매출<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadStoreSales(this,'+si+')"/></label>';
-    h+='<label style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:#0891b2;color:white;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer">📂 베스트<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadStoreBest(this,'+si+')"/></label>';
+    // ── 매출 현황 ──
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+    h+='<div class="m-sec-title" style="margin-bottom:0">📊 매출 현황</div>';
+    h+='<label style="font-size:10px;color:#6366f1;cursor:pointer;font-weight:600;white-space:nowrap">📂 업로드<input type="file" accept=".xlsx,.xls" style="display:none" id="si'+si+'_sales" onchange="loadStoreSales(this,'+si+')"/></label>';
     h+='</div>';
-    h+='<div class="m-sec-title">📊 매출 현황</div>';
     if(!hasSales){
-      h+='<div style="font-size:11px;color:#9ca3af;text-align:center;padding:12px 0;border:1px dashed #e5e7eb;border-radius:8px">📂 매출 파일을 업로드해 주세요</div>';
+      h+='<label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#9ca3af;cursor:pointer;padding:14px 0;border:1.5px dashed #e5e7eb;border-radius:8px;background:#fafafa" for="si'+si+'_sales">📂 매출 파일을 클릭하여 업로드</label>';
     }else{
       h+='<table class="s-tbl"><thead><tr>';
       h+='<th style="width:56px"></th><th>백화점</th><th>온라인</th><th>합계</th>';
       h+='</tr></thead><tbody>';
-      h+='<tr><td class="row-label">영업매출</td>';
-      h+='<td class="calc neutral">'+fmt(thisDept)+'</td>';
-      h+='<td class="calc neutral">'+fmt(thisOnline)+'</td>';
-      h+='<td class="calc" style="font-weight:700">'+fmt(thisTotal)+'</td>';
-      h+='</tr>';
-      h+='<tr><td class="row-label">대비매출</td>';
-      h+='<td class="calc neutral">'+fmt(lastDept)+'</td>';
-      h+='<td class="calc neutral">'+fmt(lastOnline)+'</td>';
-      h+='<td class="calc" style="font-weight:700">'+fmt(lastTotal)+'</td>';
-      h+='</tr>';
-      h+='<tr><td class="row-label">영업수량</td>';
-      h+='<td class="calc neutral">'+fmt(thisQtyDept)+'</td>';
-      h+='<td class="calc neutral">'+fmt(thisQtyOnline)+'</td>';
-      h+='<td class="calc" style="font-weight:700">'+fmt(thisQtyTotal)+'</td>';
-      h+='</tr>';
-      h+='<tr><td class="row-label">대비수량</td>';
-      h+='<td class="calc neutral">'+fmt(lastQtyDept)+'</td>';
-      h+='<td class="calc neutral">'+fmt(lastQtyOnline)+'</td>';
-      h+='<td class="calc" style="font-weight:700">'+fmt(lastQtyTotal)+'</td>';
-      h+='</tr>';
+      h+='<tr><td class="row-label">영업매출</td><td class="calc neutral">'+fmt(thisDept)+'</td><td class="calc neutral">'+fmt(thisOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(thisTotal)+'</td></tr>';
+      h+='<tr><td class="row-label">대비매출</td><td class="calc neutral">'+fmt(lastDept)+'</td><td class="calc neutral">'+fmt(lastOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(lastTotal)+'</td></tr>';
+      h+='<tr><td class="row-label">영업수량</td><td class="calc neutral">'+fmt(thisQtyDept)+'</td><td class="calc neutral">'+fmt(thisQtyOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(thisQtyTotal)+'</td></tr>';
+      h+='<tr><td class="row-label">대비수량</td><td class="calc neutral">'+fmt(lastQtyDept)+'</td><td class="calc neutral">'+fmt(lastQtyOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(lastQtyTotal)+'</td></tr>';
       h+='</tbody></table>';
       h+='<div class="dept-info-row">';
       h+='<span class="growth'+(growth!=="-"&&Number(growth)<0?" neg":"")+'">신장률 '+(growth!=="-"?growth+"%":"-")+'</span>';
       h+='<span class="avgp">객단가 '+(avgPrice?fmt(avgPrice)+"원":"-")+'</span>';
       h+='</div>';
     }
+    // ── 목표/누적 ──
     h+='<div style="display:flex;gap:6px;margin-top:6px;font-size:10px;color:#6b7280;align-items:center">';
     h+='목표 <input class="sn" id="d_target_'+si+'" type="number" value="'+(s.target||"")+'" placeholder="0" style="width:70px;font-size:10px;display:inline-block" oninput="deptAutoSave()"/>';
     h+='누적 <input class="sn" id="d_cumul_'+si+'" type="number" value="'+(s.cumul||"")+'" placeholder="0" style="width:70px;font-size:10px;display:inline-block" oninput="deptAutoSave()"/>';
     h+='</div>';
-    h+='<div class="m-sec-title" style="margin-top:10px">🏆 베스트 TOP10</div>';
+    // ── 베스트 TOP10 ──
     var realProds=prods.filter(function(p){return p.name;});
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;margin-bottom:6px">';
+    h+='<div class="m-sec-title" style="margin-bottom:0">🏆 베스트 TOP10</div>';
+    h+='<label style="font-size:10px;color:#0891b2;cursor:pointer;font-weight:600;white-space:nowrap">📂 업로드<input type="file" accept=".xlsx,.xls" style="display:none" id="si'+si+'_best" onchange="loadStoreBest(this,'+si+')"/></label>';
+    h+='</div>';
     if(!realProds.length){
-      h+='<div style="font-size:11px;color:#9ca3af;text-align:center;padding:12px 0;border:1px dashed #e5e7eb;border-radius:8px">📂 베스트 파일을 업로드해 주세요</div>';
+      h+='<label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#9ca3af;cursor:pointer;padding:14px 0;border:1.5px dashed #e5e7eb;border-radius:8px;background:#fafafa" for="si'+si+'_best">📂 베스트 파일을 클릭하여 업로드</label>';
     }else{
       h+='<table class="b-tbl"><thead><tr>';
       h+='<th style="width:24px">#</th><th>상품명</th><th style="width:40px">수량</th><th style="width:40px">재고</th><th style="width:52px">상태</th>';
@@ -942,7 +933,7 @@ function renderDeptAllStores(){
     }
     h+='</div>';
   });
-  // Add-store card at the end
+  // Add-store card
   h+='<div class="dept-col dept-add-card" onclick="addDeptStore()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:2px dashed #d1d5db;background:#f9fafb;min-height:180px;gap:8px">';
   h+='<div style="width:40px;height:40px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:22px;color:#6366f1;font-weight:300">+</div>';
   h+='<div style="font-size:12px;color:#9ca3af;font-weight:600">매장 추가</div>';
@@ -950,6 +941,7 @@ function renderDeptAllStores(){
   h+='</div>';
   document.getElementById("deptAllStores").innerHTML=h;
 }
+
 
 
 
@@ -1202,39 +1194,63 @@ function loadStoreSales(input,si){
     var ws=wb.Sheets[wb.SheetNames[0]];
     var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
     detectPeriodFromRows(rows);
+    // Find 백화점/온라인 column header
     var colDept=-1,colOnline=-1;
     for(var r=0;r<Math.min(30,rows.length);r++){
       var row=rows[r];
       var rs=row.map(function(c){return String(c||"").trim();}).join("|");
-      if(colDept<0&&rs.indexOf("백화점")>=0&&rs.indexOf("온라인")>=0){
-        for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();
-          if(v==="백화점"&&colDept<0)colDept=c;
-          if(v==="온라인"&&colOnline<0)colOnline=c;}
+      if(colDept<0&&(rs.indexOf("백화점")>=0||rs.indexOf("오프라인")>=0)&&rs.indexOf("온라인")>=0){
+        for(var c=0;c<row.length;c++){
+          var v=String(row[c]||"").trim();
+          if((v==="백화점"||v==="오프라인")&&colDept<0)colDept=c;
+          if(v==="온라인"&&colOnline<0)colOnline=c;
+        }
       }
     }
     var sales={};
     for(var r=0;r<rows.length;r++){
-      var row=rows[r];var fv="";
+      var row=rows[r];
+      var fv="";
       for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();if(v){fv=v;break;}}
       if(!fv)continue;
-      if(/진주\s*매출|영업기간\s*매출/.test(fv)){sales.thisDept=getNum(row,colDept);sales.thisOnline=getNum(row,colOnline);}
-      else if(/진년\s*매출|대비기간\s*매출|전년\s*매출/.test(fv)){sales.lastDept=getNum(row,colDept);sales.lastOnline=getNum(row,colOnline);}
-      else if(/진주\s*판매\s*수량|영업기간\s*수량/.test(fv)){sales.thisQtyDept=getNum(row,colDept);sales.thisQtyOnline=getNum(row,colOnline);}
-      else if(/진년\s*판매\s*수량|대비기간\s*수량|전년\s*판매/.test(fv)){sales.lastQtyDept=getNum(row,colDept);sales.lastQtyOnline=getNum(row,colOnline);}
+      var fvN=fv.replace(/\s/g,"");
+      // 영업매출 (this period)
+      if(/금주매출|영업매출|이번주매출|영업기간매출|당기매출|진주매출|당주매출/.test(fvN)){
+        if(colDept>=0)sales.thisDept=getNum(row,colDept);
+        if(colOnline>=0)sales.thisOnline=getNum(row,colOnline);
+      }
+      // 대비매출 (comparison period)
+      else if(/전년매출|대비매출|작년매출|대비기간매출|전기매출|진년매출|전주매출/.test(fvN)){
+        if(colDept>=0)sales.lastDept=getNum(row,colDept);
+        if(colOnline>=0)sales.lastOnline=getNum(row,colOnline);
+      }
+      // 영업수량
+      else if(/금주수량|영업수량|이번주수량|영업기간수량|당기수량|진주수량|금주판매|영업판매/.test(fvN)){
+        if(colDept>=0)sales.thisQtyDept=getNum(row,colDept);
+        if(colOnline>=0)sales.thisQtyOnline=getNum(row,colOnline);
+      }
+      // 대비수량
+      else if(/전년수량|대비수량|작년수량|대비기간수량|전기수량|진년수량|전년판매|전주수량/.test(fvN)){
+        if(colDept>=0)sales.lastQtyDept=getNum(row,colDept);
+        if(colOnline>=0)sales.lastQtyOnline=getNum(row,colOnline);
+      }
     }
     var key=getDPKey()||("upload_"+Date.now());
     curDeptKey=key;
     if(!deptDB[key])deptDB[key]={};
     if(!deptDB[key][storeName])deptDB[key][storeName]={};
-    if(Object.keys(sales).length)deptDB[key][storeName].sales=sales;
+    if(Object.keys(sales).length){
+      deptDB[key][storeName].sales=Object.assign(deptDB[key][storeName].sales||{},sales);
+    }
     localStorage.setItem("deptDB",JSON.stringify(deptDB));
     renderDeptAllStores();
     var msg=document.getElementById("deptSaveMsg");
-    if(msg){msg.textContent="✅ "+storeName+" 매출 기입 완료!";setTimeout(function(){msg.textContent="";},2500);}
+    if(msg){msg.textContent="✅ "+storeName+" 매출 기입 완료!";setTimeout(function(){msg.textContent="";},3000);}
     input.value="";
   };
   reader.readAsArrayBuffer(file);
 }
+
 
 function loadStoreBest(input,si){
   var file=input.files[0];if(!file)return;
@@ -1244,30 +1260,71 @@ function loadStoreBest(input,si){
     var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
     var ws=wb.Sheets[wb.SheetNames[0]];
     var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
-    var colProdName=-1,colProdQty=-1,colProdInv=-1,colProdSt=-1;
-    var products=[],headerFound=false;
-    for(var r=0;r<rows.length;r++){
+    var colName=-1,colQty=-1,colInv=-1,colSt=-1;
+    var headerRow=-1;
+    // Find header row - look for 상품명 or 품명 or 제품명
+    for(var r=0;r<Math.min(30,rows.length);r++){
       var row=rows[r];
-      var rs=row.map(function(c){return String(c||"").trim();}).join("|");
-      if(!headerFound&&rs.indexOf("상품명")>=0){
-        for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();
-          if(v==="상품명")colProdName=c;
-          if(v==="판매수량")colProdQty=c;
-          if(v==="매장재고"||v==="재고")colProdInv=c;
-          if(v==="재고상태")colProdSt=c;}
-        headerFound=true;continue;
+      var hasNameCol=false;
+      for(var c=0;c<row.length;c++){
+        var v=String(row[c]||"").trim();
+        if(!v)continue;
+        if(/상품명|품명|제품명|상품|아이템/.test(v)&&colName<0){colName=c;hasNameCol=true;}
+        if(/판매수량|수량|판매량|판매|qty/i.test(v)&&colQty<0)colQty=c;
+        if(/매장재고|재고량|재고/i.test(v)&&!(/상태/.test(v))&&colInv<0)colInv=c;
+        if(/재고상태|상태|status/i.test(v)&&colSt<0)colSt=c;
       }
-      if(headerFound){
-        var fv="";for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();if(v){fv=v;break;}}
-        var rank=parseInt(fv);
-        if(rank>=1&&rank<=10){
-          var pName=colProdName>=0?String(row[colProdName]||"").trim():"";
-          var pQty=colProdQty>=0?getNum(row,colProdQty):0;
-          var pInv=colProdInv>=0?getNum(row,colProdInv):0;
-          var pSt=colProdSt>=0?String(row[colProdSt]||"").trim():"";
-          if(!pSt)pSt=(pInv>0&&pInv<10)?"부족":"정상";
-          products.push({name:pName,qty:pQty,inv:pInv,status:pSt,action:""});
+      if(hasNameCol){headerRow=r;break;}
+    }
+    var products=[];
+    if(headerRow>=0){
+      // Parse data rows after header
+      for(var r=headerRow+1;r<rows.length&&products.length<10;r++){
+        var row=rows[r];
+        var pName=colName>=0?String(row[colName]||"").trim():"";
+        // If name column is empty, try scanning the row for non-numeric text
+        if(!pName){
+          for(var c=0;c<row.length;c++){
+            var v=String(row[c]||"").trim();
+            if(v&&isNaN(Number(v))&&v.length>1){pName=v;break;}
+          }
         }
+        if(!pName)continue;
+        // Skip if pName is a number (rank), a header, or a section label
+        if(/^\d+$/.test(pName)&&Number(pName)>10)continue;
+        if(/상품명|품명|합계|소계|합산|total/i.test(pName))continue;
+        // If first non-empty cell is a number 1-10, pName might be the rank - get actual name
+        var firstNum=-1;
+        for(var c=0;c<row.length;c++){
+          var v=String(row[c]||"").trim();
+          if(v){var n=parseInt(v);if(n>=1&&n<=10){firstNum=n;break;}}
+        }
+        if(firstNum>=1&&colName>=0&&String(row[colName]||"").trim()){
+          pName=String(row[colName]||"").trim();
+        }
+        if(!pName)continue;
+        var pQty=colQty>=0?getNum(row,colQty):0;
+        var pInv=colInv>=0?getNum(row,colInv):0;
+        var pSt=colSt>=0?String(row[colSt]||"").trim():"";
+        if(!pSt||pSt==="0")pSt=(pInv>0&&pInv<10)?"부족":"정상";
+        products.push({name:pName,qty:pQty,inv:pInv,status:pSt,action:""});
+      }
+    }else{
+      // No header found: treat first sheet rows as products directly
+      for(var r=0;r<Math.min(15,rows.length)&&products.length<10;r++){
+        var row=rows[r];
+        var pName="";
+        for(var c=0;c<row.length;c++){
+          var v=String(row[c]||"").trim();
+          if(v&&isNaN(Number(v))&&v.length>1){pName=v;colName=c;break;}
+        }
+        if(!pName)continue;
+        var pQty=0,pInv=0;
+        for(var c=colName+1;c<row.length;c++){
+          var n=getNum(row,c);if(n>0&&pQty===0)pQty=n;
+          else if(n>0&&pInv===0)pInv=n;
+        }
+        products.push({name:pName,qty:pQty,inv:pInv,status:pInv>0&&pInv<10?"부족":"정상",action:""});
       }
     }
     if(products.length){
@@ -1280,12 +1337,16 @@ function loadStoreBest(input,si){
       localStorage.setItem("deptDB",JSON.stringify(deptDB));
       renderDeptAllStores();
       var msg=document.getElementById("deptSaveMsg");
-      if(msg){msg.textContent="✅ "+storeName+" 베스트상품 기입 완료!";setTimeout(function(){msg.textContent="";},2500);}
+      if(msg){msg.textContent="✅ "+storeName+" 베스트 "+products.filter(function(p){return p.name;}).length+"개 기입 완료!";setTimeout(function(){msg.textContent="";},3000);}
+    }else{
+      var msg=document.getElementById("deptSaveMsg");
+      if(msg){msg.textContent="⚠️ 상품 데이터를 찾을 수 없습니다";setTimeout(function(){msg.textContent="";},4000);}
     }
     input.value="";
   };
   reader.readAsArrayBuffer(file);
 }
+
 
 function saveDept(){
   var key=getDPKey();
