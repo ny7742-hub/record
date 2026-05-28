@@ -191,8 +191,8 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
 .pn-input:focus{outline:none;border-color:#6366f1}
 .dept-save-btn{padding:11px 32px;background:#4f46e5;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
 .dept-save-btn:hover{background:#4338ca}
-.dept-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;align-items:flex-start;width:100%}
-.dept-col{flex-shrink:0;width:320px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:12px}
+.dept-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding-bottom:10px;align-items:start}
+.dept-col{min-width:0;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:12px}
 .dept-col-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1.5px solid #e0e7ff}
 .dept-col-hd .store-name{font-size:12px;font-weight:700;color:#1a1a2e}
 .dept-col .m-sec-title{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin:8px 0 5px}
@@ -1512,91 +1512,129 @@ function loadStoreBest(input,si){
   var file=input.files[0];if(!file)return;
   var storeName=deptStores[si];
   var reader=new FileReader();
-  reader.onload=function(e){
-    var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+  reader.onload=async function(e){
+    var ab=e.target.result;
+    var wb=XLSX.read(ab,{type:"array",cellDates:true});
     var ws=wb.Sheets[wb.SheetNames[0]];
     var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
-    var colName=-1,colQty=-1,colInv=-1,colSt=-1;
-    var headerRow=-1;
-    // Find header row - look for 상품명 or 품명 or 제품명
+
+    // ── xlsx(zip) 내 drawing XML 추출 → 이미지 URL 파싱 ──────────────────
+    async function extractZipEntry(buffer,nameFragment){
+      var d=new Uint8Array(buffer);
+      var i=0;
+      while(i<d.length-30){
+        if(d[i]===0x50&&d[i+1]===0x4B&&d[i+2]===0x03&&d[i+3]===0x04){
+          var method=d[i+8]|(d[i+9]<<8);
+          var compSz=d[i+18]|(d[i+19]<<8)|(d[i+20]<<16)|(d[i+21]<<24);
+          var fnLen=d[i+26]|(d[i+27]<<8);
+          var exLen=d[i+28]|(d[i+29]<<8);
+          var fn=new TextDecoder().decode(d.slice(i+30,i+30+fnLen));
+          var ds=i+30+fnLen+exLen;
+          if(fn.indexOf(nameFragment)>=0){
+            var chunk=d.slice(ds,ds+compSz);
+            if(method===0)return new TextDecoder().decode(chunk);
+            if(method===8&&typeof DecompressionStream!=='undefined'){
+              try{
+                var dc=new DecompressionStream('deflate-raw');
+                var w=dc.writable.getWriter();
+                var r=dc.readable.getReader();
+                w.write(chunk);w.close();
+                var parts=[],tot=0;
+                while(true){var rd=await r.read();if(rd.done)break;parts.push(rd.value);tot+=rd.value.length;}
+                var out=new Uint8Array(tot),off=0;
+                for(var p of parts){out.set(p,off);off+=p.length;}
+                return new TextDecoder().decode(out);
+              }catch(er){}
+            }
+          }
+          if(compSz>0)i=ds+compSz; else i++;
+        }else i++;
+      }
+      return null;
+    }
+    function parseDrawingImgs(xml){
+      var map={};if(!xml)return map;
+      var re=/<xdr:oneCellAnchor>([\s\S]*?)<\/xdr:oneCellAnchor>/g,m;
+      while((m=re.exec(xml))!==null){
+        var blk=m[1];
+        var rm=/<xdr:row>(\d+)<\/xdr:row>/.exec(blk);
+        var um=/descr="([^"]*https?:\/\/[^"]+)"/.exec(blk);
+        if(rm&&um)map[parseInt(rm[1])]=um[1];
+      }
+      return map;
+    }
+    var drawingXml=await extractZipEntry(ab,'drawings/drawing');
+    var rowImgs=parseDrawingImgs(drawingXml);
+
+    // ── 헤더 행 탐색 & 컬럼 매핑 ─────────────────────────────────────────
+    var colName=-1,colQty=-1,colInv=-1,colSt=-1,headerRow=-1;
     for(var r=0;r<Math.min(30,rows.length);r++){
-      var row=rows[r];
-      var hasNameCol=false;
+      var row=rows[r];var hasNameCol=false;
       for(var c=0;c<row.length;c++){
-        var v=String(row[c]||"").trim();
+        var v=String(row[c]||"").replace(/[\n\r]/g," ").trim();
         if(!v)continue;
-        // 상품명: "상품코드/번호" 는 제외, 수량: "판매금액/매출" 은 제외
+        // 상품명 (상품코드·번호 제외)
         if(/상품명|품명|제품명|아이템/.test(v)&&colName<0){colName=c;hasNameCol=true;}
         else if(/^상품$/.test(v)&&!/코드|번호|code/i.test(v)&&colName<0){colName=c;hasNameCol=true;}
-        if(/판매수량|판매량|qty/i.test(v)&&colQty<0)colQty=c;
+        // 수량: 기간판매 우선 → 판매수량 → 수량 → 판매(금액류 제외)
+        if(/기간.*수량|기간판매/.test(v)&&colQty<0)colQty=c;
+        else if(/판매수량|판매량|qty/i.test(v)&&colQty<0)colQty=c;
         else if(/^수량$/.test(v)&&colQty<0)colQty=c;
-        else if(/판매/.test(v)&&!/금액|원|매출|액|합계/i.test(v)&&colQty<0)colQty=c;
-        if(/매장재고|재고량|재고/i.test(v)&&!(/상태/.test(v))&&colInv<0)colInv=c;
+        else if(/판매/.test(v)&&!/금액|원|매출|액|합계|입고|출고|총판매/i.test(v)&&colQty<0)colQty=c;
+        // 재고
+        if(/매장재고|재고량|재고/i.test(v)&&!/상태/.test(v)&&colInv<0)colInv=c;
         if(/재고상태|상태|status/i.test(v)&&colSt<0)colSt=c;
       }
       if(hasNameCol){headerRow=r;break;}
     }
+
+    // ── 상품 목록 생성 ────────────────────────────────────────────────────
     var products=[];
+    function fmt2(n){return n?Number(n).toLocaleString():"-";}
     if(headerRow>=0){
-      // Parse data rows after header
       for(var r=headerRow+1;r<rows.length&&products.length<10;r++){
         var row=rows[r];
         var pName=colName>=0?String(row[colName]||"").trim():"";
-        // If name column is empty, try scanning the row for non-numeric text
         if(!pName){
-          for(var c=0;c<row.length;c++){
-            var v=String(row[c]||"").trim();
-            if(v&&isNaN(Number(v))&&v.length>1){pName=v;break;}
-          }
+          for(var c=0;c<row.length;c++){var v=String(row[c]||"").trim();if(v&&isNaN(Number(v))&&v.length>1){pName=v;break;}}
         }
         if(!pName)continue;
-        // Skip if pName is a number (rank), a header, or a section label
         if(/^\d+$/.test(pName)&&Number(pName)>10)continue;
         if(/상품명|품명|합계|소계|합산|total/i.test(pName))continue;
-        // If first non-empty cell is a number 1-10, pName might be the rank - get actual name
-        var firstNum=-1;
-        for(var c=0;c<row.length;c++){
-          var v=String(row[c]||"").trim();
-          if(v){var n=parseInt(v);if(n>=1&&n<=10){firstNum=n;break;}}
-        }
-        if(firstNum>=1&&colName>=0&&String(row[colName]||"").trim()){
-          pName=String(row[colName]||"").trim();
-        }
-        if(!pName)continue;
         var pQty=colQty>=0?getNum(row,colQty):0;
         var pInv=colInv>=0?getNum(row,colInv):0;
         var pSt=colSt>=0?String(row[colSt]||"").trim():"";
         if(!pSt||pSt==="0")pSt=(pInv>0&&pInv<10)?"부족":"정상";
-        products.push({name:pName,qty:pQty,inv:pInv,status:pSt,action:""});
+        // 이미지: drawing row = 헤더 다음 행부터 1-indexed
+        var imgKey=headerRow+1+(products.length); // drawing row (0-based)
+        var imgUrl=rowImgs[imgKey]||"";
+        products.push({name:pName,qty:pQty,inv:pInv,status:pSt,action:"",img:imgUrl});
       }
     }else{
-      // No header found: treat first sheet rows as products directly
       for(var r=0;r<Math.min(15,rows.length)&&products.length<10;r++){
-        var row=rows[r];
-        var pName="";
-        var pNameCol=-1;
+        var row=rows[r];var pName="";var pNameCol=-1;
         for(var c=0;c<row.length;c++){
           var v=String(row[c]||"").trim();
           if(v&&isNaN(Number(v))&&v.length>1){pName=v;pNameCol=c;break;}
         }
         if(!pName)continue;
-        // 헤더·집계 행 건너뜀
         if(/브랜드|영업점|영업일|매출액|기간|합계|소계|총계|상품명|품명|수량|재고|상태/i.test(pName))continue;
-        if(/화이트샌즈|whitesands/i.test(pName)&&pNameCol===0)continue;// 브랜드명 행 스킵
+        if(/화이트샌즈|whitesands/i.test(pName)&&pNameCol===0)continue;
         var pQty=0,pInv=0;
         for(var c=pNameCol+1;c<row.length;c++){
           var n=getNum(row,c);if(n>0&&pQty===0)pQty=n;
           else if(n>0&&pInv===0)pInv=n;
         }
-        products.push({name:pName,qty:pQty,inv:pInv,status:pInv>0&&pInv<10?"부족":"정상",action:""});
+        products.push({name:pName,qty:pQty,inv:pInv,status:pInv>0&&pInv<10?"부족":"정상",action:"",img:""});
       }
     }
+
     if(products.length){
       var key=getDPKey()||("upload_"+Date.now());
       curDeptKey=key;
       if(!deptDB[key])deptDB[key]={};
       if(!deptDB[key][storeName])deptDB[key][storeName]={};
-      while(products.length<10)products.push({name:"",qty:"",inv:"",status:"정상",action:""});
+      while(products.length<10)products.push({name:"",qty:"",inv:"",status:"정상",action:"",img:""});
       deptDB[key][storeName].products=products.slice(0,10);
       localStorage.setItem("deptDB",JSON.stringify(deptDB));
       renderDeptAllStores();
