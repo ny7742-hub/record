@@ -876,19 +876,22 @@ function dlSelected(){
   if(!cart.length) return;
   var store=getStoreCode();
   var date=document.getElementById("saleDate").value.trim();
-  /* PlayMD 업로드 형식: 매장코드|판매일자|바코드|판매수량|판매단가|비고 */
-  var hds=["매장코드","판매일자(8자리 숫자만)","바코드","판매수량","판매단가","비고"];
+  /* PlayMD 업로드 형식(앞 6열) + 확인용(뒤 4열) — 업로드 전 뒤 4열 삭제 */
+  var hds=["매장코드","판매일자(8자리 숫자만)","바코드","판매수량","판매단가","비고",
+           "[확인]상품명","[확인]컬러코드","[확인]TAG가","[확인]할인율(%)"];
   var wsData=[hds];
   var reversed=[].concat(cart).reverse();
   reversed.forEach(function(row){
     var r=row.item;var bc=r["바코드1"]||r["바코드2"]||"";
     var tag=Number(r["TAG가"])||0;
     var fin=tag?Math.round(tag*(1-row.disc/100)):"";
-    wsData.push([store,date,bc,row.qty||1,fin,row.note||""]);
+    wsData.push([store,date,bc,row.qty||1,fin,row.note||"",
+                 r["상품명"]||"",r["칼라코드"]||"",tag||"",row.disc||"");
   });
   var wb=XLSX.utils.book_new();
   var ws=XLSX.utils.aoa_to_sheet(wsData);
-  ws["!cols"]=[{wch:10},{wch:16},{wch:16},{wch:8},{wch:12},{wch:20}];
+  ws["!cols"]=[{wch:10},{wch:16},{wch:16},{wch:8},{wch:12},{wch:16},
+               {wch:42},{wch:10},{wch:10},{wch:10}];
   XLSX.utils.book_append_sheet(wb,ws,"매장판매양식");
   XLSX.writeFile(wb,"판매목록_"+(store||"매장")+"_"+(date||"날짜")+".xlsx");
 }
