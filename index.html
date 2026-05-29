@@ -2229,6 +2229,16 @@ function ccMergeWeekMap(weekMap){
   });
   costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
   saveCostcoDB();
+  /* 업로드된 데이터의 월로 자동 이동 */
+  var _keys=Object.keys(weekMap).sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
+  if(_keys.length){
+    var _last=_keys[_keys.length-1];
+    var _mm=_last.match(/^(\d+)\//);
+    var _mEl=document.getElementById("ccMonth");
+    var _yEl=document.getElementById("ccYear");
+    if(_mm&&_mEl)_mEl.value=parseInt(_mm[1]);
+    if(_yEl)_yEl.value=new Date().getFullYear();
+  }
   renderCostcoPage();
   var msg=document.getElementById("costcoMsg");
   if(msg){
@@ -2342,19 +2352,27 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
 })();
 
 function ccGetMonthPeriods(){
-  /* 선택된 월에 해당하는 주간 기간 목록 반환 */
+  /* 선택된 연/월로 주간 기간(월~일)을 직접 계산 */
+  var yEl=document.getElementById("ccYear");
   var mEl=document.getElementById("ccMonth");
-  if(!mEl)return costcoDB.periods;
-  var m=parseInt(mEl.value);
-  return costcoDB.periods.filter(function(p){
-    /* "M/D~M/D" 형식 */
-    var r1=p.match(/^(\d+)\/\d+~/);
-    if(r1)return parseInt(r1[1])===m;
-    /* "N월" 형식 (하위호환) */
-    var r2=p.match(/^(\d+)월$/);
-    if(r2)return parseInt(r2[1])===m;
-    return false;
-  });
+  if(!yEl||!mEl)return [];
+  var year=parseInt(yEl.value);
+  var month=parseInt(mEl.value);
+  var firstDay=new Date(year,month-1,1);
+  var lastDay=new Date(year,month,0);
+  var periods=[];
+  var dow=firstDay.getDay();
+  var toMon=dow===0?-6:1-dow;
+  var cur=new Date(year,month-1,1+toMon);
+  while(cur<=lastDay){
+    var mon=new Date(cur);
+    var sun=new Date(cur);
+    sun.setDate(sun.getDate()+6);
+    var p=(mon.getMonth()+1)+"/"+mon.getDate()+"~"+(sun.getMonth()+1)+"/"+sun.getDate();
+    periods.push(p);
+    cur.setDate(cur.getDate()+7);
+  }
+  return periods;
 }
 
 function ccAutoCalcCumul(prodName,color){
