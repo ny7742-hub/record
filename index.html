@@ -151,6 +151,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .wci-row input[type=checkbox]{flex-shrink:0;margin-top:2px;width:14px;height:14px;cursor:pointer;accent-color:#4f46e5}
 .wci-row .ci-text{flex:1;min-width:0;font-size:12px;color:#374151;word-break:break-all;overflow-wrap:anywhere;line-height:1.5}
 .wci-row .ci-text.done{text-decoration:line-through;color:#9ca3af}
+.wci-row .ci-text:empty:before{content:attr(data-placeholder);color:#c4c9d4;pointer-events:none}
 .wci-row .ci-del{background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;padding:0 2px;line-height:1;flex-shrink:0;margin-top:1px}
 .week-col{min-width:0;overflow:hidden}
 .wci-add{display:flex;gap:6px;margin-top:6px}
@@ -2051,7 +2052,10 @@ function renderMeetingGrid(){
   ranges.forEach(function(r){
     var wk=r.key;
     var rec=monthData[wk]||{};
-    mCiLists[wk]=(rec.checklist||[]).map(function(c){return{text:c.text,done:c.done};});
+    /* 저장 데이터 없으면 기본 5개 빈 항목 */
+    mCiLists[wk]=(rec.checklist&&rec.checklist.length>0)
+      ?rec.checklist.map(function(c){return{text:c.text,done:c.done};})
+      :[{text:"",done:false},{text:"",done:false},{text:"",done:false},{text:"",done:false},{text:"",done:false}];
   });
   var html="";
   ranges.forEach(function(r){
@@ -2059,14 +2063,18 @@ function renderMeetingGrid(){
     var rec=monthData[wk]||{};
     html+='<div class="week-col" id="wkcol-'+wk+'">';
     html+='<div class="week-col-hd">'+r.label+'</div>';
-    html+='<div class="m-sec-title">📌 주간 내용</div>';
-    html+='<textarea class="meeting-textarea" id="mContent-'+wk+'" placeholder="주요 내용 입력..." style="min-height:160px" oninput="autoSaveMeeting()">'+escH(rec.weekContent||"")+'</textarea>';
-    html+='<div class="m-sec-title" style="margin-top:10px">✅ 체크리스트</div>';
-    html+='<div id="mChecklist-'+wk+'"></div>';
-    html+='<div class="wci-add">';
-    html+='<input type="text" id="mCiInput-'+wk+'" placeholder="항목 입력 후 Enter" onkeydown="if(event.key===\'Enter\')addMCiWeek(\''+wk+'\')"/>';
-    html+='<button onclick="addMCiWeek(\''+wk+'\')">+</button>';
+    /* 주간 내용 헤더 + 줄 추가 버튼 */
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+    html+='<div class="m-sec-title" style="margin-bottom:0;border-bottom:none">📌 주간 내용</div>';
+    html+='<button onclick="addMRow(\''+wk+'\')" style="font-size:10px;padding:2px 8px;background:#ede9fe;color:#6366f1;border:1px solid #c7d2fe;border-radius:5px;cursor:pointer;font-weight:600;white-space:nowrap">+ 줄 추가</button>';
     html+='</div>';
+    html+='<textarea class="meeting-textarea" id="mContent-'+wk+'" rows="10" placeholder="주요 내용 입력..." oninput="autoSaveMeeting()">'+escH(rec.weekContent||"")+'</textarea>';
+    /* 체크리스트 헤더 + 줄 추가 버튼 */
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;margin-bottom:6px">';
+    html+='<div class="m-sec-title" style="margin-bottom:0;border-bottom:none">✅ 체크리스트</div>';
+    html+='<button onclick="addBlankMCi(\''+wk+'\')" style="font-size:10px;padding:2px 8px;background:#ede9fe;color:#6366f1;border:1px solid #c7d2fe;border-radius:5px;cursor:pointer;font-weight:600;white-space:nowrap">+ 줄 추가</button>';
+    html+='</div>';
+    html+='<div id="mChecklist-'+wk+'"></div>';
     html+='</div>';
   });
   grid.innerHTML=html;
@@ -2081,9 +2089,12 @@ function renderMCiWeek(wk){
   var list=mCiLists[wk]||[];
   var h="";
   list.forEach(function(item,i){
+    var doneStyle=item.done?"text-decoration:line-through;color:#9ca3af;":"";
     h+='<div class="wci-row">'+
       '<input type="checkbox" '+(item.done?"checked":"")+' onchange="mCiLists[\''+wk+'\']['+i+'].done=this.checked;renderMCiWeek(\''+wk+'\');autoSaveMeeting()"/>'+
-      '<span class="ci-text'+(item.done?" done":"")+'">'+escH(item.text)+'</span>'+
+      '<span class="ci-text'+(item.done?" done":"")+'" contenteditable="true" style="outline:none;flex:1;min-width:0;'+doneStyle+'" '+
+        'onblur="mCiLists[\''+wk+'\']['+i+'].text=this.textContent.trim();autoSaveMeeting()" '+
+        'data-placeholder="항목 입력...">'+escH(item.text)+'</span>'+
       '<button class="ci-del" onclick="mCiLists[\''+wk+'\'].splice('+i+',1);renderMCiWeek(\''+wk+'\');autoSaveMeeting()">×</button>'+
       '</div>';
   });
@@ -2092,14 +2103,27 @@ function renderMCiWeek(wk){
 
 function addMCiWeek(wk){
   var inp=document.getElementById("mCiInput-"+wk);
-  var t=inp.value.trim();
+  var t=inp?inp.value.trim():"";
   if(!t)return;
   if(!mCiLists[wk])mCiLists[wk]=[];
   mCiLists[wk].push({text:t,done:false});
-  inp.value="";
+  if(inp){inp.value="";inp.focus();}
   renderMCiWeek(wk);
-  inp.focus();
   autoSaveMeeting();
+}
+function addBlankMCi(wk){
+  if(!mCiLists[wk])mCiLists[wk]=[];
+  mCiLists[wk].push({text:"",done:false});
+  renderMCiWeek(wk);
+  autoSaveMeeting();
+  setTimeout(function(){
+    var el=document.getElementById("mChecklist-"+wk);
+    if(el){var spans=el.querySelectorAll("[contenteditable]");if(spans.length)spans[spans.length-1].focus();}
+  },50);
+}
+function addMRow(wk){
+  var ta=document.getElementById("mContent-"+wk);
+  if(ta)ta.rows=(parseInt(ta.rows)||10)+1;
 }
 
 var mSaveTimer=null;
