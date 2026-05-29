@@ -452,13 +452,13 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
       <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none;font-size:13px">🏬 백화점 주간 현황</div>
       <button class="bs" style="padding:4px 10px;font-size:11px" onclick="addDeptStore()">+ 매장</button>
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:4px">영업기간</span>
-      <input type="date" id="dPeriodStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="deptWeekSnap(this.value)"/>
-      <span style="color:#9ca3af;font-size:11px">~</span>
-      <input type="date" id="dPeriodEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="renderDeptPage()"/>
-      <span style="font-size:11px;font-weight:600;color:#555;margin-left:6px">대비기간</span>
-      <input type="date" id="dCompStart" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="renderDeptPage()"/>
-      <span style="color:#9ca3af;font-size:11px">~</span>
-      <input type="date" id="dCompEnd" class="date-inp" style="padding:4px 6px;font-size:11px;width:120px" onchange="renderDeptPage()"/>
+      <input type="date" id="dPeriodStart" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="deptWeekSnap(this.value)"/>
+      <span style="color:#9ca3af;font-size:12px">~</span>
+      <input type="date" id="dPeriodEnd" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="renderDeptPage()"/>
+      <span style="font-size:12px;font-weight:600;color:#374151;margin-left:6px">대비기간</span>
+      <input type="date" id="dCompStart" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="renderDeptPage()"/>
+      <span style="color:#9ca3af;font-size:12px">~</span>
+      <input type="date" id="dCompEnd" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="renderDeptPage()"/>
       <span id="deptSaveMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
     </div>
   </div>
@@ -1010,23 +1010,27 @@ function deptWeekSnap(dateStr){
   renderDeptPage();
 }
 
-(function initDeptDates(){
+function initDeptDates(){
   // 가장 최근 완료된 주(일요일까지 끝난 주)의 월요일 기준으로 초기화
   var now=new Date();
-  var day=now.getDay(); // 0=일,1=월..6=토
-  // 오늘이 일요일이면 이번 주 월~일, 그 외에는 지난 주 월~일
+  var day=now.getDay();
   var lastSun=new Date(now);
-  if(day!==0)lastSun.setDate(now.getDate()-day); // 지난 일요일
+  if(day!==0)lastSun.setDate(now.getDate()-day);
   var mon=dMonday(lastSun);
   var sun=new Date(lastSun);
-  document.getElementById("dPeriodStart").value=dFmt(mon);
-  document.getElementById("dPeriodEnd").value=dFmt(sun);
+  var s1=document.getElementById("dPeriodStart");
+  var s2=document.getElementById("dPeriodEnd");
+  var c1=document.getElementById("dCompStart");
+  var c2=document.getElementById("dCompEnd");
+  if(s1&&!s1.value)s1.value=dFmt(mon);
+  if(s2&&!s2.value)s2.value=dFmt(sun);
   var cMon=new Date(mon);cMon.setDate(mon.getDate()-364);
   var cSun=new Date(sun);cSun.setDate(sun.getDate()-364);
-  document.getElementById("dCompStart").value=dFmt(cMon);
-  document.getElementById("dCompEnd").value=dFmt(cSun);
+  if(c1&&!c1.value)c1.value=dFmt(cMon);
+  if(c2&&!c2.value)c2.value=dFmt(cSun);
   updateDayLabels();
-})();
+}
+initDeptDates();
 
 function updateDayLabels(){}
 
@@ -1990,7 +1994,7 @@ function switchTab(tab){
   document.getElementById("tab-dept").classList.toggle("active",tab==="dept");
   document.getElementById("tab-costco").classList.toggle("active",tab==="costco");
   if(tab==="meeting") renderMeetingGrid();
-  if(tab==="dept") renderDeptPage();
+  if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="costco") renderCostcoPage();
 }
 
