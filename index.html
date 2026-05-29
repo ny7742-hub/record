@@ -369,7 +369,11 @@ tr.kb-focus td:first-child{border-left:3px solid #4f46e5}
       <button class="bs" onclick="clrSearch()">초기화</button>
       <button class="bg" id="dlBtn" onclick="dlSelected()" disabled>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        선택 항목 엑셀 다운로드
+        확인용 다운로드
+      </button>
+      <button class="bg" id="playmdBtn" onclick="dlPlayMD()" disabled style="background:#059669">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        PlayMD 업로드
       </button>
     </div>
   </div>
@@ -835,6 +839,7 @@ function renderCart(highlight){
   var hasCart=cart.length>0;
   document.getElementById("cCount").textContent=hasCart?"("+cart.length+"건)":"";
   document.getElementById("dlBtn").disabled=!hasCart;
+  document.getElementById("playmdBtn").disabled=!hasCart;
   document.getElementById("bulkBar").style.display=hasCart?"flex":"none";
   var catPanel=document.getElementById("catPanel");
   if(hasCart){catPanel.style.display="block";renderCatPanel();}
@@ -870,6 +875,35 @@ function renderCart(highlight){
     if(tag){var fin=Math.round(tag*(1-row.disc/100));total+=fin*(row.qty||1);}
   });
   document.getElementById("totalAmt").textContent=total.toLocaleString()+"원";
+}
+
+function dlPlayMD(){
+  if(!cart.length) return;
+  var store=getStoreCode();
+  var date=document.getElementById("saleDate").value.trim().replace(/-/g,"");
+  /* PlayMD 업로드 전용: 6컬럼, 바코드 텍스트 강제 */
+  var hds=["매장코드","판매일자","바코드","판매수량","판매단가","비고"];
+  var wsData=[hds];
+  var reversed=[].concat(cart).reverse();
+  reversed.forEach(function(row){
+    var r=row.item;
+    var bc=String(r["바코드1"]||r["바코드2"]||"");
+    var tag=Number(r["TAG가"])||0;
+    var fin=tag?Math.round(tag*(1-row.disc/100)):0;
+    wsData.push([
+      {t:'s',v:store},
+      {t:'s',v:date},
+      {t:'s',v:bc},
+      {t:'n',v:row.qty||1},
+      {t:'n',v:fin},
+      {t:'s',v:row.note||""}
+    ]);
+  });
+  var wb=XLSX.utils.book_new();
+  var ws=XLSX.utils.aoa_to_sheet(wsData);
+  ws["!cols"]=[{wch:10},{wch:12},{wch:16},{wch:8},{wch:12},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws,"매장판매양식");
+  XLSX.writeFile(wb,"PlayMD_"+(store||"매장")+"_"+(date||"날짜")+".xlsx");
 }
 
 function dlSelected(){
