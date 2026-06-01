@@ -452,7 +452,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 <div class="main">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none;font-size:13px">🏬 백화점 주간 현황</div>
+      <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none;font-size:13px" id="deptPageTitle">🏬 백화점 주간 현황</div>
       <button class="bs" style="padding:4px 10px;font-size:11px" onclick="addDeptStore()">+ 매장</button>
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:4px">영업기간</span>
       <input type="date" id="dPeriodStart" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="deptWeekSnap(this.value)"/>
@@ -474,6 +474,14 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
       <span style="color:#9ca3af;font-size:12px">~</span>
       <input type="date" id="dCompEnd" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="renderDeptPage()"/>
       <span id="deptSaveMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+    </div>
+    <!-- 월간 매출 업로드 섹션 -->
+    <div id="monthlyUploadSection" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid #e0e7ff">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:12px;font-weight:700;color:#4f46e5">📊 월간 매출 업로드</span>
+        <span id="monthlyUploadLabel" style="font-size:11px;color:#6366f1;font-weight:600"></span>
+      </div>
+      <div id="monthlyStoreUploads" style="display:flex;flex-wrap:wrap;gap:8px"></div>
     </div>
   </div>
   <div id="deptScrollMirror"><div id="deptScrollMirrorInner"></div></div>
@@ -1120,11 +1128,15 @@ function deptWeekSnap(dateStr){
   var sun=new Date(mon);sun.setDate(mon.getDate()+6);
   document.getElementById("dPeriodStart").value=dFmt(mon);
   document.getElementById("dPeriodEnd").value=dFmt(sun);
-  // 전년 동기간: 364일(52주) 전 → 요일 정렬 유지
   var cMon=new Date(mon);cMon.setDate(mon.getDate()-364);
   var cSun=new Date(sun);cSun.setDate(sun.getDate()-364);
   document.getElementById("dCompStart").value=dFmt(cMon);
   document.getElementById("dCompEnd").value=dFmt(cSun);
+  /* 주간 모드: 월간 업로드 섹션 숨기기, 제목 초기화 */
+  var sec=document.getElementById("monthlyUploadSection");
+  if(sec)sec.style.display="none";
+  var title=document.getElementById("deptPageTitle");
+  if(title)title.textContent="🏬 백화점 주간 현황";
   renderDeptPage();
 }
 
@@ -1183,19 +1195,40 @@ function deptMonthSnap(){
   if(!yEl||!mEl)return;
   var y=parseInt(yEl.value);
   var m=parseInt(mEl.value);
-  // 영업기간: 선택 월 1일 ~ 말일
   var first=new Date(y,m-1,1);
   var last=new Date(y,m,0);
   document.getElementById("dPeriodStart").value=dFmt(first);
   document.getElementById("dPeriodEnd").value=dFmt(last);
-  // 대비기간: 전년 동월
   var cFirst=new Date(y-1,m-1,1);
   var cLast=new Date(y-1,m,0);
   document.getElementById("dCompStart").value=dFmt(cFirst);
   document.getElementById("dCompEnd").value=dFmt(cLast);
   var el=document.getElementById("deptMonthPicker");
   if(el)el.style.display="none";
+  /* 제목 업데이트 */
+  var title=document.getElementById("deptPageTitle");
+  if(title)title.textContent="🏬 백화점 "+y+"년 "+m+"월 현황";
+  /* 월간 업로드 섹션 표시 */
+  renderMonthlyUploadSection(y,m);
   renderDeptPage();
+}
+
+function renderMonthlyUploadSection(y,m){
+  var sec=document.getElementById("monthlyUploadSection");
+  var lbl=document.getElementById("monthlyUploadLabel");
+  var wrap=document.getElementById("monthlyStoreUploads");
+  if(!sec||!wrap)return;
+  sec.style.display="block";
+  if(lbl)lbl.textContent=y+"년 "+m+"월";
+  var h="";
+  deptStores.forEach(function(store,si){
+    var safeId="mu_"+si;
+    h+='<label style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1.5px solid #c7d2fe;border-radius:8px;background:#f5f3ff;font-size:11px;font-weight:600;color:#4f46e5;white-space:nowrap">'
+      +'📂 '+store
+      +'<input type="file" id="'+safeId+'" accept=".xlsx,.xls" style="display:none" onchange="loadStoreSales(this,'+si+')"/>'
+      +'</label>';
+  });
+  wrap.innerHTML=h;
 }
 /* 외부 클릭 시 월간 팝업 닫기 */
 document.addEventListener("click",function(e){
