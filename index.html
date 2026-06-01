@@ -455,6 +455,9 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
       <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none;font-size:13px">🏬 백화점 주간 현황</div>
       <button class="bs" style="padding:4px 10px;font-size:11px" onclick="addDeptStore()">+ 매장</button>
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:4px">영업기간</span>
+      <select id="dMonthYear" onchange="deptMonthSnap()" style="padding:4px 6px;border:1.5px solid #d1d5db;border-radius:8px;font-size:12px;color:#374151;background:white"></select>
+      <select id="dMonthMon" onchange="deptMonthSnap()" style="padding:4px 6px;border:1.5px solid #d1d5db;border-radius:8px;font-size:12px;color:#374151;background:white"></select>
+      <span style="color:#9ca3af;font-size:11px;margin:0 2px">|</span>
       <input type="date" id="dPeriodStart" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="deptWeekSnap(this.value)"/>
       <span style="color:#9ca3af;font-size:12px">~</span>
       <input type="date" id="dPeriodEnd" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="renderDeptPage()"/>
@@ -1118,11 +1121,32 @@ function deptWeekSnap(dateStr){
 }
 
 function initDeptDates(){
-  // 가장 최근 완료된 주(일요일까지 끝난 주)의 월요일 기준으로 초기화
-  var now=new Date();
-  var day=now.getDay();
-  var lastSun=new Date(now);
-  if(day!==0)lastSun.setDate(now.getDate()-day);
+  // 연/월 드롭다운 초기화
+  var yEl=document.getElementById("dMonthYear");
+  var mEl=document.getElementById("dMonthMon");
+  if(yEl&&!yEl.options.length){
+    var now=new Date();
+    for(var y=now.getFullYear()-1;y<=now.getFullYear()+1;y++){
+      var o=document.createElement("option");
+      o.value=y;o.textContent=y+"년";
+      if(y===now.getFullYear())o.selected=true;
+      yEl.appendChild(o);
+    }
+  }
+  if(mEl&&!mEl.options.length){
+    var now2=new Date();
+    for(var m=1;m<=12;m++){
+      var o2=document.createElement("option");
+      o2.value=m;o2.textContent=m+"월";
+      if(m===now2.getMonth()+1)o2.selected=true;
+      mEl.appendChild(o2);
+    }
+  }
+  // 날짜 입력 초기화 (가장 최근 완료된 주)
+  var now3=new Date();
+  var day=now3.getDay();
+  var lastSun=new Date(now3);
+  if(day!==0)lastSun.setDate(now3.getDate()-day);
   var mon=dMonday(lastSun);
   var sun=new Date(lastSun);
   var s1=document.getElementById("dPeriodStart");
@@ -1138,6 +1162,25 @@ function initDeptDates(){
   updateDayLabels();
 }
 initDeptDates();
+
+function deptMonthSnap(){
+  var yEl=document.getElementById("dMonthYear");
+  var mEl=document.getElementById("dMonthMon");
+  if(!yEl||!mEl)return;
+  var y=parseInt(yEl.value);
+  var m=parseInt(mEl.value);
+  // 영업기간: 선택 월 1일 ~ 말일
+  var first=new Date(y,m-1,1);
+  var last=new Date(y,m,0);
+  document.getElementById("dPeriodStart").value=dFmt(first);
+  document.getElementById("dPeriodEnd").value=dFmt(last);
+  // 대비기간: 전년 동월
+  var cFirst=new Date(y-1,m-1,1);
+  var cLast=new Date(y-1,m,0);
+  document.getElementById("dCompStart").value=dFmt(cFirst);
+  document.getElementById("dCompEnd").value=dFmt(cLast);
+  renderDeptPage();
+}
 
 function updateDayLabels(){}
 
