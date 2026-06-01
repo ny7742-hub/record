@@ -2094,21 +2094,27 @@ function loadStoreBest(input,si){
     var colName=-1,colQty=-1,colInv=-1,colSt=-1,headerRow=-1;
     for(var r=0;r<Math.min(30,rows.length);r++){
       var row=rows[r];var hasNameCol=false;
+      /* 수량 컬럼: 강한매칭(판매수량)과 약한매칭(기타 판매)을 분리하여
+         컬럼 순서에 상관없이 강한매칭 우선 적용 */
+      var colQtyStrong=-1, colQtyWeak=-1;
       for(var c=0;c<row.length;c++){
         var v=String(row[c]||"").replace(/[\n\r]/g," ").trim();
         if(!v)continue;
         // 상품명 (상품코드·번호 제외)
         if(/상품명|품명|제품명|아이템/.test(v)&&colName<0){colName=c;hasNameCol=true;}
         else if(/^상품$/.test(v)&&!/코드|번호|code/i.test(v)&&colName<0){colName=c;hasNameCol=true;}
-        // 수량: 기간판매 우선 → 판매수량 → 수량 → 판매(금액·단가류 제외)
-        if(/기간.*수량|기간판매/.test(v)&&colQty<0)colQty=c;
-        else if(/판매수량|판매량|qty/i.test(v)&&colQty<0)colQty=c;
-        else if(/^수량$/.test(v)&&colQty<0)colQty=c;
-        else if(/판매/.test(v)&&!/금액|원|매출|액|합계|입고|출고|총판매|단가|가격|price|tag|태그|정가/i.test(v)&&colQty<0)colQty=c;
+        // 수량 강한매칭: 판매수량/기간판매/수량 (정확한 키워드)
+        if(/기간.*수량|기간판매/.test(v)&&colQtyStrong<0)colQtyStrong=c;
+        else if(/판매수량|판매량|qty/i.test(v)&&colQtyStrong<0)colQtyStrong=c;
+        else if(/^수량$/.test(v)&&colQtyStrong<0)colQtyStrong=c;
+        // 수량 약한매칭: '판매' 포함 but 가격류 제외
+        else if(/판매/.test(v)&&!/금액|원|매출|액|합계|입고|출고|총판매|단가|가격|price|tag|태그|정가|판매가|공급가|소비자가|행사가|정상가/i.test(v)&&colQtyWeak<0)colQtyWeak=c;
         // 재고
         if(/매장재고|재고량|재고/i.test(v)&&!/상태/.test(v)&&colInv<0)colInv=c;
         if(/재고상태|상태|status/i.test(v)&&colSt<0)colSt=c;
       }
+      /* 강한매칭 우선, 없으면 약한매칭 */
+      colQty = colQtyStrong>=0 ? colQtyStrong : colQtyWeak;
       if(hasNameCol){headerRow=r;break;}
     }
 
@@ -2126,6 +2132,8 @@ function loadStoreBest(input,si){
         if(/^\d+$/.test(pName)&&Number(pName)>10)continue;
         if(/상품명|품명|합계|소계|합산|total/i.test(pName))continue;
         var pQty=colQty>=0?getNum(row,colQty):0;
+        /* 수량이 5000 이상이면 가격으로 간주 → 재고 컬럼 값을 수량으로 대체 */
+        if(pQty>=5000&&colInv>=0){var tmp=getNum(row,colInv);if(tmp>0&&tmp<5000){pQty=tmp;}}
         var pInv=colInv>=0?getNum(row,colInv):0;
         var pSt=colSt>=0?String(row[colSt]||"").trim():"";
         if(!pSt||pSt==="0")pSt=(pInv>0&&pInv<10)?"부족":"정상";
