@@ -2706,6 +2706,18 @@ function ccAutoCalcCumul(prodName,color){
 function renderCostcoPage(){
   var periods=ccGetMonthPeriods();
   var prods=costcoDB.products;
+  /* 월 합계: 선택 월 1일 이후 시작 주차만 포함 */
+  var _yEl=document.getElementById("ccYear"),_mEl=document.getElementById("ccMonth");
+  var _year=_yEl?parseInt(_yEl.value):new Date().getFullYear();
+  var _month=_mEl?parseInt(_mEl.value):new Date().getMonth()+1;
+  var _monthFirst=new Date(_year,_month-1,1);
+  var monthPeriods=periods.filter(function(p){
+    var m=p.match(/^(\d+)\/(\d+)/);
+    if(!m)return false;
+    var ps=new Date(_year,parseInt(m[1])-1,parseInt(m[2]));
+    return ps>=_monthFirst;
+  });
+
   var h='<table class="cc-tbl"><colgroup>';
   h+='<col style="width:76px"><col style="width:54px"><col style="width:70px">';
   if(periods.length){
@@ -2722,7 +2734,7 @@ function renderCostcoPage(){
     periods.forEach(function(p){
       h+='<th colspan="2" class="cc-period-th">'+p+'</th>';
     });
-    h+='<th colspan="2" style="background:#1e40af;color:white;text-align:center;border-left:2px solid #93c5fd;font-size:10px;font-weight:700">월 합계</th>';
+    h+='<th colspan="2" style="background:#1e40af;color:white;text-align:center;border-left:2px solid #93c5fd;font-weight:700">'+_month+'월 합계</th>';
   }else{
     h+='<th style="color:#9ca3af;font-style:italic">데이터 없음<br><span style="font-size:9px">파일 업로드 후 표시</span></th>';
   }
@@ -2736,10 +2748,10 @@ function renderCostcoPage(){
   }
   h+='</thead><tbody>';
 
-  /* 월 합계 미리 계산 */
+  /* 월 합계: 1일 이후 주차만 합산 */
   var monthTotQty=0,monthTotAmt=0;
-  if(periods.length){
-    periods.forEach(function(p){var t=ccPeriodTotal(p);monthTotQty+=t.qty;monthTotAmt+=t.amount;});
+  if(monthPeriods.length){
+    monthPeriods.forEach(function(p){var t=ccPeriodTotal(p);monthTotQty+=t.qty;monthTotAmt+=t.amount;});
   }
 
   /* 누계 행 */
@@ -2775,17 +2787,22 @@ function renderCostcoPage(){
       h+='<td class="cc-cumul-cell cc-sticky-2" style="text-align:right">'+(cumulVal?fmtCC(cumulVal):'')+'</td>';
       h+='<td class="cc-color-cell cc-sticky-3">'+color+'</td>';
       if(periods.length){
-        var mQty=0,mAmt=0;
+        /* 주차별 셀 렌더링 */
         periods.forEach(function(period){
           var per=period.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
           var d=((costcoDB.sales[period]||{})[prod.name]||{})[color]||{};
-          mQty+=Number(d.qty||0); mAmt+=Number(d.amount||0);
           var nodata=!(d.qty||d.amount);
           var nd=nodata?' cc-nodata':'';
           h+='<td class="cc-num-cell'+nd+'" contenteditable="true" '+
             'onblur="ccSave(this,\''+pn+'\',\''+cn+'\',\''+per+'\',\'qty\')">'+(d.qty?fmtCC(d.qty):'')+'</td>';
           h+='<td class="cc-amt-cell'+nd+'" contenteditable="true" '+
             'onblur="ccSave(this,\''+pn+'\',\''+cn+'\',\''+per+'\',\'amount\')">'+(d.amount?fmtCC(d.amount):'')+'</td>';
+        });
+        /* 월 합계: 1일 이후 주차만 합산 */
+        var mQty=0,mAmt=0;
+        monthPeriods.forEach(function(period){
+          var d=((costcoDB.sales[period]||{})[prod.name]||{})[color]||{};
+          mQty+=Number(d.qty||0); mAmt+=Number(d.amount||0);
         });
         h+='<td class="cc-month-tot" style="border-left:2px solid #93c5fd">'+(mQty?fmtCC(mQty):'')+'</td>';
         h+='<td class="cc-month-tot" style="text-align:right">'+(mAmt?fmtCC(mAmt):'')+'</td>';
