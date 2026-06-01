@@ -1340,19 +1340,36 @@ function editDeptStore(si){
   setTimeout(function(){document.getElementById("smName").focus();},80);
 }
 
-// 월 누적: 현재 영업기간 시작월과 같은 달의 모든 주 매출 합산
+// 월 누적: 월간 모드=현재 기간만, 주간 모드=해당 월 모든 주 합산(월간 키 제외)
 function calcMonthlyCumul(storeName){
   var periodStart=document.getElementById("dPeriodStart").value;
+  var periodEnd=document.getElementById("dPeriodEnd").value||"";
   if(!periodStart)return 0;
-  var month=periodStart.slice(0,7); // "YYYY-MM"
+  /* 월간 모드 판별: 시작일이 1일이고 종료일이 해당 월 말일인 경우 */
+  function isFullMonth(s,e){
+    if(!s||!e)return false;
+    var sd=new Date(s+"T00:00:00"),ed=new Date(e+"T00:00:00");
+    var lastDay=new Date(ed.getFullYear(),ed.getMonth()+1,0).getDate();
+    return sd.getDate()===1&&ed.getDate()===lastDay&&sd.getMonth()===ed.getMonth();
+  }
+  if(isFullMonth(periodStart,periodEnd)){
+    /* 월간 모드: 현재 선택 기간 데이터만 사용 */
+    var key=getDPKey();
+    var sd=deptDB[key]&&deptDB[key][storeName];
+    if(!sd||!sd.sales)return 0;
+    return (Number(sd.sales.thisDept)||0)+(Number(sd.sales.thisOnline)||0);
+  }
+  /* 주간 모드: 해당 월 내 주간 키만 합산 (월간 키는 제외) */
+  var month=periodStart.slice(0,7);
   var total=0;
   Object.keys(deptDB).forEach(function(key){
-    var keyStart=key.split("~")[0]||"";
-    if(keyStart.slice(0,7)!==month)return;
+    var parts=key.split("~");
+    var ks=parts[0]||"",ke=parts[1]||"";
+    if(ks.slice(0,7)!==month)return;
+    if(isFullMonth(ks,ke))return; /* 월간 키 이중계산 방지 */
     var stData=deptDB[key]&&deptDB[key][storeName];
     if(!stData||!stData.sales)return;
-    var sv=stData.sales;
-    total+=(Number(sv.thisDept)||0)+(Number(sv.thisOnline)||0);
+    total+=(Number(stData.sales.thisDept)||0)+(Number(stData.sales.thisOnline)||0);
   });
   return total;
 }
