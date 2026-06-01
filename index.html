@@ -455,12 +455,20 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
       <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none;font-size:13px">🏬 백화점 주간 현황</div>
       <button class="bs" style="padding:4px 10px;font-size:11px" onclick="addDeptStore()">+ 매장</button>
       <span style="font-size:11px;font-weight:600;color:#555;margin-left:4px">영업기간</span>
-      <select id="dMonthYear" onchange="deptMonthSnap()" style="padding:4px 6px;border:1.5px solid #d1d5db;border-radius:8px;font-size:12px;color:#374151;background:white"></select>
-      <select id="dMonthMon" onchange="deptMonthSnap()" style="padding:4px 6px;border:1.5px solid #d1d5db;border-radius:8px;font-size:12px;color:#374151;background:white"></select>
-      <span style="color:#9ca3af;font-size:11px;margin:0 2px">|</span>
       <input type="date" id="dPeriodStart" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="deptWeekSnap(this.value)"/>
       <span style="color:#9ca3af;font-size:12px">~</span>
       <input type="date" id="dPeriodEnd" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="renderDeptPage()"/>
+      <div style="position:relative;display:inline-block">
+        <button onclick="toggleDeptMonthPicker(event)" style="padding:5px 12px;font-size:12px;font-weight:600;border:1.5px solid #6366f1;border-radius:8px;background:white;color:#6366f1;cursor:pointer">📅 월간</button>
+        <div id="deptMonthPicker" style="display:none;position:absolute;top:110%;left:0;background:white;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.13);z-index:300;padding:12px 14px;min-width:200px">
+          <div style="font-size:11px;font-weight:700;color:#6366f1;margin-bottom:8px">월 단위 기간 선택</div>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
+            <select id="dMonthYear" style="flex:1;padding:5px 6px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px;color:#374151;background:white"></select>
+            <select id="dMonthMon" style="flex:1;padding:5px 6px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px;color:#374151;background:white"></select>
+          </div>
+          <button onclick="deptMonthSnap()" style="width:100%;padding:7px;background:#6366f1;color:white;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">적용</button>
+        </div>
+      </div>
       <span style="font-size:12px;font-weight:600;color:#374151;margin-left:6px">대비기간</span>
       <input type="date" id="dCompStart" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="renderDeptPage()"/>
       <span style="color:#9ca3af;font-size:12px">~</span>
@@ -1163,6 +1171,12 @@ function initDeptDates(){
 }
 initDeptDates();
 
+function toggleDeptMonthPicker(e){
+  if(e)e.stopPropagation();
+  var el=document.getElementById("deptMonthPicker");
+  if(!el)return;
+  el.style.display=el.style.display==="none"?"block":"none";
+}
 function deptMonthSnap(){
   var yEl=document.getElementById("dMonthYear");
   var mEl=document.getElementById("dMonthMon");
@@ -1179,8 +1193,17 @@ function deptMonthSnap(){
   var cLast=new Date(y-1,m,0);
   document.getElementById("dCompStart").value=dFmt(cFirst);
   document.getElementById("dCompEnd").value=dFmt(cLast);
+  var el=document.getElementById("deptMonthPicker");
+  if(el)el.style.display="none";
   renderDeptPage();
 }
+/* 외부 클릭 시 월간 팝업 닫기 */
+document.addEventListener("click",function(e){
+  var picker=document.getElementById("deptMonthPicker");
+  if(picker&&picker.style.display!=="none"){
+    if(!picker.parentElement.contains(e.target))picker.style.display="none";
+  }
+});
 
 function updateDayLabels(){}
 
