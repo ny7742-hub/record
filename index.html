@@ -272,6 +272,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 #costcoTableWrap{overflow-x:auto}
 #ccAddMonthDrop button:hover{background:#e0e7ff!important;color:#3730a3!important}
 .cc-period-th{position:relative}
+.cc-month-tot{background:#dbeafe;font-weight:700;text-align:right;color:#1e40af}
 .cc-del-period{position:absolute;top:2px;right:3px;font-size:9px;cursor:pointer;color:#fca5a5;font-weight:900;line-height:1}
 </style>
 </head>
@@ -2491,6 +2492,7 @@ function renderCostcoPage(){
   h+='<col style="width:76px"><col style="width:54px"><col style="width:70px">';
   if(periods.length){
     periods.forEach(function(){h+='<col style="width:60px"><col style="width:90px">';});
+    h+='<col style="width:64px"><col style="width:92px">'; /* 월 합계 */
   }else{
     h+='<col style="width:120px">';
   }
@@ -2502,6 +2504,7 @@ function renderCostcoPage(){
     periods.forEach(function(p){
       h+='<th colspan="2" class="cc-period-th">'+p+'</th>';
     });
+    h+='<th colspan="2" style="background:#1e40af;color:white;text-align:center;border-left:2px solid #93c5fd;font-size:10px;font-weight:700">월 합계</th>';
   }else{
     h+='<th style="color:#9ca3af;font-style:italic">데이터 없음<br><span style="font-size:9px">파일 업로드 후 표시</span></th>';
   }
@@ -2509,9 +2512,17 @@ function renderCostcoPage(){
   if(periods.length){
     h+='<tr>';
     periods.forEach(function(){h+='<th>판매수량</th><th>판매금액</th>';});
+    h+='<th style="background:#1e40af;color:#bfdbfe;border-left:2px solid #93c5fd">수량</th>';
+    h+='<th style="background:#1e40af;color:#bfdbfe">금액</th>';
     h+='</tr>';
   }
   h+='</thead><tbody>';
+
+  /* 월 합계 미리 계산 */
+  var monthTotQty=0,monthTotAmt=0;
+  if(periods.length){
+    periods.forEach(function(p){var t=ccPeriodTotal(p);monthTotQty+=t.qty;monthTotAmt+=t.amount;});
+  }
 
   /* 누계 행 */
   var totCumul=0;
@@ -2525,6 +2536,8 @@ function renderCostcoPage(){
       var t=ccPeriodTotal(p);
       h+='<td>'+fmtCC(t.qty)+'</td><td style="text-align:right">'+fmtCC(t.amount)+'</td>';
     });
+    h+='<td class="cc-month-tot" style="border-left:2px solid #93c5fd">'+fmtCC(monthTotQty)+'</td>';
+    h+='<td class="cc-month-tot" style="text-align:right">'+fmtCC(monthTotAmt)+'</td>';
   }else{
     h+='<td></td>';
   }
@@ -2544,9 +2557,11 @@ function renderCostcoPage(){
       h+='<td class="cc-cumul-cell cc-sticky-2" style="text-align:right">'+(cumulVal?fmtCC(cumulVal):'')+'</td>';
       h+='<td class="cc-color-cell cc-sticky-3">'+color+'</td>';
       if(periods.length){
+        var mQty=0,mAmt=0;
         periods.forEach(function(period){
           var per=period.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
           var d=((costcoDB.sales[period]||{})[prod.name]||{})[color]||{};
+          mQty+=Number(d.qty||0); mAmt+=Number(d.amount||0);
           var nodata=!(d.qty||d.amount);
           var nd=nodata?' cc-nodata':'';
           h+='<td class="cc-num-cell'+nd+'" contenteditable="true" '+
@@ -2554,6 +2569,8 @@ function renderCostcoPage(){
           h+='<td class="cc-amt-cell'+nd+'" contenteditable="true" '+
             'onblur="ccSave(this,\''+pn+'\',\''+cn+'\',\''+per+'\',\'amount\')">'+(d.amount?fmtCC(d.amount):'')+'</td>';
         });
+        h+='<td class="cc-month-tot" style="border-left:2px solid #93c5fd">'+(mQty?fmtCC(mQty):'')+'</td>';
+        h+='<td class="cc-month-tot" style="text-align:right">'+(mAmt?fmtCC(mAmt):'')+'</td>';
       }else{
         h+='<td class="cc-nodata"></td>';
       }
