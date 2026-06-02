@@ -2523,32 +2523,33 @@ function parseCostcoRows(rows){
     if(found&&cProd>=0&&cQty>=0)break;
   }
   if(hRow<0||cProd<0||cQty<0){
-    alert("파일 형식을 인식할 수 없습니다.\n판매일자·상품명·판매수량 컬럼이 필요합니다.");
+    alert("파일 형식을 인식할 수 없습니다.\n판매일자·상품명·판매수량 컬럼이 필요합니다.\n\n감지된 컬럼:\n날짜:"+(cDate>=0?cDate:"없음")+" 상품명:"+(cProd>=0?cProd:"없음")+" 수량:"+(cQty>=0?cQty:"없음"));
     return;
   }
 
   /* ─ 데이터 처리 ─ */
   var weekMap={};
+  var skipDate=0,skipProd=0,skipColor=0,skipReturn=0;
   for(var r=hRow+1;r<rows.length;r++){
     var row=rows[r];
     if(!row||row[cProd]==="")continue;
     /* 반품 제외 */
     if(cSaleDiv>=0){
       var sd=String(row[cSaleDiv]||"").trim();
-      if(/반품|취소|cancel/i.test(sd))continue;
+      if(/반품|취소|cancel/i.test(sd)){skipReturn++;continue;}
     }
     /* 날짜 → 주기간 */
     var dt=ccParseDate(cDate>=0?row[cDate]:null);
-    if(!dt)continue;
+    if(!dt){skipDate++;continue;}
     var period=ccWeekPeriod(dt);
     /* 상품 매칭 */
     var prodCell=String(row[cProd]||"").trim();
     var prodName=ccMatchProd(prodCell);
-    if(!prodName)continue;
+    if(!prodName){skipProd++;continue;}
     /* 색상 매칭: 칼라명 컬럼 우선, 없으면 상품명에서 추출 */
     var colorCell=cColor>=0?String(row[cColor]||"").trim():"";
     var colorName=ccNormColor(colorCell)||ccMatchColor(colorCell,prodName)||ccMatchColor(prodCell,prodName);
-    if(!colorName)continue;
+    if(!colorName){skipColor++;continue;}
     /* 수량·금액 (반품은 음수 그대로 합산 → 순판매) */
     var qty=Number(row[cQty])||0;
     var amt=cAmt>=0?(Number(row[cAmt])||0):0;
@@ -2561,12 +2562,15 @@ function parseCostcoRows(rows){
     weekMap[period][prodName][colorName].qty+=qty;
     weekMap[period][prodName][colorName].amount+=amt;
   }
-  ccMergeWeekMap(weekMap);
+  /* 파싱 결과 진단 */
+  if(!Object.keys(weekMap).length){
+    alert("인식된 데이터가 없습니다.\n\n스킵 원인:\n날짜 미인식: "+skipDate+"행\n상품명 미매칭: "+skipProd+"행\n색상 미매칭: "+skipColor+"행\n반품제외: "+skipReturn+"행\n\n날짜·상품명·색상 컬럼 형식을 확인해주세요.");
+    return;
+  }
+  ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn});
 }
 
-function ccMergeWeekMap(weekMap){
-  var cnt=Object.keys(weekMap).length;
-  if(!cnt){alert("인식된 데이터가 없습니다.\n상품명·색상·날짜 컬럼을 확인해주세요.");return;}
+function ccMergeWeekMap(weekMap,skipInfo){
   Object.keys(weekMap).forEach(function(period){
     if(costcoDB.periods.indexOf(period)<0)costcoDB.periods.push(period);
     /* 같은 기간 재업로드 시 해당 기간 전체 교체 (합산 방지) */
@@ -2597,8 +2601,11 @@ function ccMergeWeekMap(weekMap){
   renderCostcoPage();
   var msg=document.getElementById("costcoMsg");
   if(msg){
-    msg.textContent="✅ "+cnt+"개 주간 데이터 입력 완료!";
-    setTimeout(function(){msg.textContent="";},3000);
+    var periods=Object.keys(weekMap).sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
+    var si=skipInfo||{};
+    var skipTxt=(si.skipDate||si.skipProd||si.skipColor)?' (미인식: 날짜'+si.skipDate+'·상품'+(si.skipProd+si.skipColor)+'행)':'';
+    msg.textContent="✅ "+periods.join(', ')+" 반영 완료"+skipTxt;
+    setTimeout(function(){msg.textContent="";},5000);
   }
 }
 
