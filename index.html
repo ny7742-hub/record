@@ -595,25 +595,28 @@ function wsSetItem(key,value){
     function(d){deptStoresMeta=d;},
     function(){if(document.getElementById("page-dept").style.display!=="none")renderDeptAllStores();}
   );
-  /* 코스트코 - 타임스탬프 기반 덮어쓰기 방지 */
-  window._ccUploadTs=0;
-  apply("ws/costco","costcoDB",
-    function(d){
-      var _cm={"루시":"672564","크리스티":"667634","로슬라":"679601","소니아":"672524","케디리":"694467","일리안":"694468","아다나":"693950","린다우":"693952","메르신":"693953"};
-      if(!d.salePeriods)d.salePeriods=[];
-      if(d.products)d.products.forEach(function(p){p.code=_cm[p.name]||p.code||"";delete p.salePrice;});
-      var localTs=costcoDB&&costcoDB._savedAt?costcoDB._savedAt:0;
-      var remoteTs=d._savedAt||0;
-      /* Firebase 데이터가 로컬보다 오래된 경우 판매·기간 데이터 보호 */
-      if(remoteTs<localTs&&costcoDB&&costcoDB.sales){
-        d.sales=costcoDB.sales;
-        d.periods=costcoDB.periods;
-        d._savedAt=costcoDB._savedAt;
-      }
-      costcoDB=d;
-    },
-    function(){if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();}
-  );
+  /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
+  /* Firebase에는 백업용으로만 저장하고, 읽기는 localStorage 기준 */
+  (function initCostcoFromFirebase(){
+    fbDB.ref("ws/costco").once("value",function(snap){
+      var v=snap.val();
+      if(!v)return;
+      try{
+        var d=typeof v==="string"?JSON.parse(v):v;
+        var _cm={"루시":"672564","크리스티":"667634","로슬라":"679601","소니아":"672524","케디리":"694467","일리안":"694468","아다나":"693950","린다우":"693952","메르신":"693953"};
+        if(!d.salePeriods)d.salePeriods=[];
+        if(d.products)d.products.forEach(function(p){p.code=_cm[p.name]||p.code||"";delete p.salePrice;});
+        /* 로컬 데이터가 더 최신이면 Firebase 데이터 무시 */
+        var localTs=costcoDB&&costcoDB._savedAt?costcoDB._savedAt:0;
+        var remoteTs=d._savedAt||0;
+        if(remoteTs>localTs){
+          costcoDB=d;
+          localStorage.setItem("costcoDB",JSON.stringify(d));
+          if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();
+        }
+      }catch(e){}
+    });
+  })();
 })();
 
 /* ── 기본 내장 데이터 ── */
