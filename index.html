@@ -595,13 +595,18 @@ function wsSetItem(key,value){
     function(d){deptStoresMeta=d;},
     function(){if(document.getElementById("page-dept").style.display!=="none")renderDeptAllStores();}
   );
-  /* 코스트코 */
+  /* 코스트코 - 업로드 직후 Firebase 덮어쓰기 방지 플래그 */
+  window._ccUploadTs=0;
   apply("ws/costco","costcoDB",
     function(d){
-      /* Firebase 동기화 후에도 항상 상품코드·salePeriods 보정 */
-      if(!d.salePeriods)d.salePeriods=[];
+      /* 업로드 직후 2초 이내 Firebase 갱신은 sales를 현재 메모리 기준으로 유지 */
       var _cm={"루시":"672564","크리스티":"667634","로슬라":"679601","소니아":"672524","케디리":"694467","일리안":"694468","아다나":"693950","린다우":"693952","메르신":"693953"};
+      if(!d.salePeriods)d.salePeriods=[];
       if(d.products)d.products.forEach(function(p){p.code=_cm[p.name]||p.code||"";delete p.salePrice;});
+      if(Date.now()-window._ccUploadTs<2000&&costcoDB&&costcoDB.sales){
+        d.sales=costcoDB.sales; /* 방금 업로드한 sales 데이터 보호 */
+        d.periods=costcoDB.periods;
+      }
       costcoDB=d;
     },
     function(){if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();}
@@ -2587,7 +2592,7 @@ function ccMergeWeekMap(weekMap,skipInfo){
     });
   });
   costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
-  saveCostcoDB();
+  saveCostcoDB(true);
   /* 업로드된 데이터의 월로 자동 이동 */
   var _keys=Object.keys(weekMap).sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
   if(_keys.length){
@@ -2665,7 +2670,10 @@ function ccMatchColor(v,prodName){
   return null;
 }
 
-function saveCostcoDB(){wsSetItem("costcoDB",JSON.stringify(costcoDB));}
+function saveCostcoDB(isUpload){
+  if(isUpload)window._ccUploadTs=Date.now();
+  wsSetItem("costcoDB",JSON.stringify(costcoDB));
+}
 
 function ccTotalCumul(){
   var t=0;
