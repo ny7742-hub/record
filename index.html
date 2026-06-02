@@ -2448,10 +2448,13 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
 /* 기존 데이터 마이그레이션 */
 if(!costcoDB.salePeriods)costcoDB.salePeriods=[];
 var _codeMap={"루시":"672564","크리스티":"667634","로슬라":"679601","소니아":"672524","케디리":"694467","일리안":"694468","아다나":"693950","린다우":"693952","메르신":"693953"};
+var _needSave=false;
 costcoDB.products.forEach(function(p){
-  if(!p.code)p.code=_codeMap[p.name]||"";
-  delete p.salePrice;
+  var newCode=_codeMap[p.name]||"";
+  if(p.code!==newCode){p.code=newCode;_needSave=true;}
+  if(p.salePrice!==undefined){delete p.salePrice;_needSave=true;}
 });
+if(_needSave)localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
 
 
 /* ── 코스트코 파일 업로드 파싱 ── */
@@ -2763,7 +2766,7 @@ function renderSaleModal(){
       ph+='<div style="display:flex;align-items:center;gap:8px">';
       ph+='<input type="checkbox" id="ccScb_'+p.name+'" style="width:15px;height:15px;cursor:pointer">';
       ph+='<label for="ccScb_'+p.name+'" style="font-size:13px;font-weight:600;color:#374151;min-width:60px;cursor:pointer">'+p.name+'</label>';
-      ph+='<span style="font-size:11px;color:#9ca3af">('+p.code+')</span>';
+      ph+='<span style="font-size:11px;color:#9ca3af">'+(p.code?'('+p.code+')':'')+'</span>';
       ph+='<input type="number" id="ccSprice_'+p.name+'" placeholder="세일가" style="width:100px;padding:4px 7px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">';
       ph+='<span style="font-size:11px;color:#6b7280">원</span>';
       ph+='</div>';
