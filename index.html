@@ -597,7 +597,13 @@ function wsSetItem(key,value){
   );
   /* 코스트코 */
   apply("ws/costco","costcoDB",
-    function(d){costcoDB=d;},
+    function(d){
+      /* Firebase 동기화 후에도 항상 상품코드·salePeriods 보정 */
+      if(!d.salePeriods)d.salePeriods=[];
+      var _cm={"루시":"672564","크리스티":"667634","로슬라":"679601","소니아":"672524","케디리":"694467","일리안":"694468","아다나":"693950","린다우":"693952","메르신":"693953"};
+      if(d.products)d.products.forEach(function(p){p.code=_cm[p.name]||p.code||"";delete p.salePrice;});
+      costcoDB=d;
+    },
     function(){if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();}
   );
 })();
