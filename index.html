@@ -256,10 +256,10 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-tbl td{padding:8px 13px;border:1px solid #94a3b8;text-align:center;white-space:nowrap;font-size:16px;color:#0f172a}
 .cc-tbl .cc-total-row td{background:#e8eaf0;font-weight:700}
 .cc-tbl .cc-prod-cell{background:#f1f5f9;font-weight:700;vertical-align:middle;font-size:17px;min-width:90px}
-.cc-tbl .cc-cumul-cell{background:#fef08a;font-weight:700;cursor:text;min-width:70px}
+.cc-tbl .cc-cumul-cell{background:#fef08a;font-weight:700;min-width:70px}
 .cc-tbl .cc-color-cell{background:#f9fafb;font-size:16px;min-width:80px}
-.cc-tbl .cc-num-cell{text-align:right;cursor:text;min-width:70px}
-.cc-tbl .cc-amt-cell{text-align:right;cursor:text;min-width:90px}
+.cc-tbl .cc-num-cell{text-align:right;min-width:70px}
+.cc-tbl .cc-amt-cell{text-align:right;min-width:90px}
 .cc-tbl .cc-nodata{background:#c8ccd4}
 .cc-tbl [contenteditable]:focus{outline:2px solid #6366f1;background:#eff6ff!important}
 .cc-tbl .cc-sticky-1{position:sticky;left:0;z-index:3}
@@ -2560,9 +2560,10 @@ function ccMergeWeekMap(weekMap){
   if(!cnt){alert("인식된 데이터가 없습니다.\n상품명·색상·날짜 컬럼을 확인해주세요.");return;}
   Object.keys(weekMap).forEach(function(period){
     if(costcoDB.periods.indexOf(period)<0)costcoDB.periods.push(period);
-    if(!costcoDB.sales[period])costcoDB.sales[period]={};
+    /* 같은 기간 재업로드 시 해당 기간 전체 교체 (합산 방지) */
+    costcoDB.sales[period]={};
     Object.keys(weekMap[period]).forEach(function(prod){
-      if(!costcoDB.sales[period][prod])costcoDB.sales[period][prod]={};
+      costcoDB.sales[period][prod]={};
       Object.keys(weekMap[period][prod]).forEach(function(color){
         var d=weekMap[period][prod][color];
         costcoDB.sales[period][prod][color]={
@@ -2946,10 +2947,8 @@ function renderCostcoPage(){
           var nd=nodata?' cc-nodata':'';
           var isSaleProd=ccGetSalePriceForPeriod(prod.name,period)>0;
           var saleCls=isSaleProd?' cc-sale-prod-td':'';
-          h+='<td class="cc-num-cell'+nd+saleCls+'" contenteditable="true" '+
-            'onblur="ccSave(this,\''+pn+'\',\''+cn+'\',\''+per+'\',\'qty\')">'+(d.qty?fmtCC(d.qty):'')+'</td>';
-          h+='<td class="cc-amt-cell'+nd+saleCls+'" contenteditable="true" '+
-            'onblur="ccSave(this,\''+pn+'\',\''+cn+'\',\''+per+'\',\'amount\')">'+(d.amount?fmtCC(d.amount):'')+'</td>';
+          h+='<td class="cc-num-cell'+nd+saleCls+'">'+(d.qty?fmtCC(d.qty):'')+'</td>';
+          h+='<td class="cc-amt-cell'+nd+saleCls+'">'+(d.amount?fmtCC(d.amount):'')+'</td>';
         });
         /* 월 합계: 1일 이후 주차만 합산 */
         var mQty=0,mAmt=0;
