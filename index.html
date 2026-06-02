@@ -2533,8 +2533,11 @@ function parseCostcoRows(rows){
     }
     if(found&&cProd>=0&&cQty>=0)break;
   }
+  /* 헤더 감지 결과 콘솔 출력 */
+  console.log("[코스트코 업로드] 헤더행:"+hRow+" 날짜:"+cDate+" 상품명:"+cProd+" 칼라:"+cColor+" 수량:"+cQty+" 금액:"+cAmt+" 판매구분:"+cSaleDiv);
+  if(hRow>=0&&rows[hRow]){console.log("[코스트코 업로드] 헤더행 내용:",rows[hRow].join(" | "));}
   if(hRow<0||cProd<0||cQty<0){
-    alert("파일 형식을 인식할 수 없습니다.\n판매일자·상품명·판매수량 컬럼이 필요합니다.\n\n감지된 컬럼:\n날짜:"+(cDate>=0?cDate:"없음")+" 상품명:"+(cProd>=0?cProd:"없음")+" 수량:"+(cQty>=0?cQty:"없음"));
+    alert("파일 형식을 인식할 수 없습니다.\n판매일자·상품명·판매수량 컬럼이 필요합니다.\n\n감지된 컬럼:\n날짜:"+(cDate>=0?cDate:"없음")+" 상품명:"+(cProd>=0?cProd:"없음")+" 수량:"+(cQty>=0?cQty:"없음")+"\n\n브라우저 F12 콘솔에서 상세 내용을 확인하세요.");
     return;
   }
 
@@ -2574,8 +2577,13 @@ function parseCostcoRows(rows){
     weekMap[period][prodName][colorName].amount+=amt;
   }
   /* 파싱 결과 진단 */
+  console.log("[코스트코 업로드] 스킵: 날짜미인식="+skipDate+" 상품미매칭="+skipProd+" 색상미매칭="+skipColor+" 반품제외="+skipReturn);
+  console.log("[코스트코 업로드] 생성된 주차키:", Object.keys(weekMap));
+  var _sampleLog=[];
+  Object.keys(weekMap).forEach(function(p){Object.keys(weekMap[p]).forEach(function(pr){Object.keys(weekMap[p][pr]).forEach(function(cl){_sampleLog.push(p+"/"+pr+"/"+cl+"="+weekMap[p][pr][cl].qty);});});});
+  console.log("[코스트코 업로드] 데이터 샘플:", _sampleLog.slice(0,20).join(", "));
   if(!Object.keys(weekMap).length){
-    alert("인식된 데이터가 없습니다.\n\n스킵 원인:\n날짜 미인식: "+skipDate+"행\n상품명 미매칭: "+skipProd+"행\n색상 미매칭: "+skipColor+"행\n반품제외: "+skipReturn+"행\n\n날짜·상품명·색상 컬럼 형식을 확인해주세요.");
+    alert("인식된 데이터가 없습니다.\n\n스킵 원인:\n날짜 미인식: "+skipDate+"행\n상품명 미매칭: "+skipProd+"행\n색상 미매칭: "+skipColor+"행\n반품제외: "+skipReturn+"행\n\n날짜·상품명·색상 컬럼 형식을 확인해주세요.\nF12 콘솔에서 상세 확인 가능");
     return;
   }
   ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn});
