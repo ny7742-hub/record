@@ -2607,23 +2607,19 @@ function ccMergeWeekMap(weekMap,skipInfo){
   });
   costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
   saveCostcoDB(true);
-  /* 업로드된 데이터의 월로 자동 이동 */
+  /* 현재 선택된 월 유지 (자동 이동 없음) */
   var _keys=Object.keys(weekMap).sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
-  if(_keys.length){
-    var _last=_keys[_keys.length-1];
-    var _mm=_last.match(/^(\d+)\//);
-    var _mEl=document.getElementById("ccMonth");
-    var _yEl=document.getElementById("ccYear");
-    if(_mm&&_mEl)_mEl.value=parseInt(_mm[1]);
-    if(_yEl)_yEl.value=new Date().getFullYear();
-  }
   renderCostcoPage();
   var msg=document.getElementById("costcoMsg");
   if(msg){
     var periods=Object.keys(weekMap).sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
+    /* 업로드된 주차가 속한 월 목록 계산 */
+    var monthSet={};
+    periods.forEach(function(p){var m=p.match(/^(\d+)\//);if(m)monthSet[m[1]]=true;});
+    var monthHint=Object.keys(monthSet).map(function(m){return m+"월";}).join(', ');
     var si=skipInfo||{};
     var skipTxt=(si.skipDate||si.skipProd||si.skipColor)?' (미인식: 날짜'+si.skipDate+'·상품'+(si.skipProd+si.skipColor)+'행)':'';
-    msg.textContent="✅ "+periods.join(', ')+" 반영 완료"+skipTxt;
+    msg.textContent="✅ "+periods.join(', ')+" 반영 완료"+skipTxt+" → "+monthHint+" 탭에서 확인";
     setTimeout(function(){msg.textContent="";},5000);
   }
 }
