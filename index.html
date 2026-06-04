@@ -544,8 +544,8 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
             <th style="padding:10px 12px;text-align:center;width:160px;color:#374151;font-weight:700;font-size:15px">매장</th>
             <th style="padding:10px 12px;text-align:center;width:100px;color:#374151;font-weight:700;font-size:15px">시작</th>
             <th style="padding:10px 12px;text-align:center;width:100px;color:#374151;font-weight:700;font-size:15px">종료</th>
-            <th style="padding:10px 12px;text-align:left;color:#374151;font-weight:700;font-size:15px">내용</th>
-            <th style="padding:10px 12px;text-align:left;color:#374151;font-weight:700;font-size:15px">비고</th>
+            <th id="popTh-content" style="padding:10px 12px;text-align:left;color:#374151;font-weight:700;font-size:15px;position:relative;min-width:200px">내용<span onmousedown="popColResizeStart(event,'content')" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:rgba(99,102,241,.15);border-radius:0 4px 4px 0"></span></th>
+            <th id="popTh-note" style="padding:10px 12px;text-align:left;color:#374151;font-weight:700;font-size:15px;position:relative;min-width:120px">비고<span onmousedown="popColResizeStart(event,'note')" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:rgba(99,102,241,.15);border-radius:0 4px 4px 0"></span></th>
             <th style="padding:10px 12px;text-align:center;width:50px;color:#374151;font-weight:700;font-size:15px">삭제</th>
           </tr>
         </thead>
@@ -3468,6 +3468,35 @@ var popupDB=(function(){
 
 function savePopupDB(){localStorage.setItem(_POPUP_KEY,JSON.stringify(popupDB));}
 
+/* ── 팝업 칼럼 리사이즈 ── */
+var _popColW={content:300,note:200};
+(function(){var s=localStorage.getItem('popupColW');if(s)try{_popColW=JSON.parse(s);}catch(e){}})();
+function _applyPopColW(){
+  var th=document.getElementById('popTh-content');
+  var th2=document.getElementById('popTh-note');
+  if(th)th.style.width=_popColW.content+'px';
+  if(th2)th2.style.width=_popColW.note+'px';
+  document.querySelectorAll('.pop-col-content textarea').forEach(function(el){el.style.width='100%';});
+  document.querySelectorAll('.pop-col-note textarea').forEach(function(el){el.style.width='100%';});
+}
+function popColResizeStart(e,col){
+  e.preventDefault();
+  var startX=e.clientX;
+  var startW=_popColW[col];
+  function onMove(ev){
+    var diff=ev.clientX-startX;
+    _popColW[col]=Math.max(col==='note'?100:150,startW+diff);
+    _applyPopColW();
+  }
+  function onUp(){
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    localStorage.setItem('popupColW',JSON.stringify(_popColW));
+  }
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+}
+
 var POPUP_STATUS=["진행중","진행예정","협의중","종료"];
 var POPUP_STATUS_COLOR={"진행중":"#059669","진행예정":"#2563eb","협의중":"#d97706","종료":"#6b7280",
   /* 구버전 호환 */"진행":"#059669","확정":"#2563eb","협의":"#d97706","완료":"#6b7280"};
@@ -3476,9 +3505,9 @@ function renderPopupPage(){
   var tbody=document.getElementById("popupTbody");
   if(!tbody)return;
   var h="";
-  /* 종료 → 맨 아래, 나머지는 시작일 오름차순 */
+  /* 1순위: 종료 맨 위, 2순위: 시작일 오름차순 */
   var _display=popupDB.map(function(row,i){return{row:row,i:i};}).sort(function(a,b){
-    var ae=a.row.status==="종료"?1:0, be=b.row.status==="종료"?1:0;
+    var ae=a.row.status==="종료"?0:1, be=b.row.status==="종료"?0:1;
     if(ae!==be)return ae-be;
     return (a.row.start||"").localeCompare(b.row.start||"");
   });
@@ -3501,10 +3530,10 @@ function renderPopupPage(){
     h+='<td style="padding:8px 10px"><input type="date" value="'+(row.start||"")+'" onchange="popupEdit('+i+',\'start\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:14px"></td>';
     /* 종료일 */
     h+='<td style="padding:8px 10px"><input type="date" value="'+(row.end||"")+'" onchange="popupEdit('+i+',\'end\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:14px"></td>';
-    /* 내용 — textarea, 가로 크기조절 */
-    h+='<td style="padding:8px 10px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;min-width:200px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px;font-family:inherit;resize:horizontal;overflow:auto;height:36px">'+_esc(row.content||"")+'</textarea></td>';
-    /* 비고 — textarea, 가로 크기조절 */
-    h+='<td style="padding:8px 10px"><textarea onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;min-width:120px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px;font-family:inherit;color:#6366f1;resize:horizontal;overflow:auto;height:36px">'+_esc(row.note||"")+'</textarea></td>';
+    /* 내용 */
+    h+='<td class="pop-col-content" style="padding:8px 10px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px;font-family:inherit;resize:none;overflow:auto;height:36px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
+    /* 비고 */
+    h+='<td class="pop-col-note" style="padding:8px 10px"><textarea onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px;font-family:inherit;color:#6366f1;resize:none;overflow:auto;height:36px;box-sizing:border-box">'+_esc(row.note||"")+'</textarea></td>';
     /* 삭제 */
     h+='<td style="padding:8px 10px;text-align:center"><button onclick="deletePopupRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;padding:4px 8px">삭제</button></td>';
     h+='</tr>';
@@ -3513,6 +3542,7 @@ function renderPopupPage(){
     h='<tr><td colspan="7" style="padding:32px;text-align:center;color:#9ca3af;font-size:13px">+ 행 추가 버튼으로 일정을 등록하세요</td></tr>';
   }
   tbody.innerHTML=h;
+  _applyPopColW();
 }
 
 function _esc(s){return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
