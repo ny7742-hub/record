@@ -2646,13 +2646,15 @@ function ccMergeWeekMap(weekMap,skipInfo){
   var msg=document.getElementById("costcoMsg");
   if(msg){
     var periods=Object.keys(weekMap).sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
-    /* 업로드된 주차가 속한 월 목록 계산 */
-    var monthSet={};
-    periods.forEach(function(p){var m=p.match(/^(\d+)\//);if(m)monthSet[m[1]]=true;});
-    var monthHint=Object.keys(monthSet).map(function(m){return m+"월";}).join(', ');
+    /* 가장 최신 주차의 월만 안내 (누적파일 업로드 시 12월~6월 등 과다 표시 방지) */
+    var _last=periods[periods.length-1];
+    var _lm=_last?_last.match(/~(\d+)\/\d+/):null; /* 종료일 기준 월 */
+    var _lmStart=_last?_last.match(/^(\d+)\/\d+/):null;
+    var latestMonth=(_lm&&_lm[1])||(_lmStart&&_lmStart[1])||"";
+    var monthHint=latestMonth?latestMonth+"월 탭에서 확인":"";
     var si=skipInfo||{};
-    var skipTxt=(si.skipDate||si.skipProd||si.skipColor)?' (미인식: 날짜'+si.skipDate+'·상품'+(si.skipProd+si.skipColor)+'행)':'';
-    msg.textContent="✅ "+periods.join(', ')+" 반영 완료"+skipTxt+" → "+monthHint+" 탭에서 확인";
+    var skipTxt=(si.skipDate||si.skipProd||si.skipColor)?' (이전시즌 미인식 '+( si.skipProd+si.skipColor)+'행 제외)':'';
+    msg.textContent="✅ "+_last+" 포함 "+periods.length+"개 주차 반영 완료"+skipTxt+(monthHint?" → "+monthHint:"");
     setTimeout(function(){msg.textContent="";},5000);
   }
 }
