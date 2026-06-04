@@ -2503,17 +2503,31 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
 if(!costcoDB.salePeriods)costcoDB.salePeriods=[];
 var _codeMap={"루시":"672564","크리스티":"667634","로슬라":"679601","소니아":"672524","케디리":"694467","일리안":"694468","아다나":"693950","린다우":"693952","메르신":"693953","아말리":"690569","오비크":"690567","아르고":"690568","헬로나":"690570"};
 var _needSave=false;
-/* 색상 목록 업데이트 맵 */
-var _colorUpdateMap={"케디리":["베이지","블랙","화이트"]};
+/* 전체 상품 색상 기준표 — localStorage 오염 방어 */
+var _masterColors={
+  "루시":  ["베이지","블랙","아이보리","에쉬"],
+  "크리스티":["샌드","블랙"],
+  "로슬라": ["블랙","베이지"],
+  "소니아": ["베이지","블랙","아이보리"],
+  "케디리": ["베이지","블랙","화이트"],
+  "일리안": ["베이지","블랙","세이지그린"],
+  "아다나": ["블랙","화이트","라이트그레이","스킨"],
+  "린다우": ["블랙","라이트그레이","스킨","화이트"],
+  "메르신": ["블랙","라이트그레이","화이트"],
+  "아말리": ["애쉬핑크","블랙","아이보리"],
+  "오비크": ["블랙","크림","그레이"],
+  "아르고": ["챠콜","인디핑크","아이보리"],
+  "헬로나": ["블랙","브라운","카키"]
+};
 costcoDB.products.forEach(function(p){
   var newCode=_codeMap[p.name]||"";
   if(p.code!==newCode){p.code=newCode;_needSave=true;}
   if(p.salePrice!==undefined){delete p.salePrice;_needSave=true;}
-  /* 색상 목록 업데이트 */
-  if(_colorUpdateMap[p.name]){
-    var updated=_colorUpdateMap[p.name];
-    var diff=updated.some(function(c){return p.colors.indexOf(c)<0;});
-    if(diff){p.colors=updated;_needSave=true;}
+  /* 색상 목록이 기준표와 다르면 강제 교체 */
+  if(_masterColors[p.name]){
+    var master=_masterColors[p.name];
+    var wrong=master.length!==p.colors.length||master.some(function(c){return p.colors.indexOf(c)<0;});
+    if(wrong){p.colors=master;_needSave=true;console.log("[색상 교정]",p.name,p.colors,"→",master);}
   }
 });
 /* 신규 기본 상품 마이그레이션 */
