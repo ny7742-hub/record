@@ -2625,7 +2625,7 @@ function parseCostcoRows(rows){
     }
     var dt=ccParseDate(cDate>=0?row[cDate]:null);
     if(!dt){skipDate++;continue;}
-    var period=ccDatePeriod(dt);
+    var period=ccWeekPeriod(dt);
     var prodCell=String(row[cProd]||"").trim();
     var prodName=ccMatchProd(prodCell);
     if(!prodName){
@@ -2855,25 +2855,26 @@ function ccDatePeriod(date){
 }
 
 function ccGetMonthPeriods(){
-  /* 선택 월에 데이터가 있는 키 반환
-     - 날짜별: "M/D"  (신규 업로드)
-     - 주차별: "M/D~M/D" (구 데이터 하위호환) */
+  /* 선택된 연/월의 주차(월~일) 목록 생성 — 당월 1일 포함 주차부터 */
   var yEl=document.getElementById("ccYear");
   var mEl=document.getElementById("ccMonth");
   if(!yEl||!mEl)return [];
   var year=parseInt(yEl.value);
   var month=parseInt(mEl.value);
+  var firstDay=new Date(year,month-1,1);
+  var lastDay=new Date(year,month,0);
   var periods=[];
-  Object.keys(costcoDB.sales).forEach(function(key){
-    var m1=key.match(/^(\d+)\/(\d+)$/);          /* M/D */
-    var m2=key.match(/^(\d+)\/(\d+)~(\d+)\/(\d+)$/); /* M/D~M/D */
-    var startM=m1?parseInt(m1[1]):(m2?parseInt(m2[1]):null);
-    var startD=m1?parseInt(m1[2]):(m2?parseInt(m2[2]):null);
-    if(startM===null)return;
-    var kDate=new Date(year,startM-1,startD);
-    if(kDate.getMonth()+1===month)periods.push(key);
-  });
-  periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
+  var dow=firstDay.getDay();
+  var toMon=dow===0?-6:1-dow;
+  var cur=new Date(year,month-1,1+toMon);
+  while(cur<=lastDay){
+    var mon=new Date(cur);
+    var sun=new Date(cur);
+    sun.setDate(sun.getDate()+6);
+    var p=(mon.getMonth()+1)+"/"+mon.getDate()+"~"+(sun.getMonth()+1)+"/"+sun.getDate();
+    periods.push(p);
+    cur.setDate(cur.getDate()+7);
+  }
   return periods;
 }
 
@@ -3006,8 +3007,15 @@ function renderCostcoPage(){
   var _yEl=document.getElementById("ccYear"),_mEl=document.getElementById("ccMonth");
   var _year=_yEl?parseInt(_yEl.value):new Date().getFullYear();
   var _month=_mEl?parseInt(_mEl.value):new Date().getMonth()+1;
-  /* 월 합계: 날짜 기반 — ccGetMonthPeriods가 이미 당월만 반환 */
-  var monthPeriods=periods.slice();
+  /* 월 합계: 당월 1일~말일 내에 시작하는 주차만 합산 */
+  var _monthFirst=new Date(_year,_month-1,1);
+  var _monthLast=new Date(_year,_month,0);
+  var monthPeriods=periods.filter(function(p){
+    var m=p.match(/^(\d+)\/(\d+)/);
+    if(!m)return false;
+    var ps=new Date(_year,parseInt(m[1])-1,parseInt(m[2]));
+    return ps>=_monthFirst&&ps<=_monthLast;
+  });
 
   var h='<table class="cc-tbl"><colgroup>';
   h+='<col style="width:76px"><col style="width:54px"><col style="width:70px">';
