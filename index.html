@@ -508,7 +508,6 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
       <select id="ccYear" onchange="renderCostcoPage()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
       <select id="ccMonth" onchange="renderCostcoPage()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
       <label style="cursor:pointer"><span class="bs" style="padding:4px 10px;font-size:11px;display:inline-block">&#128194; 파일 업로드</span><input type="file" id="costcoFileIn" accept=".xlsx,.xls" style="display:none" onchange="loadCostcoFile(this)"/></label>
-      <button onclick="ccAddDatePrompt()" style="padding:4px 10px;background:#059669;color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">+ 날짜 추가</button>
       <span id="costcoMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
     </div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -2619,6 +2618,7 @@ _defaultNewProds.forEach(function(np){
         costcoDB.sales[dk][prod][color].amount+=Number(d.amount||0);
       });
     });
+    costcoDB.sales[dk]._migrated=true; /* 주차 합계 출처 표시 */
     if(!costcoDB.periods)costcoDB.periods=[];
     var pi=costcoDB.periods.indexOf(wk);
     if(pi>=0)costcoDB.periods.splice(pi,1);
@@ -2628,6 +2628,7 @@ _defaultNewProds.forEach(function(np){
     console.log("[마이그레이션] "+wk+" → "+dk);
   });
 })();
+/* _migrated 플래그 대신 "월요일 키 + _uploaded 없음 = 주간합계" 판별 함수 사용 */
 if(_needSave)localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
 
 
@@ -2807,10 +2808,30 @@ function parseCostcoRows(rows){
 }
 
 function ccMergeWeekMap(weekMap,skipInfo){
+  var _yr=new Date().getFullYear();
   Object.keys(weekMap).forEach(function(period){
+    /* 같은 주차의 주간합계 키(월요일 + _uploaded 없음) 자동 삭제 */
+    if(/^\d+\/\d+$/.test(period)){
+      var _wr=ccKeyToWeekRange(period,_yr);
+      Object.keys(costcoDB.sales).forEach(function(ek){
+        if(ek===period)return;
+        var _em=ek.match(/^(\d+)\/(\d+)$/);
+        if(!_em)return;
+        var _ed=new Date(_yr,+_em[1]-1,+_em[2]);
+        var _isMonday=(_ed.getDay()===1);
+        var _isUploaded=!!(costcoDB.sales[ek]&&costcoDB.sales[ek]._uploaded);
+        /* 월요일이고 직접 업로드 아닌 키 = 주간 합계 */
+        if(_isMonday&&!_isUploaded&&ccKeyToWeekRange(ek,_yr)===_wr){
+          delete costcoDB.sales[ek];
+          var _pi=costcoDB.periods.indexOf(ek);
+          if(_pi>=0)costcoDB.periods.splice(_pi,1);
+          console.log("[주간합계 제거] "+ek+" → "+period+" 업로드로 대체");
+        }
+      });
+    }
     if(costcoDB.periods.indexOf(period)<0)costcoDB.periods.push(period);
     /* 같은 기간 재업로드 시 해당 기간 전체 교체 (합산 방지) */
-    costcoDB.sales[period]={};
+    costcoDB.sales[period]={_uploaded:true}; /* 직접 업로드 키 표시 */
     Object.keys(weekMap[period]).forEach(function(prod){
       costcoDB.sales[period][prod]={};
       Object.keys(weekMap[period][prod]).forEach(function(color){
@@ -3249,8 +3270,9 @@ function renderCostcoPage(){
       var prevWr=i>0?ccKeyToWeekRange(monthKeys[i-1],_year):'';
       var curWr=ccKeyToWeekRange(k,_year);
       var bl=(i>0&&prevWr!==curWr)?'border-left:2px solid #d1d5db;':'';
-      var label=k.indexOf('~')>=0?k:k; /* M/D 형식 그대로 표시 */
-      h+='<th colspan="2" style="'+bl+'font-size:11px">'+label+'</th>';
+      var label=k.indexOf('~')>=0?k:k;
+      var kEsc=k.replace(/'/g,"\\'");
+      h+='<th colspan="2" style="'+bl+'font-size:11px">'+label+'<button onclick="ccDeleteDate(\''+kEsc+'\')" style="margin-left:4px;background:none;border:none;color:#9ca3af;font-size:10px;cursor:pointer;padding:0;line-height:1" title="날짜 삭제">×</button></th>';
     });
     h+='<th colspan="2" style="background:#1e40af;border-left:2px solid #93c5fd"></th>';
     h+='</tr>';
@@ -3361,23 +3383,14 @@ function addCostcoPeriod(){}
 function deleteCostcoPeriod(idx){}
 
 /* ══════════════════════════════════════════
-   코스트코 날짜 수동 추가 + 셀 인라인 편집
+   코스트코 날짜 삭제 + 셀 인라인 편집
 ══════════════════════════════════════════ */
-function ccAddDatePrompt(){
-  var input=prompt("추가할 날짜를 입력하세요 (예: 6/2)");
-  if(!input)return;
-  var m=input.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
-  if(!m){alert("날짜 형식이 올바르지 않습니다.\n예: 6/2");return;}
-  var key=m[1]+"/"+m[2];
-  if(!costcoDB.sales[key])costcoDB.sales[key]={};
-  if(costcoDB.periods.indexOf(key)<0){
-    costcoDB.periods.push(key);
-    costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
-  }
+function ccDeleteDate(key){
+  if(!confirm(key+" 날짜 데이터를 삭제하시겠습니까?"))return;
+  delete costcoDB.sales[key];
+  var pi=costcoDB.periods.indexOf(key);
+  if(pi>=0)costcoDB.periods.splice(pi,1);
   saveCostcoDB();
-  /* 해당 날짜의 월로 자동 이동 */
-  var mEl=document.getElementById("ccMonth"),yEl=document.getElementById("ccYear");
-  if(mEl)mEl.value=parseInt(m[1]);
   renderCostcoPage();
 }
 
