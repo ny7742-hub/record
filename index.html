@@ -2766,7 +2766,9 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
 })();
 
 function ccGetMonthPeriods(){
-  /* 선택된 연/월로 주간 기간(월~일)을 직접 계산 */
+  /* 선택된 연/월로 주간 기간(월~일)을 직접 계산
+     ※ 월 첫날 직전 주차(전월 마지막 주)도 포함 — 코스트코 주간 파일이
+       전월 마지막 주 데이터를 당월 첫 파일로 제공하는 경우 대비 */
   var yEl=document.getElementById("ccYear");
   var mEl=document.getElementById("ccMonth");
   if(!yEl||!mEl)return [];
@@ -2775,8 +2777,19 @@ function ccGetMonthPeriods(){
   var firstDay=new Date(year,month-1,1);
   var lastDay=new Date(year,month,0);
   var periods=[];
+  /* 전월 마지막 주(월 1일 직전 월요일~일요일) 추가 */
   var dow=firstDay.getDay();
   var toMon=dow===0?-6:1-dow;
+  if(toMon<0){
+    /* 월 1일이 월요일이 아닌 경우엔 자동 포함되므로 toMon===0일 때만 별도 추가 */
+  }
+  /* 항상 전주 포함: 월 1일 기준 직전 7일 시작 월요일 */
+  var prevMon=new Date(year,month-1,1+toMon-7);
+  var prevSun=new Date(prevMon); prevSun.setDate(prevMon.getDate()+6);
+  var prevP=(prevMon.getMonth()+1)+"/"+prevMon.getDate()+"~"+(prevSun.getMonth()+1)+"/"+prevSun.getDate();
+  /* 전주에 실제 업로드된 데이터가 있을 때만 컬럼 표시 */
+  if(costcoDB.sales[prevP])periods.push(prevP);
+  /* 당월 주차들 */
   var cur=new Date(year,month-1,1+toMon);
   while(cur<=lastDay){
     var mon=new Date(cur);
@@ -2914,17 +2927,11 @@ function renderCcSaleSummary(){
 function renderCostcoPage(){
   var periods=ccGetMonthPeriods();
   var prods=costcoDB.products;
-  /* 월 합계: 선택 월 1일 이후 시작 주차만 포함 */
+  /* 월 합계: 표시된 모든 주차 포함 (전월 마지막 주 포함) */
   var _yEl=document.getElementById("ccYear"),_mEl=document.getElementById("ccMonth");
   var _year=_yEl?parseInt(_yEl.value):new Date().getFullYear();
   var _month=_mEl?parseInt(_mEl.value):new Date().getMonth()+1;
-  var _monthFirst=new Date(_year,_month-1,1);
-  var monthPeriods=periods.filter(function(p){
-    var m=p.match(/^(\d+)\/(\d+)/);
-    if(!m)return false;
-    var ps=new Date(_year,parseInt(m[1])-1,parseInt(m[2]));
-    return ps>=_monthFirst;
-  });
+  var monthPeriods=periods.slice(); /* 전주 포함 전체 */
 
   var h='<table class="cc-tbl"><colgroup>';
   h+='<col style="width:76px"><col style="width:54px"><col style="width:70px">';
