@@ -275,9 +275,9 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-period-th{position:relative}
 .cc-month-tot{background:#dbeafe;font-weight:700;text-align:right;color:#1e40af}
 .cc-del-period{position:absolute;top:2px;right:3px;font-size:9px;cursor:pointer;color:#fca5a5;font-weight:900;line-height:1}
-.cc-sale-th{background:#7f1d1d!important;color:#fecaca!important}
-.cc-sale-td{background:#fff1f2!important}
-.cc-sale-badge{font-size:9px;background:#dc2626;color:white;border-radius:4px;padding:1px 4px;margin-left:3px;font-weight:700;vertical-align:middle}
+.cc-sale-th{background:#be123c!important;color:#fff!important;font-weight:700!important}
+.cc-sale-td{background:#fce7f3!important;color:#9f1239!important;font-weight:700!important}
+.cc-sale-badge{display:none}
 .cc-prod-code{font-size:10px;color:#6366f1;font-weight:600;outline:none;cursor:text;border-radius:3px;min-width:20px;display:inline-block}
 .cc-prod-code:empty:before{content:"(코드)";color:#c4c9d4}
 .cc-prod-sale{color:#dc2626;font-weight:700;outline:none;cursor:text;border-radius:3px;min-width:10px;display:inline-block}
@@ -3039,7 +3039,7 @@ function renderCostcoPage(){
   if(periods.length){
     periods.forEach(function(p){
       var anySale=costcoDB.products.some(function(pr){return ccGetSalePriceForPeriod(pr.name,p)>0;});
-      h+='<th colspan="2" class="cc-period-th">'+p+(anySale?'<span class="cc-sale-badge">세일</span>':'')+'</th>';
+      h+='<th colspan="2" class="cc-period-th'+(anySale?' cc-sale-th':'')+'">'+p+'</th>';
     });
     h+='<th colspan="2" style="background:#1e40af;color:white;text-align:center;border-left:2px solid #93c5fd;font-weight:700">'+_month+'월 합계</th>';
   }else{
@@ -3107,10 +3107,10 @@ function renderCostcoPage(){
           var per=period.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
           var d=((costcoDB.sales[period]||{})[prod.name]||{})[color]||{};
           var nodata=!(d.qty||d.amount);
-          var isSaleProd=ccGetSalePriceForPeriod(prod.name,period)>0;
-          /* 세일 상품은 데이터 없어도 분홍색 우선 표시 */
-          var nd=(nodata&&!isSaleProd)?' cc-nodata':'';
-          var saleCls=isSaleProd?' cc-sale-prod-td':'';
+          var isSalePeriod=costcoDB.products.some(function(pr){return ccGetSalePriceForPeriod(pr.name,period)>0;});
+          /* 세일 기간 전체 셀 핑크 배경, 데이터 없는 일반 기간은 회색 */
+          var nd=(nodata&&!isSalePeriod)?' cc-nodata':'';
+          var saleCls=isSalePeriod?' cc-sale-td':'';
           h+='<td class="cc-num-cell'+nd+saleCls+'">'+(d.qty?fmtCC(d.qty):'')+'</td>';
           h+='<td class="cc-amt-cell'+nd+saleCls+'">'+(d.amount?fmtCC(d.amount):'')+'</td>';
         });
