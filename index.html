@@ -2508,6 +2508,18 @@ costcoDB.products.forEach(function(p){
   if(p.code!==newCode){p.code=newCode;_needSave=true;}
   if(p.salePrice!==undefined){delete p.salePrice;_needSave=true;}
 });
+/* 신규 기본 상품 마이그레이션 */
+var _defaultNewProds=[
+  {name:"아말리",code:"690569",price:27990,colors:["애쉬핑크","블랙","아이보리"]},
+  {name:"오비크",code:"690567",price:27990,colors:["블랙","크림","그레이"]},
+  {name:"아르고",code:"690568",price:25990,colors:["챠콜","인디핑크","아이보리"]},
+  {name:"헬로나",code:"690570",price:39990,colors:["블랙","브라운","카키"]}
+];
+_defaultNewProds.forEach(function(np){
+  if(!costcoDB.products.find(function(p){return p.name===np.name;})){
+    costcoDB.products.push(np);_needSave=true;
+  }
+});
 if(_needSave)localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
 
 
@@ -2585,83 +2597,102 @@ function parseCostcoRows(rows){
     return;
   }
 
-  /* ─ 데이터 처리 ─ */
-  var weekMap={};
-  var skipDate=0,skipProd=0,skipColor=0,skipReturn=0;
-  var autoAddMap={}; /* 미매칭 상품 자동추가용: {단축명: {colors:Set, prices:[], tag:0}} */
+  /* ─ 헬퍼: 상품명 마지막 한글 단어(2자 이상) 추출 ─ */
   function ccExtractShortName(v){
-    /* 상품명 마지막 한글 단어(2자 이상) 추출 → 자동추가 단축명 */
     var m=v.match(/([가-힣]{2,})\s*(?:\([^)]*\))?\s*$/);
     return m?m[1]:null;
   }
-  for(var r=hRow+1;r<rows.length;r++){
-    var row=rows[r];
-    if(!row||row[cProd]==="")continue;
-    /* 반품 제외 */
-    if(cSaleDiv>=0){
-      var sd=String(row[cSaleDiv]||"").trim();
-      if(/반품|취소|cancel/i.test(sd)){skipReturn++;continue;}
-    }
-    /* 날짜 → 주기간 */
-    var dt=ccParseDate(cDate>=0?row[cDate]:null);
-    if(!dt){skipDate++;continue;}
-    var period=ccWeekPeriod(dt);
-    /* 상품 매칭 */
-    var prodCell=String(row[cProd]||"").trim();
-    var prodName=ccMatchProd(prodCell);
-    if(!prodName){
-      /* 미매칭 → 자동추가 후보 수집 */
-      var shortName=ccExtractShortName(prodCell);
-      if(shortName){
-        if(!autoAddMap[shortName])autoAddMap[shortName]={colors:{},prices:[],tag:0};
-        var colorCell2=cColor>=0?String(row[cColor]||"").trim():"";
-        var normColor=ccNormColor(colorCell2)||ccNormColor(String(row[cColor>=0?cColor-1:-1]||"").trim());
-        if(normColor)autoAddMap[shortName].colors[normColor]=true;
-        var tagVal=Number(row[cAmt>=0?cAmt-1:-1]||row[18]||0);
-        if(tagVal>0)autoAddMap[shortName].prices.push(tagVal);
-      }
-      skipProd++;continue;
-    }
-    /* 색상 매칭: 칼라명 컬럼 우선, 없으면 상품명에서 추출 */
-    var colorCell=cColor>=0?String(row[cColor]||"").trim():"";
-    var colorName=ccNormColor(colorCell)||ccMatchColor(colorCell,prodName)||ccMatchColor(prodCell,prodName);
-    if(!colorName){skipColor++;continue;}
-    /* 수량·금액 (반품은 음수 그대로 합산 → 순판매) */
-    var qty=Number(row[cQty])||0;
-    var amt=cAmt>=0?(Number(row[cAmt])||0):0;
-    /* 2개 1세트: 수량만 ÷2 (금액은 세트 전체금액 유지) */
-    if(CC_SET_PRODS.indexOf(prodName)>=0)qty=qty/2;
+  /* ─ 데이터 1차 처리 ─ */
+  var weekMap={};
+  var skipDate=0,skipProd=0,skipColor=0,skipReturn=0;
+  var unmatchedRows=[]; /* 미매칭 행 보관 (2차 처리용) */
+  var autoAddCandidates={}; /* {단축명: {colors:{}, prices:[]}} */
 
+  function addToWeekMap(period,prodName,colorName,qty,amt){
     if(!weekMap[period])weekMap[period]={};
     if(!weekMap[period][prodName])weekMap[period][prodName]={};
     if(!weekMap[period][prodName][colorName])weekMap[period][prodName][colorName]={qty:0,amount:0};
     weekMap[period][prodName][colorName].qty+=qty;
     weekMap[period][prodName][colorName].amount+=amt;
   }
-  /* 파싱 결과 진단 */
-  console.log("[코스트코 업로드] 스킵: 날짜미인식="+skipDate+" 상품미매칭="+skipProd+" 색상미매칭="+skipColor+" 반품제외="+skipReturn);
-  console.log("[코스트코 업로드] 생성된 주차키:", Object.keys(weekMap));
-  var _sampleLog=[];
-  Object.keys(weekMap).forEach(function(p){Object.keys(weekMap[p]).forEach(function(pr){Object.keys(weekMap[p][pr]).forEach(function(cl){_sampleLog.push(p+"/"+pr+"/"+cl+"="+weekMap[p][pr][cl].qty);});});});
-  console.log("[코스트코 업로드] 데이터 샘플:", _sampleLog.slice(0,20).join(", "));
-  /* 미매칭 상품 자동추가 */
+
+  for(var r=hRow+1;r<rows.length;r++){
+    var row=rows[r];
+    if(!row||row[cProd]==="")continue;
+    if(cSaleDiv>=0){
+      var sd=String(row[cSaleDiv]||"").trim();
+      if(/반품|취소|cancel/i.test(sd)){skipReturn++;continue;}
+    }
+    var dt=ccParseDate(cDate>=0?row[cDate]:null);
+    if(!dt){skipDate++;continue;}
+    var period=ccWeekPeriod(dt);
+    var prodCell=String(row[cProd]||"").trim();
+    var prodName=ccMatchProd(prodCell);
+    if(!prodName){
+      /* 미매칭 → 보관 + 자동추가 후보 수집 */
+      var colorCell2=cColor>=0?String(row[cColor]||"").trim():"";
+      var qty2=Number(row[cQty])||0;
+      var amt2=cAmt>=0?(Number(row[cAmt])||0):0;
+      unmatchedRows.push({period:period,prodCell:prodCell,colorCell:colorCell2,qty:qty2,amt:amt2});
+      var sn=ccExtractShortName(prodCell);
+      if(sn){
+        if(!autoAddCandidates[sn])autoAddCandidates[sn]={colors:{},prices:[]};
+        var nc=ccNormColor(colorCell2);
+        if(nc)autoAddCandidates[sn].colors[nc]=true;
+        var tagPrice=Number(row[18]||0);
+        if(tagPrice>0)autoAddCandidates[sn].prices.push(tagPrice);
+      }
+      skipProd++;continue;
+    }
+    var colorCell=cColor>=0?String(row[cColor]||"").trim():"";
+    var colorName=ccNormColor(colorCell)||ccMatchColor(colorCell,prodName)||ccMatchColor(prodCell,prodName);
+    if(!colorName){skipColor++;continue;}
+    var qty=Number(row[cQty])||0;
+    var amt=cAmt>=0?(Number(row[cAmt])||0):0;
+    if(CC_SET_PRODS.indexOf(prodName)>=0)qty=qty/2;
+    addToWeekMap(period,prodName,colorName,qty,amt);
+  }
+
+  /* ─ 미매칭 상품 자동추가 ─ */
   var autoAdded=[];
-  Object.keys(autoAddMap).forEach(function(sn){
+  Object.keys(autoAddCandidates).forEach(function(sn){
     if(costcoDB.products.find(function(p){return p.name===sn;}))return;
-    var info=autoAddMap[sn];
+    var info=autoAddCandidates[sn];
     var colors=Object.keys(info.colors);
-    if(!colors.length)return; /* 색상 미확인 → 건너뜀 */
+    if(!colors.length)return;
     var price=info.prices.length?Math.round(info.prices.reduce(function(a,b){return a+b;},0)/info.prices.length/10)*10:0;
     costcoDB.products.push({name:sn,code:"",price:price,colors:colors});
     autoAdded.push(sn);
     console.log("[코스트코 자동추가]",sn,"colors:",colors,"price:",price);
   });
+
+  /* ─ 2차 처리: 자동추가된 상품의 미매칭 행 재처리 ─ */
   if(autoAdded.length){
-    localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
+    var reProcessed=0;
+    unmatchedRows.forEach(function(ur){
+      var pn=ccMatchProd(ur.prodCell);
+      if(!pn)return;
+      var cn=ccNormColor(ur.colorCell)||ccMatchColor(ur.colorCell,pn)||ccMatchColor(ur.prodCell,pn);
+      if(!cn)return;
+      var q=ur.qty; if(CC_SET_PRODS.indexOf(pn)>=0)q=q/2;
+      addToWeekMap(ur.period,pn,cn,q,ur.amt);
+      reProcessed++;
+    });
+    console.log("[코스트코 2차처리] 재처리 행수:",reProcessed);
+    skipProd=Math.max(0,skipProd-reProcessed);
   }
+
+  /* ─ 파싱 결과 진단 ─ */
+  console.log("[코스트코 업로드] 스킵: 날짜미인식="+skipDate+" 상품미매칭="+skipProd+" 색상미매칭="+skipColor+" 반품제외="+skipReturn);
+  console.log("[코스트코 업로드] 생성된 주차키:", Object.keys(weekMap));
+  var _sampleLog=[];
+  Object.keys(weekMap).forEach(function(p){Object.keys(weekMap[p]).forEach(function(pr){Object.keys(weekMap[p][pr]).forEach(function(cl){_sampleLog.push(p+"/"+pr+"/"+cl+"="+weekMap[p][pr][cl].qty);});});});
+  console.log("[코스트코 업로드] 데이터 샘플:", _sampleLog.slice(0,20).join(", "));
+
   if(!Object.keys(weekMap).length){
-    var autoMsg=autoAdded.length?"(신규 상품 "+autoAdded.join(", ")+" 추가됨) ":"";
-    alert("인식된 판매데이터가 없습니다.\n"+autoMsg+"\n스킵 원인:\n날짜 미인식: "+skipDate+"행\n상품명 미매칭: "+skipProd+"행\n색상 미매칭: "+skipColor+"행\n반품제외: "+skipReturn+"행");
+    var autoMsg=autoAdded.length?"신규 상품 "+autoAdded.join(", ")+" 추가됨. ":"";
+    alert("인식된 판매데이터가 없습니다.\n"+autoMsg+"스킵: 날짜"+skipDate+"·상품"+skipProd+"·색상"+skipColor+"행");
+    if(autoAdded.length)localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
     return;
   }
   ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn,autoAdded:autoAdded});
@@ -2685,8 +2716,12 @@ function ccMergeWeekMap(weekMap,skipInfo){
   });
   costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
   saveCostcoDB(true);
-  /* 현재 선택된 월 유지 (자동 이동 없음) */
-  var _keys=Object.keys(weekMap).sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
+  /* 업로드 후 → 당월(오늘)로 자동 이동 */
+  var _now=new Date();
+  var _mElNav=document.getElementById("ccMonth");
+  var _yElNav=document.getElementById("ccYear");
+  if(_mElNav)_mElNav.value=_now.getMonth()+1;
+  if(_yElNav)_yElNav.value=_now.getFullYear();
   renderCostcoPage();
   var msg=document.getElementById("costcoMsg");
   if(msg){
@@ -3032,9 +3067,9 @@ function renderCostcoPage(){
   var totCumul=0;
   prods.forEach(function(p){p.colors.forEach(function(c){totCumul+=ccAutoCalcCumul(p.name,c);});});
   h+='<tr class="cc-total-row">';
-  h+='<td class="cc-sticky-1" style="background:#e8eaf0;font-size:11px">누계</td>';
-  h+='<td class="cc-sticky-2" style="background:#e8eaf0;font-weight:700;text-align:right">'+fmtCC(totCumul)+'</td>';
-  h+='<td class="cc-sticky-3" style="background:#e8eaf0;font-size:10px;color:#6b7280">컬러</td>';
+  h+='<td class="cc-sticky-1" style="background:#e8eaf0;font-size:16px;font-weight:700">누계</td>';
+  h+='<td class="cc-sticky-2" style="background:#e8eaf0;font-weight:700;text-align:right;font-size:16px">'+fmtCC(totCumul)+'</td>';
+  h+='<td class="cc-sticky-3" style="background:#e8eaf0;font-size:16px;color:#6b7280">컬러</td>';
   if(periods.length){
     periods.forEach(function(p){
       var t=ccPeriodTotal(p);
