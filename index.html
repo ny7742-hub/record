@@ -2520,6 +2520,34 @@ _defaultNewProds.forEach(function(np){
     costcoDB.products.push(np);_needSave=true;
   }
 });
+/* 날짜별 키("M/D") → 주차별 키("M/D~M/D") 마이그레이션 */
+(function migrateDate2Week(){
+  var dateKeys=Object.keys(costcoDB.sales||{}).filter(function(k){return /^\d+\/\d+$/.test(k);});
+  if(!dateKeys.length)return;
+  dateKeys.forEach(function(dk){
+    var m=dk.match(/^(\d+)\/(\d+)$/);
+    if(!m)return;
+    var dt=new Date(new Date().getFullYear(),parseInt(m[1])-1,parseInt(m[2]));
+    var day=dt.getDay();
+    var toMon=day===0?-6:1-day;
+    var mon=new Date(dt);mon.setDate(dt.getDate()+toMon);
+    var sun=new Date(mon);sun.setDate(mon.getDate()+6);
+    var wk=(mon.getMonth()+1)+"/"+mon.getDate()+"~"+(sun.getMonth()+1)+"/"+sun.getDate();
+    if(!costcoDB.sales[wk])costcoDB.sales[wk]={};
+    Object.keys(costcoDB.sales[dk]).forEach(function(prod){
+      if(!costcoDB.sales[wk][prod])costcoDB.sales[wk][prod]={};
+      Object.keys(costcoDB.sales[dk][prod]).forEach(function(color){
+        var d=costcoDB.sales[dk][prod][color];
+        if(!costcoDB.sales[wk][prod][color])costcoDB.sales[wk][prod][color]={qty:0,amount:0};
+        costcoDB.sales[wk][prod][color].qty+=Number(d.qty||0);
+        costcoDB.sales[wk][prod][color].amount+=Number(d.amount||0);
+      });
+    });
+    delete costcoDB.sales[dk];
+    _needSave=true;
+    console.log("[마이그레이션] "+dk+" → "+wk);
+  });
+})();
 if(_needSave)localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
 
 
