@@ -276,7 +276,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-month-tot{background:#dbeafe;font-weight:700;text-align:right;color:#1e40af}
 .cc-del-period{position:absolute;top:2px;right:3px;font-size:9px;cursor:pointer;color:#fca5a5;font-weight:900;line-height:1}
 .cc-sale-th{background:#be123c!important;color:#fff!important;font-weight:700!important}
-.cc-sale-td{background:#fce7f3!important;color:#9f1239!important;font-weight:700!important}
+.cc-sale-td{background:#f9a8d4!important;color:#9f1239!important;font-weight:700!important}
 .cc-sale-badge{display:none}
 .cc-prod-code{font-size:10px;color:#6366f1;font-weight:600;outline:none;cursor:text;border-radius:3px;min-width:20px;display:inline-block}
 .cc-prod-code:empty:before{content:"(코드)";color:#c4c9d4}
@@ -2625,7 +2625,7 @@ function parseCostcoRows(rows){
     }
     var dt=ccParseDate(cDate>=0?row[cDate]:null);
     if(!dt){skipDate++;continue;}
-    var period=ccWeekPeriod(dt);
+    var period=ccDatePeriod(dt);
     var prodCell=String(row[cProd]||"").trim();
     var prodName=ccMatchProd(prodCell);
     if(!prodName){
@@ -2848,40 +2848,28 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
   }
 })();
 
+function ccDatePeriod(date){
+  /* 날짜 → "M/D" 문자열 (주차 대신 날짜별 집계) */
+  var d=new Date(date);
+  return (d.getMonth()+1)+"/"+d.getDate();
+}
+
 function ccGetMonthPeriods(){
-  /* 선택된 연/월로 주간 기간(월~일)을 직접 계산
-     ※ 월 첫날 직전 주차(전월 마지막 주)도 포함 — 코스트코 주간 파일이
-       전월 마지막 주 데이터를 당월 첫 파일로 제공하는 경우 대비 */
+  /* 선택 월에 실제 데이터가 있는 날짜만 반환 (날짜별 집계) */
   var yEl=document.getElementById("ccYear");
   var mEl=document.getElementById("ccMonth");
   if(!yEl||!mEl)return [];
   var year=parseInt(yEl.value);
   var month=parseInt(mEl.value);
-  var firstDay=new Date(year,month-1,1);
-  var lastDay=new Date(year,month,0);
   var periods=[];
-  /* 전월 마지막 주(월 1일 직전 월요일~일요일) 추가 */
-  var dow=firstDay.getDay();
-  var toMon=dow===0?-6:1-dow;
-  if(toMon<0){
-    /* 월 1일이 월요일이 아닌 경우엔 자동 포함되므로 toMon===0일 때만 별도 추가 */
-  }
-  /* 항상 전주 포함: 월 1일 기준 직전 7일 시작 월요일 */
-  var prevMon=new Date(year,month-1,1+toMon-7);
-  var prevSun=new Date(prevMon); prevSun.setDate(prevMon.getDate()+6);
-  var prevP=(prevMon.getMonth()+1)+"/"+prevMon.getDate()+"~"+(prevSun.getMonth()+1)+"/"+prevSun.getDate();
-  /* 전주에 실제 업로드된 데이터가 있을 때만 컬럼 표시 */
-  if(costcoDB.sales[prevP])periods.push(prevP);
-  /* 당월 주차들 */
-  var cur=new Date(year,month-1,1+toMon);
-  while(cur<=lastDay){
-    var mon=new Date(cur);
-    var sun=new Date(cur);
-    sun.setDate(sun.getDate()+6);
-    var p=(mon.getMonth()+1)+"/"+mon.getDate()+"~"+(sun.getMonth()+1)+"/"+sun.getDate();
-    periods.push(p);
-    cur.setDate(cur.getDate()+7);
-  }
+  Object.keys(costcoDB.sales).forEach(function(key){
+    /* "M/D" 형식 날짜 키만 처리 */
+    var m=key.match(/^(\d+)\/(\d+)$/);
+    if(!m)return;
+    var kDate=new Date(year,parseInt(m[1])-1,parseInt(m[2]));
+    if(kDate.getMonth()+1===month)periods.push(key);
+  });
+  periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
   return periods;
 }
 
@@ -3014,15 +3002,8 @@ function renderCostcoPage(){
   var _yEl=document.getElementById("ccYear"),_mEl=document.getElementById("ccMonth");
   var _year=_yEl?parseInt(_yEl.value):new Date().getFullYear();
   var _month=_mEl?parseInt(_mEl.value):new Date().getMonth()+1;
-  /* 월 합계: 당월 1일~말일 내에 시작하는 주차만 포함 */
-  var _monthFirst=new Date(_year,_month-1,1);
-  var _monthLast=new Date(_year,_month,0);
-  var monthPeriods=periods.filter(function(p){
-    var m=p.match(/^(\d+)\/(\d+)/);
-    if(!m)return false;
-    var ps=new Date(_year,parseInt(m[1])-1,parseInt(m[2]));
-    return ps>=_monthFirst&&ps<=_monthLast;
-  });
+  /* 월 합계: 날짜 기반 — ccGetMonthPeriods가 이미 당월만 반환 */
+  var monthPeriods=periods.slice();
 
   var h='<table class="cc-tbl"><colgroup>';
   h+='<col style="width:76px"><col style="width:54px"><col style="width:70px">';
