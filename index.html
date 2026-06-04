@@ -690,6 +690,31 @@ function isEventItem(item){
   return !!(cols&&cols.indexOf(item["칼라코드"]||"")>=0);
 }
 
+/* ── 센텀시티점 15균일가 행사상품 (6/5~6/18) ── */
+var LSC_EVENT_MAP={
+  "WCHM1A0O":["BE","BK","CC","KBR"],
+  "WHHM6A4S":["BE","BK","BL","CC","GY","KBR","KH","NV","PK","RD","SBL","SGN","TGN","WH"],
+  "WHHS0B1D":["ASH","BK","CA","IV","MS","MT","NV","PK","RS","TB"],
+  "WIM65N1Q":["BE","BK","IV","NV"],
+  "WIM32H1M":["ASH","BE","BK","IV"],
+  "WIM76H4M":["BE","BK","CC","KBR"],
+  "WIM74I1Z":["BK","BL","PN"],
+  "WKS40H9S":["BE","BK","IV"],
+  "WKS22I3C":["BJ","DJ","LBL"],
+  "WKS81I3V":["BE","BK","PP","SGN","WH"],
+  "WVHM1B0O":["CO","GY","NR","PK","PN","SGN"]
+};
+var LSC_EVENT_PRICE=15000;
+var LSC_EVENT_START=new Date(2026,5,5);  /* 6/5 */
+var LSC_EVENT_END  =new Date(2026,5,18); /* 6/18 */
+function isLscEventItem(item){
+  if(getStoreCode()!=="LSC")return false;
+  var today=new Date(); today.setHours(0,0,0,0);
+  if(today<LSC_EVENT_START||today>LSC_EVENT_END)return false;
+  var cols=LSC_EVENT_MAP[item["상품코드"]||""];
+  return !!(cols&&cols.indexOf(item["칼라코드"]||"")>=0);
+}
+
 var cart=[], cur=[], chipColors=[], uidSeq=0, kbIdx=-1;
 var catDiscMap={hat:0,para:0,strap:0,etc:0};
 function newUid(){return ++uidSeq;}
@@ -1017,7 +1042,8 @@ function renderCart(highlight){
     var bc=r["바코드1"]||r["바코드2"]||"-";
     var tag=Number(r["TAG가"])||0;
     var evnt=isEventItem(r);
-    var fin=evnt?LDB_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):0);
+    var lscEvnt=isLscEventItem(r);
+    var fin=evnt?LDB_EVENT_PRICE:lscEvnt?LSC_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):0);
     var isDup=keyCnt[k]>1;var isNew=highlight&&i===0;
     var cat=getCat(r["상품명"]);
     h+='<tr class="'+(isNew?"new-row":"")+'"'+(isDup?' style="background:#fffbeb"':"")+
@@ -1026,12 +1052,14 @@ function renderCart(highlight){
       '</td><td><span class="badge">'+r["칼라코드"]+'</span><div style="font-size:10px;color:#6b7280;margin-top:2px">'+r["칼라명"]+'</div></td>'+
       '<td class="bc" style="font-size:11px">'+bc+'</td>'+
       '<td style="text-align:center"><input type="number" class="mini-input" value="'+row.qty+'" min="1" onchange="cart['+i+'].qty=parseInt(this.value)||1"/></td>'+
-      '<td style="text-align:center">'+(evnt
+      '<td style="text-align:center">'+((evnt||lscEvnt)
         ?'<span style="font-size:10px;font-weight:700;color:#dc2626;background:#fee2e2;padding:2px 6px;border-radius:4px">행사고정</span>'
         :'<div style="display:flex;align-items:center;gap:3px;justify-content:center"><input type="number" class="mini-input" value="'+row.disc+'" min="0" max="100" step="1" onchange="cart['+i+'].disc=parseFloat(this.value)||0;renderCart();" style="width:46px!important"/><span style="font-size:11px;color:#555">%</span></div>'
       )+'</td>'+
       '<td>'+(evnt
         ?'<div class="price-final">'+LDB_EVENT_PRICE.toLocaleString()+'원</div><div style="margin-top:2px"><span class="disc-badge" style="background:#fee2e2;color:#b91c1c;border-color:#fca5a5">19균일</span></div>'
+        :lscEvnt
+        ?'<div class="price-final">'+LSC_EVENT_PRICE.toLocaleString()+'원</div><div style="margin-top:2px"><span class="disc-badge" style="background:#fee2e2;color:#b91c1c;border-color:#fca5a5">15균일</span></div>'
         :(tag?(row.disc>0?'<div class="price-final">'+fin.toLocaleString()+'원</div><div style="display:flex;align-items:center;gap:3px;margin-top:2px"><span class="price-orig">'+tag.toLocaleString()+'원</span><span class="disc-badge">'+row.disc+'%↓</span></div>':'<div class="price-final">'+tag.toLocaleString()+'원</div>'):"–")
       )+'</td><td><input type="text" class="note-input" value="'+(row.note||"")+'" placeholder="비고" oninput="cart['+i+'].note=this.value"/></td>'+
       '<td><button class="rb" onclick="rmRow('+row.uid+')">×</button></td></tr>';
@@ -1043,7 +1071,7 @@ function renderCart(highlight){
   cart.forEach(function(row){
     var r=row.item;
     var tag=Number(r["TAG가"])||0;
-    var fin=isEventItem(r)?LDB_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):0);
+    var fin=isEventItem(r)?LDB_EVENT_PRICE:isLscEventItem(r)?LSC_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):0);
     if(fin)total+=fin*(row.qty||1);
   });
   document.getElementById("totalAmt").textContent=total.toLocaleString()+"원";
