@@ -2762,6 +2762,24 @@ function parseCostcoRows(rows){
   var _sampleLog=[];
   Object.keys(weekMap).forEach(function(p){Object.keys(weekMap[p]).forEach(function(pr){Object.keys(weekMap[p][pr]).forEach(function(cl){_sampleLog.push(p+"/"+pr+"/"+cl+"="+weekMap[p][pr][cl].qty);});});});
   console.log("[코스트코 업로드] 데이터 샘플:", _sampleLog.slice(0,20).join(", "));
+  /* ─ 6월 주차 상세 진단 ─ */
+  var _now2=new Date(); var _cm=_now2.getMonth()+1;
+  Object.keys(weekMap).forEach(function(p){
+    var mm=p.match(/^(\d+)\//); if(!mm)return;
+    if(parseInt(mm[1])!==_cm)return;
+    var totQ=0,totA=0;
+    Object.keys(weekMap[p]).forEach(function(pr){
+      Object.keys(weekMap[p][pr]).forEach(function(cl){
+        totQ+=weekMap[p][pr][cl].qty; totA+=weekMap[p][pr][cl].amount;
+      });
+    });
+    console.log("[6월 주차 진단]",p,"→ 총수량:",totQ,"총금액:",totA);
+    Object.keys(weekMap[p]).forEach(function(pr){
+      var pQ=0,pA=0;
+      Object.keys(weekMap[p][pr]).forEach(function(cl){pQ+=weekMap[p][pr][cl].qty;pA+=weekMap[p][pr][cl].amount;});
+      console.log("  ",pr,": 수량",pQ,"금액",pA,"칼라:",JSON.stringify(weekMap[p][pr]));
+    });
+  });
 
   if(!Object.keys(weekMap).length){
     var autoMsg=autoAdded.length?"신규 상품 "+autoAdded.join(", ")+" 추가됨. ":"";
