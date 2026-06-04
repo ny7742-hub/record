@@ -3301,19 +3301,13 @@ function renderCostcoPage(){
     });
   }):prods;
   visibleProds.forEach(function(prod){
-    /* 당월 매출 있는 색상만 표시 */
-    var visibleColors=monthKeys.length?prod.colors.filter(function(color){
-      return monthKeys.some(function(k){
-        var d=((costcoDB.sales[k]||{})[prod.name]||{})[color]||{};
-        return !!(d.qty||d.amount);
-      });
-    }):prod.colors;
-    visibleColors.forEach(function(color,ci){
+    /* 색상은 전체 표시 (수기 입력 가능하도록) — 상품 단위로만 숨김 처리 */
+    prod.colors.forEach(function(color,ci){
       h+='<tr>';
       if(ci===0){
         var code=prod.code||'';
         var monthSalePrice=ccGetSalePriceForMonth(prod.name);
-        h+='<td class="cc-prod-cell cc-sticky-1" rowspan="'+visibleColors.length+'">';
+        h+='<td class="cc-prod-cell cc-sticky-1" rowspan="'+prod.colors.length+'">';
         h+=prod.name;
         if(code)h+='<br><span style="font-size:13px;color:#6366f1;font-weight:600">('+code+')</span>';
         h+='<br><span style="font-size:13px;color:#374151;font-weight:600">'+prod.price.toLocaleString()+'원</span>';
@@ -3345,7 +3339,7 @@ function renderCostcoPage(){
         h+='<td class="cc-nodata"></td>';
       }
       h+='</tr>';
-    }); /* visibleColors */
+    }); /* prod.colors */
   }); /* visibleProds */
   h+='</tbody></table>';
   document.getElementById("costcoTableWrap").innerHTML=h;
