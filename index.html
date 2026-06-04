@@ -303,6 +303,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
+  <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">📋 팝업</button>
 </div>
 
 <!-- 업로드 모달 -->
@@ -507,6 +508,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
       <select id="ccYear" onchange="renderCostcoPage()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
       <select id="ccMonth" onchange="renderCostcoPage()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
       <label style="cursor:pointer"><span class="bs" style="padding:4px 10px;font-size:11px;display:inline-block">&#128194; 파일 업로드</span><input type="file" id="costcoFileIn" accept=".xlsx,.xls" style="display:none" onchange="loadCostcoFile(this)"/></label>
+      <button onclick="ccAddDatePrompt()" style="padding:4px 10px;background:#059669;color:white;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">+ 날짜 추가</button>
       <span id="costcoMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
     </div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -525,6 +527,35 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
   </div>
 </div>
 </div><!-- /page-costco -->
+
+<div id="page-popup" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">📋 팝업 일정 관리</div>
+      <button onclick="addPopupRow()" style="padding:5px 14px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ 행 추가</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="overflow-x:auto">
+      <table id="popupTable" style="width:100%;border-collapse:collapse;font-size:13px;min-width:900px">
+        <thead>
+          <tr style="background:#f1f5f9;border-bottom:2px solid #e2e8f0">
+            <th style="padding:8px 10px;text-align:center;width:60px;color:#374151;font-weight:700">구분</th>
+            <th style="padding:8px 10px;text-align:center;width:110px;color:#374151;font-weight:700">매장</th>
+            <th style="padding:8px 10px;text-align:center;width:90px;color:#374151;font-weight:700">시작</th>
+            <th style="padding:8px 10px;text-align:center;width:90px;color:#374151;font-weight:700">종료</th>
+            <th style="padding:8px 10px;text-align:left;color:#374151;font-weight:700">내용</th>
+            <th style="padding:8px 10px;text-align:left;color:#374151;font-weight:700">비고</th>
+            <th style="padding:8px 10px;text-align:center;width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="popupTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div><!-- /page-popup -->
 
 
 <script>
@@ -2314,13 +2345,16 @@ function switchTab(tab){
   document.getElementById("page-meeting").style.display=tab==="meeting"?"block":"none";
   document.getElementById("page-dept").style.display=tab==="dept"?"block":"none";
   document.getElementById("page-costco").style.display=tab==="costco"?"block":"none";
+  document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
   document.getElementById("tab-dept").classList.toggle("active",tab==="dept");
   document.getElementById("tab-costco").classList.toggle("active",tab==="costco");
+  document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   if(tab==="meeting") renderMeetingGrid();
   if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="costco") renderCostcoPage();
+  if(tab==="popup") renderPopupPage();
 }
 
 /* ── 회의일지 ── */
@@ -3300,12 +3334,13 @@ function renderCostcoPage(){
           var prevWr=i>0?ccKeyToWeekRange(monthKeys[i-1],_year):'';
           var curWr=ccKeyToWeekRange(k,_year);
           var bl=(i>0&&prevWr!==curWr)?'border-left:2px solid #e5e7eb':'';
-          h+='<td class="cc-num-cell'+nd+saleCls+' cc-sel-able" data-val="'+(d.qty||0)+'" style="'+bl+'">'+(d.qty?fmtCC(d.qty):'')+'</td>';
-          h+='<td class="cc-amt-cell'+nd+saleCls+' cc-sel-able" data-val="'+(d.amount||0)+'">'+(d.amount?fmtCC(d.amount):'')+'</td>';
+          h+='<td class="cc-num-cell'+nd+saleCls+' cc-sel-able cc-editable" data-val="'+(d.qty||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="qty" style="'+bl+';cursor:pointer" title="클릭하여 수정">'+(d.qty?fmtCC(d.qty):'')+'</td>';
+          h+='<td class="cc-amt-cell'+nd+saleCls+' cc-sel-able cc-editable" data-val="'+(d.amount||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="amount" style="cursor:pointer" title="클릭하여 수정">'+(d.amount?fmtCC(d.amount):'')+'</td>';
           mQty+=Number(d.qty||0); mAmt+=Number(d.amount||0);
         });
-        h+='<td class="cc-month-tot cc-sel-able" data-val="'+(mQty||0)+'" style="border-left:2px solid #93c5fd">'+(mQty?fmtCC(mQty):'')+'</td>';
-        h+='<td class="cc-month-tot cc-sel-able" data-val="'+(mAmt||0)+'" style="text-align:right">'+(mAmt?fmtCC(mAmt):'')+'</td>';
+        var _mrc='cc-month-row-'+prod.name+'_'+color;
+        h+='<td class="cc-month-tot cc-sel-able '+_mrc+'" data-val="'+(mQty||0)+'" data-tottype="qty" style="border-left:2px solid #93c5fd">'+(mQty?fmtCC(mQty):'')+'</td>';
+        h+='<td class="cc-month-tot cc-sel-able '+_mrc+'" data-val="'+(mAmt||0)+'" data-tottype="amt" style="text-align:right">'+(mAmt?fmtCC(mAmt):'')+'</td>';
       }else{
         h+='<td class="cc-nodata"></td>';
       }
@@ -3330,6 +3365,142 @@ function ccSave(el,prod,color,period,type){
 }
 function addCostcoPeriod(){}
 function deleteCostcoPeriod(idx){}
+
+/* ══════════════════════════════════════════
+   코스트코 날짜 수동 추가 + 셀 인라인 편집
+══════════════════════════════════════════ */
+function ccAddDatePrompt(){
+  var input=prompt("추가할 날짜를 입력하세요 (예: 6/2)");
+  if(!input)return;
+  var m=input.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+  if(!m){alert("날짜 형식이 올바르지 않습니다.\n예: 6/2");return;}
+  var key=m[1]+"/"+m[2];
+  if(!costcoDB.sales[key])costcoDB.sales[key]={};
+  if(costcoDB.periods.indexOf(key)<0){
+    costcoDB.periods.push(key);
+    costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
+  }
+  saveCostcoDB();
+  /* 해당 날짜의 월로 자동 이동 */
+  var mEl=document.getElementById("ccMonth"),yEl=document.getElementById("ccYear");
+  if(mEl)mEl.value=parseInt(m[1]);
+  renderCostcoPage();
+}
+
+/* 셀 클릭 시 인라인 편집 */
+document.addEventListener("click",function(e){
+  var td=e.target.closest(".cc-editable");
+  if(!td)return;
+  if(td.querySelector("input"))return; /* 이미 편집 중 */
+  var cur=td.dataset.val||"";
+  var inp=document.createElement("input");
+  inp.type="number";
+  inp.value=cur||"";
+  inp.style.cssText="width:100%;border:none;outline:none;background:transparent;font-size:inherit;font-weight:inherit;text-align:right;padding:0;color:#111";
+  td.textContent="";
+  td.appendChild(inp);
+  inp.focus();inp.select();
+  function commit(){
+    var v=parseInt(inp.value)||0;
+    td.dataset.val=v;
+    td.textContent=v?v.toLocaleString():"";
+    var prod=td.dataset.prod,color=td.dataset.color,period=td.dataset.period,type=td.dataset.type;
+    if(!costcoDB.sales[period])costcoDB.sales[period]={};
+    if(!costcoDB.sales[period][prod])costcoDB.sales[period][prod]={};
+    if(!costcoDB.sales[period][prod][color])costcoDB.sales[period][prod][color]={qty:0,amount:0};
+    costcoDB.sales[period][prod][color][type]=v;
+    if(!v)delete costcoDB.sales[period][prod][color][type];
+    saveCostcoDB();
+    /* 월 합계 행만 갱신 */
+    var yEl=document.getElementById("ccYear"),mEl=document.getElementById("ccMonth");
+    var _year=yEl?parseInt(yEl.value):new Date().getFullYear();
+    var _month=mEl?parseInt(mEl.value):new Date().getMonth()+1;
+    var monthKeys=ccGetMonthPeriods();
+    var mQty=0,mAmt=0;
+    monthKeys.forEach(function(k){
+      var d=((costcoDB.sales[k]||{})[prod]||{})[color]||{};
+      mQty+=Number(d.qty||0);mAmt+=Number(d.amount||0);
+    });
+    /* month-tot 셀 업데이트 */
+    var allTots=document.querySelectorAll('.cc-month-row-'+CSS.escape(prod)+'_'+CSS.escape(color));
+    allTots.forEach(function(tc){
+      if(tc.dataset.tottype==="qty"){tc.dataset.val=mQty;tc.textContent=mQty?mQty.toLocaleString():"";}
+      else{tc.dataset.val=mAmt;tc.textContent=mAmt?mAmt.toLocaleString():"";}
+    });
+  }
+  inp.addEventListener("blur",commit);
+  inp.addEventListener("keydown",function(e){if(e.key==="Enter"){inp.blur();}if(e.key==="Escape"){inp.value=cur||"";inp.blur();}});
+});
+
+/* ══════════════════════════════════════════
+   팝업 일정 관리
+══════════════════════════════════════════ */
+var popupDB=JSON.parse(localStorage.getItem("popupDB")||"[]");
+
+function savePopupDB(){localStorage.setItem("popupDB",JSON.stringify(popupDB));}
+
+var POPUP_STATUS=["진행","확정","협의","완료"];
+var POPUP_STATUS_COLOR={"진행":"#059669","확정":"#2563eb","협의":"#d97706","완료":"#6b7280"};
+
+function renderPopupPage(){
+  var tbody=document.getElementById("popupTbody");
+  if(!tbody)return;
+  var h="";
+  popupDB.forEach(function(row,i){
+    var sc=POPUP_STATUS_COLOR[row.status]||"#374151";
+    h+='<tr style="border-bottom:1px solid #f1f5f9" id="poprow-'+i+'">';
+    /* 구분 */
+    h+='<td style="padding:6px 8px;text-align:center">';
+    h+='<select onchange="popupEdit('+i+',\'status\',this.value)" style="border:1px solid #e5e7eb;border-radius:6px;padding:3px 4px;font-size:12px;font-weight:700;color:'+sc+';background:white;cursor:pointer">';
+    POPUP_STATUS.forEach(function(s){h+='<option value="'+s+'"'+(row.status===s?" selected":"")+'>'+s+'</option>';});
+    h+='</select></td>';
+    /* 매장 */
+    h+='<td style="padding:6px 8px"><input type="text" value="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:12px"></td>';
+    /* 시작 */
+    h+='<td style="padding:6px 8px"><input type="date" value="'+(row.start||"")+'" onchange="popupEdit('+i+',\'start\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:3px 6px;font-size:12px"></td>';
+    /* 종료 */
+    h+='<td style="padding:6px 8px"><input type="date" value="'+(row.end||"")+'" onchange="popupEdit('+i+',\'end\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:3px 6px;font-size:12px"></td>';
+    /* 내용 */
+    h+='<td style="padding:6px 8px"><input type="text" value="'+_esc(row.content||"")+'" onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:12px"></td>';
+    /* 비고 */
+    h+='<td style="padding:6px 8px"><input type="text" value="'+_esc(row.note||"")+'" onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:12px;color:#6366f1"></td>';
+    /* 삭제 */
+    h+='<td style="padding:6px 8px;text-align:center"><button onclick="deletePopupRow('+i+')" style="background:none;border:none;color:#ef4444;font-size:16px;cursor:pointer;line-height:1">✕</button></td>';
+    h+='</tr>';
+  });
+  if(!popupDB.length){
+    h='<tr><td colspan="7" style="padding:32px;text-align:center;color:#9ca3af;font-size:13px">+ 행 추가 버튼으로 일정을 등록하세요</td></tr>';
+  }
+  tbody.innerHTML=h;
+}
+
+function _esc(s){return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+
+function addPopupRow(){
+  popupDB.push({status:"확정",store:"",start:"",end:"",content:"",note:""});
+  savePopupDB();
+  renderPopupPage();
+  /* 마지막 행 매장 input에 포커스 */
+  var rows=document.querySelectorAll("#popupTbody tr");
+  if(rows.length){var inp=rows[rows.length-1].querySelector("input[type=text]");if(inp)inp.focus();}
+}
+
+function popupEdit(i,field,val){
+  if(popupDB[i])popupDB[i][field]=val;
+  /* status 변경 시 색상만 갱신 */
+  if(field==="status"){
+    var sel=document.querySelector("#poprow-"+i+" select");
+    if(sel)sel.style.color=POPUP_STATUS_COLOR[val]||"#374151";
+  }
+  savePopupDB();
+}
+
+function deletePopupRow(i){
+  if(!confirm("삭제하시겠습니까?"))return;
+  popupDB.splice(i,1);
+  savePopupDB();
+  renderPopupPage();
+}
 
 </script>
 
