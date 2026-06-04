@@ -207,18 +207,18 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 #deptScrollMirrorInner{height:1px;display:block}
 .dept-col{flex:0 0 calc(25% - 9px);min-width:300px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:12px}
 .dept-col-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1.5px solid #e0e7ff}
-.dept-col-hd .store-name{font-size:13px;font-weight:700;color:#1a1a2e;white-space:nowrap}
-.dept-col .m-sec-title{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin:8px 0 5px;white-space:nowrap}
+.dept-col-hd .store-name{font-size:17px;font-weight:700;color:#1a1a2e;white-space:nowrap}
+.dept-col .m-sec-title{font-size:12px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin:8px 0 5px;white-space:nowrap}
 .dept-col .s-tbl th{padding:6px 9px;font-size:15px;white-space:nowrap}
 .dept-col .s-tbl td{padding:6px 9px;font-size:15px;white-space:nowrap}
 .dept-col .s-tbl td.row-label{font-size:15px;padding:6px 9px;white-space:nowrap;font-weight:700}
 .dept-col .s-tbl td.calc{font-size:15px;white-space:nowrap;font-weight:700}
-.dept-col .sn{padding:6px 9px;font-size:14px}
-.dept-col .b-tbl th{padding:4px 5px;font-size:12px;white-space:nowrap}
-.dept-col .b-tbl td{padding:4px 5px;font-size:12px}
-.dept-col .b-tbl td:nth-child(3){max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dept-col .pn-input{padding:4px 6px;font-size:12px}
-.dept-col .st-sel{font-size:11px;padding:3px 4px;border-radius:4px;white-space:nowrap}
+.dept-col .sn{padding:6px 9px;font-size:15px}
+.dept-col .b-tbl th{padding:5px 6px;font-size:14px;white-space:nowrap}
+.dept-col .b-tbl td{padding:5px 6px;font-size:14px}
+.dept-col .b-tbl td:nth-child(3){max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dept-col .pn-input{padding:4px 6px;font-size:14px}
+.dept-col .st-sel{font-size:13px;padding:3px 4px;border-radius:4px;white-space:nowrap}
 .dept-col[draggable="true"]{cursor:grab;transition:opacity .15s,outline .1s}
 .dept-col.dept-drag-over{outline:2px dashed #6366f1;outline-offset:-2px;background:#f5f3ff}
 .dept-info-row{display:flex;gap:8px;margin-top:6px;font-size:14px;font-weight:600;white-space:nowrap}
@@ -541,7 +541,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
         <thead>
           <tr style="background:#f1f5f9;border-bottom:2px solid #e2e8f0">
             <th style="padding:10px 12px;text-align:center;width:80px;color:#374151;font-weight:700;font-size:15px">구분</th>
-            <th style="padding:10px 12px;text-align:center;width:130px;color:#374151;font-weight:700;font-size:15px">매장</th>
+            <th style="padding:10px 12px;text-align:center;width:160px;color:#374151;font-weight:700;font-size:15px">매장</th>
             <th style="padding:10px 12px;text-align:center;width:100px;color:#374151;font-weight:700;font-size:15px">시작</th>
             <th style="padding:10px 12px;text-align:center;width:100px;color:#374151;font-weight:700;font-size:15px">종료</th>
             <th style="padding:10px 12px;text-align:left;color:#374151;font-weight:700;font-size:15px">내용</th>
@@ -3476,14 +3476,21 @@ function renderPopupPage(){
   var tbody=document.getElementById("popupTbody");
   if(!tbody)return;
   var h="";
-  popupDB.forEach(function(row,i){
+  /* 종료 → 맨 아래, 나머지는 시작일 오름차순 */
+  var _display=popupDB.map(function(row,i){return{row:row,i:i};}).sort(function(a,b){
+    var ae=a.row.status==="종료"?1:0, be=b.row.status==="종료"?1:0;
+    if(ae!==be)return ae-be;
+    return (a.row.start||"").localeCompare(b.row.start||"");
+  });
+  _display.forEach(function(item){
+    var row=item.row, i=item.i;
     var sc=POPUP_STATUS_COLOR[row.status]||"#374151";
-    h+='<tr style="border-bottom:1px solid #f1f5f9" id="poprow-'+i+'">';
+    var _dim=row.status==="종료"?"opacity:0.55;":"";
+    h+='<tr style="border-bottom:1px solid #f1f5f9;'+_dim+'" id="poprow-'+i+'">';
     /* 구분 */
     h+='<td style="padding:8px 10px;text-align:center">';
     h+='<select onchange="popupEdit('+i+',\'status\',this.value)" style="border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:14px;font-weight:700;color:'+sc+';background:white;cursor:pointer">';
     POPUP_STATUS.forEach(function(s){
-      /* 구버전 값도 선택 표시 */
       var _sel=(row.status===s||(s==="진행중"&&row.status==="진행")||(s==="진행예정"&&row.status==="확정")||(s==="협의중"&&row.status==="협의")||(s==="종료"&&row.status==="완료"))?" selected":"";
       h+='<option value="'+s+'"'+_sel+'>'+s+'</option>';
     });
@@ -3492,12 +3499,12 @@ function renderPopupPage(){
     h+='<td style="padding:8px 10px"><input type="text" value="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px"></td>';
     /* 시작 */
     h+='<td style="padding:8px 10px"><input type="date" value="'+(row.start||"")+'" onchange="popupEdit('+i+',\'start\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:14px"></td>';
-    /* 종료 */
+    /* 종료일 */
     h+='<td style="padding:8px 10px"><input type="date" value="'+(row.end||"")+'" onchange="popupEdit('+i+',\'end\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:14px"></td>';
-    /* 내용 */
-    h+='<td style="padding:8px 10px"><input type="text" value="'+_esc(row.content||"")+'" onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px"></td>';
-    /* 비고 */
-    h+='<td style="padding:8px 10px"><input type="text" value="'+_esc(row.note||"")+'" onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px;color:#6366f1"></td>';
+    /* 내용 — textarea, 가로 크기조절 */
+    h+='<td style="padding:8px 10px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;min-width:200px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px;font-family:inherit;resize:horizontal;overflow:auto;height:36px">'+_esc(row.content||"")+'</textarea></td>';
+    /* 비고 — textarea, 가로 크기조절 */
+    h+='<td style="padding:8px 10px"><textarea onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;min-width:120px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px;font-family:inherit;color:#6366f1;resize:horizontal;overflow:auto;height:36px">'+_esc(row.note||"")+'</textarea></td>';
     /* 삭제 */
     h+='<td style="padding:8px 10px;text-align:center"><button onclick="deletePopupRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;padding:4px 8px">삭제</button></td>';
     h+='</tr>';
