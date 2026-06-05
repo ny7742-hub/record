@@ -2827,26 +2827,10 @@ function parseCostcoRows(rows){
 
 function ccMergeWeekMap(weekMap,skipInfo){
   var _yr=new Date().getFullYear();
+  /* 기존 데이터 전체 삭제 후 업로드 데이터만 표시 */
+  costcoDB.sales={};
+  costcoDB.periods=[];
   Object.keys(weekMap).forEach(function(period){
-    /* 같은 주차의 주간합계 키(월요일 + _uploaded 없음) 자동 삭제 */
-    if(/^\d+\/\d+$/.test(period)){
-      var _wr=ccKeyToWeekRange(period,_yr);
-      Object.keys(costcoDB.sales).forEach(function(ek){
-        if(ek===period)return;
-        var _em=ek.match(/^(\d+)\/(\d+)$/);
-        if(!_em)return;
-        var _ed=new Date(_yr,+_em[1]-1,+_em[2]);
-        var _isMonday=(_ed.getDay()===1);
-        var _isUploaded=!!(costcoDB.sales[ek]&&costcoDB.sales[ek]._uploaded);
-        /* 월요일이고 직접 업로드 아닌 키 = 주간 합계 */
-        if(_isMonday&&!_isUploaded&&ccKeyToWeekRange(ek,_yr)===_wr){
-          delete costcoDB.sales[ek];
-          var _pi=costcoDB.periods.indexOf(ek);
-          if(_pi>=0)costcoDB.periods.splice(_pi,1);
-          console.log("[주간합계 제거] "+ek+" → "+period+" 업로드로 대체");
-        }
-      });
-    }
     if(costcoDB.periods.indexOf(period)<0)costcoDB.periods.push(period);
     /* 같은 기간 재업로드 시 해당 기간 전체 교체 (합산 방지) */
     costcoDB.sales[period]={_uploaded:true}; /* 직접 업로드 키 표시 */
@@ -3290,7 +3274,7 @@ function renderCostcoPage(){
       var bl=(i>0&&prevWr!==curWr)?'border-left:2px solid #d1d5db;':'';
       var label=k.indexOf('~')>=0?k:k;
       var kEsc=k.replace(/'/g,"\\'");
-      h+='<th colspan="2" style="'+bl+'font-size:11px">'+label+'<button onclick="ccDeleteDate(\''+kEsc+'\')" style="margin-left:4px;background:none;border:none;color:#9ca3af;font-size:10px;cursor:pointer;padding:0;line-height:1" title="날짜 삭제">×</button></th>';
+      h+='<th colspan="2" style="'+bl+'font-size:11px">'+label+'</th>';
     });
     h+='<th colspan="2" style="background:#1e40af;border-left:2px solid #93c5fd"></th>';
     h+='</tr>';
