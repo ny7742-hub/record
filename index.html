@@ -543,22 +543,22 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
     <div style="overflow-x:auto">
       <table id="popupTable" style="border-collapse:collapse;font-size:15px;table-layout:fixed">
         <colgroup>
-          <col style="width:46px">
+          <col style="width:30px">
+          <col style="width:80px">
+          <col style="width:100px">
           <col style="width:82px">
-          <col style="width:118px">
-          <col style="width:96px">
-          <col style="width:96px">
+          <col style="width:82px">
           <col id="popCol-content">
           <col id="popCol-note">
           <col style="width:44px">
         </colgroup>
         <thead>
           <tr style="background:#f1f5f9;border-bottom:2px solid #e2e8f0">
-            <th class="pop-fix" style="left:0;width:46px;padding:6px 2px;text-align:center;color:#9ca3af;font-size:11px">순서</th>
-            <th class="pop-fix" style="left:46px;width:82px;padding:8px 6px;text-align:center;color:#374151;font-weight:700;font-size:14px">구분</th>
-            <th class="pop-fix" style="left:128px;width:118px;padding:8px 6px;text-align:center;color:#374151;font-weight:700;font-size:14px">매장</th>
-            <th class="pop-fix" style="left:246px;width:96px;padding:8px 4px;text-align:center;color:#374151;font-weight:700;font-size:14px">시작일</th>
-            <th class="pop-fix" style="left:342px;width:96px;padding:8px 4px;text-align:center;color:#374151;font-weight:700;font-size:14px;border-right:2px solid #c7d0e0">종료일</th>
+            <th class="pop-fix" style="left:0;width:30px;padding:6px 2px;text-align:center;color:#9ca3af;font-size:11px">순서</th>
+            <th class="pop-fix" style="left:30px;width:80px;padding:8px 4px;text-align:center;color:#374151;font-weight:700;font-size:14px">구분</th>
+            <th class="pop-fix" style="left:110px;width:100px;padding:8px 4px;text-align:center;color:#374151;font-weight:700;font-size:14px">매장</th>
+            <th class="pop-fix" style="left:210px;width:82px;padding:8px 2px;text-align:center;color:#374151;font-weight:700;font-size:14px">시작일</th>
+            <th class="pop-fix" style="left:292px;width:82px;padding:8px 2px;text-align:center;color:#374151;font-weight:700;font-size:14px;border-right:2px solid #c7d0e0">종료일</th>
             <th id="popTh-content" style="padding:8px 8px;text-align:left;color:#374151;font-weight:700;font-size:14px;position:relative">내용<span onmousedown="popColResizeStart(event,'content')" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:rgba(99,102,241,.2)"></span></th>
             <th id="popTh-note" style="padding:8px 8px;text-align:left;color:#374151;font-weight:700;font-size:14px;position:relative">비고<span onmousedown="popColResizeStart(event,'note')" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:rgba(99,102,241,.2)"></span></th>
             <th style="padding:8px 4px;text-align:center;color:#374151;font-weight:700;font-size:14px">삭제</th>
@@ -3512,21 +3512,46 @@ function popColResizeStart(e,col){
 }
 
 /* ── 팝업 행 순서 이동 (▲▼) ── */
-function popMoveRow(i, dir){
-  /* 화면 표시 순서(종료 그룹 → 비종료 그룹, 각 그룹 내 배열 순서) 기준으로 이동 */
-  var _disp=popupDB.map(function(r,idx){return{r:r,i:idx};});
-  var ended=_disp.filter(function(x){return x.r.status==="종료";});
-  var active=_disp.filter(function(x){return x.r.status!=="종료";});
-  var display=ended.concat(active);
-  var pos=display.findIndex(function(x){return x.i===i;});
-  var newPos=pos+dir;
-  if(newPos<0||newPos>=display.length)return;
-  /* 종료↔비종료 경계 넘지 않도록 */
-  var curEnd=popupDB[i].status==="종료";
-  var tgtEnd=popupDB[display[newPos].i].status==="종료";
-  if(curEnd!==tgtEnd)return;
-  var targetI=display[newPos].i;
-  var tmp=popupDB[i]; popupDB[i]=popupDB[targetI]; popupDB[targetI]=tmp;
+/* ── 팝업 드래그 정렬 (마우스 이벤트) ── */
+var _pd={src:-1,ghost:null};
+function popDragStart(e,i){
+  e.preventDefault();
+  _pd.src=i;
+  var g=document.createElement('div');
+  g.id='popGhost';
+  g.style.cssText='position:fixed;z-index:9999;background:#e0e7ff;border:2px solid #6366f1;border-radius:8px;padding:6px 14px;font-size:13px;pointer-events:none;opacity:.9;box-shadow:0 4px 16px rgba(0,0,0,.18);white-space:nowrap;color:#4f46e5;font-weight:700';
+  g.textContent='⠿ '+(popupDB[i].store||'(매장 없음)');
+  document.body.appendChild(g);
+  _pd.ghost=g;
+  document.addEventListener('mousemove',_pdMove);
+  document.addEventListener('mouseup',_pdEnd);
+}
+function _pdMove(e){
+  if(!_pd.ghost)return;
+  _pd.ghost.style.left=(e.clientX+14)+'px';
+  _pd.ghost.style.top=(e.clientY-10)+'px';
+  document.querySelectorAll('#popupTbody tr[id^="poprow"]').forEach(function(tr){tr.style.outline='';tr.style.background='';});
+  var el=document.elementFromPoint(e.clientX,e.clientY);
+  var tr=el&&el.closest?el.closest('#popupTbody tr[id^="poprow"]'):null;
+  if(tr&&tr.id!=='poprow-'+_pd.src){tr.style.outline='2px solid #6366f1';tr.style.background='#eef2ff';}
+}
+function _pdEnd(e){
+  document.removeEventListener('mousemove',_pdMove);
+  document.removeEventListener('mouseup',_pdEnd);
+  if(_pd.ghost){_pd.ghost.remove();_pd.ghost=null;}
+  document.querySelectorAll('#popupTbody tr[id^="poprow"]').forEach(function(tr){tr.style.outline='';tr.style.background='';});
+  var el=document.elementFromPoint(e.clientX,e.clientY);
+  var tr=el&&el.closest?el.closest('#popupTbody tr[id^="poprow"]'):null;
+  if(!tr||!_pd.src&&_pd.src!==0){_pd.src=-1;return;}
+  var tgtI=parseInt((tr.id||'').replace('poprow-',''));
+  var srcI=_pd.src; _pd.src=-1;
+  if(isNaN(tgtI)||tgtI===srcI)return;
+  /* 종료↔비종료 경계 이동 불가 */
+  if((popupDB[srcI].status==="종료")!==(popupDB[tgtI].status==="종료"))return;
+  /* srcI를 tgtI 위치 앞으로 이동 */
+  var moved=popupDB.splice(srcI,1)[0];
+  var newIdx=tgtI>srcI?tgtI-1:tgtI;
+  popupDB.splice(newIdx,0,moved);
   savePopupDB();
   renderPopupPage();
 }
@@ -3554,32 +3579,23 @@ function renderPopupPage(){
       h+='<tr><td colspan="8" style="padding:0;border-top:2px solid #6366f1;background:linear-gradient(90deg,#6366f1,#a5b4fc,#6366f1);height:2px"></td></tr>';
     }
     _prevStatus=row.status;
-    /* 이전·다음 실제 인덱스 (정렬된 순서 기준) */
-    var prevI=di>0?_display[di-1].i:-1;
-    var nextI=di<_display.length-1?_display[di+1].i:-1;
     h+='<tr style="border-bottom:1px solid #e5e7eb;'+_dim+'" id="poprow-'+i+'">';
-    var _btnBase='display:block;width:22px;margin:1px auto;border-radius:4px;font-size:11px;padding:1px 0;border:1px solid #d1d5db;';
-    /* 순서 이동 버튼 */
-    h+='<td class="pop-fix" style="left:0;padding:4px 2px;text-align:center;white-space:nowrap">';
-    h+='<button onclick="popMoveRow('+i+',-1)" '+(di===0?'disabled':'')
-      +' style="'+_btnBase+(di===0?'background:#f1f5f9;opacity:.3;cursor:default':'background:#e0e7ff;cursor:pointer;color:#4f46e5')+'">▲</button>';
-    h+='<button onclick="popMoveRow('+i+',1)" '+(di===_display.length-1?'disabled':'')
-      +' style="'+_btnBase+(di===_display.length-1?'background:#f1f5f9;opacity:.3;cursor:default':'background:#e0e7ff;cursor:pointer;color:#4f46e5')+'">▼</button>';
-    h+='</td>';
+    /* 순서 핸들 */
+    h+='<td class="pop-fix" style="left:0;padding:4px 2px;text-align:center;cursor:grab;color:#9ca3af;font-size:20px;user-select:none" onmousedown="popDragStart(event,'+i+')" title="드래그하여 이동">⠿</td>';
     /* 구분 */
-    h+='<td class="pop-fix" style="left:46px;padding:6px 6px;text-align:center">';
-    h+='<select onchange="popupEdit('+i+',\'status\',this.value)" style="border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:14px;font-weight:700;color:'+sc+';background:white;cursor:pointer">';
+    h+='<td class="pop-fix" style="left:30px;padding:6px 4px;text-align:center">';
+    h+='<select onchange="popupEdit('+i+',\'status\',this.value)" style="border:1px solid #e5e7eb;border-radius:6px;padding:4px 4px;font-size:13px;font-weight:700;color:'+sc+';background:white;cursor:pointer;width:100%">';
     POPUP_STATUS.forEach(function(s){
       var _sel=(row.status===s||(s==="진행중"&&row.status==="진행")||(s==="진행예정"&&row.status==="확정")||(s==="협의중"&&row.status==="협의")||(s==="종료"&&row.status==="완료"))?" selected":"";
       h+='<option value="'+s+'"'+_sel+'>'+s+'</option>';
     });
     h+='</select></td>';
     /* 매장 */
-    h+='<td class="pop-fix" style="left:128px;padding:6px 4px"><input type="text" value="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:4px 5px;font-size:13px;box-sizing:border-box"></td>';
+    h+='<td class="pop-fix" style="left:110px;padding:4px 3px"><input type="text" value="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:4px 4px;font-size:13px;box-sizing:border-box"></td>';
     /* 시작일 */
-    h+='<td class="pop-fix" style="left:246px;padding:6px 2px"><input type="date" value="'+(row.start||"")+'" onchange="popupEdit('+i+',\'start\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:3px 2px;font-size:12px;box-sizing:border-box"></td>';
+    h+='<td class="pop-fix" style="left:210px;padding:4px 2px"><input type="date" value="'+(row.start||"")+'" onchange="popupEdit('+i+',\'start\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:3px 1px;font-size:12px;box-sizing:border-box"></td>';
     /* 종료일 */
-    h+='<td class="pop-fix" style="left:342px;padding:6px 2px;border-right:2px solid #e0e7ff"><input type="date" value="'+(row.end||"")+'" onchange="popupEdit('+i+',\'end\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:3px 2px;font-size:12px;box-sizing:border-box"></td>';
+    h+='<td class="pop-fix" style="left:292px;padding:4px 2px;border-right:2px solid #e0e7ff"><input type="date" value="'+(row.end||"")+'" onchange="popupEdit('+i+',\'end\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:3px 1px;font-size:12px;box-sizing:border-box"></td>';
     /* 내용 */
     h+='<td class="pop-col-content" style="padding:6px 4px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 7px;font-size:15px;font-family:inherit;resize:none;overflow:auto;height:36px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
     /* 비고 */
