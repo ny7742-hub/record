@@ -252,10 +252,9 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 /* ── 코스트코 테이블 ── */
 #page-costco>.main{max-width:none;padding:16px 20px}
 /* 팝업 고정 칼럼 */
-.pop-fix{position:sticky;background:#f1f5f9;z-index:2}
-#popupTbody tr .pop-fix{background:white}
-#popupTbody tr:hover .pop-fix{background:#f8fafc}
-#popupTable{overflow-x:auto}
+.pop-fix{position:sticky;z-index:2;background:white}
+#popupTable thead .pop-fix{background:#f1f5f9}
+#popupTbody tr:hover .pop-fix{background:#f0f4ff}
 .cc-tbl{width:auto;border-collapse:collapse;font-size:17px}
 .cc-tbl th{background:#1e293b;color:#f1f5f9;padding:9px 13px;text-align:center;border:1px solid #334155;white-space:nowrap;font-size:16px;font-weight:700}
 .cc-tbl td{padding:8px 13px;border:1px solid #94a3b8;text-align:center;white-space:nowrap;font-size:16px;color:#0f172a}
@@ -3514,17 +3513,19 @@ function popColResizeStart(e,col){
 
 /* ── 팝업 행 순서 이동 (▲▼) ── */
 function popMoveRow(i, dir){
-  /* 현재 정렬된 화면 순서 기준으로 인접 행과 swap */
-  var sorted=popupDB.map(function(r,idx){return{r:r,idx:idx};}).sort(function(a,b){
-    var ae=a.r.status==="종료"?0:1, be=b.r.status==="종료"?0:1;
-    if(ae!==be)return ae-be;
-    return (a.r.start||"").localeCompare(b.r.start||"");
-  });
-  var pos=sorted.findIndex(function(s){return s.idx===i;});
+  /* 화면 표시 순서(종료 그룹 → 비종료 그룹, 각 그룹 내 배열 순서) 기준으로 이동 */
+  var _disp=popupDB.map(function(r,idx){return{r:r,i:idx};});
+  var ended=_disp.filter(function(x){return x.r.status==="종료";});
+  var active=_disp.filter(function(x){return x.r.status!=="종료";});
+  var display=ended.concat(active);
+  var pos=display.findIndex(function(x){return x.i===i;});
   var newPos=pos+dir;
-  if(newPos<0||newPos>=sorted.length)return;
-  var targetI=sorted[newPos].idx;
-  /* popupDB에서 두 항목 swap */
+  if(newPos<0||newPos>=display.length)return;
+  /* 종료↔비종료 경계 넘지 않도록 */
+  var curEnd=popupDB[i].status==="종료";
+  var tgtEnd=popupDB[display[newPos].i].status==="종료";
+  if(curEnd!==tgtEnd)return;
+  var targetI=display[newPos].i;
   var tmp=popupDB[i]; popupDB[i]=popupDB[targetI]; popupDB[targetI]=tmp;
   savePopupDB();
   renderPopupPage();
@@ -3538,12 +3539,10 @@ function renderPopupPage(){
   var tbody=document.getElementById("popupTbody");
   if(!tbody)return;
   var h="";
-  /* 1순위: 종료 맨 위, 2순위: 시작일 오름차순 */
-  var _display=popupDB.map(function(row,i){return{row:row,i:i};}).sort(function(a,b){
-    var ae=a.row.status==="종료"?0:1, be=b.row.status==="종료"?0:1;
-    if(ae!==be)return ae-be;
-    return (a.row.start||"").localeCompare(b.row.start||"");
-  });
+  /* 종료 그룹 먼저, 각 그룹 내 순서는 배열 순서 유지 (▲▼로 수동 조절) */
+  var _all=popupDB.map(function(row,i){return{row:row,i:i};});
+  var _display=_all.filter(function(x){return x.row.status==="종료";})
+                   .concat(_all.filter(function(x){return x.row.status!=="종료";}));
   var _prevStatus=null;
   _display.forEach(function(item,di){
     var row=item.row, i=item.i;
