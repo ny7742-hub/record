@@ -550,7 +550,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
         </colgroup>
         <thead>
           <tr style="background:#f1f5f9;border-bottom:2px solid #e2e8f0">
-            <th style="padding:6px 4px;text-align:center;color:#9ca3af;font-size:12px" title="드래그하여 순서 변경">↕</th>
+            <th style="padding:6px 4px;text-align:center;color:#9ca3af;font-size:11px">순서</th>
             <th style="padding:10px 8px;text-align:center;color:#374151;font-weight:700;font-size:15px">구분</th>
             <th style="padding:10px 8px;text-align:center;color:#374151;font-weight:700;font-size:15px">매장</th>
             <th style="padding:10px 8px;text-align:center;color:#374151;font-weight:700;font-size:15px">시작일</th>
@@ -3507,32 +3507,20 @@ function popColResizeStart(e,col){
   document.addEventListener('mouseup',onUp);
 }
 
-/* ── 팝업 행 드래그 정렬 ── */
-var _popDragSrc=-1;
-function popDragStart(e,i){
-  _popDragSrc=i;
-  e.dataTransfer.effectAllowed='move';
-  e.target.style.opacity='0.4';
-}
-function popDragOver(e){
-  e.preventDefault();
-  e.dataTransfer.dropEffect='move';
-  var tr=e.target.closest('tr[data-popidx]');
-  document.querySelectorAll('#popupTbody tr').forEach(function(r){r.style.borderTop='';});
-  if(tr)tr.style.borderTop='2px solid #6366f1';
-}
-function popDragLeave(e){
-  var tr=e.target.closest('tr[data-popidx]');
-  if(tr)tr.style.borderTop='';
-}
-function popDrop(e,targetI){
-  e.preventDefault();
-  document.querySelectorAll('#popupTbody tr').forEach(function(r){r.style.borderTop='';r.style.opacity='';});
-  if(_popDragSrc===targetI||_popDragSrc<0)return;
-  var moved=popupDB.splice(_popDragSrc,1)[0];
-  var newTarget=_popDragSrc<targetI?targetI-1:targetI; /* splice 후 인덱스 보정 */
-  popupDB.splice(newTarget,0,moved);
-  _popDragSrc=-1;
+/* ── 팝업 행 순서 이동 (▲▼) ── */
+function popMoveRow(i, dir){
+  /* 현재 정렬된 화면 순서 기준으로 인접 행과 swap */
+  var sorted=popupDB.map(function(r,idx){return{r:r,idx:idx};}).sort(function(a,b){
+    var ae=a.r.status==="종료"?0:1, be=b.r.status==="종료"?0:1;
+    if(ae!==be)return ae-be;
+    return (a.r.start||"").localeCompare(b.r.start||"");
+  });
+  var pos=sorted.findIndex(function(s){return s.idx===i;});
+  var newPos=pos+dir;
+  if(newPos<0||newPos>=sorted.length)return;
+  var targetI=sorted[newPos].idx;
+  /* popupDB에서 두 항목 swap */
+  var tmp=popupDB[i]; popupDB[i]=popupDB[targetI]; popupDB[targetI]=tmp;
   savePopupDB();
   renderPopupPage();
 }
@@ -3551,13 +3539,26 @@ function renderPopupPage(){
     if(ae!==be)return ae-be;
     return (a.row.start||"").localeCompare(b.row.start||"");
   });
-  _display.forEach(function(item){
+  var _prevStatus=null;
+  _display.forEach(function(item,di){
     var row=item.row, i=item.i;
     var sc=POPUP_STATUS_COLOR[row.status]||"#374151";
-    var _dim=row.status==="종료"?"opacity:0.55;":"";
-    h+='<tr style="border-bottom:1px solid #f1f5f9;'+_dim+'" id="poprow-'+i+'" draggable="true" data-popidx="'+i+'" ondragstart="popDragStart(event,'+i+')" ondragover="popDragOver(event)" ondrop="popDrop(event,'+i+')" ondragleave="popDragLeave(event)">';
-    /* 순서 핸들 */
-    h+='<td style="padding:8px 4px;text-align:center;color:#9ca3af;cursor:grab;font-size:16px;user-select:none" title="드래그하여 순서 변경">⠿</td>';
+    var _isEnd=row.status==="종료";
+    var _dim=_isEnd?"opacity:0.6;background:#f9fafb;":"";
+    /* 종료↔비종료 경계에 분계선 */
+    if(_prevStatus!==null && _isEnd!==(_prevStatus==="종료")){
+      h+='<tr><td colspan="8" style="padding:0;border-top:2px solid #6366f1;background:linear-gradient(90deg,#6366f1,#a5b4fc,#6366f1);height:2px"></td></tr>';
+    }
+    _prevStatus=row.status;
+    /* 이전·다음 실제 인덱스 (정렬된 순서 기준) */
+    var prevI=di>0?_display[di-1].i:-1;
+    var nextI=di<_display.length-1?_display[di+1].i:-1;
+    h+='<tr style="border-bottom:1px solid #e5e7eb;'+_dim+'" id="poprow-'+i+'">';
+    /* 순서 이동 버튼 */
+    h+='<td style="padding:4px 2px;text-align:center;white-space:nowrap">';
+    h+='<button onclick="popMoveRow('+i+',-1)" style="display:block;width:22px;margin:1px auto;background:#f1f5f9;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;font-size:11px;padding:1px 0;color:#374151" '+(di===0?'disabled style="display:block;width:22px;margin:1px auto;opacity:.3;cursor:default"':'')+'>▲</button>';
+    h+='<button onclick="popMoveRow('+i+',1)" style="display:block;width:22px;margin:1px auto;background:#f1f5f9;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;font-size:11px;padding:1px 0;color:#374151" '+(di===_display.length-1?'disabled style="display:block;width:22px;margin:1px auto;opacity:.3;cursor:default"':'')+'>▼</button>';
+    h+='</td>';
     /* 구분 */
     h+='<td style="padding:8px 8px;text-align:center">';
     h+='<select onchange="popupEdit('+i+',\'status\',this.value)" style="border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:14px;font-weight:700;color:'+sc+';background:white;cursor:pointer">';
@@ -3581,7 +3582,7 @@ function renderPopupPage(){
     h+='</tr>';
   });
   if(!popupDB.length){
-    h='<tr><td colspan="7" style="padding:32px;text-align:center;color:#9ca3af;font-size:13px">+ 행 추가 버튼으로 일정을 등록하세요</td></tr>';
+    h='<tr><td colspan="8" style="padding:32px;text-align:center;color:#9ca3af;font-size:13px">+ 행 추가 버튼으로 일정을 등록하세요</td></tr>';
   }
   tbody.innerHTML=h;
   _applyPopColW();
