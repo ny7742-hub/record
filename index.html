@@ -537,16 +537,27 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
   </div>
   <div class="card" style="padding:0;overflow:hidden">
     <div style="overflow-x:auto">
-      <table id="popupTable" style="width:100%;border-collapse:collapse;font-size:15px;min-width:900px">
+      <table id="popupTable" style="width:100%;border-collapse:collapse;font-size:15px;min-width:820px;table-layout:fixed">
+        <colgroup>
+          <col style="width:28px"><!-- 순서 핸들 -->
+          <col style="width:88px"><!-- 구분 -->
+          <col style="width:148px"><!-- 매장 -->
+          <col style="width:118px"><!-- 시작일 -->
+          <col style="width:118px"><!-- 종료일 -->
+          <col id="popCol-content"><!-- 내용 -->
+          <col id="popCol-note"><!-- 비고 -->
+          <col style="width:48px"><!-- 삭제 -->
+        </colgroup>
         <thead>
           <tr style="background:#f1f5f9;border-bottom:2px solid #e2e8f0">
-            <th style="padding:10px 12px;text-align:center;width:80px;color:#374151;font-weight:700;font-size:15px">구분</th>
-            <th style="padding:10px 12px;text-align:center;width:160px;color:#374151;font-weight:700;font-size:15px">매장</th>
-            <th style="padding:10px 12px;text-align:center;width:100px;color:#374151;font-weight:700;font-size:15px">시작</th>
-            <th style="padding:10px 12px;text-align:center;width:100px;color:#374151;font-weight:700;font-size:15px">종료</th>
-            <th id="popTh-content" style="padding:10px 12px;text-align:left;color:#374151;font-weight:700;font-size:15px;position:relative;min-width:200px">내용<span onmousedown="popColResizeStart(event,'content')" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:rgba(99,102,241,.15);border-radius:0 4px 4px 0"></span></th>
-            <th id="popTh-note" style="padding:10px 12px;text-align:left;color:#374151;font-weight:700;font-size:15px;position:relative;min-width:120px">비고<span onmousedown="popColResizeStart(event,'note')" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:rgba(99,102,241,.15);border-radius:0 4px 4px 0"></span></th>
-            <th style="padding:10px 12px;text-align:center;width:50px;color:#374151;font-weight:700;font-size:15px">삭제</th>
+            <th style="padding:6px 4px;text-align:center;color:#9ca3af;font-size:12px" title="드래그하여 순서 변경">↕</th>
+            <th style="padding:10px 8px;text-align:center;color:#374151;font-weight:700;font-size:15px">구분</th>
+            <th style="padding:10px 8px;text-align:center;color:#374151;font-weight:700;font-size:15px">매장</th>
+            <th style="padding:10px 8px;text-align:center;color:#374151;font-weight:700;font-size:15px">시작일</th>
+            <th style="padding:10px 8px;text-align:center;color:#374151;font-weight:700;font-size:15px">종료일</th>
+            <th id="popTh-content" style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:15px;position:relative">내용<span onmousedown="popColResizeStart(event,'content')" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:rgba(99,102,241,.2)"></span></th>
+            <th id="popTh-note" style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:15px;position:relative">비고<span onmousedown="popColResizeStart(event,'note')" style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;background:rgba(99,102,241,.2)"></span></th>
+            <th style="padding:10px 4px;text-align:center;color:#374151;font-weight:700;font-size:15px">삭제</th>
           </tr>
         </thead>
         <tbody id="popupTbody"></tbody>
@@ -3468,19 +3479,18 @@ var popupDB=(function(){
 
 function savePopupDB(){localStorage.setItem(_POPUP_KEY,JSON.stringify(popupDB));}
 
-/* ── 팝업 칼럼 리사이즈 ── */
+/* ── 팝업 칼럼 리사이즈 (내용·비고만, 고정 칼럼은 유지) ── */
 var _popColW={content:300,note:200};
 (function(){var s=localStorage.getItem('popupColW');if(s)try{_popColW=JSON.parse(s);}catch(e){}})();
 function _applyPopColW(){
-  var th=document.getElementById('popTh-content');
-  var th2=document.getElementById('popTh-note');
-  if(th)th.style.width=_popColW.content+'px';
-  if(th2)th2.style.width=_popColW.note+'px';
-  document.querySelectorAll('.pop-col-content textarea').forEach(function(el){el.style.width='100%';});
-  document.querySelectorAll('.pop-col-note textarea').forEach(function(el){el.style.width='100%';});
+  var cc=document.getElementById('popCol-content');
+  var cn=document.getElementById('popCol-note');
+  if(cc)cc.style.width=_popColW.content+'px';
+  if(cn)cn.style.width=_popColW.note+'px';
 }
 function popColResizeStart(e,col){
   e.preventDefault();
+  e.stopPropagation();
   var startX=e.clientX;
   var startW=_popColW[col];
   function onMove(ev){
@@ -3495,6 +3505,36 @@ function popColResizeStart(e,col){
   }
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onUp);
+}
+
+/* ── 팝업 행 드래그 정렬 ── */
+var _popDragSrc=-1;
+function popDragStart(e,i){
+  _popDragSrc=i;
+  e.dataTransfer.effectAllowed='move';
+  e.target.style.opacity='0.4';
+}
+function popDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  var tr=e.target.closest('tr[data-popidx]');
+  document.querySelectorAll('#popupTbody tr').forEach(function(r){r.style.borderTop='';});
+  if(tr)tr.style.borderTop='2px solid #6366f1';
+}
+function popDragLeave(e){
+  var tr=e.target.closest('tr[data-popidx]');
+  if(tr)tr.style.borderTop='';
+}
+function popDrop(e,targetI){
+  e.preventDefault();
+  document.querySelectorAll('#popupTbody tr').forEach(function(r){r.style.borderTop='';r.style.opacity='';});
+  if(_popDragSrc===targetI||_popDragSrc<0)return;
+  var moved=popupDB.splice(_popDragSrc,1)[0];
+  var newTarget=_popDragSrc<targetI?targetI-1:targetI; /* splice 후 인덱스 보정 */
+  popupDB.splice(newTarget,0,moved);
+  _popDragSrc=-1;
+  savePopupDB();
+  renderPopupPage();
 }
 
 var POPUP_STATUS=["진행중","진행예정","협의중","종료"];
@@ -3515,9 +3555,11 @@ function renderPopupPage(){
     var row=item.row, i=item.i;
     var sc=POPUP_STATUS_COLOR[row.status]||"#374151";
     var _dim=row.status==="종료"?"opacity:0.55;":"";
-    h+='<tr style="border-bottom:1px solid #f1f5f9;'+_dim+'" id="poprow-'+i+'">';
+    h+='<tr style="border-bottom:1px solid #f1f5f9;'+_dim+'" id="poprow-'+i+'" draggable="true" data-popidx="'+i+'" ondragstart="popDragStart(event,'+i+')" ondragover="popDragOver(event)" ondrop="popDrop(event,'+i+')" ondragleave="popDragLeave(event)">';
+    /* 순서 핸들 */
+    h+='<td style="padding:8px 4px;text-align:center;color:#9ca3af;cursor:grab;font-size:16px;user-select:none" title="드래그하여 순서 변경">⠿</td>';
     /* 구분 */
-    h+='<td style="padding:8px 10px;text-align:center">';
+    h+='<td style="padding:8px 8px;text-align:center">';
     h+='<select onchange="popupEdit('+i+',\'status\',this.value)" style="border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:14px;font-weight:700;color:'+sc+';background:white;cursor:pointer">';
     POPUP_STATUS.forEach(function(s){
       var _sel=(row.status===s||(s==="진행중"&&row.status==="진행")||(s==="진행예정"&&row.status==="확정")||(s==="협의중"&&row.status==="협의")||(s==="종료"&&row.status==="완료"))?" selected":"";
@@ -3525,17 +3567,17 @@ function renderPopupPage(){
     });
     h+='</select></td>';
     /* 매장 */
-    h+='<td style="padding:8px 10px"><input type="text" value="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px"></td>';
-    /* 시작 */
-    h+='<td style="padding:8px 10px"><input type="date" value="'+(row.start||"")+'" onchange="popupEdit('+i+',\'start\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:14px"></td>';
+    h+='<td style="padding:8px 6px"><input type="text" value="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 6px;font-size:14px;box-sizing:border-box"></td>';
+    /* 시작일 */
+    h+='<td style="padding:8px 4px"><input type="date" value="'+(row.start||"")+'" onchange="popupEdit('+i+',\'start\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:4px 4px;font-size:13px;box-sizing:border-box"></td>';
     /* 종료일 */
-    h+='<td style="padding:8px 10px"><input type="date" value="'+(row.end||"")+'" onchange="popupEdit('+i+',\'end\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 8px;font-size:14px"></td>';
+    h+='<td style="padding:8px 4px"><input type="date" value="'+(row.end||"")+'" onchange="popupEdit('+i+',\'end\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:4px 4px;font-size:13px;box-sizing:border-box"></td>';
     /* 내용 */
-    h+='<td class="pop-col-content" style="padding:8px 10px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px;font-family:inherit;resize:none;overflow:auto;height:36px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
+    h+='<td class="pop-col-content" style="padding:6px 4px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 7px;font-size:15px;font-family:inherit;resize:none;overflow:auto;height:36px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
     /* 비고 */
-    h+='<td class="pop-col-note" style="padding:8px 10px"><textarea onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:15px;font-family:inherit;color:#6366f1;resize:none;overflow:auto;height:36px;box-sizing:border-box">'+_esc(row.note||"")+'</textarea></td>';
+    h+='<td class="pop-col-note" style="padding:6px 4px"><textarea onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 7px;font-size:15px;font-family:inherit;color:#6366f1;resize:none;overflow:auto;height:36px;box-sizing:border-box">'+_esc(row.note||"")+'</textarea></td>';
     /* 삭제 */
-    h+='<td style="padding:8px 10px;text-align:center"><button onclick="deletePopupRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;padding:4px 8px">삭제</button></td>';
+    h+='<td style="padding:8px 4px;text-align:center"><button onclick="deletePopupRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;padding:4px 6px">삭제</button></td>';
     h+='</tr>';
   });
   if(!popupDB.length){
