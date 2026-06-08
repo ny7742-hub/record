@@ -1148,7 +1148,7 @@ function dlPlayMD(){
     var r=row.item;
     var bc=String(r["바코드1"]||r["바코드2"]||"");
     var tag=Number(r["TAG가"])||0;
-    var fin=isEventItem(r)?LDB_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):0);
+    var fin=isEventItem(r)?LDB_EVENT_PRICE:isLscEventItem(r)?LSC_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):0);
     wsData.push([
       {t:'s',v:store},
       {t:'n',v:parseInt(date)||0},
@@ -1177,10 +1177,10 @@ function dlSelected(){
   reversed.forEach(function(row){
     var r=row.item;var bc=r["바코드1"]||r["바코드2"]||"";
     var tag=Number(r["TAG가"])||0;
-    var evnt=isEventItem(r);
-    var fin=evnt?LDB_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):"");
+    var evnt=isEventItem(r),lscEvnt=isLscEventItem(r);
+    var fin=evnt?LDB_EVENT_PRICE:lscEvnt?LSC_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):"");
     wsData.push([store,date,bc,row.qty||1,fin,row.note||"",
-                 r["상품명"]||"",r["칼라코드"]||"",tag||"",(evnt?"행사고정":row.disc||"")]);
+                 r["상품명"]||"",r["칼라코드"]||"",tag||"",((evnt||lscEvnt)?"행사고정":row.disc||"")]);
   });
   var wb=XLSX.utils.book_new();
   var ws=XLSX.utils.aoa_to_sheet(wsData);
