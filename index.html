@@ -596,7 +596,8 @@ var fbDB=firebase.database();
 /* Firebase 경로 매핑 */
 var FB_PATH={
   "meetingDB":"ws/meeting","deptDB":"ws/dept",
-  "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco"
+  "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
+  "popupDB_v2":"ws/popup"
 };
 
 /* localStorage + Firebase 동시 저장 */
@@ -651,6 +652,11 @@ function wsSetItem(key,value){
   apply("ws/deptMeta","deptStoresMeta",
     function(d){deptStoresMeta=d;},
     function(){if(document.getElementById("page-dept").style.display!=="none")renderDeptAllStores();}
+  );
+  /* 팝업 데이터 */
+  apply("ws/popup","popupDB_v2",
+    function(d){if(Array.isArray(d)&&d.length>0){popupDB=d;}},
+    function(){if(document.getElementById("page-popup")&&document.getElementById("page-popup").style.display!=="none")renderPopupPage();}
   );
   /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
   /* Firebase에는 백업용으로만 저장하고, 읽기는 localStorage 기준 */
@@ -3470,7 +3476,7 @@ var popupDB=(function(){
   return _popupDefault.slice();
 })();
 
-function savePopupDB(){localStorage.setItem(_POPUP_KEY,JSON.stringify(popupDB));}
+function savePopupDB(){wsSetItem(_POPUP_KEY,JSON.stringify(popupDB));}
 
 /* ── 팝업 칼럼 리사이즈 (내용·비고만, 고정 칼럼은 유지) ── */
 var _popColW={content:300,note:200};
