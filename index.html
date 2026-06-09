@@ -1014,8 +1014,10 @@ function loadShipList(input){
         var row=rows[r];
         for(var c=0;c<row.length;c++){
           var v=String(row[c]||"").replace(/\s/g,"");
-          if(/매장|매장명|점/.test(v)&&cStore<0)cStore=c;
-          if(/상품칼라코드|칼라코드|자사코드|상품코드칼라/.test(v)&&cCode<0)cCode=c;
+          /* 매장: 쇼핑몰/매장/점명 (주문번호(쇼핑몰)은 제외) */
+          if(/(쇼핑몰|매장명|매장|점명)/.test(v)&&!/주문번호/.test(v)&&cStore<0)cStore=c;
+          /* 코드: 상품칼라코드/상품컬러코드/자사코드 (바코드 제외) */
+          if(/상품(칼라|컬러)코드|자사코드/.test(v)&&!/바코드/.test(v)&&cCode<0)cCode=c;
         }
         if(cCode>=0){hRow=r;break;}
       }
