@@ -389,6 +389,10 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
       <label>상품명 + 칼라 통합 검색</label>
       <input type="text" id="sq" placeholder="예: 소니 블랙 / 메간 내츄럴 / 라피아 피넛..." oninput="onSQ()" autocomplete="off" style="font-size:14px;padding:10px 14px"/>
       <div class="hint">상품명 일부 + 칼라명 일부를 함께 또는 따로 입력 (띄어쓰기로 구분)</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <label style="font-size:11px;color:#0891b2;cursor:pointer;font-weight:700;border:1px solid #a5f3fc;background:#ecfeff;padding:5px 10px;border-radius:8px">📦 출고리스트 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadShipList(this)"/></label>
+        <span id="shipInfo" style="font-size:11px;color:#6b7280"></span>
+      </div>
     </div>
     <div id="cchips" class="chips"></div>
     <div class="btn-row" style="justify-content:space-between">
@@ -597,7 +601,7 @@ var fbDB=firebase.database();
 var FB_PATH={
   "meetingDB":"ws/meeting","deptDB":"ws/dept",
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
-  "popupDB_v2":"ws/popup"
+  "popupDB_v2":"ws/popup","shipLists":"ws/shipLists"
 };
 
 /* localStorage + Firebase 동시 저장 */
@@ -657,6 +661,11 @@ function wsSetItem(key,value){
   apply("ws/popup","popupDB_v2",
     function(d){if(Array.isArray(d)&&d.length>0){popupDB=d;}},
     function(){if(document.getElementById("page-popup")&&document.getElementById("page-popup").style.display!=="none")renderPopupPage();}
+  );
+  /* 출고리스트 (매장별 자사코드 목록) */
+  apply("ws/shipLists","shipLists",
+    function(d){if(d&&typeof d==="object")shipLists=d;},
+    function(){if(typeof updateShipInfo==="function")updateShipInfo();if(typeof onSQ==="function"&&document.getElementById("sq")&&document.getElementById("sq").value)onSQ();}
   );
   /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
   /* Firebase에는 백업용으로만 저장하고, 읽기는 localStorage 기준 */
@@ -727,6 +736,15 @@ var STORE_MAP=[
   {keys:["평촌","lpc"],code:"LPC",name:"평촌점"},
   {keys:["김포","김포공항","lkp"],code:"LKP",name:"김포공항점"},
 ];
+
+/* ── 매장별 출고리스트 (자사코드 목록) ── */
+var shipLists=(function(){try{return JSON.parse(localStorage.getItem("shipLists")||"{}");}catch(e){return {};}})();
+function storeNameToCode(name){
+  var v=(name||"").split(" ").join("").toLowerCase();
+  if(!v)return "";
+  for(var i=0;i<STORE_MAP.length;i++){var s=STORE_MAP[i];for(var j=0;j<s.keys.length;j++){if(v.indexOf(s.keys[j])>=0)return s.code;}}
+  return "";
+}
 
 /* ── 동부산점 19균일가 행사상품 (상품코드+칼라코드 기준) ── */
 var LDB_EVENT_MAP={
@@ -963,6 +981,8 @@ function onStoreInput(){
   }
   if(found) tag.innerHTML='<span class="store-tag">'+found.code+'</span> <span style="font-size:11px;color:#6b7280;margin-left:4px">'+found.name+'</span>';
   else tag.innerHTML='<span class="store-tag" style="background:#4f46e5">'+document.getElementById("storeInput").value.toUpperCase().trim()+'</span> <span style="font-size:11px;color:#9ca3af;margin-left:4px">직접 입력</span>';
+  if(typeof updateShipInfo==="function")updateShipInfo();
+  if(document.getElementById("sq")&&document.getElementById("sq").value)onSQ();
 }
 
 function getStoreCode(){
@@ -978,6 +998,73 @@ function getStoreCode(){
 }
 
 function onSQ(){kbIdx=-1;rowMode=false;doSearch();updateChips();}
+
+/* 출고리스트 업로드: 매장명/상품명/상품코드/상품칼라코드 → 매장코드별 자사코드 집합 저장 */
+function loadShipList(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      /* 헤더 탐색 */
+      var cStore=-1,cCode=-1,hRow=-1;
+      for(var r=0;r<Math.min(10,rows.length);r++){
+        var row=rows[r];
+        for(var c=0;c<row.length;c++){
+          var v=String(row[c]||"").replace(/\s/g,"");
+          if(/매장|매장명|점/.test(v)&&cStore<0)cStore=c;
+          if(/상품칼라코드|칼라코드|자사코드|상품코드칼라/.test(v)&&cCode<0)cCode=c;
+        }
+        if(cCode>=0){hRow=r;break;}
+      }
+      /* 칼라코드 컬럼 못 찾으면 마지막 컬럼을 코드로 가정 */
+      if(cCode<0){hRow=0;cCode=(rows[0]?rows[0].length-1:3);}
+      var byStore={};
+      for(var r=hRow+1;r<rows.length;r++){
+        var row=rows[r];if(!row)continue;
+        var code=String(row[cCode]||"").trim();
+        if(!code)continue;
+        var sname=cStore>=0?String(row[cStore]||"").trim():"";
+        var sc=storeNameToCode(sname)||getStoreCode()||"기타";
+        if(!byStore[sc])byStore[sc]={};
+        byStore[sc][code]=1;
+      }
+      var keys=Object.keys(byStore);
+      if(!keys.length){alert("출고리스트에서 상품칼라코드를 찾지 못했습니다.");input.value="";return;}
+      keys.forEach(function(sc){shipLists[sc]=Object.keys(byStore[sc]);});
+      wsSetItem("shipLists",JSON.stringify(shipLists));
+      updateShipInfo();
+      var names=keys.map(function(sc){return sc+"("+shipLists[sc].length+"건)";}).join(", ");
+      alert("출고리스트 등록 완료: "+names);
+      if(document.getElementById("sq").value)onSQ();
+    }catch(err){alert("출고리스트 읽기 오류: "+err.message);}
+    input.value="";
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function curShipSet(){
+  var sc=getStoreCode();
+  var arr=(sc&&shipLists[sc])||null;
+  if(!arr||!arr.length)return null;
+  var set={};arr.forEach(function(k){set[k]=1;});
+  return set;
+}
+
+function updateShipInfo(){
+  var el=document.getElementById("shipInfo");if(!el)return;
+  var sc=getStoreCode();
+  var all=Object.keys(shipLists).map(function(k){return k+" "+shipLists[k].length+"건";});
+  if(sc&&shipLists[sc]&&shipLists[sc].length){
+    el.innerHTML='<span style="color:#0891b2;font-weight:700">📦 '+sc+' 출고리스트 '+shipLists[sc].length+'건 우선 검색</span>'+(all.length>1?' &nbsp;<span style="color:#9ca3af">(전체: '+all.join(", ")+')</span>':'');
+  }else if(all.length){
+    el.innerHTML='<span style="color:#9ca3af">등록됨: '+all.join(", ")+(sc?' · 현재 매장('+sc+') 출고리스트 없음':' · 매장명을 입력하면 우선검색 적용')+'</span>';
+  }else{
+    el.textContent="";
+  }
+}
 
 function getTerms(){
   var v=document.getElementById("sq").value.trim();
@@ -1000,7 +1087,10 @@ function doSearch(){
   /* 상단 우선순위: 배열 앞쪽일수록 더 위에 노출 */
   var TOP_KEYWORDS=["[화이트샌즈] 뉴 라자르","뉴 라자르","뉴라자르","23SS 지사 버킷햇 시아","23ss 지사 버킷햇 시아"];
   function _topRank(nm){nm=nm||"";for(var i=0;i<TOP_KEYWORDS.length;i++){if(nm.indexOf(TOP_KEYWORDS[i])>=0)return i;}return 999;}
+  /* 출고리스트 우선: 현재 매장 출고리스트에 있는 상품을 최상단에 */
+  var _ship=curShipSet();
   cur.sort(function(a,b){
+    if(_ship){var as=_ship[a["자사코드"]]?0:1,bs=_ship[b["자사코드"]]?0:1;if(as!==bs)return as-bs;}
     return _topRank(a["상품명"])-_topRank(b["상품명"]);
   });
   renderTbl();
@@ -1069,6 +1159,7 @@ function renderTbl(){
   renderChips();
   if(!cur.length){document.getElementById("tbl").innerHTML="<div class='es'><div class='ei'>😕</div><div class='et'>검색 결과가 없습니다</div></div>";return;}
   var rows=cur.slice(0,300);
+  var _ship=curShipSet();
   var h="<table><thead><tr><th>상품명</th><th>칼라</th><th>바코드</th><th>TAG가</th><th></th></tr></thead><tbody>";
   rows.forEach(function(r,idx){
     var bc=r["바코드1"]||r["바코드2"]||"";
@@ -1076,7 +1167,8 @@ function renderTbl(){
     var dupCnt=cart.filter(function(c){return c.item["자사코드"]===r["자사코드"];}).length;
     var cat=getCat(r["상품명"]);
     var isKb=idx===kbIdx;
-    h+='<tr class="'+(isKb?"kb-focus":"")+'"><td style="max-width:280px;min-width:200px;word-break:break-all;line-height:1.4;font-size:11.5px">'+r["상품명"]+'<div><span class="cat-badge" style="background:'+cat.bg+';color:'+cat.color+'">'+cat.label+'</span></div></td>';
+    var _isShip=_ship&&_ship[r["자사코드"]];
+    h+='<tr class="'+(isKb?"kb-focus":"")+'"'+(_isShip?' style="background:#ecfeff"':"")+'><td style="max-width:280px;min-width:200px;word-break:break-all;line-height:1.4;font-size:11.5px">'+(_isShip?'<span style="display:inline-block;background:#0891b2;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px;vertical-align:middle">출고</span>':"")+r["상품명"]+'<div><span class="cat-badge" style="background:'+cat.bg+';color:'+cat.color+'">'+cat.label+'</span></div></td>';
     h+='<td><span class="badge">'+r["칼라코드"]+'</span><div style="font-size:10px;color:#6b7280;margin-top:2px">'+r["칼라명"]+'</div></td>';
     h+='<td class="bc">'+(bc||"<span class='nd'>-</span>")+'</td>';
     h+='<td style="font-size:11px;color:#6b7280;white-space:nowrap">'+(tag?tag.toLocaleString()+"원":"–")+'</td>';
