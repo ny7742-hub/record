@@ -1554,6 +1554,22 @@ function calcMonthlyCumul(storeName){
 function loadDeptByPeriod(){curDeptKey=getDPKey();renderDeptAllStores();}
 function renderDeptPage(){curDeptKey=getDPKey();renderDeptAllStores();}
 
+/* 베스트 TOP10 상품명 축약: 브랜드/시즌/마케팅 수식어 제거 후 품목+상품명만 남김 */
+function shortenBestName(name){
+  if(!name)return "";
+  var s=String(name).trim();
+  var branded=s.indexOf("[")>=0||s.indexOf("★")>=0;
+  s=s.replace(/\([^)]*\)/g,"");        /* (영문) 등 괄호 제거 */
+  s=s.replace(/\[[^\]]*\]/g,"");        /* [브랜드] 대괄호 제거 */
+  s=s.replace(/[★☆]/g,"");
+  s=s.replace(/우산\s*양산\s*겸용/g,"우양산").replace(/우산\s*양산/g,"우양산");
+  s=s.replace(/\b\d{2}\s*[A-Za-z]{2}\b/g,""); /* 22SS, 25FW 등 시즌코드 제거 */
+  var toks=s.split(/\s+/).filter(function(t){return t.length>0;});
+  if(!branded)return toks.join(" ");
+  if(toks.length<=2)return toks.join(" ");
+  return toks.slice(-2).join(" ");
+}
+
 function renderDeptAllStores(){
   if(!curDeptKey)curDeptKey=getDPKey();
   if(!deptStores.length){document.getElementById("deptAllStores").innerHTML="<div class='m-empty' style='padding:40px 0;text-align:center;color:#c4c9d4'>매장을 추가해 주세요</div>";return;}
@@ -1590,11 +1606,12 @@ function renderDeptAllStores(){
     // Header
     var _meta=deptStoresMeta[store]||{};
     var _popupBadge="";
+    var _popupInline="";
     if(_meta.popup){
       if(_meta.popupPeriod&&isPopupEnded(_meta.popupPeriod)){
         _popupBadge='<span class="popup-badge popup-ended">🎪 팝업종료 <span style="font-size:10px;font-weight:600">'+_meta.popupPeriod+'</span></span>';
       } else if(_meta.popupPeriod){
-        _popupBadge='<span class="popup-badge" style="cursor:pointer" onclick="editDeptStore('+si+')" title="클릭하여 기간 수정">🎪 팝업<span style="margin-left:5px;font-size:11px;color:#fff3e0;font-weight:800;letter-spacing:.2px">'+_meta.popupPeriod+'</span></span>';
+        _popupInline='<span style="font-size:10px;color:#ea580c;font-weight:800;white-space:nowrap;flex-shrink:0;margin-left:5px;cursor:pointer" onclick="editDeptStore('+si+')" title="클릭하여 팝업기간 수정">🎪'+_meta.popupPeriod+'</span>';
       } else {
         _popupBadge='<span class="popup-badge" style="background:#fb923c;cursor:pointer" onclick="editDeptStore('+si+');setTimeout(function(){var el=document.getElementById(\'smPopupPeriod\');if(el){el.focus();el.select();}},150)" title="클릭하여 기간 설정">🎪 팝업 <span style="font-size:10px;opacity:.85">기간미설정 ✏</span></span>';
       }
@@ -1604,6 +1621,7 @@ function renderDeptAllStores(){
     h+='<div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;cursor:grab;user-select:none">';
     h+='<span class="store-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1;min-width:0">&#8942; 🏪 '+store+'</span>';
     h+='</div>';
+    if(_popupInline)h+=_popupInline;
     h+='<div style="display:flex;gap:3px;flex-shrink:0;margin-left:4px">';
     h+='<button onclick="editDeptStore('+si+')" style="padding:1px 5px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;color:#4b5563" title="매장명 수정">✏</button>';
     h+='<button onclick="deleteDeptStore('+si+')" style="padding:1px 5px;font-size:11px;border:1px solid #fca5a5;border-radius:4px;background:#fff;cursor:pointer;color:#dc2626" title="매장 삭제">🗑</button>';
@@ -1658,7 +1676,7 @@ function renderDeptAllStores(){
       h+='<label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#9ca3af;cursor:pointer;padding:14px 0;border:1.5px dashed #e5e7eb;border-radius:8px;background:#fafafa" for="si'+si+'_best">📂 베스트 파일을 클릭하여 업로드</label>';
     }else{
       h+='<table class="b-tbl"><thead><tr>';
-      h+='<th style="width:42px">이미지</th><th style="width:22px">#</th><th>상품명</th><th style="width:36px">수량</th><th style="width:36px">재고</th><th style="width:48px">상태</th>';
+      h+='<th style="width:42px">이미지</th><th style="width:22px">#</th><th>상품명</th><th style="width:44px">판매수량</th><th style="width:36px">재고</th><th style="width:48px">상태</th>';
       h+='</tr></thead><tbody>';
       realProds.slice(0,10).forEach(function(p,pi){
         var rn=pi+1;
@@ -1672,7 +1690,7 @@ function renderDeptAllStores(){
         h+='<tr>';
         h+='<td style="text-align:center;padding:2px 3px">'+imgCell+'</td>';
         h+='<td style="text-align:center"><span class="rnk '+rnCls+'">'+rn+'</span></td>';
-        h+='<td style="font-size:11px;color:#374151;padding:3px 4px;line-height:1.3">'+escH(p.name)+'</td>';
+        h+='<td style="font-size:11px;color:#374151;padding:3px 4px;line-height:1.3;cursor:pointer" title="'+escH(p.name)+' (클릭: 컬러별 판매수량)" onclick="showBestColors('+si+','+pi+')">'+escH(shortenBestName(p.name))+'</td>';
         h+='<td style="text-align:center;font-size:11px">'+fmt(p.qty)+'</td>';
         h+='<td style="text-align:center;font-size:11px">'+fmt(p.inv)+'</td>';
         h+='<td style="text-align:center"><span class="st-sel '+stCls+'" style="padding:2px 4px;border-radius:4px;font-size:10px;display:inline-block">'+escH(stVal)+'</span></td>';
@@ -1708,6 +1726,20 @@ function initDeptScroll(){
 
 
 
+
+function showBestColors(si,pi){
+  var key=curDeptKey||getDPKey();
+  var sn=deptStores[si];
+  var p=(deptDB[key]&&deptDB[key][sn]&&deptDB[key][sn].products&&deptDB[key][sn].products[pi])||null;
+  if(!p)return;
+  if(!p.colors||!p.colors.length){
+    alert("컬러별 판매수량 데이터가 없습니다.\n베스트 파일에 컬러 정보가 포함되어야 표시됩니다.");
+    return;
+  }
+  var msg=p.name+"\n\n[컬러별 판매수량]\n";
+  p.colors.forEach(function(c){msg+="· "+(c.name||"-")+" : "+(c.qty||0)+"개\n";});
+  alert(msg);
+}
 
 function setBestImg(si,pi){
   var url=prompt("이미지 URL을 입력하세요 (비워두면 삭제)","");
