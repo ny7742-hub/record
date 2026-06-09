@@ -1143,7 +1143,7 @@ function renderCart(highlight){
   if(!hasCart){document.getElementById("cartList").innerHTML="<div class='cart-empty'>선택한 상품이 없습니다</div>";return;}
   var keyCnt={};
   cart.forEach(function(c){var k=c.item["자사코드"];keyCnt[k]=(keyCnt[k]||0)+1;});
-  var h='<table><thead><tr><th>#</th><th>상품명</th><th>칼라</th><th>바코드</th><th style="text-align:center">수량</th><th style="text-align:center">할인율</th><th>TAG가 / 판매단가</th><th>비고</th><th></th></tr></thead><tbody>';
+  var h='<table><thead><tr><th>#</th><th>상품명</th><th>칼라</th><th>바코드</th><th style="text-align:center">수량</th><th style="text-align:center">할인율</th><th>TAG가 / 판매단가</th><th style="text-align:center">반품</th><th></th></tr></thead><tbody>';
   cart.forEach(function(row,i){
     var r=row.item;var k=r["자사코드"];
     var bc=r["바코드1"]||r["바코드2"]||"-";
@@ -1158,7 +1158,7 @@ function renderCart(highlight){
       '</td><td style="font-size:11px;max-width:110px;word-break:break-all;line-height:1.4">'+r["상품명"]+
       '</td><td><span class="badge">'+r["칼라코드"]+'</span><div style="font-size:10px;color:#6b7280;margin-top:2px">'+r["칼라명"]+'</div></td>'+
       '<td class="bc" style="font-size:11px">'+bc+'</td>'+
-      '<td style="text-align:center"><input type="number" class="mini-input" value="'+row.qty+'" min="1" onchange="cart['+i+'].qty=parseInt(this.value)||1"/></td>'+
+      '<td style="text-align:center"><input type="number" class="mini-input" value="'+row.qty+'" min="1" onchange="cart['+i+'].qty=parseInt(this.value)||1;renderCart();"/>'+(row.ret?'<div style="color:#dc2626;font-size:10px;font-weight:700;margin-top:2px">반품 -'+row.qty+'</div>':"")+'</td>'+
       '<td style="text-align:center">'+((evnt||lscEvnt)
         ?'<span style="font-size:10px;font-weight:700;color:#dc2626;background:#fee2e2;padding:2px 6px;border-radius:4px">행사고정</span>'
         :'<div style="display:flex;align-items:center;gap:3px;justify-content:center"><input type="number" class="mini-input" value="'+row.disc+'" min="0" max="100" step="1" onchange="cart['+i+'].disc=parseFloat(this.value)||0;renderCart();" style="width:46px!important"/><span style="font-size:11px;color:#555">%</span></div>'
@@ -1168,7 +1168,8 @@ function renderCart(highlight){
         :lscEvnt
         ?'<div class="price-final">'+LSC_EVENT_PRICE.toLocaleString()+'원</div><div style="margin-top:2px"><span class="disc-badge" style="background:#fee2e2;color:#b91c1c;border-color:#fca5a5">15균일</span></div>'
         :(tag?(row.disc>0?'<div class="price-final">'+fin.toLocaleString()+'원</div><div style="display:flex;align-items:center;gap:3px;margin-top:2px"><span class="price-orig">'+tag.toLocaleString()+'원</span><span class="disc-badge">'+row.disc+'%↓</span></div>':'<div class="price-final">'+tag.toLocaleString()+'원</div>'):"–")
-      )+'</td><td><input type="text" class="note-input" value="'+(row.note||"")+'" placeholder="비고" oninput="cart['+i+'].note=this.value"/></td>'+
+      )+(row.ret?'<div style="color:#dc2626;font-size:10px;font-weight:700;margin-top:2px">반품금액 -'+(fin*(row.qty||1)).toLocaleString()+'원</div>':"")+'</td>'+
+      '<td style="text-align:center"><button onclick="cart['+i+'].ret=!cart['+i+'].ret;renderCart();" style="border:1px solid '+(row.ret?'#dc2626':'#d1d5db')+';background:'+(row.ret?'#fee2e2':'#fff')+';color:'+(row.ret?'#dc2626':'#6b7280')+';font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;cursor:pointer">'+(row.ret?'반품취소':'반품')+'</button></td>'+
       '<td><button class="rb" onclick="rmRow('+row.uid+')">×</button></td></tr>';
   });
   h+="</tbody></table>";
@@ -1179,7 +1180,7 @@ function renderCart(highlight){
     var r=row.item;
     var tag=Number(r["TAG가"])||0;
     var fin=isEventItem(r)?LDB_EVENT_PRICE:isLscEventItem(r)?LSC_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):0);
-    if(fin)total+=fin*(row.qty||1);
+    if(fin)total+=(row.ret?-1:1)*fin*(row.qty||1);
   });
   document.getElementById("totalAmt").textContent=total.toLocaleString()+"원";
 }
@@ -1201,7 +1202,7 @@ function dlPlayMD(){
       {t:'s',v:store},
       {t:'n',v:parseInt(date)||0},
       {t:'s',v:bc},
-      {t:'n',v:row.qty||1},
+      {t:'n',v:(row.ret?-1:1)*(row.qty||1)},
       {t:'n',v:fin},
       {t:'s',v:row.note||""}
     ]);
@@ -1227,7 +1228,7 @@ function dlSelected(){
     var tag=Number(r["TAG가"])||0;
     var evnt=isEventItem(r),lscEvnt=isLscEventItem(r);
     var fin=evnt?LDB_EVENT_PRICE:lscEvnt?LSC_EVENT_PRICE:(tag?Math.round(tag*(1-row.disc/100)):"");
-    wsData.push([store,date,bc,row.qty||1,fin,row.note||"",
+    wsData.push([store,date,bc,(row.ret?-1:1)*(row.qty||1),fin,row.note||"",
                  r["상품명"]||"",r["칼라코드"]||"",tag||"",((evnt||lscEvnt)?"행사고정":row.disc||"")]);
   });
   var wb=XLSX.utils.book_new();
