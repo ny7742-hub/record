@@ -1068,9 +1068,10 @@ function _parseShipFile(file,forceCode){
   return new Promise(function(resolve){
     var reader=new FileReader();
     reader.onload=function(e){
-      var byStore={};
+      var byStore={};var redSkipped=0;
       try{
-        var wb=XLSX.read(e.target.result,{type:"array"});
+        /* cellStyles:true → 셀 채움색 읽기 (빨강=미출고 제외용) */
+        var wb=XLSX.read(e.target.result,{type:"array",cellStyles:true});
         var ws=wb.Sheets[wb.SheetNames[0]];
         var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
         var cStore=-1,cCode=-1,hRow=-1;
@@ -1084,17 +1085,30 @@ function _parseShipFile(file,forceCode){
           if(cCode>=0){hRow=r;break;}
         }
         if(cCode<0){hRow=0;cCode=(rows[0]?rows[0].length-1:3);}
+        /* 빨강(미출고) 판별: 행의 여러 셀 채움색 중 빨강이 있으면 제외 */
+        function _rowIsRed(rowIdx,maxC){
+          for(var c=0;c<=maxC;c++){
+            var cell=ws[XLSX.utils.encode_cell({r:rowIdx,c:c})];
+            if(cell&&cell.s){
+              var fg=cell.s.fgColor||(cell.s.fill&&cell.s.fill.fgColor);
+              var rgb=fg&&fg.rgb;
+              if(rgb){rgb=String(rgb).toUpperCase();if(rgb==="FFFF0000"||rgb==="FF0000")return true;}
+            }
+          }
+          return false;
+        }
         for(var r=hRow+1;r<rows.length;r++){
           var row=rows[r];if(!row)continue;
           var code=String(row[cCode]||"").trim();
           if(!code)continue;
+          if(_rowIsRed(r,row.length-1)){redSkipped++;continue;} /* 미출고 제외 */
           var sname=cStore>=0?String(row[cStore]||"").trim():"";
           var sc=forceCode||storeNameToCode(sname)||getStoreCode()||"기타";
           if(!byStore[sc])byStore[sc]={};
           byStore[sc][code]=1;
         }
       }catch(err){console.warn("출고리스트 파싱 오류",file.name,err);}
-      resolve({name:file.name,byStore:byStore});
+      resolve({name:file.name,byStore:byStore,redSkipped:redSkipped});
     };
     reader.readAsArrayBuffer(file);
   });
@@ -1105,8 +1119,9 @@ function loadShipList(input,forceCode){
   if(!files.length)return;
   Promise.all(files.map(function(f){return _parseShipFile(f,forceCode);})).then(function(results){
     /* 모든 파일 병합 */
-    var combined={};var fail=[];
+    var combined={};var fail=[];var totalRed=0;
     results.forEach(function(res){
+      totalRed+=res.redSkipped||0;
       var keys=Object.keys(res.byStore);
       if(!keys.length){fail.push(res.name);return;}
       keys.forEach(function(sc){
@@ -1129,7 +1144,7 @@ function loadShipList(input,forceCode){
     wsSetItem("shipLists",JSON.stringify(shipLists));
     updateShipInfo();
     var names=keys.map(function(sc){return sc+"(누적 "+shipLists[sc].length+"건, 신규 +"+added[sc]+")";}).join(", ");
-    alert(files.length+"개 파일 등록 완료: "+names+(fail.length?"\n⚠️ 인식 실패: "+fail.join(", "):""));
+    alert(files.length+"개 파일 등록 완료: "+names+(totalRed?"\n🔴 미출고(빨강) "+totalRed+"건 제외됨":"")+(fail.length?"\n⚠️ 인식 실패: "+fail.join(", "):""));
     if(document.getElementById("sq").value)onSQ();
     input.value="";
   });
