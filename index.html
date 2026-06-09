@@ -1035,10 +1035,19 @@ function loadShipList(input){
       }
       var keys=Object.keys(byStore);
       if(!keys.length){alert("출고리스트에서 상품칼라코드를 찾지 못했습니다.");input.value="";return;}
-      keys.forEach(function(sc){shipLists[sc]=Object.keys(byStore[sc]);});
+      /* 누적(합치기): 기존 출고리스트에 새 코드 추가, 중복 자동 제거 */
+      var added={};
+      keys.forEach(function(sc){
+        var merged={};
+        (shipLists[sc]||[]).forEach(function(k){merged[k]=1;});
+        var before=Object.keys(merged).length;
+        Object.keys(byStore[sc]).forEach(function(k){merged[k]=1;});
+        shipLists[sc]=Object.keys(merged);
+        added[sc]=shipLists[sc].length-before;
+      });
       wsSetItem("shipLists",JSON.stringify(shipLists));
       updateShipInfo();
-      var names=keys.map(function(sc){return sc+"("+shipLists[sc].length+"건)";}).join(", ");
+      var names=keys.map(function(sc){return sc+"(누적 "+shipLists[sc].length+"건, 신규 +"+added[sc]+")";}).join(", ");
       alert("출고리스트 등록 완료: "+names);
       if(document.getElementById("sq").value)onSQ();
     }catch(err){alert("출고리스트 읽기 오류: "+err.message);}
@@ -1055,12 +1064,22 @@ function curShipSet(){
   return set;
 }
 
+function clearShipList(){
+  var sc=getStoreCode();
+  if(!sc||!shipLists[sc]){alert("현재 매장의 출고리스트가 없습니다.");return;}
+  if(!confirm(sc+" 출고리스트("+shipLists[sc].length+"건)를 모두 삭제할까요?"))return;
+  delete shipLists[sc];
+  wsSetItem("shipLists",JSON.stringify(shipLists));
+  updateShipInfo();
+  if(document.getElementById("sq").value)onSQ();
+}
+
 function updateShipInfo(){
   var el=document.getElementById("shipInfo");if(!el)return;
   var sc=getStoreCode();
   var all=Object.keys(shipLists).map(function(k){return k+" "+shipLists[k].length+"건";});
   if(sc&&shipLists[sc]&&shipLists[sc].length){
-    el.innerHTML='<span style="color:#0891b2;font-weight:700">📦 '+sc+' 출고리스트 '+shipLists[sc].length+'건 우선 검색</span>'+(all.length>1?' &nbsp;<span style="color:#9ca3af">(전체: '+all.join(", ")+')</span>':'');
+    el.innerHTML='<span style="color:#0891b2;font-weight:700">📦 '+sc+' 출고리스트 '+shipLists[sc].length+'건 우선 검색</span> <button onclick="clearShipList()" style="font-size:10px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:5px;padding:2px 7px;cursor:pointer;margin-left:2px">초기화</button>'+(all.length>1?' &nbsp;<span style="color:#9ca3af">(전체: '+all.join(", ")+')</span>':'');
   }else if(all.length){
     el.innerHTML='<span style="color:#9ca3af">등록됨: '+all.join(", ")+(sc?' · 현재 매장('+sc+') 출고리스트 없음':' · 매장명을 입력하면 우선검색 적용')+'</span>';
   }else{
