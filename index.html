@@ -1131,6 +1131,11 @@ function doSearch(){
   function _topRank(nm){nm=nm||"";for(var i=0;i<TOP_KEYWORDS.length;i++){if(nm.indexOf(TOP_KEYWORDS[i])>=0)return i;}return 999;}
   /* 출고리스트 우선: 현재 매장 출고리스트에 있는 상품을 최상단에 */
   var _ship=curShipSet();
+  /* 센텀(LSC)·동부산(LDB)은 출고리스트 상품만 노출 (출고리스트 등록된 경우) */
+  var _shipOnly=(["LSC","LDB"].indexOf(getStoreCode())>=0)&&_ship;
+  if(_shipOnly){
+    cur=cur.filter(function(d){return _ship[d["자사코드"]];});
+  }
   cur.sort(function(a,b){
     if(_ship){var as=_ship[a["자사코드"]]?0:1,bs=_ship[b["자사코드"]]?0:1;if(as!==bs)return as-bs;}
     return _topRank(a["상품명"])-_topRank(b["상품명"]);
@@ -1145,6 +1150,11 @@ function updateChips(){
     var combined=norm(d["상품명"])+norm(d["칼라명"]);
     return terms.every(function(t){return combined.indexOf(norm(t))>=0;});
   });
+  /* 센텀(LSC)·동부산(LDB)은 출고리스트 상품만 칩 노출 */
+  var _ship=curShipSet();
+  if(_ship&&["LSC","LDB"].indexOf(getStoreCode())>=0){
+    matched=matched.filter(function(d){return _ship[d["자사코드"]];});
+  }
   var seen={};chipColors=[];
   matched.forEach(function(d){if(d["상품명"]&&!seen[d["상품명"]]){seen[d["상품명"]]=1;chipColors.push(d["상품명"]);}});
   var TOP_KEYWORDS=["[화이트샌즈] 뉴 라자르","뉴 라자르","뉴라자르","23SS 지사 버킷햇 시아","23ss 지사 버킷햇 시아"];
