@@ -3637,8 +3637,8 @@ function renderCostcoPage(){
           var prevWr=i>0?ccKeyToWeekRange(monthKeys[i-1],_year):'';
           var curWr=ccKeyToWeekRange(k,_year);
           var bl=(i>0&&prevWr!==curWr)?'border-left:2px solid #e5e7eb':'';
-          h+='<td class="cc-num-cell'+nd+saleCls+' cc-sel-able cc-editable" data-val="'+(d.qty||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="qty" style="'+bl+';cursor:pointer" title="클릭하여 수정">'+(d.qty?fmtCC(d.qty):'')+'</td>';
-          h+='<td class="cc-amt-cell'+nd+saleCls+' cc-sel-able cc-editable" data-val="'+(d.amount||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="amount" style="cursor:pointer" title="클릭하여 수정">'+(d.amount?fmtCC(d.amount):'')+'</td>';
+          h+='<td class="cc-num-cell'+nd+saleCls+' cc-sel-able" data-val="'+(d.qty||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="qty" style="'+bl+'">'+(d.qty?fmtCC(d.qty):'')+'</td>';
+          h+='<td class="cc-amt-cell'+nd+saleCls+' cc-sel-able" data-val="'+(d.amount||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="amount">'+(d.amount?fmtCC(d.amount):'')+'</td>';
           mQty+=Number(d.qty||0); mAmt+=Number(d.amount||0);
         });
         var _mrc='cc-month-row-'+prod.name+'_'+color;
@@ -3681,8 +3681,10 @@ function ccDeleteDate(key){
   renderCostcoPage();
 }
 
-/* 셀 클릭 시 인라인 편집 */
+/* 셀 클릭 시 인라인 편집 — 수기 입력 비활성화 (업로드 데이터만 사용) */
+var CC_MANUAL_EDIT=false;
 document.addEventListener("click",function(e){
+  if(!CC_MANUAL_EDIT)return;
   var td=e.target.closest(".cc-editable");
   if(!td)return;
   if(td.querySelector("input"))return; /* 이미 편집 중 */
