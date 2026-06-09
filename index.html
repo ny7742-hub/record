@@ -778,7 +778,7 @@ function isLscEventItem(item){
   return !!(cols&&cols.indexOf(item["칼라코드"]||"")>=0);
 }
 
-var cart=[], cur=[], chipColors=[], uidSeq=0, kbIdx=-1;
+var cart=[], cur=[], chipColors=[], uidSeq=0, kbIdx=-1, chipIdx=-1;
 var catDiscMap={hat:0,para:0,strap:0,etc:0};
 function newUid(){return ++uidSeq;}
 
@@ -891,29 +891,24 @@ function processFile(file){
 
 /* ── 키보드 ── */
 document.getElementById("sq").addEventListener("keydown",function(e){
-  var rows=document.querySelectorAll("#tbl tbody tr");
-  if(!rows.length) return;
   if(e.key==="ArrowDown"){
+    if(!chipColors.length) return;
     e.preventDefault();
-    kbIdx=Math.min(kbIdx+1,rows.length-1);
-    applyKb(rows);
+    chipIdx=Math.min(chipIdx+1,chipColors.length-1);
+    renderChips();
   } else if(e.key==="ArrowUp"){
+    if(!chipColors.length) return;
     e.preventDefault();
-    kbIdx=Math.max(kbIdx-1,0);
-    applyKb(rows);
+    chipIdx=Math.max(chipIdx-1,0);
+    renderChips();
   } else if(e.key==="Enter"){
     e.preventDefault();
-    if(kbIdx>=0&&rows[kbIdx]){
-      var btn=rows[kbIdx].querySelector(".adb");
-      if(btn) addOne(btn.dataset.k,btn);
-    } else if(cur.length===1){
-      addOne(cur[0]["자사코드"],null);
-    }
+    if(chipIdx>=0&&chipColors[chipIdx]) selName(chipIdx);
   } else if(e.key==="Escape"){
     e.preventDefault();
     clrSearch();
   } else {
-    kbIdx=-1;
+    chipIdx=-1;
   }
 });
 
@@ -983,26 +978,39 @@ function doSearch(){
 
 function updateChips(){
   var terms=getTerms();
-  if(!terms.length){chipColors=[];document.getElementById("cchips").innerHTML="";return;}
-  var matched=DB.filter(function(d){return norm(d["상품명"]).indexOf(norm(terms[0]))>=0;});
+  if(!terms.length){chipColors=[];chipIdx=-1;document.getElementById("cchips").innerHTML="";return;}
+  var matched=DB.filter(function(d){
+    var combined=norm(d["상품명"])+norm(d["칼라명"]);
+    return terms.every(function(t){return combined.indexOf(norm(t))>=0;});
+  });
   var seen={};chipColors=[];
-  matched.forEach(function(d){if(d["칼라명"]&&!seen[d["칼라명"]]){seen[d["칼라명"]]=1;chipColors.push(d["칼라명"]);}});
-  chipColors.sort();
+  matched.forEach(function(d){if(d["상품명"]&&!seen[d["상품명"]]){seen[d["상품명"]]=1;chipColors.push(d["상품명"]);}});
+  var TOP_KEYWORDS=["[화이트샌즈] 뉴 라자르","뉴 라자르","뉴라자르","23SS 지사 버킷햇 시아","23ss 지사 버킷햇 시아"];
+  function _topRank(nm){nm=nm||"";for(var i=0;i<TOP_KEYWORDS.length;i++){if(nm.indexOf(TOP_KEYWORDS[i])>=0)return i;}return 999;}
+  chipColors.sort(function(a,b){var r=_topRank(a)-_topRank(b);return r!==0?r:a.localeCompare(b);});
+  chipIdx=-1;
   renderChips();
 }
 
 function renderChips(){
   if(!chipColors.length){document.getElementById("cchips").innerHTML="";return;}
-  var terms=getTerms();
-  var curColor=terms[1]?norm(terms[1]):"";
-  var isSingle=cur.length===1;
   var html="";
-  chipColors.forEach(function(c){
-    html+='<span class="chip'+(norm(c)===curColor?" on":"")+'" onclick="selColor(\''+c.replace(/'/g,"\\'")+'\')">'+ c+'</span>';
+  chipColors.forEach(function(c,i){
+    html+='<span class="chip'+(i===chipIdx?" on":"")+'" onclick="selName('+i+')">'+c+'</span>';
   });
-  html+='<button class="chip-add-btn'+(isSingle?"":" disabled")+'" onclick="'+(isSingle?"addCurrent(this)":"showHint()")+'" title="'+(isSingle?"추가":"칼라를 선택하세요")+'">+</button>';
-  if(!isSingle&&cur.length>0) html+='<span class="chip-hint">칼라를 선택하세요</span>';
   document.getElementById("cchips").innerHTML=html;
+  var on=document.querySelector("#cchips .chip.on");
+  if(on)on.scrollIntoView({block:"nearest"});
+}
+
+function selName(i){
+  if(i<0||i>=chipColors.length)return;
+  chipIdx=i;
+  var name=chipColors[i];
+  cur=DB.filter(function(d){return d["상품명"]===name;});
+  renderChips();
+  renderTbl();
+  document.getElementById("sq").focus();
 }
 
 function selColor(c){
@@ -1202,7 +1210,7 @@ function dlSelected(){
 
 function clrSearch(){
   document.getElementById("sq").value="";
-  chipColors=[];kbIdx=-1;
+  chipColors=[];kbIdx=-1;chipIdx=-1;
   document.getElementById("cchips").innerHTML="";
   cur=[];
   document.getElementById("tbl").innerHTML="<div class='es'><div class='ei'>🔍</div><div class='et'>상품명과 칼라를 입력하여 검색하세요</div></div>";
