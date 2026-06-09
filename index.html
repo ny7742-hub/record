@@ -778,7 +778,7 @@ function isLscEventItem(item){
   return !!(cols&&cols.indexOf(item["칼라코드"]||"")>=0);
 }
 
-var cart=[], cur=[], chipColors=[], uidSeq=0, kbIdx=-1, chipIdx=-1;
+var cart=[], cur=[], chipColors=[], uidSeq=0, kbIdx=-1, chipIdx=-1, rowMode=false;
 var catDiscMap={hat:0,para:0,strap:0,etc:0};
 function newUid(){return ++uidSeq;}
 
@@ -891,6 +891,28 @@ function processFile(file){
 
 /* ── 키보드 ── */
 document.getElementById("sq").addEventListener("keydown",function(e){
+  /* 검색결과 탐색 모드: 상품명 선택 후 검색결과 행을 방향키로 이동/추가 */
+  if(rowMode){
+    var rows=document.querySelectorAll("#tbl tbody tr");
+    if(e.key==="ArrowDown"||e.key==="ArrowRight"){
+      e.preventDefault();
+      kbIdx=Math.min(kbIdx+1,rows.length-1);
+      applyKb(rows);
+    } else if(e.key==="ArrowUp"||e.key==="ArrowLeft"){
+      e.preventDefault();
+      if(kbIdx<=0){rowMode=false;kbIdx=-1;applyKb(rows);renderChips();return;}
+      kbIdx=Math.max(kbIdx-1,0);
+      applyKb(rows);
+    } else if(e.key==="Enter"){
+      e.preventDefault();
+      if(kbIdx>=0&&rows[kbIdx]){var btn=rows[kbIdx].querySelector(".adb");if(btn)addOne(btn.dataset.k,btn);}
+    } else if(e.key==="Escape"){
+      e.preventDefault();rowMode=false;kbIdx=-1;applyKb(rows);clrSearch();
+    } else if(e.key!=="Shift"&&e.key!=="Control"&&e.key!=="Alt"&&e.key!=="Meta"){
+      rowMode=false;kbIdx=-1;
+    }
+    return;
+  }
   if(e.key==="ArrowDown"||e.key==="ArrowRight"){
     if(!chipColors.length) return;
     e.preventDefault();
@@ -903,7 +925,12 @@ document.getElementById("sq").addEventListener("keydown",function(e){
     renderChips();
   } else if(e.key==="Enter"){
     e.preventDefault();
-    if(chipIdx>=0&&chipColors[chipIdx]) selName(chipIdx);
+    if(chipIdx>=0&&chipColors[chipIdx]){
+      selName(chipIdx);
+      /* 검색결과로 이동 */
+      rowMode=true;kbIdx=0;
+      applyKb(document.querySelectorAll("#tbl tbody tr"));
+    }
   } else if(e.key==="Escape"){
     e.preventDefault();
     clrSearch();
@@ -947,7 +974,7 @@ function getStoreCode(){
   return document.getElementById("storeInput").value.toUpperCase().trim();
 }
 
-function onSQ(){kbIdx=-1;doSearch();updateChips();}
+function onSQ(){kbIdx=-1;rowMode=false;doSearch();updateChips();}
 
 function getTerms(){
   var v=document.getElementById("sq").value.trim();
@@ -1210,7 +1237,7 @@ function dlSelected(){
 
 function clrSearch(){
   document.getElementById("sq").value="";
-  chipColors=[];kbIdx=-1;chipIdx=-1;
+  chipColors=[];kbIdx=-1;chipIdx=-1;rowMode=false;
   document.getElementById("cchips").innerHTML="";
   cur=[];
   document.getElementById("tbl").innerHTML="<div class='es'><div class='ei'>🔍</div><div class='et'>상품명과 칼라를 입력하여 검색하세요</div></div>";
