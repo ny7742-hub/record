@@ -972,12 +972,11 @@ function doSearch(){
     var combined=norm(d["상품명"])+norm(d["칼라명"]);
     return terms.every(function(t){return combined.indexOf(norm(t))>=0;});
   });
-  var TOP_KEYWORDS=["뉴 라자르","뉴라자르","23SS 지사 버킷햇 시아","23ss 지사 버킷햇 시아"];
-  function _isTop(nm){nm=nm||"";for(var i=0;i<TOP_KEYWORDS.length;i++){if(nm.indexOf(TOP_KEYWORDS[i])>=0)return true;}return false;}
+  /* 상단 우선순위: 배열 앞쪽일수록 더 위에 노출 */
+  var TOP_KEYWORDS=["[화이트샌즈] 뉴 라자르","뉴 라자르","뉴라자르","23SS 지사 버킷햇 시아","23ss 지사 버킷햇 시아"];
+  function _topRank(nm){nm=nm||"";for(var i=0;i<TOP_KEYWORDS.length;i++){if(nm.indexOf(TOP_KEYWORDS[i])>=0)return i;}return 999;}
   cur.sort(function(a,b){
-    var aTop=_isTop(a["상품명"])?0:1;
-    var bTop=_isTop(b["상품명"])?0:1;
-    return aTop-bTop;
+    return _topRank(a["상품명"])-_topRank(b["상품명"]);
   });
   renderTbl();
 }
