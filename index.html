@@ -992,25 +992,28 @@ document.getElementById("sq").addEventListener("keydown",function(e){
     return;
   }
   if(e.key==="ArrowDown"||e.key==="ArrowRight"){
-    if(!chipColors.length) return;
+    /* 엔터 없이 방향키로 바로 검색결과 행으로 진입 */
+    var rows=document.querySelectorAll("#tbl tbody tr");
+    if(!rows.length) return;
     e.preventDefault();
-    chipIdx=Math.min(chipIdx+1,chipColors.length-1);
-    renderChips();
+    rowMode=true;kbIdx=0;
+    applyKb(rows);
   } else if(e.key==="ArrowUp"||e.key==="ArrowLeft"){
-    if(!chipColors.length) return;
+    var rows2=document.querySelectorAll("#tbl tbody tr");
+    if(!rows2.length) return;
     e.preventDefault();
-    chipIdx=Math.max(chipIdx-1,0);
-    renderChips();
+    rowMode=true;kbIdx=rows2.length-1;
+    applyKb(rows2);
   } else if(e.key==="Enter"){
     e.preventDefault();
+    /* 칩이 선택돼 있으면 해당 상품으로 좁히고, 아니면 결과 첫 행 추가 */
     if(chipIdx>=0&&chipColors[chipIdx]){
       selName(chipIdx);
-      /* 검색결과로 이동 */
       rowMode=true;kbIdx=0;
-      var _rows=document.querySelectorAll("#tbl tbody tr");
-      applyKb(_rows);
-      var _tbl=document.getElementById("tbl");
-      if(_tbl)_tbl.scrollIntoView({block:"start",behavior:"smooth"});
+      applyKb(document.querySelectorAll("#tbl tbody tr"));
+    } else {
+      var rows3=document.querySelectorAll("#tbl tbody tr");
+      if(rows3.length){rowMode=true;kbIdx=0;applyKb(rows3);}
     }
   } else if(e.key==="Escape"){
     e.preventDefault();
