@@ -3568,7 +3568,7 @@ function renderCostcoPage(){
 
   /* ── 헤더 1행: 고정 컬럼 + 주차 범위 + 월 합계 ── */
   h+='<tr>';
-  h+='<th rowspan="3" class="cc-sticky-1">구분</th>';
+  h+='<th rowspan="3" class="cc-sticky-1" style="position:relative">구분 <button onclick="ccToggleFilterMenu(event)" title="필터" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#15528f;vertical-align:middle">▼</button></th>';
   h+='<th rowspan="3" class="cc-sticky-2">누적<br>판매수량</th>';
   h+='<th rowspan="3" class="cc-sticky-3">색상</th>';
   if(monthKeys.length){
@@ -3654,7 +3654,6 @@ function renderCostcoPage(){
         if(code)h+='<br><span style="font-size:13px;color:#6366f1;font-weight:600">('+code+')</span>';
         h+='<br><span style="font-size:13px;color:#374151;font-weight:600">'+prod.price.toLocaleString()+'원</span>';
         if(monthSalePrice)h+='<br><span style="font-size:13px;color:#dc2626;font-weight:700">세일가 '+monthSalePrice.toLocaleString()+'원</span>';
-        h+='<br><button onclick="ccHideProd(\''+String(prod.name).replace(/'/g,"\\'")+'\')" title="이 상품 숨기기" style="margin-top:4px;font-size:11px;border:1px solid #cbd5e1;background:#fff;border-radius:4px;padding:1px 6px;cursor:pointer;color:#475569;font-weight:600">🙈 숨김</button>';
         h+='</td>';
       }
       var cumulVal=ccAutoCalcCumul(prod.name,color);
@@ -3685,36 +3684,66 @@ function renderCostcoPage(){
     }); /* prod.colors */
   }); /* visibleProds */
   h+='</tbody></table>';
-  /* 숨긴 상품 복원 바 */
-  var hiddenNames=prods.filter(function(p){return _hidden[p.name];}).map(function(p){return p.name;});
-  var bar="";
-  if(hiddenNames.length){
-    bar='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;margin-bottom:8px">';
-    bar+='<span style="font-size:12px;font-weight:700;color:#475569">🙈 숨긴 상품:</span>';
-    hiddenNames.forEach(function(nm){
-      bar+='<button onclick="ccShowProd(\''+String(nm).replace(/'/g,"\\'")+'\')" title="다시 표시" style="font-size:12px;border:1px solid #94a3b8;background:#fff;border-radius:12px;padding:2px 10px;cursor:pointer;color:#334155;font-weight:600">'+nm+' ✕</button>';
-    });
-    bar+='<button onclick="ccShowAllProds()" style="font-size:12px;border:1px solid #2563a8;background:#e7f0fb;border-radius:6px;padding:2px 10px;cursor:pointer;color:#15528f;font-weight:700">전체 표시</button>';
-    bar+='</div>';
-  }
-  document.getElementById("costcoTableWrap").innerHTML=bar+h;
+  /* 엑셀식 필터 드롭다운 (구분 헤더) */
+  var allNames=prods.map(function(p){return p.name;});
+  var menu='<div id="ccFilterMenu" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);padding:8px;min-width:180px;max-height:360px;overflow:auto;text-align:left">';
+  menu+='<div style="display:flex;gap:6px;margin-bottom:6px">';
+  menu+='<button onclick="ccFilterAll(true)" style="flex:1;font-size:12px;border:1px solid #2563a8;background:#e7f0fb;color:#15528f;border-radius:4px;padding:3px;cursor:pointer;font-weight:700">전체 선택</button>';
+  menu+='<button onclick="ccFilterAll(false)" style="flex:1;font-size:12px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:4px;padding:3px;cursor:pointer;font-weight:700">전체 해제</button>';
+  menu+='</div>';
+  allNames.forEach(function(nm){
+    var checked=!_hidden[nm]?"checked":"";
+    var esc=String(nm).replace(/'/g,"\\'");
+    menu+='<label style="display:flex;align-items:center;gap:6px;padding:3px 2px;font-size:13px;color:#1f2937;cursor:pointer;white-space:nowrap"><input type="checkbox" '+checked+' onchange="ccFilterToggle(\''+esc+'\',this.checked)" style="width:15px;height:15px;cursor:pointer">'+nm+'</label>';
+  });
+  menu+='</div>';
+  document.getElementById("costcoTableWrap").innerHTML=h;
+  /* 메뉴를 body에 부착(overflow 가림 방지) */
+  var old=document.getElementById("ccFilterMenu");if(old)old.remove();
+  document.body.insertAdjacentHTML("beforeend",menu);
   renderCcSaleSummary();
 }
-function ccHideProd(name){
+function ccToggleFilterMenu(ev){
+  if(ev){ev.stopPropagation();}
+  var m=document.getElementById("ccFilterMenu");
+  if(!m)return;
+  if(m.style.display==="none"||!m.style.display){
+    var btn=ev&&(ev.currentTarget||ev.target);
+    if(btn&&btn.getBoundingClientRect){
+      var r=btn.getBoundingClientRect();
+      m.style.top=(r.bottom+4)+"px";
+      m.style.left=Math.max(8,r.left-40)+"px";
+    }
+    m.style.display="block";
+  }else{m.style.display="none";}
+}
+/* 바깥 클릭 시 필터 메뉴 닫기 */
+document.addEventListener("click",function(e){
+  var m=document.getElementById("ccFilterMenu");
+  if(!m||m.style.display==="none")return;
+  if(!m.contains(e.target)&&!(e.target.closest&&e.target.closest("th.cc-sticky-1")))m.style.display="none";
+});
+function _ccReopenFilterMenu(){
+  setTimeout(function(){
+    var btn=document.querySelector("#costcoTableWrap th.cc-sticky-1 button");
+    var m=document.getElementById("ccFilterMenu");
+    if(btn&&m){var r=btn.getBoundingClientRect();m.style.top=(r.bottom+4)+"px";m.style.left=Math.max(8,r.left-40)+"px";m.style.display="block";}
+  },0);
+}
+function ccFilterToggle(name,show){
   if(!costcoDB.hiddenProds)costcoDB.hiddenProds={};
-  costcoDB.hiddenProds[name]=1;
+  if(show)delete costcoDB.hiddenProds[name];
+  else costcoDB.hiddenProds[name]=1;
   saveCostcoDB();
   renderCostcoPage();
+  _ccReopenFilterMenu();
 }
-function ccShowProd(name){
-  if(costcoDB.hiddenProds)delete costcoDB.hiddenProds[name];
+function ccFilterAll(show){
+  if(show){costcoDB.hiddenProds={};}
+  else{costcoDB.hiddenProds={};costcoDB.products.forEach(function(p){costcoDB.hiddenProds[p.name]=1;});}
   saveCostcoDB();
   renderCostcoPage();
-}
-function ccShowAllProds(){
-  costcoDB.hiddenProds={};
-  saveCostcoDB();
-  renderCostcoPage();
+  _ccReopenFilterMenu();
 }
 
 function ccSave(el,prod,color,period,type){
