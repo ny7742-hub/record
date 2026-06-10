@@ -3633,14 +3633,15 @@ function renderCostcoPage(){
   h+='</tr>';
 
   /* ── 상품별 행 (당월 매출 있는 상품만 표시) ── */
-  var visibleProds=monthKeys.length?prods.filter(function(prod){
+  var _hidden=costcoDB.hiddenProds||{};
+  var visibleProds=(monthKeys.length?prods.filter(function(prod){
     return prod.colors.some(function(color){
       return monthKeys.some(function(k){
         var d=((costcoDB.sales[k]||{})[prod.name]||{})[color]||{};
         return !!(d.qty||d.amount);
       });
     });
-  }):prods;
+  }):prods).filter(function(prod){return !_hidden[prod.name];});
   visibleProds.forEach(function(prod){
     /* 색상은 전체 표시 (수기 입력 가능하도록) — 상품 단위로만 숨김 처리 */
     prod.colors.forEach(function(color,ci){
@@ -3653,6 +3654,7 @@ function renderCostcoPage(){
         if(code)h+='<br><span style="font-size:13px;color:#6366f1;font-weight:600">('+code+')</span>';
         h+='<br><span style="font-size:13px;color:#374151;font-weight:600">'+prod.price.toLocaleString()+'원</span>';
         if(monthSalePrice)h+='<br><span style="font-size:13px;color:#dc2626;font-weight:700">세일가 '+monthSalePrice.toLocaleString()+'원</span>';
+        h+='<br><button onclick="ccHideProd(\''+String(prod.name).replace(/'/g,"\\'")+'\')" title="이 상품 숨기기" style="margin-top:4px;font-size:11px;border:1px solid #cbd5e1;background:#fff;border-radius:4px;padding:1px 6px;cursor:pointer;color:#475569;font-weight:600">🙈 숨김</button>';
         h+='</td>';
       }
       var cumulVal=ccAutoCalcCumul(prod.name,color);
@@ -3683,8 +3685,36 @@ function renderCostcoPage(){
     }); /* prod.colors */
   }); /* visibleProds */
   h+='</tbody></table>';
-  document.getElementById("costcoTableWrap").innerHTML=h;
+  /* 숨긴 상품 복원 바 */
+  var hiddenNames=prods.filter(function(p){return _hidden[p.name];}).map(function(p){return p.name;});
+  var bar="";
+  if(hiddenNames.length){
+    bar='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;margin-bottom:8px">';
+    bar+='<span style="font-size:12px;font-weight:700;color:#475569">🙈 숨긴 상품:</span>';
+    hiddenNames.forEach(function(nm){
+      bar+='<button onclick="ccShowProd(\''+String(nm).replace(/'/g,"\\'")+'\')" title="다시 표시" style="font-size:12px;border:1px solid #94a3b8;background:#fff;border-radius:12px;padding:2px 10px;cursor:pointer;color:#334155;font-weight:600">'+nm+' ✕</button>';
+    });
+    bar+='<button onclick="ccShowAllProds()" style="font-size:12px;border:1px solid #2563a8;background:#e7f0fb;border-radius:6px;padding:2px 10px;cursor:pointer;color:#15528f;font-weight:700">전체 표시</button>';
+    bar+='</div>';
+  }
+  document.getElementById("costcoTableWrap").innerHTML=bar+h;
   renderCcSaleSummary();
+}
+function ccHideProd(name){
+  if(!costcoDB.hiddenProds)costcoDB.hiddenProds={};
+  costcoDB.hiddenProds[name]=1;
+  saveCostcoDB();
+  renderCostcoPage();
+}
+function ccShowProd(name){
+  if(costcoDB.hiddenProds)delete costcoDB.hiddenProds[name];
+  saveCostcoDB();
+  renderCostcoPage();
+}
+function ccShowAllProds(){
+  costcoDB.hiddenProds={};
+  saveCostcoDB();
+  renderCostcoPage();
 }
 
 function ccSave(el,prod,color,period,type){
