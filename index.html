@@ -3403,7 +3403,16 @@ function ccGetMonthPeriods(){
 
 function ccAutoCalcCumul(prodName,color){
   var total=0;
+  var now=new Date(); now.setHours(0,0,0,0);
+  var yr=now.getFullYear();
+  var jan1=new Date(yr,0,1);
   Object.keys(costcoDB.sales).forEach(function(period){
+    /* 기간키 "M/D" → 올해 1월~오늘 범위만 합산 */
+    var m=String(period).match(/^(\d{1,2})\/(\d{1,2})$/);
+    if(m){
+      var pd=new Date(yr,parseInt(m[1])-1,parseInt(m[2]));
+      if(pd<jan1||pd>now)return;
+    }
     var d=((costcoDB.sales[period]||{})[prodName]||{})[color]||{};
     total+=Number(d.qty||0);
   });
