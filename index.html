@@ -3503,15 +3503,13 @@ function deleteSalePeriod(i){
   saveCostcoDB();renderSaleModal();renderCostcoPage();
 }
 /* 해당 주차에 특정 상품의 세일가 반환 (없으면 0) */
-/* 자동 행사상품: 소니아·루시 = 판매가 -4,000원 (항상 행사 표시) */
-var CC_AUTO_SALE_NAMES=["소니아","루시"];
-var CC_AUTO_SALE_OFF=4000;
+/* 자동 행사상품: 상품명→세일가, 6/8부터 행사 적용 */
+var CC_AUTO_SALE_MAP={"소니아":21990,"루시":19990};
+var CC_AUTO_SALE_START={m:6,d:8};
 function ccAutoSalePrice(prodName){
-  var hit=CC_AUTO_SALE_NAMES.some(function(n){return String(prodName||"").indexOf(n)>=0;});
-  if(!hit)return 0;
-  var p=(costcoDB.products||[]).filter(function(x){return x.name===prodName;})[0];
-  if(!p||!p.price)return 0;
-  return Math.max(0,Number(p.price)-CC_AUTO_SALE_OFF);
+  var keys=Object.keys(CC_AUTO_SALE_MAP);
+  for(var i=0;i<keys.length;i++){if(String(prodName||"").indexOf(keys[i])>=0)return CC_AUTO_SALE_MAP[keys[i]];}
+  return 0;
 }
 function ccGetSalePriceForPeriod(prodName,periodStr){
   var yr=parseInt((document.getElementById("ccYear")||{}).value)||new Date().getFullYear();
@@ -3527,7 +3525,14 @@ function ccGetSalePriceForPeriod(prodName,periodStr){
       if(sp.items&&sp.items[prodName])price=sp.items[prodName];
     }
   });
-  if(!price)price=ccAutoSalePrice(prodName);
+  /* 자동 행사: 세일 시작일(6/8) 이후 기간에만 핑크 표시 */
+  if(!price){
+    var ap=ccAutoSalePrice(prodName);
+    if(ap){
+      var startD=new Date(yr,CC_AUTO_SALE_START.m-1,CC_AUTO_SALE_START.d);
+      if(pEnd>=startD)price=ap;
+    }
+  }
   return price;
 }
 /* 현재 선택 월에 해당 상품의 세일가 (가장 첫 번째) */
