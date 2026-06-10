@@ -593,6 +593,7 @@ label{font-size:14px!important}
       <span>개수: <span id="ccSelCount">0</span></span>
       <span>수량 합계: <span id="ccSelQty">0</span></span>
       <span>금액 합계: <span id="ccSelAmt">0</span>원</span>
+      <span style="color:#fde68a;font-weight:800">합계: <span id="ccSelTotal">0</span></span>
       <span style="margin-left:auto;font-size:11px;color:#475569;cursor:pointer" onclick="ccClearSel()">✕ 해제</span>
     </div>
   </div>
@@ -3271,21 +3272,34 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
   var _sel=[];       // 선택된 셀 목록
   var _dragging=false;
   var _startCell=null;
-  var _startIdx=-1;
+  var _startCoord=null;
 
   function getAllCells(){
     return Array.from(document.querySelectorAll('#costcoTableWrap .cc-sel-able'));
   }
-  function cellIndex(td){return getAllCells().indexOf(td);}
-
-  function applySelection(start,end){
-    var cells=getAllCells();
-    var a=Math.min(start,end), b=Math.max(start,end);
-    cells.forEach(function(td,i){
-      if(i>=a&&i<=b){td.classList.add('cc-sel');}
-      else{td.classList.remove('cc-sel');}
+  /* 셀의 행/열 좌표 (엑셀식 사각형 선택용) */
+  function selRows(){
+    return Array.from(document.querySelectorAll('#costcoTableWrap tr')).filter(function(r){return r.querySelector('.cc-sel-able');});
+  }
+  function cellCoord(td){
+    var tr=td.closest('tr');
+    var rows=selRows();
+    var rowCells=Array.from(tr.querySelectorAll('.cc-sel-able'));
+    return {row:rows.indexOf(tr),col:rowCells.indexOf(td)};
+  }
+  function applySelection(s,e){
+    if(!s||!e)return;
+    var r1=Math.min(s.row,e.row),r2=Math.max(s.row,e.row);
+    var c1=Math.min(s.col,e.col),c2=Math.max(s.col,e.col);
+    var rows=selRows();
+    rows.forEach(function(tr,ri){
+      var rowCells=Array.from(tr.querySelectorAll('.cc-sel-able'));
+      rowCells.forEach(function(td,ci){
+        if(ri>=r1&&ri<=r2&&ci>=c1&&ci<=c2)td.classList.add('cc-sel');
+        else td.classList.remove('cc-sel');
+      });
     });
-    _sel=cells.filter(function(td){return td.classList.contains('cc-sel');});
+    _sel=getAllCells().filter(function(td){return td.classList.contains('cc-sel');});
     updateSelBar();
   }
 
@@ -3309,6 +3323,8 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
     document.getElementById('ccSelCount').textContent=_sel.length;
     document.getElementById('ccSelQty').textContent=qtySum.toLocaleString();
     document.getElementById('ccSelAmt').textContent=amtSum.toLocaleString();
+    var totEl=document.getElementById('ccSelTotal');
+    if(totEl)totEl.textContent=sum.toLocaleString();
     bar.style.display='flex';
   }
 
@@ -3324,20 +3340,20 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
     e.preventDefault();
     _dragging=true;
     _startCell=td;
-    _startIdx=cellIndex(td);
-    applySelection(_startIdx,_startIdx);
+    _startCoord=cellCoord(td);
+    applySelection(_startCoord,_startCoord);
   });
   document.addEventListener('mouseover',function(e){
     if(!_dragging)return;
     var td=e.target.closest('.cc-sel-able');
     if(!td)return;
-    applySelection(_startIdx,cellIndex(td));
+    applySelection(_startCoord,cellCoord(td));
   });
   document.addEventListener('mouseup',function(e){
     if(!_dragging)return;
     _dragging=false;
     var td=e.target.closest('.cc-sel-able');
-    if(td)applySelection(_startIdx,cellIndex(td));
+    if(td)applySelection(_startCoord,cellCoord(td));
   });
   // 테이블 재렌더 후 선택 초기화
   var _origRender=window.renderCostcoPage;
