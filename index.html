@@ -367,6 +367,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">🏪 팝업</button>
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
+  <button class="tab-btn" id="tab-excel" onclick="switchTab('excel')">📄 엑셀뷰어</button>
 </div>
 
 <!-- 업로드 모달 -->
@@ -599,6 +600,25 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-costco -->
+
+<div id="page-excel" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">📄 엑셀 뷰어</div>
+      <label style="cursor:pointer"><span class="bg" style="padding:6px 14px;font-size:12px;display:inline-flex">📂 엑셀 파일 열기</span><input type="file" id="excelFileIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="loadExcelViewer(this)"/></label>
+      <button onclick="clearExcelViewer()" class="bs" style="padding:6px 12px;font-size:12px">초기화</button>
+      <span id="excelMsg" style="font-size:12px;color:#15528f;font-weight:600"></span>
+    </div>
+    <div id="excelSheetTabs" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:10px"></div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="excelTableWrap" style="overflow:auto;max-height:72vh;padding:0">
+      <div style="padding:40px;text-align:center;color:#475569;font-size:14px">📂 엑셀 파일을 열어 내용을 확인하세요</div>
+    </div>
+  </div>
+</div>
+</div><!-- /page-excel -->
 
 <div id="page-popup" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
@@ -2674,16 +2694,88 @@ function switchTab(tab){
   document.getElementById("page-meeting").style.display=tab==="meeting"?"block":"none";
   document.getElementById("page-dept").style.display=tab==="dept"?"block":"none";
   document.getElementById("page-costco").style.display=tab==="costco"?"block":"none";
+  document.getElementById("page-excel").style.display=tab==="excel"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
   document.getElementById("tab-dept").classList.toggle("active",tab==="dept");
   document.getElementById("tab-costco").classList.toggle("active",tab==="costco");
+  document.getElementById("tab-excel").classList.toggle("active",tab==="excel");
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   if(tab==="meeting") renderMeetingGrid();
   if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="costco") renderCostcoPage();
   if(tab==="popup") renderPopupPage();
+}
+
+/* ── 엑셀 뷰어 ── */
+var _excelWB=null;
+function loadExcelViewer(input){
+  var file=input.files[0];if(!file)return;
+  var msg=document.getElementById("excelMsg");
+  if(msg)msg.textContent="불러오는 중...";
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      _excelWB=XLSX.read(e.target.result,{type:"array",cellDates:true});
+      renderExcelSheetTabs(0);
+      if(msg)msg.textContent="✅ "+file.name+" ("+_excelWB.SheetNames.length+"시트)";
+    }catch(err){
+      if(msg)msg.textContent="❌ 읽기 오류: "+err.message;
+      alert("엑셀 읽기 오류: "+err.message);
+    }
+    input.value="";
+  };
+  reader.readAsArrayBuffer(file);
+}
+function renderExcelSheetTabs(activeIdx){
+  if(!_excelWB)return;
+  var tabs=document.getElementById("excelSheetTabs");
+  var th="";
+  _excelWB.SheetNames.forEach(function(nm,i){
+    var on=i===activeIdx;
+    th+='<button onclick="renderExcelSheet('+i+')" style="padding:4px 12px;font-size:12px;font-weight:700;border:1px solid '+(on?'#15528f':'#cbd5e1')+';background:'+(on?'#15528f':'#fff')+';color:'+(on?'#fff':'#475569')+';border-radius:6px;cursor:pointer">'+nm+'</button>';
+  });
+  tabs.innerHTML=th;
+  renderExcelSheet(activeIdx);
+}
+function renderExcelSheet(idx){
+  if(!_excelWB)return;
+  renderExcelSheetTabs._active=idx;
+  /* 탭 강조 갱신 */
+  var tabs=document.getElementById("excelSheetTabs");
+  if(tabs)Array.prototype.forEach.call(tabs.children,function(b,i){
+    var on=i===idx;
+    b.style.background=on?'#15528f':'#fff';b.style.color=on?'#fff':'#475569';b.style.borderColor=on?'#15528f':'#cbd5e1';
+  });
+  var ws=_excelWB.Sheets[_excelWB.SheetNames[idx]];
+  var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
+  var wrap=document.getElementById("excelTableWrap");
+  if(!rows.length){wrap.innerHTML='<div style="padding:40px;text-align:center;color:#475569;font-size:14px">빈 시트입니다</div>';return;}
+  var maxCols=rows.reduce(function(m,r){return Math.max(m,r.length);},0);
+  var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap">';
+  h+='<thead><tr><th style="position:sticky;left:0;top:0;z-index:3;background:#dbe4f0;border:1px solid #b9c4d6;padding:4px 8px;color:#15528f;min-width:36px"></th>';
+  for(var c=0;c<maxCols;c++){h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:5px 10px;color:#15528f;font-weight:700">'+_xlCol(c)+'</th>';}
+  h+='</tr></thead><tbody>';
+  rows.forEach(function(r,ri){
+    h+='<tr>';
+    h+='<td style="position:sticky;left:0;z-index:1;background:#eef2f9;border:1px solid #c5cdd9;padding:4px 8px;text-align:center;color:#475569;font-weight:700">'+(ri+1)+'</td>';
+    for(var c=0;c<maxCols;c++){
+      var v=r[c]==null?"":String(r[c]);
+      h+='<td style="border:1px solid #e1e6ee;padding:4px 10px;color:#1f2937">'+_escX(v)+'</td>';
+    }
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+}
+function _xlCol(n){var s="";n++;while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
+function _escX(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function clearExcelViewer(){
+  _excelWB=null;
+  document.getElementById("excelSheetTabs").innerHTML="";
+  document.getElementById("excelTableWrap").innerHTML='<div style="padding:40px;text-align:center;color:#475569;font-size:14px">📂 엑셀 파일을 열어 내용을 확인하세요</div>';
+  document.getElementById("excelMsg").textContent="";
 }
 
 /* ── 회의일지 ── */
