@@ -605,8 +605,11 @@ label{font-size:14px!important}
 <div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div class="sec-title" style="margin:0;font-size:13px">📄 엑셀 뷰어</div>
+      <div class="sec-title" style="margin:0;font-size:13px">📄 엑셀 편집기</div>
       <label style="cursor:pointer"><span class="bg" style="padding:6px 14px;font-size:12px;display:inline-flex">📂 엑셀 파일 열기</span><input type="file" id="excelFileIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="loadExcelViewer(this)"/></label>
+      <button onclick="excelAddRow()" class="bs" style="padding:6px 10px;font-size:12px">+ 행</button>
+      <button onclick="excelAddCol()" class="bs" style="padding:6px 10px;font-size:12px">+ 열</button>
+      <button onclick="downloadExcelViewer()" class="bg" style="padding:6px 12px;font-size:12px;background:#059669!important">💾 저장(다운로드)</button>
       <button onclick="clearExcelViewer()" class="bs" style="padding:6px 12px;font-size:12px">초기화</button>
       <span id="excelMsg" style="font-size:12px;color:#15528f;font-weight:600"></span>
     </div>
@@ -2708,8 +2711,12 @@ function switchTab(tab){
   if(tab==="popup") renderPopupPage();
 }
 
-/* ── 엑셀 뷰어 ── */
-var _excelWB=null;
+/* ── 엑셀 편집기 ── */
+var _xlNames=[];      /* 시트명 배열 */
+var _xlSheets={};     /* 시트명 → 2D 배열 */
+var _xlColW={};       /* 시트명 → {colIdx:width} */
+var _xlActive=0;
+var _xlFileName="편집본.xlsx";
 function loadExcelViewer(input){
   var file=input.files[0];if(!file)return;
   var msg=document.getElementById("excelMsg");
@@ -2717,9 +2724,18 @@ function loadExcelViewer(input){
   var reader=new FileReader();
   reader.onload=function(e){
     try{
-      _excelWB=XLSX.read(e.target.result,{type:"array",cellDates:true});
-      renderExcelSheetTabs(0);
-      if(msg)msg.textContent="✅ "+file.name+" ("+_excelWB.SheetNames.length+"시트)";
+      var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+      _xlNames=wb.SheetNames.slice();
+      _xlSheets={};_xlColW={};
+      _xlNames.forEach(function(nm){
+        _xlSheets[nm]=XLSX.utils.sheet_to_json(wb.Sheets[nm],{header:1,defval:"",raw:false});
+        if(!_xlSheets[nm].length)_xlSheets[nm]=[[""]];
+        _xlColW[nm]={};
+      });
+      _xlActive=0;
+      _xlFileName=file.name.replace(/\.(xlsx|xls|csv)$/i,"")+"_편집.xlsx";
+      renderExcelSheetTabs();
+      if(msg)msg.textContent="✅ "+file.name+" ("+_xlNames.length+"시트) — 셀을 클릭해 수정하세요";
     }catch(err){
       if(msg)msg.textContent="❌ 읽기 오류: "+err.message;
       alert("엑셀 읽기 오류: "+err.message);
@@ -2728,53 +2744,112 @@ function loadExcelViewer(input){
   };
   reader.readAsArrayBuffer(file);
 }
-function renderExcelSheetTabs(activeIdx){
-  if(!_excelWB)return;
+function renderExcelSheetTabs(){
+  if(!_xlNames.length)return;
   var tabs=document.getElementById("excelSheetTabs");
   var th="";
-  _excelWB.SheetNames.forEach(function(nm,i){
-    var on=i===activeIdx;
-    th+='<button onclick="renderExcelSheet('+i+')" style="padding:4px 12px;font-size:12px;font-weight:700;border:1px solid '+(on?'#15528f':'#cbd5e1')+';background:'+(on?'#15528f':'#fff')+';color:'+(on?'#fff':'#475569')+';border-radius:6px;cursor:pointer">'+nm+'</button>';
+  _xlNames.forEach(function(nm,i){
+    var on=i===_xlActive;
+    th+='<button onclick="excelSwitchSheet('+i+')" style="padding:4px 12px;font-size:12px;font-weight:700;border:1px solid '+(on?'#15528f':'#cbd5e1')+';background:'+(on?'#15528f':'#fff')+';color:'+(on?'#fff':'#475569')+';border-radius:6px;cursor:pointer">'+_escX(nm)+'</button>';
   });
   tabs.innerHTML=th;
-  renderExcelSheet(activeIdx);
+  renderExcelSheet();
 }
-function renderExcelSheet(idx){
-  if(!_excelWB)return;
-  renderExcelSheetTabs._active=idx;
-  /* 탭 강조 갱신 */
-  var tabs=document.getElementById("excelSheetTabs");
-  if(tabs)Array.prototype.forEach.call(tabs.children,function(b,i){
-    var on=i===idx;
-    b.style.background=on?'#15528f':'#fff';b.style.color=on?'#fff':'#475569';b.style.borderColor=on?'#15528f':'#cbd5e1';
-  });
-  var ws=_excelWB.Sheets[_excelWB.SheetNames[idx]];
-  var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
+function excelSwitchSheet(i){_xlActive=i;renderExcelSheetTabs();}
+function renderExcelSheet(){
+  if(!_xlNames.length)return;
+  var nm=_xlNames[_xlActive];
+  var rows=_xlSheets[nm];
+  var colW=_xlColW[nm]||{};
   var wrap=document.getElementById("excelTableWrap");
-  if(!rows.length){wrap.innerHTML='<div style="padding:40px;text-align:center;color:#475569;font-size:14px">빈 시트입니다</div>';return;}
-  var maxCols=rows.reduce(function(m,r){return Math.max(m,r.length);},0);
-  var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap">';
-  h+='<thead><tr><th style="position:sticky;left:0;top:0;z-index:3;background:#dbe4f0;border:1px solid #b9c4d6;padding:4px 8px;color:#15528f;min-width:36px"></th>';
-  for(var c=0;c<maxCols;c++){h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:5px 10px;color:#15528f;font-weight:700">'+_xlCol(c)+'</th>';}
+  var maxCols=rows.reduce(function(m,r){return Math.max(m,r.length);},1);
+  var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap;table-layout:fixed">';
+  /* colgroup: 행번호 + 데이터 열 */
+  h+='<colgroup><col style="width:42px">';
+  for(var c=0;c<maxCols;c++){h+='<col style="width:'+(colW[c]||110)+'px">';}
+  h+='</colgroup>';
+  h+='<thead><tr><th style="position:sticky;left:0;top:0;z-index:3;background:#dbe4f0;border:1px solid #b9c4d6;padding:4px;color:#15528f"></th>';
+  for(var c=0;c<maxCols;c++){
+    h+='<th data-c="'+c+'" style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:5px 8px;color:#15528f;font-weight:700;overflow:hidden;text-overflow:ellipsis">'+_xlCol(c)+'<span class="xl-resizer" data-c="'+c+'" style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:col-resize"></span></th>';
+  }
   h+='</tr></thead><tbody>';
   rows.forEach(function(r,ri){
     h+='<tr>';
-    h+='<td style="position:sticky;left:0;z-index:1;background:#eef2f9;border:1px solid #c5cdd9;padding:4px 8px;text-align:center;color:#475569;font-weight:700">'+(ri+1)+'</td>';
+    h+='<td style="position:sticky;left:0;z-index:1;background:#eef2f9;border:1px solid #c5cdd9;padding:4px;text-align:center;color:#475569;font-weight:700">'+(ri+1)+'</td>';
     for(var c=0;c<maxCols;c++){
       var v=r[c]==null?"":String(r[c]);
-      h+='<td style="border:1px solid #e1e6ee;padding:4px 10px;color:#1f2937">'+_escX(v)+'</td>';
+      h+='<td contenteditable="true" data-r="'+ri+'" data-c="'+c+'" onblur="excelCellEdit(this)" style="border:1px solid #e1e6ee;padding:4px 8px;color:#1f2937;outline:none;overflow:hidden;text-overflow:ellipsis">'+_escX(v)+'</td>';
     }
     h+='</tr>';
   });
   h+='</tbody></table>';
   wrap.innerHTML=h;
+  _excelBindResizers();
+}
+function excelCellEdit(td){
+  var nm=_xlNames[_xlActive];if(!nm)return;
+  var ri=+td.dataset.r,ci=+td.dataset.c;
+  var rows=_xlSheets[nm];
+  while(rows.length<=ri)rows.push([]);
+  while(rows[ri].length<=ci)rows[ri].push("");
+  rows[ri][ci]=td.textContent;
+}
+function excelAddRow(){
+  if(!_xlNames.length){alert("먼저 엑셀 파일을 여세요.");return;}
+  var nm=_xlNames[_xlActive];
+  var cols=_xlSheets[nm].reduce(function(m,r){return Math.max(m,r.length);},1);
+  var row=[];for(var i=0;i<cols;i++)row.push("");
+  _xlSheets[nm].push(row);
+  renderExcelSheet();
+}
+function excelAddCol(){
+  if(!_xlNames.length){alert("먼저 엑셀 파일을 여세요.");return;}
+  var nm=_xlNames[_xlActive];
+  _xlSheets[nm].forEach(function(r){r.push("");});
+  renderExcelSheet();
 }
 function _xlCol(n){var s="";n++;while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
 function _escX(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+/* 열 너비 드래그 조정 */
+function _excelBindResizers(){
+  var wrap=document.getElementById("excelTableWrap");
+  var handles=wrap.querySelectorAll(".xl-resizer");
+  Array.prototype.forEach.call(handles,function(hd){
+    hd.addEventListener("mousedown",function(e){
+      e.preventDefault();e.stopPropagation();
+      var ci=+hd.dataset.c;
+      var startX=e.clientX;
+      var col=wrap.querySelectorAll("colgroup col")[ci+1];
+      var startW=col?col.offsetWidth:110;
+      function mv(ev){
+        var w=Math.max(36,startW+(ev.clientX-startX));
+        if(col)col.style.width=w+"px";
+        if(!_xlColW[_xlNames[_xlActive]])_xlColW[_xlNames[_xlActive]]={};
+        _xlColW[_xlNames[_xlActive]][ci]=w;
+      }
+      function up(){document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);}
+      document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up);
+    });
+  });
+}
+function downloadExcelViewer(){
+  if(!_xlNames.length){alert("저장할 데이터가 없습니다.");return;}
+  var wb=XLSX.utils.book_new();
+  _xlNames.forEach(function(nm){
+    var ws=XLSX.utils.aoa_to_sheet(_xlSheets[nm]);
+    /* 열 너비 반영 */
+    var cw=_xlColW[nm]||{};var cols=[];
+    var maxC=_xlSheets[nm].reduce(function(m,r){return Math.max(m,r.length);},1);
+    for(var c=0;c<maxC;c++)cols.push({wpx:cw[c]||110});
+    ws["!cols"]=cols;
+    XLSX.utils.book_append_sheet(wb,ws,nm.substring(0,31));
+  });
+  XLSX.writeFile(wb,_xlFileName||"편집본.xlsx");
+}
 function clearExcelViewer(){
-  _excelWB=null;
+  _xlNames=[];_xlSheets={};_xlColW={};_xlActive=0;
   document.getElementById("excelSheetTabs").innerHTML="";
-  document.getElementById("excelTableWrap").innerHTML='<div style="padding:40px;text-align:center;color:#475569;font-size:14px">📂 엑셀 파일을 열어 내용을 확인하세요</div>';
+  document.getElementById("excelTableWrap").innerHTML='<div style="padding:40px;text-align:center;color:#475569;font-size:14px">📂 엑셀 파일을 열어 내용을 확인·수정하세요</div>';
   document.getElementById("excelMsg").textContent="";
 }
 
