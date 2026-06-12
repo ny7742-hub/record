@@ -368,6 +368,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
   <button class="tab-btn" id="tab-excel" onclick="switchTab('excel')">📄 엑셀뷰어</button>
+  <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
 </div>
 
 <!-- 업로드 모달 -->
@@ -623,6 +624,21 @@ label{font-size:14px!important}
 </div>
 </div><!-- /page-excel -->
 
+<div id="page-homeshopping" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">📺 홈쇼핑 방송 관리</div>
+      <button onclick="hsAddRow()" class="bg" style="padding:6px 14px;font-size:12px">+ 행 추가</button>
+      <span id="hsMsg" style="font-size:12px;color:#15528f;font-weight:600"></span>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="hsTableWrap" style="overflow:auto;max-height:74vh;padding:0"></div>
+  </div>
+</div>
+</div><!-- /page-homeshopping -->
+
 <div id="page-popup" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
@@ -686,7 +702,7 @@ var fbDB=firebase.database();
 var FB_PATH={
   "meetingDB":"ws/meeting","deptDB":"ws/dept",
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
-  "popupDB_v2":"ws/popup","shipLists":"ws/shipLists"
+  "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping"
 };
 
 /* localStorage + Firebase 동시 저장 */
@@ -751,6 +767,11 @@ function wsSetItem(key,value){
   apply("ws/shipLists","shipLists",
     function(d){if(d&&typeof d==="object")shipLists=d;},
     function(){if(typeof updateShipInfo==="function")updateShipInfo();if(typeof onSQ==="function"&&document.getElementById("sq")&&document.getElementById("sq").value)onSQ();}
+  );
+  /* 홈쇼핑 */
+  apply("ws/homeshopping","homeshoppingDB",
+    function(d){if(Array.isArray(d))homeshoppingDB=d;},
+    function(){if(document.getElementById("page-homeshopping")&&document.getElementById("page-homeshopping").style.display!=="none")renderHomeshopping();}
   );
   /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
   /* Firebase에는 백업용으로만 저장하고, 읽기는 localStorage 기준 */
@@ -2698,16 +2719,19 @@ function switchTab(tab){
   document.getElementById("page-dept").style.display=tab==="dept"?"block":"none";
   document.getElementById("page-costco").style.display=tab==="costco"?"block":"none";
   document.getElementById("page-excel").style.display=tab==="excel"?"block":"none";
+  document.getElementById("page-homeshopping").style.display=tab==="homeshopping"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
   document.getElementById("tab-dept").classList.toggle("active",tab==="dept");
   document.getElementById("tab-costco").classList.toggle("active",tab==="costco");
   document.getElementById("tab-excel").classList.toggle("active",tab==="excel");
+  document.getElementById("tab-homeshopping").classList.toggle("active",tab==="homeshopping");
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   if(tab==="meeting") renderMeetingGrid();
   if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="costco") renderCostcoPage();
+  if(tab==="homeshopping") renderHomeshopping();
   if(tab==="popup") renderPopupPage();
 }
 
@@ -2851,6 +2875,88 @@ function clearExcelViewer(){
   document.getElementById("excelSheetTabs").innerHTML="";
   document.getElementById("excelTableWrap").innerHTML='<div style="padding:40px;text-align:center;color:#475569;font-size:14px">📂 엑셀 파일을 열어 내용을 확인·수정하세요</div>';
   document.getElementById("excelMsg").textContent="";
+}
+
+/* ── 홈쇼핑 ── */
+var homeshoppingDB=(function(){try{return JSON.parse(localStorage.getItem("homeshoppingDB")||"[]");}catch(e){return [];}})();
+var HS_COLS=[
+  {key:"img",label:"이미지",w:64,type:"img"},
+  {key:"name",label:"상품명",w:150},
+  {key:"color",label:"컬러",w:90},
+  {key:"company",label:"홈쇼핑사",w:100},
+  {key:"date",label:"방송일",w:120,type:"date"},
+  {key:"pgm",label:"PGM",w:90},
+  {key:"live",label:"라이브 유무",w:90},
+  {key:"target",label:"목표수량",w:90,type:"num"},
+  {key:"sold",label:"판매수량",w:90,type:"num"},
+  {key:"eff",label:"효율",w:80,type:"calc"},
+  {key:"returnRate",label:"반품률",w:90}
+];
+function saveHomeshopping(){wsSetItem("homeshoppingDB",JSON.stringify(homeshoppingDB));}
+function hsAddRow(){
+  homeshoppingDB.push({img:"",name:"",color:"",company:"",date:"",pgm:"",live:"",target:"",sold:"",returnRate:""});
+  saveHomeshopping();renderHomeshopping();
+  var w=document.getElementById("hsTableWrap");if(w)w.scrollTop=w.scrollHeight;
+}
+function hsDelRow(i){
+  if(!confirm("이 행을 삭제할까요?"))return;
+  homeshoppingDB.splice(i,1);saveHomeshopping();renderHomeshopping();
+}
+function hsEdit(i,key,val){
+  if(!homeshoppingDB[i])return;
+  homeshoppingDB[i][key]=val;
+  saveHomeshopping();
+  /* 효율 자동계산 갱신 위해 목표/판매 변경 시 재렌더 */
+  if(key==="target"||key==="sold"){
+    var cell=document.getElementById("hsEff_"+i);
+    if(cell)cell.textContent=_hsEff(homeshoppingDB[i]);
+  }
+}
+function _hsEff(row){
+  var t=Number(String(row.target).replace(/,/g,""))||0;
+  var s=Number(String(row.sold).replace(/,/g,""))||0;
+  if(!t)return "-";
+  return Math.round(s/t*100)+"%";
+}
+function hsSetImg(i){
+  var url=prompt("이미지 URL을 입력하세요 (비우면 삭제):",homeshoppingDB[i].img||"");
+  if(url===null)return;
+  homeshoppingDB[i].img=url.trim();saveHomeshopping();renderHomeshopping();
+}
+function renderHomeshopping(){
+  var wrap=document.getElementById("hsTableWrap");if(!wrap)return;
+  var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
+  h+='<thead><tr>';
+  h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:7px 6px;color:#15528f;font-weight:700;width:30px">#</th>';
+  HS_COLS.forEach(function(col){
+    h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:7px 8px;color:#15528f;font-weight:700;min-width:'+col.w+'px">'+col.label+'</th>';
+  });
+  h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:7px 6px;color:#15528f;font-weight:700;width:40px">삭제</th>';
+  h+='</tr></thead><tbody>';
+  if(!homeshoppingDB.length){
+    h+='<tr><td colspan="'+(HS_COLS.length+2)+'" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 버튼으로 방송 일정을 등록하세요</td></tr>';
+  }
+  homeshoppingDB.forEach(function(row,i){
+    h+='<tr>';
+    h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
+    HS_COLS.forEach(function(col){
+      if(col.type==="img"){
+        var img=row.img?'<img src="'+_escX(row.img)+'" onclick="hsSetImg('+i+')" onerror="this.outerHTML=\'<div onclick=hsSetImg('+i+') style=\\\'width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#8593a6;margin:auto\\\'>📷</div>\'" style="width:48px;height:48px;object-fit:cover;border-radius:5px;cursor:pointer;display:block;margin:auto">':'<div onclick="hsSetImg('+i+')" style="width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#8593a6;margin:auto">📷</div>';
+        h+='<td style="border:1px solid #e1e6ee;padding:3px;text-align:center">'+img+'</td>';
+      }else if(col.type==="calc"){
+        h+='<td id="hsEff_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;font-weight:700;color:#15528f;background:#f1f5f9">'+_hsEff(row)+'</td>';
+      }else if(col.type==="date"){
+        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="date" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value)" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
+      }else{
+        var align=(col.type==="num")?"text-align:right;":"";
+        h+='<td contenteditable="true" onblur="hsEdit('+i+',\''+col.key+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;'+align+'">'+_escX(row[col.key]||"")+'</td>';
+      }
+    });
+    h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="hsDelRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:3px 8px">✕</button></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
 }
 
 /* ── 회의일지 ── */
