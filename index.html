@@ -3253,7 +3253,7 @@ var CC_COLOR_MAP={
   "아이보리":"아이보리","ivory":"아이보리","iv":"아이보리",
   "샌드":"샌드","sand":"샌드","sd":"샌드",
   "화이트":"화이트","white":"화이트","wh":"화이트",
-  "라이트그레이":"라이트그레이","lightgray":"라이트그레이","light gray":"라이트그레이","lg":"라이트그레이","lgy":"라이트그레이",
+  "라이트그레이":"라이트그레이","버터옐로우":"버터옐로우","버터옐로":"버터옐로우","버터":"버터옐로우","버터 옐로우":"버터옐로우","butter":"버터옐로우","butteryellow":"버터옐로우","butter yellow":"버터옐로우","by":"버터옐로우","딥그린":"딥그린","deepgreen":"딥그린","deep green":"딥그린","dgn":"딥그린","dg":"딥그린","lightgray":"라이트그레이","light gray":"라이트그레이","lg":"라이트그레이","lgy":"라이트그레이",
   "스킨":"스킨","skin":"스킨","sk":"스킨","sn":"스킨",
   "세이지그린":"세이지그린","세이지 그린":"세이지그린","sage green":"세이지그린","sgn":"세이지그린","sg":"세이지그린",
   "애쉬핑크":"애쉬핑크","애쉬 핑크":"애쉬핑크","ash pink":"애쉬핑크","apk":"애쉬핑크",
@@ -3378,12 +3378,13 @@ function parseCostcoRows(rows){
   var autoAdded=[];
   Object.keys(autoAddCandidates).forEach(function(sn){
     var exist=costcoDB.products.find(function(p){return p.name===sn;});
-    var aliasCode=ccAliasCodeForName(sn);
+    var aCfg=ccAliasCfgForName(sn);
+    var aliasCode=aCfg?aCfg.code||"":"";
     if(exist){if(aliasCode&&!exist.code){exist.code=aliasCode;}return;}
     var info=autoAddCandidates[sn];
-    var colors=Object.keys(info.colors);
+    var colors=(aCfg&&aCfg.colors&&aCfg.colors.length)?aCfg.colors.slice():Object.keys(info.colors);
     if(!colors.length)return;
-    var price=info.prices.length?Math.round(info.prices.reduce(function(a,b){return a+b;},0)/info.prices.length/10)*10:0;
+    var price=(aCfg&&aCfg.price)?aCfg.price:(info.prices.length?Math.round(info.prices.reduce(function(a,b){return a+b;},0)/info.prices.length/10)*10:0);
     costcoDB.products.push({name:sn,code:aliasCode||"",price:price,colors:colors});
     autoAdded.push(sn);
     console.log("[코스트코 자동추가]",sn,"colors:",colors,"price:",price);
@@ -3500,11 +3501,29 @@ function ccPeriodToMs(p){
 }
 /* 상품명 별칭: 특정 패턴(영문 등)을 표시용 한글명으로 매핑 */
 var CC_NAME_ALIAS=[
-  {test:/white\s*sands\s*600\s*air|600\s*air\s*uv|parasol/i,name:"우양산",code:"693315"}
+  {test:/white\s*sands\s*600\s*air|600\s*air\s*uv|parasol/i,name:"우양산",code:"693315",price:17495,colors:["버터옐로우","딥그린","라이트그레이"]}
 ];
 function ccAliasCodeForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].name===nm)return CC_NAME_ALIAS[i].code||"";}return "";}
-/* 기존 등록 상품에 별칭 코드 소급 적용 */
-(function(){try{var ch=false;(costcoDB.products||[]).forEach(function(p){var c=ccAliasCodeForName(p.name);if(c&&!p.code){p.code=c;ch=true;}});if(ch){localStorage.setItem("costcoDB",JSON.stringify(costcoDB));if(typeof renderCostcoPage==="function"&&document.getElementById("page-costco")&&document.getElementById("page-costco").style.display!=="none")renderCostcoPage();}}catch(e){}})();
+function ccAliasCfgForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].name===nm)return CC_NAME_ALIAS[i];}return null;}
+/* 기존 등록 상품에 별칭 코드/색상/가격 소급 적용 */
+(function(){try{var ch=false;
+  (costcoDB.products||[]).forEach(function(p){
+    var cfg=ccAliasCfgForName(p.name);if(!cfg)return;
+    if(cfg.code&&!p.code){p.code=cfg.code;ch=true;}
+    if(cfg.price&&p.price!==cfg.price){p.price=cfg.price;ch=true;}
+    if(cfg.colors&&cfg.colors.length){
+      var same=p.colors&&p.colors.length===cfg.colors.length&&cfg.colors.every(function(c){return p.colors.indexOf(c)>=0;});
+      if(!same){p.colors=cfg.colors.slice();ch=true;}
+    }
+  });
+  /* 우양산이 아직 없으면 생성 */
+  CC_NAME_ALIAS.forEach(function(cfg){
+    if(cfg.colors&&cfg.colors.length&&!(costcoDB.products||[]).find(function(p){return p.name===cfg.name;})){
+      costcoDB.products.push({name:cfg.name,code:cfg.code||"",price:cfg.price||0,colors:cfg.colors.slice()});ch=true;
+    }
+  });
+  if(ch){localStorage.setItem("costcoDB",JSON.stringify(costcoDB));if(typeof renderCostcoPage==="function"&&document.getElementById("page-costco")&&document.getElementById("page-costco").style.display!=="none")renderCostcoPage();}
+}catch(e){}})();
 function ccAliasName(v){
   v=String(v||"");
   for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].test.test(v))return CC_NAME_ALIAS[i].name;}
