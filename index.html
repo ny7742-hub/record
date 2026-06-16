@@ -3318,6 +3318,8 @@ function parseCostcoRows(rows){
 
   /* ─ 헬퍼: 상품명 마지막 한글 단어(2자 이상) 추출 ─ */
   function ccExtractShortName(v){
+    var a=ccAliasName(v);
+    if(a)return a;
     var m=v.match(/([가-힣]{2,})\s*(?:\([^)]*\))?\s*$/);
     return m?m[1]:null;
   }
@@ -3494,11 +3496,23 @@ function ccPeriodToMs(p){
   if(m2)return new Date(new Date().getFullYear(),+m2[1]-1,1).getTime();
   return 0;
 }
+/* 상품명 별칭: 특정 패턴(영문 등)을 표시용 한글명으로 매핑 */
+var CC_NAME_ALIAS=[
+  {test:/white\s*sands\s*600\s*air|600\s*air\s*uv|parasol/i,name:"우양산"}
+];
+function ccAliasName(v){
+  v=String(v||"");
+  for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].test.test(v))return CC_NAME_ALIAS[i].name;}
+  return null;
+}
 function ccMatchProd(v){
   v=String(v||"").trim();
   for(var i=0;i<costcoDB.products.length;i++){
     if(v.indexOf(costcoDB.products[i].name)>=0)return costcoDB.products[i].name;
   }
+  /* 별칭 매핑(해당 상품이 등록돼 있을 때만) */
+  var a=ccAliasName(v);
+  if(a&&costcoDB.products.find(function(p){return p.name===a;}))return a;
   return null;
 }
 function ccNormColor(v){
