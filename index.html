@@ -3377,12 +3377,14 @@ function parseCostcoRows(rows){
   /* ─ 미매칭 상품 자동추가 ─ */
   var autoAdded=[];
   Object.keys(autoAddCandidates).forEach(function(sn){
-    if(costcoDB.products.find(function(p){return p.name===sn;}))return;
+    var exist=costcoDB.products.find(function(p){return p.name===sn;});
+    var aliasCode=ccAliasCodeForName(sn);
+    if(exist){if(aliasCode&&!exist.code){exist.code=aliasCode;}return;}
     var info=autoAddCandidates[sn];
     var colors=Object.keys(info.colors);
     if(!colors.length)return;
     var price=info.prices.length?Math.round(info.prices.reduce(function(a,b){return a+b;},0)/info.prices.length/10)*10:0;
-    costcoDB.products.push({name:sn,code:"",price:price,colors:colors});
+    costcoDB.products.push({name:sn,code:aliasCode||"",price:price,colors:colors});
     autoAdded.push(sn);
     console.log("[코스트코 자동추가]",sn,"colors:",colors,"price:",price);
   });
@@ -3498,8 +3500,11 @@ function ccPeriodToMs(p){
 }
 /* 상품명 별칭: 특정 패턴(영문 등)을 표시용 한글명으로 매핑 */
 var CC_NAME_ALIAS=[
-  {test:/white\s*sands\s*600\s*air|600\s*air\s*uv|parasol/i,name:"우양산"}
+  {test:/white\s*sands\s*600\s*air|600\s*air\s*uv|parasol/i,name:"우양산",code:"693315"}
 ];
+function ccAliasCodeForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].name===nm)return CC_NAME_ALIAS[i].code||"";}return "";}
+/* 기존 등록 상품에 별칭 코드 소급 적용 */
+(function(){try{var ch=false;(costcoDB.products||[]).forEach(function(p){var c=ccAliasCodeForName(p.name);if(c&&!p.code){p.code=c;ch=true;}});if(ch){localStorage.setItem("costcoDB",JSON.stringify(costcoDB));if(typeof renderCostcoPage==="function"&&document.getElementById("page-costco")&&document.getElementById("page-costco").style.display!=="none")renderCostcoPage();}}catch(e){}})();
 function ccAliasName(v){
   v=String(v||"");
   for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].test.test(v))return CC_NAME_ALIAS[i].name;}
