@@ -3506,7 +3506,7 @@ function ccAliasCfgForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAM
     if(/라이트그레이|lightgr[ae]y|^lgy?$|연그레이/.test(s))return "라이트그레이";
     return null;
   }
-  var _uyColorsInData={};
+  /* 우양산 판매데이터 색상키를 표준명으로 통합(변형 표기만 병합) */
   Object.keys(costcoDB.sales||{}).forEach(function(pk){
     var pd=costcoDB.sales[pk]&&costcoDB.sales[pk]["우양산"];if(!pd)return;
     Object.keys(pd).forEach(function(col){
@@ -3516,23 +3516,15 @@ function ccAliasCfgForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAM
         pd[target].qty=(Number(pd[target].qty)||0)+(Number(pd[col].qty)||0);
         pd[target].amount=(Number(pd[target].amount)||0)+(Number(pd[col].amount)||0);
         delete pd[col];ch=true;
-        _uyColorsInData[target]=1;
-      }else{
-        _uyColorsInData[col]=1;
       }
     });
   });
-  /* 우양산 색상을 실제 데이터에 존재하는 색상으로 맞춤(데이터 표시 보장) */
+  /* 우양산 색상을 지정 3색으로 고정 */
   var uyP=(costcoDB.products||[]).find(function(p){return p.name==="우양산";});
   if(uyP){
-    var dataCols=Object.keys(_uyColorsInData);
-    /* 표준 3색을 우선 순서로, 데이터에 있는 색은 모두 포함 */
-    var order=["버터옐로우","딥그린","라이트그레이"];
-    var finalCols=order.filter(function(c){return dataCols.indexOf(c)>=0;})
-      .concat(dataCols.filter(function(c){return order.indexOf(c)<0;}));
-    if(!finalCols.length)finalCols=order.slice();
-    var same=uyP.colors&&uyP.colors.length===finalCols.length&&finalCols.every(function(c){return uyP.colors.indexOf(c)>=0;});
-    if(!same){uyP.colors=finalCols;ch=true;}
+    var want=["라이트그레이","버터옐로우","딥그린"];
+    var same=uyP.colors&&uyP.colors.length===want.length&&want.every(function(c){return uyP.colors.indexOf(c)>=0;});
+    if(!same){uyP.colors=want.slice();ch=true;}
   }
   if(ch){localStorage.setItem("costcoDB",JSON.stringify(costcoDB));if(typeof renderCostcoPage==="function"&&document.getElementById("page-costco")&&document.getElementById("page-costco").style.display!=="none")renderCostcoPage();}
 }catch(e){}})();
