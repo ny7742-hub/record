@@ -3522,6 +3522,26 @@ function ccAliasCfgForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAM
       costcoDB.products.push({name:cfg.name,code:cfg.code||"",price:cfg.price||0,colors:cfg.colors.slice()});ch=true;
     }
   });
+  /* 우양산 판매데이터 색상키를 표준명(버터옐로우/딥그린/라이트그레이)으로 통합 */
+  function _ccCanonUyangsanColor(col){
+    var s=String(col).toLowerCase().replace(/\s/g,"");
+    if(/^버터|butter|옐로우?$/.test(s)||/버터/.test(s))return "버터옐로우";
+    if(/딥그린|deepgreen|^그린$|green/.test(s))return "딥그린";
+    if(/라이트그레이|lightgr[ae]y|^lgy?$|연그레이/.test(s))return "라이트그레이";
+    return null;
+  }
+  Object.keys(costcoDB.sales||{}).forEach(function(pk){
+    var pd=costcoDB.sales[pk]&&costcoDB.sales[pk]["우양산"];if(!pd)return;
+    Object.keys(pd).forEach(function(col){
+      var target=_ccCanonUyangsanColor(col);
+      if(target&&target!==col){
+        if(!pd[target])pd[target]={qty:0,amount:0};
+        pd[target].qty=(Number(pd[target].qty)||0)+(Number(pd[col].qty)||0);
+        pd[target].amount=(Number(pd[target].amount)||0)+(Number(pd[col].amount)||0);
+        delete pd[col];ch=true;
+      }
+    });
+  });
   if(ch){localStorage.setItem("costcoDB",JSON.stringify(costcoDB));if(typeof renderCostcoPage==="function"&&document.getElementById("page-costco")&&document.getElementById("page-costco").style.display!=="none")renderCostcoPage();}
 }catch(e){}})();
 function ccAliasName(v){
