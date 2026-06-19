@@ -2982,13 +2982,16 @@ function mgEdit(i,key,val){if(!marginDB.rows[i])return;marginDB.rows[i][key]=val
 function _mgNum(v){return Number(String(v==null?"":v).replace(/,/g,""))||0;}
 function _mgCalc(r){
   var fee=marginDB.fee||0, deliv=marginDB.deliv||0;
-  var sale=_mgNum(r.sale), cost=_mgNum(r.cost), ourBear=_mgNum(r.ourBear), qty=_mgNum(r.qty);
+  var price=_mgNum(r.price);
+  var sale=_mgNum(r.sale)||price;        /* 행사할인가 비우면 판매가 기준 */
+  var cost=_mgNum(r.cost), costcoBear=_mgNum(r.costcoBear), qty=_mgNum(r.qty);
+  var ourBear=(price-sale)-costcoBear;    /* 당사부담금 자동 */
   var feeAmt=Math.round(sale*fee);
   var supply=sale-feeAmt;
   var profit=supply-cost-deliv-ourBear;
   var mPrice=sale?profit/sale:0;
   var mSupply=supply?profit/supply:0;
-  return {feeAmt:feeAmt,supply:supply,profit:profit,mPrice:mPrice,mSupply:mSupply,
+  return {ourBear:ourBear,feeAmt:feeAmt,supply:supply,profit:profit,mPrice:mPrice,mSupply:mSupply,
     saleSum:sale*qty,supplySum:supply*qty,profitSum:profit*qty,qty:qty};
 }
 function _mgFmt(n){return (Math.round(n)).toLocaleString();}
@@ -3002,9 +3005,9 @@ function renderMargin(){
   var inputCols=[
     {k:"code",label:"상품코드",w:80},{k:"name",label:"상품명",w:170},{k:"color",label:"컬러",w:90},
     {k:"cost",label:"매입단가",w:80,num:1},{k:"price",label:"판매가",w:80,num:1},{k:"sale",label:"행사할인가",w:90,num:1},
-    {k:"costcoBear",label:"코스트코부담",w:90,num:1},{k:"ourBear",label:"당사부담",w:80,num:1},{k:"qty",label:"전체수량",w:80,num:1}
+    {k:"costcoBear",label:"코스트코부담",w:90,num:1},{k:"qty",label:"전체수량",w:80,num:1}
   ];
-  var calcCols=["수수료금액","공급가","이익금액","판매가대비","공급가대비","예상매출","예상공급액","예상이익"];
+  var calcCols=["당사부담금","수수료금액","공급가","이익금액","판매가대비","공급가대비","예상매출","예상공급액","예상이익"];
   var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap;width:100%">';
   h+='<thead><tr>';
   h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:6px;color:#15528f;width:30px">No</th>';
@@ -3024,6 +3027,7 @@ function renderMargin(){
       var al=col.num?"text-align:right;":"";
       h+='<td contenteditable="true" onblur="mgEdit('+i+',\''+col.k+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:4px 8px;outline:none;color:#1f2937;'+al+'">'+_escX(String(v))+'</td>';
     });
+    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#a16207;background:#fffbeb">'+_mgFmt(c.ourBear)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#475569">'+_mgFmt(c.feeAmt)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#1f2937;font-weight:600">'+_mgFmt(c.supply)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;'+pc(c.profit)+'">'+_mgFmt(c.profit)+'</td>';
@@ -3041,14 +3045,35 @@ function renderMargin(){
   /* 합계행 */
   h+='<tr style="background:#eef2f9;font-weight:800">';
   h+='<td colspan="'+(inputCols.length+1)+'" style="border:1px solid #c5cdd9;padding:6px 8px;text-align:center;color:#15528f">합  계 (수량 '+tQty.toLocaleString()+')</td>';
-  h+='<td colspan="5" style="border:1px solid #c5cdd9"></td>';
+  h+='<td colspan="6" style="border:1px solid #c5cdd9"></td>';
   h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;color:#15528f">'+_mgFmt(tSale)+'</td>';
   h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;color:#15528f">'+_mgFmt(tSupply)+'</td>';
   h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;'+(tProfit<0?'color:#dc2626':'color:#15803d')+'">'+_mgFmt(tProfit)+'</td>';
   h+='<td style="border:1px solid #c5cdd9"></td>';
   h+='</tr>';
   h+='</tbody></table>';
+  /* 하단 안내 문구 (복사용) */
+  var note="■ 파란 셀 (입력): 상품코드·매입단가·판매가·행사할인가·코스트코부담금·전체수량\n"
+    +"■ 노란 셀 (자동): 당사부담금 = (판매가 − 행사할인가) − 코스트코부담금\n"
+    +"■ 초록 셀 (자동): 이익금액 = 공급가 − 매입단가 − 당사부담금 − 택배비\n"
+    +"■ 주황 셀 (자동): 예상매출·예상공급액·예상이익\n"
+    +"※ 택배비: 상단 택배비 입력 → 전 행 자동 반영\n"
+    +"※ 행사할인가: 비워두면 판매가 기준으로 수수료·이익 계산";
+  h+='<div style="padding:12px 14px;background:#f8fafc;border-top:1px solid #e1e6ee">';
+  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:#15528f">📋 안내 문구</span>';
+  h+='<button onclick="mgCopyNote()" class="bs" style="padding:3px 10px;font-size:11px">복사</button><span id="mgCopyMsg" style="font-size:11px;color:#15803d;font-weight:600"></span></div>';
+  h+='<textarea id="mgNote" readonly onclick="this.select()" style="width:100%;height:120px;font-size:13px;line-height:1.6;color:#1f2937;border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;resize:vertical;background:#fff;font-family:inherit">'+_escX(note)+'</textarea>';
+  h+='</div>';
   wrap.innerHTML=h;
+}
+function mgCopyNote(){
+  var ta=document.getElementById("mgNote");if(!ta)return;
+  ta.select();
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(ta.value);}
+    else{document.execCommand("copy");}
+    var m=document.getElementById("mgCopyMsg");if(m){m.textContent="✅ 복사됨";setTimeout(function(){m.textContent="";},2000);}
+  }catch(e){document.execCommand("copy");}
 }
 
 /* ── 회의일지 ── */
