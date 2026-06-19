@@ -3004,48 +3004,58 @@ function renderMargin(){
   if(fEl&&document.activeElement!==fEl)fEl.value=((marginDB.fee||0)*100).toFixed(1);
   if(dEl&&document.activeElement!==dEl)dEl.value=marginDB.deliv||0;
   if(pEl&&document.activeElement!==pEl)pEl.value=marginDB.period||"";
-  var inputCols=[
-    {k:"code",label:"상품코드",w:80},{k:"name",label:"상품명",w:170},{k:"color",label:"컬러",w:90},
-    {k:"cost",label:"사전원가",w:80,num:1},{k:"price",label:"판매가",w:80,num:1},{k:"sale",label:"쿠폰적용가",w:90,num:1},
-    {k:"costcoBear",label:"코스트코부담",w:90,num:1},{k:"qty",label:"전체수량",w:80,num:1}
+  /* 통합 컬럼 정의 (순서: 입력+계산 혼합) */
+  var pcfn=function(v){return v<0?'color:#dc2626;font-weight:700':'color:#15803d;font-weight:700';};
+  var cols=[
+    {label:"상품코드",in:"code",w:80},
+    {label:"상품명",in:"name",w:170},
+    {label:"컬러",in:"color",w:90},
+    {label:"사전원가",in:"cost",w:80,num:1},
+    {label:"판매가",in:"price",w:80,num:1},
+    {label:"쿠폰적용가",in:"sale",w:90,num:1},
+    {label:"코스트코부담",in:"costcoBear",w:90,num:1},
+    {label:"당사부담금",calc:function(c){return _mgFmt(c.ourBear);},style:"text-align:right;color:#a16207;background:#fffbeb"},
+    {label:"수수료금액",calc:function(c){return _mgFmt(c.feeAmt);},style:"text-align:right;color:#475569"},
+    {label:"공급가",calc:function(c){return _mgFmt(c.supply);},style:"text-align:right;color:#1f2937;font-weight:600"},
+    {label:"이익금액",calc:function(c){return _mgFmt(c.profit);},styf:function(c){return "text-align:right;"+pcfn(c.profit);}},
+    {label:"전체수량",in:"qty",w:80,num:1},
+    {label:"예상매출",calc:function(c){return _mgFmt(c.saleSum);},style:"text-align:right;color:#1f2937"},
+    {label:"예상공급액",calc:function(c){return _mgFmt(c.supplySum);},style:"text-align:right;color:#1f2937"},
+    {label:"예상이익",calc:function(c){return _mgFmt(c.profitSum);},styf:function(c){return "text-align:right;"+pcfn(c.profitSum);}}
   ];
-  var calcCols=["당사부담금","수수료금액","공급가","이익금액","예상매출","예상공급액","예상이익"];
   var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap;width:100%">';
   h+='<thead><tr>';
   h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:6px;color:#15528f;width:30px">No</th>';
-  inputCols.forEach(function(c){h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:6px 8px;color:#15528f;font-weight:700;min-width:'+c.w+'px">'+c.label+'</th>';});
-  calcCols.forEach(function(c){h+='<th style="position:sticky;top:0;z-index:2;background:#e0e7ef;border:1px solid #c5cdd9;padding:6px 8px;color:#334155;font-weight:700">'+c+'</th>';});
+  cols.forEach(function(c){var bg=c.calc?"#e0e7ef":"#eaf1f9";var col=c.calc?"#334155":"#15528f";h+='<th style="position:sticky;top:0;z-index:2;background:'+bg+';border:1px solid #c5cdd9;padding:6px 8px;color:'+col+';font-weight:700;'+(c.w?("min-width:"+c.w+"px"):"")+'">'+c.label+'</th>';});
   h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:6px;color:#15528f;width:36px">삭제</th>';
   h+='</tr></thead><tbody>';
   var tQty=0,tSale=0,tSupply=0,tProfit=0;
   (marginDB.rows||[]).forEach(function(r,i){
     var c=_mgCalc(r);
     tQty+=c.qty;tSale+=c.saleSum;tSupply+=c.supplySum;tProfit+=c.profitSum;
-    var pc=function(v){return v<0?'color:#dc2626;font-weight:700':'color:#15803d;font-weight:700';};
     h+='<tr>';
     h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
-    inputCols.forEach(function(col){
-      var v=r[col.k]==null?"":r[col.k];
-      var al=col.num?"text-align:right;":"";
-      h+='<td contenteditable="true" onblur="mgEdit('+i+',\''+col.k+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:4px 8px;outline:none;color:#1f2937;'+al+'">'+_escX(String(v))+'</td>';
+    cols.forEach(function(col){
+      if(col.in){
+        var v=r[col.in]==null?"":r[col.in];
+        var al=col.num?"text-align:right;":"";
+        h+='<td contenteditable="true" onblur="mgEdit('+i+',\''+col.in+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:4px 8px;outline:none;color:#1f2937;'+al+'">'+_escX(String(v))+'</td>';
+      }else{
+        var st=col.styf?col.styf(c):(col.style||"text-align:right");
+        h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;'+st+'">'+col.calc(c)+'</td>';
+      }
     });
-    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#a16207;background:#fffbeb">'+_mgFmt(c.ourBear)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#475569">'+_mgFmt(c.feeAmt)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#1f2937;font-weight:600">'+_mgFmt(c.supply)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;'+pc(c.profit)+'">'+_mgFmt(c.profit)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#1f2937">'+_mgFmt(c.saleSum)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#1f2937">'+_mgFmt(c.supplySum)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;'+pc(c.profitSum)+'">'+_mgFmt(c.profitSum)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="mgDelRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:3px 7px">✕</button></td>';
     h+='</tr>';
   });
   if(!marginDB.rows.length){
-    h+='<tr><td colspan="'+(inputCols.length+calcCols.length+2)+'" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 버튼으로 상품을 등록하세요</td></tr>';
+    h+='<tr><td colspan="'+(cols.length+2)+'" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 버튼으로 상품을 등록하세요</td></tr>';
   }
-  /* 합계행 */
+  /* 합계행: 이익금액까지 라벨, 전체수량/예상매출/예상공급액/예상이익에 합계 */
+  var labelSpan=1; for(var _i=0;_i<cols.length;_i++){labelSpan++;if(cols[_i].label==="이익금액")break;}
   h+='<tr style="background:#eef2f9;font-weight:800">';
-  h+='<td colspan="'+(inputCols.length+1)+'" style="border:1px solid #c5cdd9;padding:6px 8px;text-align:center;color:#15528f">합  계 (수량 '+tQty.toLocaleString()+')</td>';
-  h+='<td colspan="4" style="border:1px solid #c5cdd9"></td>';
+  h+='<td colspan="'+labelSpan+'" style="border:1px solid #c5cdd9;padding:6px 8px;text-align:center;color:#15528f">합  계</td>';
+  h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;color:#15528f">'+tQty.toLocaleString()+'</td>';
   h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;color:#15528f">'+_mgFmt(tSale)+'</td>';
   h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;color:#15528f">'+_mgFmt(tSupply)+'</td>';
   h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;'+(tProfit<0?'color:#dc2626':'color:#15803d')+'">'+_mgFmt(tProfit)+'</td>';
