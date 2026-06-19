@@ -367,6 +367,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">🏪 팝업</button>
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
+  <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
 </div>
 
@@ -601,6 +602,24 @@ label{font-size:14px!important}
 </div>
 </div><!-- /page-costco -->
 
+<div id="page-margin" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">💰 코스트코 온라인몰 행사 마진 계산서</div>
+      <label style="font-size:12px;color:#15528f;font-weight:600">행사기간 <input type="text" id="mgPeriod" placeholder="예: 6/8~6/21" onchange="marginDB.period=this.value;saveMargin()" style="width:130px;font-size:12px;padding:4px 8px"></label>
+      <label style="font-size:12px;color:#15528f;font-weight:600">수수료율(%) <input type="number" id="mgFee" step="0.1" onchange="marginDB.fee=(parseFloat(this.value)||0)/100;saveMargin();renderMargin()" style="width:70px;font-size:12px;padding:4px 8px;text-align:right"></label>
+      <label style="font-size:12px;color:#15528f;font-weight:600">택배비(원) <input type="number" id="mgDeliv" onchange="marginDB.deliv=parseInt(this.value)||0;saveMargin();renderMargin()" style="width:80px;font-size:12px;padding:4px 8px;text-align:right"></label>
+      <button onclick="mgAddRow()" class="bg" style="padding:6px 14px;font-size:12px">+ 행 추가</button>
+      <span style="font-size:11px;color:#5b6675">수수료율·택배비를 바꾸면 전 상품 자동 반영됩니다</span>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="marginTableWrap" style="overflow:auto;max-height:74vh;padding:0"></div>
+  </div>
+</div>
+</div><!-- /page-margin -->
+
 <div id="page-homeshopping" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
@@ -679,7 +698,7 @@ var fbDB=firebase.database();
 var FB_PATH={
   "meetingDB":"ws/meeting","deptDB":"ws/dept",
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
-  "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping"
+  "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin"
 };
 
 /* localStorage + Firebase 동시 저장 */
@@ -749,6 +768,11 @@ function wsSetItem(key,value){
   apply("ws/homeshopping","homeshoppingDB",
     function(d){if(Array.isArray(d))homeshoppingDB=d;},
     function(){if(document.getElementById("page-homeshopping")&&document.getElementById("page-homeshopping").style.display!=="none")renderHomeshopping();}
+  );
+  /* 마진계산 */
+  apply("ws/margin","marginDB",
+    function(d){if(d&&typeof d==="object")marginDB=d;},
+    function(){if(document.getElementById("page-margin")&&document.getElementById("page-margin").style.display!=="none")renderMargin();}
   );
   /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
   /* Firebase에는 백업용으로만 저장하고, 읽기는 localStorage 기준 */
@@ -2698,19 +2722,21 @@ function switchTab(tab){
   document.getElementById("page-meeting").style.display=tab==="meeting"?"block":"none";
   document.getElementById("page-dept").style.display=tab==="dept"?"block":"none";
   document.getElementById("page-costco").style.display=tab==="costco"?"block":"none";
+  document.getElementById("page-margin").style.display=tab==="margin"?"block":"none";
   document.getElementById("page-homeshopping").style.display=tab==="homeshopping"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
   document.getElementById("tab-dept").classList.toggle("active",tab==="dept");
   document.getElementById("tab-costco").classList.toggle("active",tab==="costco");
+  document.getElementById("tab-margin").classList.toggle("active",tab==="margin");
   document.getElementById("tab-homeshopping").classList.toggle("active",tab==="homeshopping");
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   if(tab==="meeting") renderMeetingGrid();
   if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="costco") renderCostcoPage();
+  if(tab==="margin") renderMargin();
   if(tab==="homeshopping") renderHomeshopping();
-  /* (엑셀뷰어 제거됨) */
   if(tab==="popup") renderPopupPage();
 }
 
@@ -2938,6 +2964,89 @@ function renderHomeshopping(){
     h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="hsDelRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:3px 8px">✕</button></td>';
     h+='</tr>';
   });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+}
+
+/* ── 마진계산 (코스트코 온라인몰) ── */
+var marginDB=(function(){try{var d=JSON.parse(localStorage.getItem("marginDB")||"null");return d&&typeof d==="object"?d:{fee:0.139,deliv:0,period:"",rows:[]};}catch(e){return {fee:0.139,deliv:0,period:"",rows:[]};}})();
+if(!marginDB.rows)marginDB.rows=[];
+function saveMargin(){wsSetItem("marginDB",JSON.stringify(marginDB));}
+function mgAddRow(){
+  marginDB.rows.push({code:"",name:"",color:"",cost:"",price:"",sale:"",costcoBear:"",ourBear:"",qty:""});
+  saveMargin();renderMargin();
+  var w=document.getElementById("marginTableWrap");if(w)w.scrollTop=w.scrollHeight;
+}
+function mgDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;marginDB.rows.splice(i,1);saveMargin();renderMargin();}
+function mgEdit(i,key,val){if(!marginDB.rows[i])return;marginDB.rows[i][key]=val;saveMargin();renderMargin();}
+function _mgNum(v){return Number(String(v==null?"":v).replace(/,/g,""))||0;}
+function _mgCalc(r){
+  var fee=marginDB.fee||0, deliv=marginDB.deliv||0;
+  var sale=_mgNum(r.sale), cost=_mgNum(r.cost), ourBear=_mgNum(r.ourBear), qty=_mgNum(r.qty);
+  var feeAmt=Math.round(sale*fee);
+  var supply=sale-feeAmt;
+  var profit=supply-cost-deliv-ourBear;
+  var mPrice=sale?profit/sale:0;
+  var mSupply=supply?profit/supply:0;
+  return {feeAmt:feeAmt,supply:supply,profit:profit,mPrice:mPrice,mSupply:mSupply,
+    saleSum:sale*qty,supplySum:supply*qty,profitSum:profit*qty,qty:qty};
+}
+function _mgFmt(n){return (Math.round(n)).toLocaleString();}
+function _mgPct(n){return (n*100).toFixed(1)+"%";}
+function renderMargin(){
+  var wrap=document.getElementById("marginTableWrap");if(!wrap)return;
+  var fEl=document.getElementById("mgFee"),dEl=document.getElementById("mgDeliv"),pEl=document.getElementById("mgPeriod");
+  if(fEl&&document.activeElement!==fEl)fEl.value=((marginDB.fee||0)*100).toFixed(1);
+  if(dEl&&document.activeElement!==dEl)dEl.value=marginDB.deliv||0;
+  if(pEl&&document.activeElement!==pEl)pEl.value=marginDB.period||"";
+  var inputCols=[
+    {k:"code",label:"상품코드",w:80},{k:"name",label:"상품명",w:170},{k:"color",label:"컬러",w:90},
+    {k:"cost",label:"매입단가",w:80,num:1},{k:"price",label:"판매가",w:80,num:1},{k:"sale",label:"행사할인가",w:90,num:1},
+    {k:"costcoBear",label:"코스트코부담",w:90,num:1},{k:"ourBear",label:"당사부담",w:80,num:1},{k:"qty",label:"전체수량",w:80,num:1}
+  ];
+  var calcCols=["수수료금액","공급가","이익금액","판매가대비","공급가대비","예상매출","예상공급액","예상이익"];
+  var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap;width:100%">';
+  h+='<thead><tr>';
+  h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:6px;color:#15528f;width:30px">No</th>';
+  inputCols.forEach(function(c){h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:6px 8px;color:#15528f;font-weight:700;min-width:'+c.w+'px">'+c.label+'</th>';});
+  calcCols.forEach(function(c){h+='<th style="position:sticky;top:0;z-index:2;background:#e0e7ef;border:1px solid #c5cdd9;padding:6px 8px;color:#334155;font-weight:700">'+c+'</th>';});
+  h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:6px;color:#15528f;width:36px">삭제</th>';
+  h+='</tr></thead><tbody>';
+  var tQty=0,tSale=0,tSupply=0,tProfit=0;
+  (marginDB.rows||[]).forEach(function(r,i){
+    var c=_mgCalc(r);
+    tQty+=c.qty;tSale+=c.saleSum;tSupply+=c.supplySum;tProfit+=c.profitSum;
+    var pc=function(v){return v<0?'color:#dc2626;font-weight:700':'color:#15803d;font-weight:700';};
+    h+='<tr>';
+    h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
+    inputCols.forEach(function(col){
+      var v=r[col.k]==null?"":r[col.k];
+      var al=col.num?"text-align:right;":"";
+      h+='<td contenteditable="true" onblur="mgEdit('+i+',\''+col.k+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:4px 8px;outline:none;color:#1f2937;'+al+'">'+_escX(String(v))+'</td>';
+    });
+    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#475569">'+_mgFmt(c.feeAmt)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#1f2937;font-weight:600">'+_mgFmt(c.supply)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;'+pc(c.profit)+'">'+_mgFmt(c.profit)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;'+pc(c.mPrice)+'">'+_mgPct(c.mPrice)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;'+pc(c.mSupply)+'">'+_mgPct(c.mSupply)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#1f2937">'+_mgFmt(c.saleSum)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#1f2937">'+_mgFmt(c.supplySum)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;'+pc(c.profitSum)+'">'+_mgFmt(c.profitSum)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="mgDelRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:3px 7px">✕</button></td>';
+    h+='</tr>';
+  });
+  if(!marginDB.rows.length){
+    h+='<tr><td colspan="'+(inputCols.length+calcCols.length+2)+'" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 버튼으로 상품을 등록하세요</td></tr>';
+  }
+  /* 합계행 */
+  h+='<tr style="background:#eef2f9;font-weight:800">';
+  h+='<td colspan="'+(inputCols.length+1)+'" style="border:1px solid #c5cdd9;padding:6px 8px;text-align:center;color:#15528f">합  계 (수량 '+tQty.toLocaleString()+')</td>';
+  h+='<td colspan="5" style="border:1px solid #c5cdd9"></td>';
+  h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;color:#15528f">'+_mgFmt(tSale)+'</td>';
+  h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;color:#15528f">'+_mgFmt(tSupply)+'</td>';
+  h+='<td style="border:1px solid #c5cdd9;padding:6px 8px;text-align:right;'+(tProfit<0?'color:#dc2626':'color:#15803d')+'">'+_mgFmt(tProfit)+'</td>';
+  h+='<td style="border:1px solid #c5cdd9"></td>';
+  h+='</tr>';
   h+='</tbody></table>';
   wrap.innerHTML=h;
 }
