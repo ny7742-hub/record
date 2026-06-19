@@ -608,10 +608,11 @@ label{font-size:14px!important}
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">💰 코스트코 온라인몰 행사 마진 계산서</div>
       <label style="font-size:12px;color:#15528f;font-weight:600">행사기간 <input type="text" id="mgPeriod" placeholder="예: 6/8~6/21" onchange="marginDB.period=this.value;saveMargin()" style="width:130px;font-size:12px;padding:4px 8px"></label>
-      <label style="font-size:12px;color:#15528f;font-weight:600">수수료율(%) <input type="number" id="mgFee" step="0.1" onchange="marginDB.fee=(parseFloat(this.value)||0)/100;saveMargin();renderMargin()" style="width:70px;font-size:12px;padding:4px 8px;text-align:right"></label>
-      <label style="font-size:12px;color:#15528f;font-weight:600">택배비(원) <input type="number" id="mgDeliv" onchange="marginDB.deliv=parseInt(this.value)||0;saveMargin();renderMargin()" style="width:80px;font-size:12px;padding:4px 8px;text-align:right"></label>
-      <button onclick="mgAddRow()" class="bg" style="padding:6px 14px;font-size:12px">+ 행 추가</button>
-      <span style="font-size:11px;color:#5b6675">수수료율·택배비를 바꾸면 전 상품 자동 반영됩니다</span>
+      <label style="font-size:12px;color:#15528f;font-weight:600">수수료율(%) <input type="number" id="mgFee" step="0.1" onchange="marginDB.fee=(parseFloat(this.value)||0)/100;saveMargin()" style="width:70px;font-size:12px;padding:4px 8px;text-align:right"></label>
+      <label style="font-size:12px;color:#15528f;font-weight:600">택배비(원) <input type="number" id="mgDeliv" onchange="marginDB.deliv=parseInt(this.value)||0;saveMargin()" style="width:80px;font-size:12px;padding:4px 8px;text-align:right"></label>
+      <button onclick="mgAddRow()" class="bs" style="padding:6px 14px;font-size:12px">+ 행 추가</button>
+      <button onclick="renderMargin()" class="bg" style="padding:6px 16px;font-size:12px;background:#059669!important">✅ 완료(문구 생성)</button>
+      <span style="font-size:11px;color:#5b6675">입력 후 완료 버튼을 누르면 계산·문구가 갱신됩니다</span>
     </div>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
@@ -2978,7 +2979,7 @@ function mgAddRow(){
   var w=document.getElementById("marginTableWrap");if(w)w.scrollTop=w.scrollHeight;
 }
 function mgDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;marginDB.rows.splice(i,1);saveMargin();renderMargin();}
-function mgEdit(i,key,val){if(!marginDB.rows[i])return;marginDB.rows[i][key]=val;saveMargin();renderMargin();}
+function mgEdit(i,key,val){if(!marginDB.rows[i])return;marginDB.rows[i][key]=val;saveMargin();/* 표·문구는 완료 버튼에서 갱신 */}
 function _mgNum(v){return Number(String(v==null?"":v).replace(/,/g,""))||0;}
 function _mgCalc(r){
   var fee=marginDB.fee||0, deliv=marginDB.deliv||0;
@@ -3005,7 +3006,7 @@ function renderMargin(){
   if(pEl&&document.activeElement!==pEl)pEl.value=marginDB.period||"";
   var inputCols=[
     {k:"code",label:"상품코드",w:80},{k:"name",label:"상품명",w:170},{k:"color",label:"컬러",w:90},
-    {k:"cost",label:"매입단가",w:80,num:1},{k:"price",label:"판매가",w:80,num:1},{k:"sale",label:"행사할인가",w:90,num:1},
+    {k:"cost",label:"사전원가",w:80,num:1},{k:"price",label:"판매가",w:80,num:1},{k:"sale",label:"쿠폰적용가",w:90,num:1},
     {k:"costcoBear",label:"코스트코부담",w:90,num:1},{k:"qty",label:"전체수량",w:80,num:1}
   ];
   var calcCols=["당사부담금","수수료금액","공급가","이익금액","판매가대비","공급가대비","예상매출","예상공급액","예상이익"];
@@ -3083,10 +3084,10 @@ function mgBuildNote(){
     var coupon=price-sale;
     var colors=g.rows.map(function(x){return String(x.color||"").trim();}).filter(Boolean);
     var totQty=g.rows.reduce(function(s,x){return s+_mgNum(x.qty);},0);
-    var t="코스트코 온라인몰 "+g.name+" 상품 매출 활성화를 위해 쿠폰 진행 요청이 와서 확인 및 검토 부탁드리겠습니다.\n\n"
+    var t="코스트코 온라인몰 "+g.name+" 상품의 매출 활성화를 위해 쿠폰 행사를 하고자 합니다. 확인 및 검토 부탁드립니다.\n\n"
       +"행사기간 : "+(period||"-")+"\n"
-      +"쿠폰금액 : "+coupon.toLocaleString()+"원 (VAT+) > 자사 부담 "+Math.round(c.ourBear).toLocaleString()+"원 / 코코 부담 "+costcoBear.toLocaleString()+"원\n"
       +"판매가 : "+price.toLocaleString()+"원 > "+sale.toLocaleString()+"원\n"
+      +"쿠폰금액 : "+coupon.toLocaleString()+"원 (VAT+) > 자사 부담 "+Math.round(c.ourBear).toLocaleString()+"원 / 코코 부담 "+costcoBear.toLocaleString()+"원\n"
       +"원가 : "+cost.toLocaleString()+"원\n"
       +"수수료 : "+(fee*100).toFixed(1)+"%\n"
       +"택배비 "+deliv.toLocaleString()+"원으로 계산 후 마진 : 약 "+Math.round(c.profit).toLocaleString()+"원\n\n"
