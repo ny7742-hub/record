@@ -3052,19 +3052,36 @@ function renderMargin(){
   h+='<td style="border:1px solid #c5cdd9"></td>';
   h+='</tr>';
   h+='</tbody></table>';
-  /* 하단 안내 문구 (편집·복사용) */
-  var note=(marginDB.noteText!=null)?marginDB.noteText:MG_NOTE_DEFAULT;
+  /* 하단 검토요청 문구 (표 데이터로 자동 생성) */
+  var note=mgBuildNote();
   h+='<div style="padding:12px 14px;background:#f8fafc;border-top:1px solid #e1e6ee">';
-  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:#15528f">📋 안내 문구 (편집 가능)</span>';
+  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:12px;font-weight:700;color:#15528f">📋 검토 요청 문구 (자동 작성)</span>';
   h+='<button onclick="mgCopyNote()" class="bs" style="padding:3px 10px;font-size:11px">복사</button>';
-  h+='<button onclick="mgResetNote()" class="bs" style="padding:3px 10px;font-size:11px">기본문구</button>';
   h+='<span id="mgCopyMsg" style="font-size:11px;color:#15803d;font-weight:600"></span></div>';
-  h+='<textarea id="mgNote" onchange="marginDB.noteText=this.value;saveMargin()" style="width:100%;height:150px;font-size:13px;line-height:1.6;color:#1f2937;border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;resize:vertical;background:#fff;font-family:inherit">'+_escX(note)+'</textarea>';
+  h+='<textarea id="mgNote" onclick="this.select()" style="width:100%;height:160px;font-size:13px;line-height:1.7;color:#1f2937;border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;resize:vertical;background:#fff;font-family:inherit">'+_escX(note)+'</textarea>';
   h+='</div>';
   wrap.innerHTML=h;
 }
-var MG_NOTE_DEFAULT="코스트코 온라인몰 여름 마스크3종 온라인 판매 활성화를 위해 행사를 진행하고자\n쿠폰 지원 가능한 금액(vat-) 확인 요청이 와서 확인 및 검토 부탁드리겠습니다.\n\n현재 총 재고(세트기준) : 8,742세트(메르신 2,691 / 아다나 2,878 / 린다우 3,174)\n현 이익금 (사전원가-택배비-수수료) : 세트당 5,800~6,000원\n당사 쿠폰 지원 가능금액 : 909.1(vat-)";
-function mgResetNote(){if(!confirm("문구를 기본문구로 되돌릴까요?"))return;marginDB.noteText=MG_NOTE_DEFAULT;saveMargin();renderMargin();}
+/* 표 데이터 → 검토 요청 문구 자동 생성 */
+function mgBuildNote(){
+  var rows=(marginDB.rows||[]).filter(function(r){return String(r.name||"").trim()||_mgNum(r.price)||_mgNum(r.sale);});
+  if(!rows.length)return "(상품을 입력하면 검토 요청 문구가 자동으로 작성됩니다)";
+  var period=marginDB.period||"";
+  return rows.map(function(r){
+    var c=_mgCalc(r);
+    var price=_mgNum(r.price);
+    var sale=_mgNum(r.sale)||price;
+    var costcoBear=_mgNum(r.costcoBear);
+    var ourVat=Math.round(c.ourBear/1.1);
+    var costcoVat=Math.round(costcoBear/1.1);
+    var coupon=ourVat+costcoVat;
+    var nm=String(r.name||"").trim()||"(상품명)";
+    return "코스트코 온라인몰 '"+nm+"' 상품의 판매 활성화를 위한 행사 진행 관련 검토 요청 드립니다.\n"
+      +"상품명 : "+nm+(r.color?(" / "+r.color):"")+", 행사기간 : "+(period||"-")+", 판매가 "+price.toLocaleString()+"원, 쿠폰적용가 "+sale.toLocaleString()+"원, "
+      +"쿠폰 지원금액(vat별도) "+coupon.toLocaleString()+"원 = (당사 "+ourVat.toLocaleString()+"원 + Costco "+costcoVat.toLocaleString()+"원), "
+      +"쿠폰적용 시 수수료·택배비 제외 이익금 "+Math.round(c.profit).toLocaleString()+"원 입니다.";
+  }).join("\n\n");
+}
 function mgCopyNote(){
   var ta=document.getElementById("mgNote");if(!ta)return;
   ta.select();
