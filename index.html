@@ -2926,14 +2926,91 @@ function _hsEff(row){
   if(!t)return "-";
   return Math.round(s/t*100)+"%";
 }
+var hsSelImgIdx=null;   /* 현재 붙여넣기 대상으로 선택된 이미지 칸 */
+var hsDragIdx=null;     /* 드래그 중인 행 인덱스 */
+/* 이미지 칸 클릭 → 붙여넣기 대상으로 선택 (하이라이트 표시) */
+function hsSelImg(i,td){
+  hsSelImgIdx=i;
+  var prev=document.querySelector("#hsTableWrap td.hsImgSel");
+  if(prev)prev.classList.remove("hsImgSel");
+  if(td)td.classList.add("hsImgSel");
+  var msg=document.getElementById("hsMsg");
+  if(msg){msg.textContent="📋 이 칸 선택됨 — Ctrl+V로 사진 붙여넣기 (또는 더블클릭=URL 입력)";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},4000);}
+}
+/* 이미지 칸 더블클릭 → URL 직접 입력(대체 수단) */
 function hsSetImg(i){
   var url=prompt("이미지 URL을 입력하세요 (비우면 삭제):",homeshoppingDB[i].img||"");
   if(url===null)return;
   homeshoppingDB[i].img=url.trim();saveHomeshopping();renderHomeshopping();
 }
+/* 이미지 삭제 */
+function hsClearImg(i,ev){
+  if(ev)ev.stopPropagation();
+  if(!homeshoppingDB[i])return;
+  homeshoppingDB[i].img="";saveHomeshopping();renderHomeshopping();
+}
+/* 붙여넣은 이미지를 캔버스로 축소(최대 260px, JPEG) → 저장 용량 절감 */
+function _hsImgResize(blob,cb){
+  var r=new FileReader();
+  r.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var max=260,w=img.width,h=img.height;
+      if(w>h){if(w>max){h=Math.round(h*max/w);w=max;}}else{if(h>max){w=Math.round(w*max/h);h=max;}}
+      try{
+        var cv=document.createElement("canvas");cv.width=w;cv.height=h;
+        cv.getContext("2d").drawImage(img,0,0,w,h);
+        cb(cv.toDataURL("image/jpeg",0.82));
+      }catch(err){cb(e.target.result);}
+    };
+    img.onerror=function(){cb(null);};
+    img.src=e.target.result;
+  };
+  r.readAsDataURL(blob);
+}
+/* 전역 붙여넣기 핸들러: 홈쇼핑 탭에서 칸 선택 후 Ctrl+V */
+function hsOnPaste(e){
+  var page=document.getElementById("page-homeshopping");
+  if(!page||page.style.display==="none")return;
+  if(hsSelImgIdx==null||!homeshoppingDB[hsSelImgIdx])return;
+  var items=(e.clipboardData||window.clipboardData||{}).items;
+  if(!items)return;
+  for(var k=0;k<items.length;k++){
+    if(items[k].type&&items[k].type.indexOf("image")===0){
+      var blob=items[k].getAsFile();if(!blob)continue;
+      e.preventDefault();
+      var idx=hsSelImgIdx;
+      _hsImgResize(blob,function(durl){
+        if(!durl){alert("이미지를 처리하지 못했습니다.");return;}
+        var old=homeshoppingDB[idx].img;
+        homeshoppingDB[idx].img=durl;
+        try{wsSetItem("homeshoppingDB",JSON.stringify(homeshoppingDB));}
+        catch(err){homeshoppingDB[idx].img=old||"";alert("저장 공간이 부족합니다. 기존 이미지를 줄이거나 삭제해 주세요.");return;}
+        renderHomeshopping();
+      });
+      return;
+    }
+  }
+}
+document.addEventListener("paste",hsOnPaste);
+/* 행 순서 이동(드래그&드롭) */
+function hsMoveRow(from,to){
+  if(from==null||to==null||from===to)return;
+  if(from<0||to<0||from>=homeshoppingDB.length||to>=homeshoppingDB.length)return;
+  var item=homeshoppingDB.splice(from,1)[0];
+  homeshoppingDB.splice(to,0,item);
+  saveHomeshopping();renderHomeshopping();
+}
+function hsDragStart(i,ev){hsDragIdx=i;if(ev&&ev.dataTransfer){ev.dataTransfer.effectAllowed="move";try{ev.dataTransfer.setData("text/plain",String(i));}catch(e){}}}
+function hsDragOver(i,ev){if(hsDragIdx==null)return;ev.preventDefault();if(ev.dataTransfer)ev.dataTransfer.dropEffect="move";var tr=ev.currentTarget;if(tr&&tr.classList)tr.classList.add("hsDropOver");}
+function hsDragLeave(ev){var tr=ev.currentTarget;if(tr&&tr.classList)tr.classList.remove("hsDropOver");}
+function hsDrop(i,ev){ev.preventDefault();var from=hsDragIdx;hsDragIdx=null;hsMoveRow(from,i);}
+function hsDragEnd(){hsDragIdx=null;var o=document.querySelectorAll("#hsTableWrap tr.hsDropOver");for(var k=0;k<o.length;k++)o[k].classList.remove("hsDropOver");}
 function renderHomeshopping(){
   var wrap=document.getElementById("hsTableWrap");if(!wrap)return;
-  var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
+  hsSelImgIdx=null;
+  var h='<style>#hsTableWrap td.hsImgSel{outline:2px solid #2563eb;outline-offset:-2px}#hsTableWrap tr.hsDropOver td{border-top:2px solid #2563eb !important}#hsTableWrap tr.hsDropOver td:first-child{box-shadow:inset 0 2px 0 #2563eb}</style>';
+  h+='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
   h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:7px 6px;color:#15528f;font-weight:700;width:30px">#</th>';
   HS_COLS.forEach(function(col){
@@ -2945,12 +3022,19 @@ function renderHomeshopping(){
     h+='<tr><td colspan="'+(HS_COLS.length+2)+'" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 버튼으로 방송 일정을 등록하세요</td></tr>';
   }
   homeshoppingDB.forEach(function(row,i){
-    h+='<tr>';
-    h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
+    h+='<tr ondragover="hsDragOver('+i+',event)" ondragleave="hsDragLeave(event)" ondrop="hsDrop('+i+',event)" ondragend="hsDragEnd()">';
+    h+='<td draggable="true" ondragstart="hsDragStart('+i+',event)" title="드래그하여 순서 변경" style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc;cursor:grab;user-select:none"><span style="color:#94a3b8;font-size:11px">↕</span><br>'+(i+1)+'</td>';
     HS_COLS.forEach(function(col){
       if(col.type==="img"){
-        var img=row.img?'<img src="'+_escX(row.img)+'" onclick="hsSetImg('+i+')" onerror="this.outerHTML=\'<div onclick=hsSetImg('+i+') style=\\\'width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#8593a6;margin:auto\\\'>📷</div>\'" style="width:48px;height:48px;object-fit:cover;border-radius:5px;cursor:pointer;display:block;margin:auto">':'<div onclick="hsSetImg('+i+')" style="width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#8593a6;margin:auto">📷</div>';
-        h+='<td style="border:1px solid #e1e6ee;padding:3px;text-align:center">'+img+'</td>';
+        var inner;
+        if(row.img){
+          inner='<img src="'+_escX(row.img)+'" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" style="width:48px;height:48px;object-fit:cover;border-radius:5px;display:block;margin:auto">'
+            +'<div style="display:none;width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;align-items:center;justify-content:center;color:#8593a6;margin:auto">📷</div>'
+            +'<button onclick="hsClearImg('+i+',event)" title="이미지 삭제" style="position:absolute;top:1px;right:1px;width:16px;height:16px;line-height:14px;padding:0;border:none;border-radius:50%;background:rgba(220,38,38,.9);color:#fff;font-size:11px;font-weight:700;cursor:pointer">×</button>';
+        }else{
+          inner='<div style="width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8593a6;margin:auto;font-size:9px;line-height:1.15">📷<span>붙여넣기</span></div>';
+        }
+        h+='<td onclick="hsSelImg('+i+',this)" ondblclick="hsSetImg('+i+')" title="클릭 후 Ctrl+V로 사진 붙여넣기 · 더블클릭=URL 입력" style="border:1px solid #e1e6ee;padding:3px;text-align:center;position:relative;cursor:pointer">'+inner+'</td>';
       }else if(col.type==="calc"){
         h+='<td id="hsEff_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;font-weight:700;color:#15528f;background:#f1f5f9">'+_hsEff(row)+'</td>';
       }else if(col.type==="date"){
