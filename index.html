@@ -199,13 +199,16 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .dept-save-btn{padding:11px 32px;background:#4f46e5;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
 .dept-save-btn:hover{background:#4338ca}
 /* 매장 카드 가로 스크롤 – 실제 스크롤바는 숨기고 미러 스크롤바를 헤더 바로 아래에 표시 */
-.dept-grid-wrap{overflow-x:auto;scrollbar-width:none!important;-ms-overflow-style:none!important}
-.dept-grid-wrap::-webkit-scrollbar{height:0!important;display:none!important}
+.dept-grid-wrap{overflow-x:auto;scrollbar-width:auto}
+.dept-grid-wrap::-webkit-scrollbar{height:16px}
+.dept-grid-wrap::-webkit-scrollbar-track{background:#e5e7eb;border-radius:99px}
+.dept-grid-wrap::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:99px;border:3px solid #e5e7eb}
+.dept-grid-wrap::-webkit-scrollbar-thumb:hover{background:#6366f1}
 .dept-grid{display:flex;gap:12px;align-items:flex-start}
-#deptScrollMirror{overflow-x:scroll;overflow-y:hidden;height:16px;margin-bottom:6px}
-#deptScrollMirror::-webkit-scrollbar{height:8px}
+#deptScrollMirror{overflow-x:scroll;overflow-y:hidden;height:16px;margin-top:14px;margin-bottom:10px}
+#deptScrollMirror::-webkit-scrollbar{height:16px}
 #deptScrollMirror::-webkit-scrollbar-track{background:#e5e7eb;border-radius:99px}
-#deptScrollMirror::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:99px}
+#deptScrollMirror::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:99px;border:3px solid #e5e7eb}
 #deptScrollMirror::-webkit-scrollbar-thumb:hover{background:#6366f1}
 #deptScrollMirrorInner{height:1px;display:block}
 .dept-col{flex:0 0 calc(20% - 9.6px);min-width:240px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:12px}
@@ -3735,12 +3738,23 @@ function ccPeriodToMs(p){
 }
 /* 상품명 별칭: 특정 패턴(영문 등)을 표시용 한글명으로 매핑 */
 var CC_NAME_ALIAS=[
-  {test:/white\s*sands\s*600\s*air|600\s*air\s*uv|parasol/i,name:"우양산",code:"693315",price:34990,colors:["버터옐로우","딥그린","라이트그레이"]}
+  {test:/white\s*sands\s*600\s*air|600\s*air\s*uv|parasol/i,name:"우양산 2종",code:"693315",price:34990,colors:["버터옐로우","딥그린","라이트그레이"]}
 ];
 function ccAliasCodeForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].name===nm)return CC_NAME_ALIAS[i].code||"";}return "";}
 function ccAliasCfgForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].name===nm)return CC_NAME_ALIAS[i];}return null;}
 /* 기존 등록 상품에 별칭 코드/색상/가격 소급 적용 */
 (function(){try{var ch=false;
+  /* 우양산 → 우양산 2종 리네임 (상품 엔트리 + 판매데이터 키) */
+  (costcoDB.products||[]).forEach(function(p){if(p.name==="우양산"){p.name="우양산 2종";ch=true;}});
+  Object.keys(costcoDB.sales||{}).forEach(function(pk){
+    var sp=costcoDB.sales[pk];if(!sp||sp["우양산"]===undefined)return;
+    if(!sp["우양산 2종"])sp["우양산 2종"]=sp["우양산"];
+    else Object.keys(sp["우양산"]).forEach(function(cl){
+      if(!sp["우양산 2종"][cl])sp["우양산 2종"][cl]=sp["우양산"][cl];
+      else{sp["우양산 2종"][cl].qty=(Number(sp["우양산 2종"][cl].qty)||0)+(Number(sp["우양산"][cl].qty)||0);sp["우양산 2종"][cl].amount=(Number(sp["우양산 2종"][cl].amount)||0)+(Number(sp["우양산"][cl].amount)||0);}
+    });
+    delete sp["우양산"];ch=true;
+  });
   (costcoDB.products||[]).forEach(function(p){
     var cfg=ccAliasCfgForName(p.name);if(!cfg)return;
     if(cfg.code&&!p.code){p.code=cfg.code;ch=true;}
@@ -3766,7 +3780,7 @@ function ccAliasCfgForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAM
   }
   /* 우양산 판매데이터 색상키를 표준명으로 통합(변형 표기만 병합) */
   Object.keys(costcoDB.sales||{}).forEach(function(pk){
-    var pd=costcoDB.sales[pk]&&costcoDB.sales[pk]["우양산"];if(!pd)return;
+    var pd=costcoDB.sales[pk]&&costcoDB.sales[pk]["우양산 2종"];if(!pd)return;
     Object.keys(pd).forEach(function(col){
       var target=_ccCanonUyangsanColor(col);
       if(target&&target!==col){
@@ -3778,7 +3792,7 @@ function ccAliasCfgForName(nm){for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAM
     });
   });
   /* 우양산 색상을 지정 3색으로 고정 */
-  var uyP=(costcoDB.products||[]).find(function(p){return p.name==="우양산";});
+  var uyP=(costcoDB.products||[]).find(function(p){return p.name==="우양산 2종";});
   if(uyP){
     var want=["라이트그레이","버터옐로우","딥그린"];
     var same=uyP.colors&&uyP.colors.length===want.length&&want.every(function(c){return uyP.colors.indexOf(c)>=0;});
