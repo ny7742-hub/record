@@ -372,6 +372,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
+  <button class="tab-btn" id="tab-sheet" onclick="switchTab('sheet')">📄 시트</button>
 </div>
 
 <!-- 업로드 모달 -->
@@ -638,6 +639,25 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-homeshopping -->
+
+<div id="page-sheet" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">📄 구글 시트 (실시간)</div>
+      <button onclick="reloadSheet()" class="bs" style="padding:5px 12px;font-size:12px">🔄 새로고침</button>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#374151;cursor:pointer">
+        <input type="checkbox" id="sheetAuto" onchange="toggleSheetAuto()" style="width:14px;height:14px"> 자동 새로고침(1분)
+      </label>
+      <span id="sheetMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+      <a href="https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/edit?gid=1131579574" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px;color:#15528f;font-weight:700;text-decoration:none;white-space:nowrap">↗ 구글 시트에서 열기</a>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <iframe id="sheetFrame" src="" title="구글 시트" style="width:100%;height:calc(100vh - 190px);min-height:520px;border:0;display:block"></iframe>
+  </div>
+</div>
+</div><!-- /page-sheet -->
 
 <div id="page-popup" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
@@ -2729,6 +2749,7 @@ function switchTab(tab){
   document.getElementById("page-costco").style.display=tab==="costco"?"block":"none";
   document.getElementById("page-margin").style.display=tab==="margin"?"block":"none";
   document.getElementById("page-homeshopping").style.display=tab==="homeshopping"?"block":"none";
+  document.getElementById("page-sheet").style.display=tab==="sheet"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
@@ -2736,13 +2757,35 @@ function switchTab(tab){
   document.getElementById("tab-costco").classList.toggle("active",tab==="costco");
   document.getElementById("tab-margin").classList.toggle("active",tab==="margin");
   document.getElementById("tab-homeshopping").classList.toggle("active",tab==="homeshopping");
+  document.getElementById("tab-sheet").classList.toggle("active",tab==="sheet");
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   if(tab==="meeting") renderMeetingGrid();
   if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="costco") renderCostcoPage();
   if(tab==="margin") renderMargin();
   if(tab==="homeshopping") renderHomeshopping();
+  if(tab==="sheet") initSheetTab();
   if(tab==="popup") renderPopupPage();
+}
+
+/* ── 구글 시트 임베드 ── */
+var SHEET_EMBED_URL="https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/pubhtml?gid=1131579574&single=true&widget=true&headers=false";
+var _sheetAutoTimer=null;
+function initSheetTab(){
+  var f=document.getElementById("sheetFrame");
+  if(f&&!f.getAttribute("src")) f.src=SHEET_EMBED_URL;
+}
+function reloadSheet(){
+  var f=document.getElementById("sheetFrame");
+  if(!f)return;
+  f.src=SHEET_EMBED_URL+"&_="+Date.now();
+  var m=document.getElementById("sheetMsg");
+  if(m){m.textContent="🔄 불러오는 중...";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="✅ 갱신됨";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},2000);},1500);}
+}
+function toggleSheetAuto(){
+  var cb=document.getElementById("sheetAuto");
+  if(_sheetAutoTimer){clearInterval(_sheetAutoTimer);_sheetAutoTimer=null;}
+  if(cb&&cb.checked)_sheetAutoTimer=setInterval(reloadSheet,60000);
 }
 
 /* ── 엑셀 편집기 ── */
