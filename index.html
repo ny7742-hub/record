@@ -2932,32 +2932,56 @@ function renderOrder(){
   h+='</tbody></table>';
   wrap.innerHTML=h;
 }
-var _ordSearchCur=[], _ordSearchSel=-1;
+/* 판매일보식 2단계 검색: 입력→상품명 칩, Enter→색상 결과 나열, Enter→추가 */
+var _ordMatched=[], _ordChips=[], _ordChipSel=-1, _ordResults=[], _ordResSel=-1, _ordStage="chips";
 function ordSearchInput(){
   var q=(document.getElementById("ordSearch").value||"").trim();
   var box=document.getElementById("ordSearchResults");if(!box)return;
-  if(!q){box.innerHTML="";_ordSearchCur=[];_ordSearchSel=-1;return;}
+  if(!q){box.innerHTML="";_ordMatched=[];_ordChips=[];_ordResults=[];_ordChipSel=-1;_ordResSel=-1;_ordStage="chips";return;}
   var terms=q.split(/\s+/);
-  var res=DB.filter(function(d){var c=norm(d["상품명"])+norm(d["칼라명"]);return terms.every(function(t){return c.indexOf(norm(t))>=0;});});
-  _ordSearchCur=res;_ordSearchSel=res.length?0:-1;
-  if(!res.length){box.innerHTML='<div style="padding:6px;color:#94a3b8;font-size:12px">검색 결과 없음</div>';return;}
-  var h='<div id="ordSrList" style="max-height:230px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
-  res.forEach(function(d,k){
-    h+='<div id="ordSr_'+k+'" onclick="ordAddFromSearch('+k+')" onmouseover="ordSrHover('+k+')" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px">'
-      +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]+" "+(d["칼라명"]||""))+'</span>'
-      +'<span style="color:#6366f1;font-family:monospace">'+_escX(d["자사코드"]||"")+'</span></div>';
+  _ordMatched=DB.filter(function(d){var c=norm(d["상품명"])+norm(d["칼라명"]);return terms.every(function(t){return c.indexOf(norm(t))>=0;});});
+  var seen={},chips=[];
+  _ordMatched.forEach(function(d){var nm=d["상품명"]||"";if(nm&&!seen[nm]){seen[nm]=1;chips.push(nm);}});
+  _ordChips=chips;_ordChipSel=chips.length?0:-1;
+  _ordStage="chips";_ordResults=[];_ordResSel=-1;
+  ordRenderSearch();
+}
+function ordRenderSearch(){
+  var box=document.getElementById("ordSearchResults");if(!box)return;
+  if(!_ordChips.length){box.innerHTML='<div style="padding:6px;color:#94a3b8;font-size:12px">검색 결과 없음</div>';return;}
+  var h='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">';
+  _ordChips.forEach(function(nm,k){
+    var on=(k===_ordChipSel&&_ordStage==="chips");
+    h+='<span id="ordChip_'+k+'" onclick="ordPickChip('+k+')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid '+(on?"#2563eb":"#cbd5e1")+';background:'+(on?"#dbeafe":"#fff")+';color:'+(on?"#1e40af":"#334155")+';font-weight:'+(on?"700":"500")+'">'+_escX(nm)+'</span>';
   });
-  h+='</div><div style="font-size:11px;color:#94a3b8;margin-top:3px">↑↓ 이동 · Enter 추가</div>';
+  h+='</div>';
+  h+='<div style="font-size:11px;color:#94a3b8;margin-bottom:6px">'+(_ordStage==="chips"?"↑↓ 상품 선택 · Enter로 색상 목록 보기":"↑↓ 이동 · Enter 추가 · 맨위에서 ↑ 누르면 상품 다시 선택")+'</div>';
+  if(_ordStage==="results"&&_ordResults.length){
+    h+='<div id="ordSrList" style="max-height:240px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
+    _ordResults.forEach(function(d,k){
+      var on=(k===_ordResSel);
+      h+='<div id="ordSr_'+k+'" onclick="ordAddResult('+k+')" onmouseover="ordResHover('+k+')" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;background:'+(on?"#dbeafe":"")+'">'
+        +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]+" "+(d["칼라명"]||""))+'</span>'
+        +'<span style="color:#6366f1;font-family:monospace">'+_escX(d["자사코드"]||"")+'</span></div>';
+    });
+    h+='</div>';
+  }
   box.innerHTML=h;
-  ordSrHL();
+  var selEl=document.getElementById(_ordStage==="results"?("ordSr_"+_ordResSel):("ordChip_"+_ordChipSel));
+  if(selEl)selEl.scrollIntoView({block:"nearest"});
 }
-function ordSrHL(){
-  for(var k=0;k<_ordSearchCur.length;k++){var el=document.getElementById("ordSr_"+k);if(el)el.style.background=(k===_ordSearchSel)?"#dbeafe":"";}
-  var sel=document.getElementById("ordSr_"+_ordSearchSel);if(sel)sel.scrollIntoView({block:"nearest"});
+function ordPickChip(k){
+  if(k<0||k>=_ordChips.length)return;
+  _ordChipSel=k;
+  var nm=_ordChips[k];
+  _ordResults=_ordMatched.filter(function(d){return (d["상품명"]||"")===nm;});
+  _ordResSel=_ordResults.length?0:-1;
+  _ordStage="results";
+  ordRenderSearch();
 }
-function ordSrHover(k){_ordSearchSel=k;ordSrHL();}
-function ordAddFromSearch(k){
-  var d=_ordSearchCur[k];if(!d)return;
+function ordResHover(k){_ordResSel=k;_ordStage="results";ordRenderSearch();}
+function ordAddResult(k){
+  var d=_ordResults[k];if(!d)return;
   var sel=document.getElementById("ordStore");
   orderDB.rows.push({store:sel?sel.value:"",name:(d["상품명"]+" "+(d["칼라명"]||"")).trim(),code:d["자사코드"]||"",qty:"1"});
   saveOrder();renderOrder();
@@ -2966,10 +2990,18 @@ function ordAddFromSearch(k){
   var si=document.getElementById("ordSearch");if(si)si.focus();
 }
 function ordSearchKey(e){
-  if(!_ordSearchCur.length)return;
-  if(e.key==="ArrowDown"){e.preventDefault();_ordSearchSel=Math.min(_ordSearchCur.length-1,_ordSearchSel+1);ordSrHL();}
-  else if(e.key==="ArrowUp"){e.preventDefault();_ordSearchSel=Math.max(0,_ordSearchSel-1);ordSrHL();}
-  else if(e.key==="Enter"){e.preventDefault();ordAddFromSearch(_ordSearchSel>=0?_ordSearchSel:0);}
+  if(_ordStage==="chips"){
+    if(!_ordChips.length)return;
+    if(e.key==="ArrowDown"||e.key==="ArrowRight"){e.preventDefault();_ordChipSel=Math.min(_ordChips.length-1,_ordChipSel+1);ordRenderSearch();}
+    else if(e.key==="ArrowUp"||e.key==="ArrowLeft"){e.preventDefault();_ordChipSel=Math.max(0,_ordChipSel-1);ordRenderSearch();}
+    else if(e.key==="Enter"){e.preventDefault();if(_ordChipSel>=0)ordPickChip(_ordChipSel);}
+  }else{
+    if(!_ordResults.length)return;
+    if(e.key==="ArrowDown"||e.key==="ArrowRight"){e.preventDefault();_ordResSel=Math.min(_ordResults.length-1,_ordResSel+1);ordRenderSearch();}
+    else if(e.key==="ArrowUp"||e.key==="ArrowLeft"){e.preventDefault();if(_ordResSel<=0){_ordStage="chips";_ordResSel=-1;ordRenderSearch();}else{_ordResSel--;ordRenderSearch();}}
+    else if(e.key==="Enter"){e.preventDefault();ordAddResult(_ordResSel>=0?_ordResSel:0);}
+    else if(e.key==="Escape"){e.preventDefault();_ordStage="chips";_ordResSel=-1;ordRenderSearch();}
+  }
 }
 function _ord2(n){n=String(n);return n.length<2?"0"+n:n;}
 function ordDownload(){
