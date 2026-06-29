@@ -374,6 +374,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <button class="tab-btn" id="tab-sheet" onclick="switchTab('sheet')">📄 공유캘린더</button>
   <button class="tab-btn" id="tab-stock" onclick="switchTab('stock')">🏭 홈쇼핑몰 재고확인</button>
+  <button class="tab-btn" id="tab-order" onclick="switchTab('order')">📦 발주서</button>
 </div>
 
 <!-- 업로드 모달 -->
@@ -677,6 +678,31 @@ label{font-size:14px!important}
 </div>
 </div><!-- /page-stock -->
 
+<div id="page-order" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">📦 도매 발주서</div>
+      <span style="font-size:11px;font-weight:600;color:#475569;margin-left:4px">기본 매장</span>
+      <select id="ordStore" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
+      <button onclick="ordAddRow()" class="bs" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
+      <button onclick="ordDownload()" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ 엑셀 다운로드</button>
+      <button onclick="ordClear()" class="bs" style="padding:5px 12px;font-size:12px;color:#dc2626">초기화</button>
+      <span id="ordMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+    </div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:600;color:#475569">상품 검색 추가</span>
+      <input type="text" id="ordSearch" oninput="ordSearchInput()" onkeydown="ordSearchKey(event)" placeholder="상품명·칼라 입력 (예: 루시 베이지)" autocomplete="off" style="flex:1;min-width:220px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+      <span style="font-size:11px;color:#94a3b8">검색결과 클릭 시 기본 매장으로 행 추가</span>
+    </div>
+    <div id="ordSearchResults" style="margin-top:6px"></div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="ordTableWrap" style="overflow-x:auto;padding:0"></div>
+  </div>
+</div>
+</div><!-- /page-order -->
+
 <div id="page-popup" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
@@ -740,7 +766,8 @@ var fbDB=firebase.database();
 var FB_PATH={
   "meetingDB":"ws/meeting","deptDB":"ws/dept",
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
-  "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin"
+  "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
+  "orderDB":"ws/order"
 };
 
 /* localStorage + Firebase 동시 저장 */
@@ -815,6 +842,11 @@ function wsSetItem(key,value){
   apply("ws/margin","marginDB",
     function(d){if(d&&typeof d==="object")marginDB=d;},
     function(){if(document.getElementById("page-margin")&&document.getElementById("page-margin").style.display!=="none")renderMargin();}
+  );
+  /* 발주서 */
+  apply("ws/order","orderDB",
+    function(d){if(d&&d.rows)orderDB=d;},
+    function(){if(document.getElementById("page-order")&&document.getElementById("page-order").style.display!=="none")renderOrder();}
   );
   /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
   /* Firebase에는 백업용으로만 저장하고, 읽기는 localStorage 기준 */
@@ -2769,6 +2801,7 @@ function switchTab(tab){
   document.getElementById("page-homeshopping").style.display=tab==="homeshopping"?"block":"none";
   document.getElementById("page-sheet").style.display=tab==="sheet"?"block":"none";
   document.getElementById("page-stock").style.display=tab==="stock"?"block":"none";
+  document.getElementById("page-order").style.display=tab==="order"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
@@ -2778,6 +2811,7 @@ function switchTab(tab){
   document.getElementById("tab-homeshopping").classList.toggle("active",tab==="homeshopping");
   document.getElementById("tab-sheet").classList.toggle("active",tab==="sheet");
   document.getElementById("tab-stock").classList.toggle("active",tab==="stock");
+  document.getElementById("tab-order").classList.toggle("active",tab==="order");
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   if(tab==="meeting") renderMeetingGrid();
   if(tab==="dept"){initDeptDates();renderDeptPage();}
@@ -2786,6 +2820,7 @@ function switchTab(tab){
   if(tab==="homeshopping") renderHomeshopping();
   if(tab==="sheet") initSheetTab();
   if(tab==="stock") initStockTab();
+  if(tab==="order") renderOrder();
   if(tab==="popup") renderPopupPage();
 }
 
@@ -2818,6 +2853,113 @@ function initStockTab(){
 function reloadStock(){
   var f=document.getElementById("stockFrame");
   if(f) f.src=STOCK_EMBED_URL+"?_="+Date.now();
+}
+
+/* ── 발주서 ── */
+var ORDER_STORES=[
+  {code:"AVE", name:"롯데백화점 청량리점",      recv:"화이트샌즈", tel:"010-8839-9224", addr:"서울 동대문구 왕산로 214 롯데백화점 청량리점 2층"},
+  {code:"LJS", name:"롯데백화점 잠실점",        recv:"화이트샌즈", tel:"010-9135-8952", addr:"서울시 올림픽로 240 롯데백화점 잠실점 2층 화이트샌즈"},
+  {code:"LPC", name:"롯데백화점 평촌점",        recv:"김류아",     tel:"01039402877",   addr:"경기 안양시 동안구 시민대로 180 롯데백화정 평촌점 2층 화이트샌즈"},
+  {code:"LPH", name:"롯데백화점 포항점",        recv:"화이트샌즈", tel:"010-2355-9836", addr:"경북 포항시 북구 학산로 62 롯데백화점 포항점 9층"},
+  {code:"HYC", name:"커넥트현대 청주점",        recv:"봉미향",     tel:"010-7160-6965", addr:"청주 흥덕구 가경동 1416 현대커넥트 청주 택배보관함"},
+  {code:"HDMD",name:"현대백화점 목동점",        recv:"강수진",     tel:"010-4152-2152", addr:"서울시 양천구 목동동로 257 현대백화점 목동점 별관 1층 화이트샌즈"},
+  {code:"LSC", name:"롯데백화점 센텀시티점",    recv:"화이트샌즈", tel:"010-9371-5884", addr:"부산광역시 해운대구 센텀남대로 59 롯데백화점 센텀시티점 1층 화이트샌즈"},
+  {code:"LDB", name:"롯데몰 동부산점",          recv:"화이트샌즈", tel:"010-3409-5997", addr:"부산광역시 기장군 기장해안로147, 롯데몰 동부산점 2층 화이트샌즈"},
+  {code:"LGP", name:"롯데몰 김포공항점",        recv:"화이트샌즈", tel:"010-5552-8285", addr:"서울특별시 강서구 하늘길 77 김포공항역, 롯데몰 MF층 화이트샌즈"},
+  {code:"LFS", name:"롯데피트인 산본점",        recv:"화이트샌즈", tel:"",              addr:"경기도 군포시 번영로 485, 1층 화이트샌즈"},
+  {code:"ANC", name:"아난티 코브(부산)",        recv:"",           tel:"",              addr:"부산광역시 기장군 기장읍 기장해안로 268-32 앳부산하역장(살롱)"},
+  {code:"ANV", name:"빌라쥬 드 아난티(부산)",   recv:"",           tel:"",              addr:"부산 기장군 기장읍 기장해안로 267-7, LPC 하역장"},
+  {code:"ANG", name:"아난티 코드(가평)",        recv:"",           tel:"",              addr:"경기도 가평군 설악면 유명로 1007-90 살롱드이터널저니"},
+  {code:"ANT", name:"아난티 남해",              recv:"",           tel:"",              addr:"경상남도 남해군 남면 남서대로 1179번길 40-109 (아난티 남해 구매팀)"},
+  {code:"TMG", name:"트래블메이트 김포공항점",  recv:"조미 매니저", tel:"010-9722-3377", addr:"서울 강서구 하늘길 112, 김포공항국내선청사 3층 트래블메이트"},
+  {code:"TMI1",name:"트래블메이트인천공항1청사점",recv:"김성겸 매니저",tel:"010-6500-3014",addr:"인천시 중구 공항로 271, 인천공항 1터미널 3층 트래블메이트"},
+  {code:"TMI2",name:"트래블메이트인천공항2청사점",recv:"박진아 매니저",tel:"010-4100-7391",addr:"인천시 중구 제2터미널대로 446, 인천공항 2터미널 3층 트래블메이트"}
+];
+var ORDER_HEADERS=["출고일","주문번호(사방넷)","주문번호(쇼핑몰)","쇼핑몰","수령인","택배사","운송장번호","받는분연락처","받는분기타연락처","주소","배송메세지","상품명","수량","결제금액","큐텐(한글상품명)","바코드","큐텐바코드","상품코드","쇼핑몰(참고용)","상품컬러코드","상품명(수집)","옵션(수집)","주문자명","구분","주문일시(YYYY-MM-DD HH:MM)","주문자전화번호1","주문자전화번호2"];
+var orderDB=(function(){try{var d=JSON.parse(localStorage.getItem("orderDB")||"null");return (d&&d.rows)?d:{rows:[]};}catch(e){return {rows:[]};}})();
+function saveOrder(){wsSetItem("orderDB",JSON.stringify(orderDB));}
+function _ordStoreByCode(code){for(var i=0;i<ORDER_STORES.length;i++)if(ORDER_STORES[i].code===code)return ORDER_STORES[i];return null;}
+function _ordStoreOptions(selCode){return ORDER_STORES.map(function(s){return '<option value="'+s.code+'"'+(s.code===selCode?' selected':'')+'>'+s.code+' · '+s.name+'</option>';}).join("");}
+function ordFillStoreSelect(){var sel=document.getElementById("ordStore");if(!sel||sel.options.length)return;sel.innerHTML=_ordStoreOptions(ORDER_STORES[0].code);}
+function ordAddRow(){var sel=document.getElementById("ordStore");var code=sel?sel.value:(ORDER_STORES[0]&&ORDER_STORES[0].code);orderDB.rows.push({store:code||"",name:"",code:"",qty:""});saveOrder();renderOrder();var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;}
+function ordDelRow(i){orderDB.rows.splice(i,1);saveOrder();renderOrder();}
+function ordEdit(i,key,val){if(!orderDB.rows[i])return;orderDB.rows[i][key]=val;saveOrder();if(key==="code"){var c=document.getElementById("ordPcode_"+i);if(c)c.textContent=(val||"").slice(0,8);}}
+function ordClear(){if(!confirm("발주서 내용을 모두 지울까요?"))return;orderDB.rows=[];saveOrder();renderOrder();}
+function renderOrder(){
+  ordFillStoreSelect();
+  var wrap=document.getElementById("ordTableWrap");if(!wrap)return;
+  var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
+  h+='<thead><tr>';
+  [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량',''],['상품코드',''],['삭제','']].forEach(function(c){
+    h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:7px 8px;color:#15528f;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  if(!orderDB.rows.length){
+    h+='<tr><td colspan="7" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
+  }
+  orderDB.rows.forEach(function(r,i){
+    h+='<tr>';
+    h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><select onchange="ordEdit('+i+',\'store\',this.value)" style="border:none;outline:none;font-size:13px;background:transparent;color:#1f2937;max-width:210px">'+_ordStoreOptions(r.store)+'</select></td>';
+    h+='<td contenteditable="true" onblur="ordEdit('+i+',\'name\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;white-space:normal">'+_escX(r.name||"")+'</td>';
+    h+='<td contenteditable="true" onblur="ordEdit('+i+',\'code\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;font-family:monospace">'+_escX(r.code||"")+'</td>';
+    h+='<td contenteditable="true" onblur="ordEdit('+i+',\'qty\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;text-align:right">'+_escX(r.qty||"")+'</td>';
+    h+='<td id="ordPcode_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;color:#6366f1;font-weight:600;font-family:monospace;background:#f8fafc">'+_escX((r.code||"").slice(0,8))+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="ordDelRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:3px 8px">✕</button></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+}
+var _ordSearchCur=[];
+function ordSearchInput(){
+  var q=(document.getElementById("ordSearch").value||"").trim();
+  var box=document.getElementById("ordSearchResults");if(!box)return;
+  if(!q){box.innerHTML="";_ordSearchCur=[];return;}
+  var terms=q.split(/\s+/);
+  var res=DB.filter(function(d){var c=norm(d["상품명"])+norm(d["칼라명"]);return terms.every(function(t){return c.indexOf(norm(t))>=0;});}).slice(0,40);
+  _ordSearchCur=res;
+  if(!res.length){box.innerHTML='<div style="padding:6px;color:#94a3b8;font-size:12px">검색 결과 없음</div>';return;}
+  var h='<div style="max-height:230px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
+  res.forEach(function(d,k){
+    h+='<div onclick="ordAddFromSearch('+k+')" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'">'
+      +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]+" "+(d["칼라명"]||""))+'</span>'
+      +'<span style="color:#6366f1;font-family:monospace">'+_escX(d["자사코드"]||"")+'</span></div>';
+  });
+  h+='</div>';box.innerHTML=h;
+}
+function ordAddFromSearch(k){
+  var d=_ordSearchCur[k];if(!d)return;
+  var sel=document.getElementById("ordStore");
+  orderDB.rows.push({store:sel?sel.value:"",name:(d["상품명"]+" "+(d["칼라명"]||"")).trim(),code:d["자사코드"]||"",qty:"1"});
+  saveOrder();renderOrder();
+  var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;
+  var m=document.getElementById("ordMsg");if(m){m.textContent="✅ 추가됨";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},1500);}
+}
+function ordSearchKey(e){if(e.key==="Enter"&&_ordSearchCur.length){e.preventDefault();ordAddFromSearch(0);}}
+function _ord2(n){n=String(n);return n.length<2?"0"+n:n;}
+function ordDownload(){
+  if(!orderDB.rows.length){alert("발주 상품이 없습니다.");return;}
+  var aoa=[ORDER_HEADERS.slice()];
+  orderDB.rows.forEach(function(r){
+    var st=_ordStoreByCode(r.store)||{};
+    var row=[];for(var c=0;c<27;c++)row.push("");
+    row[2]=r.store||"";              /* C 주문번호(쇼핑몰)=매장코드 */
+    row[3]=st.name||"";              /* D 쇼핑몰 */
+    row[4]=st.recv||"";              /* E 수령인 */
+    row[7]=st.tel||"";               /* H 받는분연락처 */
+    row[9]=st.addr||"";              /* J 주소 */
+    row[11]=r.name||"";              /* L 상품명 */
+    row[12]=r.qty||"";               /* M 수량 */
+    row[17]=(r.code||"").slice(0,8); /* R 상품코드 */
+    row[19]=r.code||"";              /* T 상품컬러코드 */
+    aoa.push(row);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"발주서");
+  var d=new Date();
+  XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 도매발주서.xlsx");
 }
 
 /* ── 엑셀 편집기 ── */
