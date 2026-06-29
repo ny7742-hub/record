@@ -375,7 +375,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <button class="tab-btn" id="tab-sheet" onclick="switchTab('sheet')">📄 공유캘린더</button>
   <button class="tab-btn" id="tab-stock" onclick="switchTab('stock')">🏭 홈쇼핑몰 재고확인</button>
-  <button class="tab-btn" id="tab-order" onclick="switchTab('order')">📦 발주서</button>
+  <button class="tab-btn" id="tab-order" onclick="switchTab('order')">📦 발주서(수기)</button>
 </div>
 
 <!-- 업로드 모달 -->
@@ -683,7 +683,7 @@ label{font-size:14px!important}
 <div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div class="sec-title" style="margin:0;font-size:13px">📦 도매 발주서</div>
+      <div class="sec-title" style="margin:0;font-size:13px">📦 도매 발주서 (수기 작성)</div>
       <span style="font-size:11px;font-weight:600;color:#475569;margin-left:4px">기본 매장</span>
       <select id="ordStore" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
       <button onclick="ordAddRow()" class="bs" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
@@ -2932,23 +2932,30 @@ function renderOrder(){
   h+='</tbody></table>';
   wrap.innerHTML=h;
 }
-var _ordSearchCur=[];
+var _ordSearchCur=[], _ordSearchSel=-1;
 function ordSearchInput(){
   var q=(document.getElementById("ordSearch").value||"").trim();
   var box=document.getElementById("ordSearchResults");if(!box)return;
-  if(!q){box.innerHTML="";_ordSearchCur=[];return;}
+  if(!q){box.innerHTML="";_ordSearchCur=[];_ordSearchSel=-1;return;}
   var terms=q.split(/\s+/);
   var res=DB.filter(function(d){var c=norm(d["상품명"])+norm(d["칼라명"]);return terms.every(function(t){return c.indexOf(norm(t))>=0;});}).slice(0,40);
-  _ordSearchCur=res;
+  _ordSearchCur=res;_ordSearchSel=res.length?0:-1;
   if(!res.length){box.innerHTML='<div style="padding:6px;color:#94a3b8;font-size:12px">검색 결과 없음</div>';return;}
-  var h='<div style="max-height:230px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
+  var h='<div id="ordSrList" style="max-height:230px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
   res.forEach(function(d,k){
-    h+='<div onclick="ordAddFromSearch('+k+')" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'">'
+    h+='<div id="ordSr_'+k+'" onclick="ordAddFromSearch('+k+')" onmouseover="ordSrHover('+k+')" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px">'
       +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]+" "+(d["칼라명"]||""))+'</span>'
       +'<span style="color:#6366f1;font-family:monospace">'+_escX(d["자사코드"]||"")+'</span></div>';
   });
-  h+='</div>';box.innerHTML=h;
+  h+='</div><div style="font-size:11px;color:#94a3b8;margin-top:3px">↑↓ 이동 · Enter 추가</div>';
+  box.innerHTML=h;
+  ordSrHL();
 }
+function ordSrHL(){
+  for(var k=0;k<_ordSearchCur.length;k++){var el=document.getElementById("ordSr_"+k);if(el)el.style.background=(k===_ordSearchSel)?"#dbeafe":"";}
+  var sel=document.getElementById("ordSr_"+_ordSearchSel);if(sel)sel.scrollIntoView({block:"nearest"});
+}
+function ordSrHover(k){_ordSearchSel=k;ordSrHL();}
 function ordAddFromSearch(k){
   var d=_ordSearchCur[k];if(!d)return;
   var sel=document.getElementById("ordStore");
@@ -2956,8 +2963,14 @@ function ordAddFromSearch(k){
   saveOrder();renderOrder();
   var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;
   var m=document.getElementById("ordMsg");if(m){m.textContent="✅ 추가됨";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},1500);}
+  var si=document.getElementById("ordSearch");if(si)si.focus();
 }
-function ordSearchKey(e){if(e.key==="Enter"&&_ordSearchCur.length){e.preventDefault();ordAddFromSearch(0);}}
+function ordSearchKey(e){
+  if(!_ordSearchCur.length)return;
+  if(e.key==="ArrowDown"){e.preventDefault();_ordSearchSel=Math.min(_ordSearchCur.length-1,_ordSearchSel+1);ordSrHL();}
+  else if(e.key==="ArrowUp"){e.preventDefault();_ordSearchSel=Math.max(0,_ordSearchSel-1);ordSrHL();}
+  else if(e.key==="Enter"){e.preventDefault();ordAddFromSearch(_ordSearchSel>=0?_ordSearchSel:0);}
+}
 function _ord2(n){n=String(n);return n.length<2?"0"+n:n;}
 function ordDownload(){
   if(!orderDB.rows.length){alert("발주 상품이 없습니다.");return;}
