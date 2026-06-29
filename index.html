@@ -366,6 +366,7 @@ label{font-size:14px!important}
 
 <div class="tab-nav">
   <button class="tab-btn active" id="tab-sales" onclick="switchTab('sales')">📊 판매일보</button>
+  <button class="tab-btn" id="tab-orderconv" onclick="switchTab('orderconv')">📥 발주서 변환</button>
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
   <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">🏪 팝업</button>
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
@@ -702,6 +703,23 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-order -->
+
+<div id="page-orderconv" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">📥 주문배분현황 → 발주서 변환</div>
+      <label style="cursor:pointer"><span class="bs" style="padding:5px 12px;font-size:12px;display:inline-block">📁 주문배분현황 업로드</span><input type="file" id="ocFileIn" accept=".xlsx,.xls" style="display:none" onchange="ocLoadFile(this)"/></label>
+      <button onclick="ocDownload()" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ 발주서 다운로드</button>
+      <span id="ocMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8">주문배분현황 엑셀을 올리면 발주서 양식(27열)으로 자동 변환됩니다. 매장코드로 수령인·연락처·주소가 자동 채워지고, 파일명은 화이트샌즈(MMDD) - 도매발주서.xlsx 로 받습니다.</div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="ocTableWrap" style="overflow-x:auto;padding:0"></div>
+  </div>
+</div>
+</div><!-- /page-orderconv -->
 
 <div id="page-popup" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
@@ -2802,6 +2820,7 @@ function switchTab(tab){
   document.getElementById("page-sheet").style.display=tab==="sheet"?"block":"none";
   document.getElementById("page-stock").style.display=tab==="stock"?"block":"none";
   document.getElementById("page-order").style.display=tab==="order"?"block":"none";
+  document.getElementById("page-orderconv").style.display=tab==="orderconv"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
@@ -2812,6 +2831,7 @@ function switchTab(tab){
   document.getElementById("tab-sheet").classList.toggle("active",tab==="sheet");
   document.getElementById("tab-stock").classList.toggle("active",tab==="stock");
   document.getElementById("tab-order").classList.toggle("active",tab==="order");
+  document.getElementById("tab-orderconv").classList.toggle("active",tab==="orderconv");
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   if(tab==="meeting") renderMeetingGrid();
   if(tab==="dept"){initDeptDates();renderDeptPage();}
@@ -2821,6 +2841,7 @@ function switchTab(tab){
   if(tab==="sheet") initSheetTab();
   if(tab==="stock") initStockTab();
   if(tab==="order") renderOrder();
+  if(tab==="orderconv") ocRender();
   if(tab==="popup") renderPopupPage();
 }
 
@@ -2953,6 +2974,111 @@ function ordDownload(){
     row[12]=r.qty||"";               /* M 수량 */
     row[17]=(r.code||"").slice(0,8); /* R 상품코드 */
     row[19]=r.code||"";              /* T 상품컬러코드 */
+    aoa.push(row);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"발주서");
+  var d=new Date();
+  XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 도매발주서.xlsx");
+}
+
+/* ── 주문배분현황 → 발주서 변환 ── */
+var orderConvRows=[];
+function _ocCol(hdr,names){for(var c=0;c<hdr.length;c++){var v=String(hdr[c]||"").replace(/\s/g,"");for(var n=0;n<names.length;n++){if(v===names[n])return c;}}return -1;}
+function ocLoadFile(input){
+  var file=input.files[0];if(!file)return;
+  var msg=document.getElementById("ocMsg");if(msg)msg.textContent="불러오는 중...";
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
+      ocParse(rows);
+    }catch(err){alert("파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+  input.value="";
+}
+function ocParse(rows){
+  var hRow=-1,H={};
+  for(var r=0;r<Math.min(15,rows.length);r++){
+    var row=rows[r]||[];
+    var cStore=_ocCol(row,["매장코드"]),cName=_ocCol(row,["상품명"]);
+    if(cStore>=0&&cName>=0){
+      hRow=r;H.store=cStore;H.pname=cName;
+      H.storeName=_ocCol(row,["매장명"]);
+      H.color=_ocCol(row,["칼라명","컬러명","색상명"]);
+      H.qty=_ocCol(row,["주문수량","배분수량","출고수량","수량"]);
+      H.bar=_ocCol(row,["자사바코드","자사코드"]);
+      H.pcode=_ocCol(row,["상품코드"]);
+      H.recv=_ocCol(row,["고객명","수령인"]);
+      H.tel=_ocCol(row,["연락처","받는분연락처"]);
+      H.addr=_ocCol(row,["주소"]);
+      break;
+    }
+  }
+  if(hRow<0){alert("주문배분현황 형식을 인식할 수 없습니다.\n(매장코드·상품명 컬럼이 필요합니다)");return;}
+  orderConvRows=[];
+  for(var r=hRow+1;r<rows.length;r++){
+    var row=rows[r];if(!row)continue;
+    var nm=String(row[H.pname]||"").trim();if(!nm)continue;
+    var storeCode=String(row[H.store]||"").trim();
+    var st=_ordStoreByCode(storeCode);
+    var col=H.color>=0?String(row[H.color]||"").trim():"";
+    var code=(H.bar>=0?String(row[H.bar]||"").trim():"")||(H.pcode>=0?String(row[H.pcode]||"").trim():"");
+    orderConvRows.push({
+      store:storeCode,
+      storeName: st?st.name:(H.storeName>=0?String(row[H.storeName]||"").trim():""),
+      recv: st?st.recv:(H.recv>=0?String(row[H.recv]||"").trim():""),
+      tel: st?st.tel:(H.tel>=0?String(row[H.tel]||"").trim():""),
+      addr: st?st.addr:(H.addr>=0?String(row[H.addr]||"").trim():""),
+      name:(nm+(col?" "+col:"")).trim(),
+      code:code,
+      qty:H.qty>=0?String(row[H.qty]||"").trim():"",
+      matched:!!st
+    });
+  }
+  ocRender();
+}
+function ocRender(){
+  var wrap=document.getElementById("ocTableWrap");if(!wrap)return;
+  var msg=document.getElementById("ocMsg");
+  var unmatched=orderConvRows.filter(function(r){return !r.matched&&r.store;}).length;
+  if(msg)msg.textContent=orderConvRows.length?("✅ "+orderConvRows.length+"건 변환됨"+(unmatched?(" · 주소 미매칭 "+unmatched+"건"):"")):"";
+  var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
+  h+='<thead><tr>';
+  [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량',''],['상품코드',''],['수령인',''],['주소','min-width:280px']].forEach(function(c){
+    h+='<th style="position:sticky;top:0;z-index:2;background:#eaf1f9;border:1px solid #c5cdd9;padding:7px 8px;color:#15528f;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  if(!orderConvRows.length){
+    h+='<tr><td colspan="8" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">📁 주문배분현황 엑셀을 업로드하세요</td></tr>';
+  }
+  orderConvRows.forEach(function(r,i){
+    var warn=(!r.matched&&r.store)?' title="매장주소록에 없는 매장코드 — 수령인/주소 비어있을 수 있음" style="background:#fff7ed"':'';
+    h+='<tr'+warn+'>';
+    h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937">'+_escX(r.store||"")+(r.storeName?' · '+_escX(r.storeName):"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;white-space:normal">'+_escX(r.name||"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;font-family:monospace">'+_escX(r.code||"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;color:#1f2937">'+_escX(r.qty||"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;color:#6366f1;font-weight:600;font-family:monospace;background:#f8fafc">'+_escX((r.code||"").slice(0,8))+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937">'+_escX(r.recv||"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#475569;white-space:normal">'+_escX(r.addr||"")+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+}
+function ocDownload(){
+  if(!orderConvRows.length){alert("먼저 주문배분현황 파일을 업로드하세요.");return;}
+  var aoa=[ORDER_HEADERS.slice()];
+  orderConvRows.forEach(function(r){
+    var row=[];for(var c=0;c<27;c++)row.push("");
+    row[2]=r.store||"";row[3]=r.storeName||"";row[4]=r.recv||"";row[7]=r.tel||"";row[9]=r.addr||"";
+    row[11]=r.name||"";row[12]=r.qty||"";row[17]=(r.code||"").slice(0,8);row[19]=r.code||"";
     aoa.push(row);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
