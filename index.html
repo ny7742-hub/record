@@ -784,8 +784,8 @@ var fbDB=firebase.database();
 var FB_PATH={
   "meetingDB":"ws/meeting","deptDB":"ws/dept",
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
-  "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
-  "orderDB":"ws/order"
+  "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin"
+  /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
 
 /* localStorage + Firebase 동시 저장 */
@@ -861,11 +861,7 @@ function wsSetItem(key,value){
     function(d){if(d&&typeof d==="object")marginDB=d;},
     function(){if(document.getElementById("page-margin")&&document.getElementById("page-margin").style.display!=="none")renderMargin();}
   );
-  /* 발주서 */
-  apply("ws/order","orderDB",
-    function(d){if(d&&d.rows)orderDB=d;},
-    function(){if(document.getElementById("page-order")&&document.getElementById("page-order").style.display!=="none")renderOrder();}
-  );
+  /* 발주서(수기)는 사용자별 개별 작성 — Firebase 동기화 없음(localStorage 전용) */
   /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
   /* Firebase에는 백업용으로만 저장하고, 읽기는 localStorage 기준 */
   (function initCostcoFromFirebase(){
