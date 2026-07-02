@@ -907,7 +907,7 @@ function wsSetItem(key,value){
   /* 발주서(수기)는 사용자별 개별 작성 — Firebase 동기화 없음(localStorage 전용) */
   /* 매장별 일별매출 (팀 공유) */
   apply("ws/dailySales","dailySalesDB",
-    function(d){if(d&&d.stores&&d.data)dailySalesDB=d;},
+    function(d){var m=dsMigrate(d);if(m)dailySalesDB=m;},
     function(){var pg=document.getElementById("page-daily");if(pg&&pg.style.display!=="none"){var ae=document.activeElement;if(!(ae&&ae.closest&&ae.closest("#dailyTableWrap")))renderDaily();}}
   );
   /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
@@ -2923,9 +2923,18 @@ function reloadStock(){
   if(f) f.src=STOCK_EMBED_URL+"?_="+Date.now();
 }
 
-/* ── 매장별 일별매출 ── */
+/* ── 매장별 일별매출 (시트 전 항목) ── */
 var DS_DEFAULT_STORES=["롯데 잠실점","롯데 청량리점","롯데 평촌점","커넥트현대 청주점","롯데 센텀점","롯데 동부산점","롯데 김포공항점","현대 킨텍스","현대 충청점","롯데 울산점","현대 목동점","롯데 포항점"];
-var dailySalesDB=(function(){try{var d=JSON.parse(localStorage.getItem("dailySalesDB")||"null");if(d&&d.stores&&d.data)return d;}catch(e){}return {stores:DS_DEFAULT_STORES.slice(),data:{}};})();
+var DS_FIELDS=[{k:"dept",t:"백화점"},{k:"deptQ",t:"수량"},{k:"online",t:"온라인"},{k:"onlineQ",t:"수량"},{k:"edi",t:"EDI"},{k:"ediQ",t:"수량"},{k:"playmd",t:"PLAY MD"}];
+function dsMigrate(d){
+  if(!d||!d.stores||!d.data)return null;
+  d.stores=d.stores.map(function(s){return (typeof s==="string")?{name:s,target:"",prevYear:"",period:""}:s;});
+  return d;
+}
+var dailySalesDB=(function(){
+  try{var d=dsMigrate(JSON.parse(localStorage.getItem("dailySalesDB")||"null"));if(d)return d;}catch(e){}
+  return {stores:DS_DEFAULT_STORES.map(function(n){return {name:n,target:"",prevYear:"",period:""};}),data:{}};
+})();
 function saveDaily(){wsSetItem("dailySalesDB",JSON.stringify(dailySalesDB));}
 function _ds2(n){n=String(n);return n.length<2?"0"+n:n;}
 function _dsN(v){return Number(String(v==null?"":v).replace(/,/g,""))||0;}
@@ -2944,83 +2953,115 @@ function dsKey(){
   var m=(document.getElementById("dsMonth")||{}).value||(new Date().getMonth()+1);
   return y+"-"+_ds2(m);
 }
-function dsCell(mk,day,store){return (((dailySalesDB.data[mk]||{})[day]||{})[store])||{edi:"",qty:"",playmd:""};}
+function dsCell(mk,day,name){return (((dailySalesDB.data[mk]||{})[day]||{})[name])||{};}
 function dsEdit(day,si,field,val){
-  var store=dailySalesDB.stores[si];if(store==null)return "";
+  var s=dailySalesDB.stores[si];if(!s)return "";
   var mk=dsKey(),num=_dsN(val),v=(String(val).trim()===""?"":String(num));
   if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
   if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
-  if(!dailySalesDB.data[mk][day][store])dailySalesDB.data[mk][day][store]={edi:"",qty:"",playmd:""};
-  dailySalesDB.data[mk][day][store][field]=v;
-  saveDaily();dsRenderTotals();
+  if(!dailySalesDB.data[mk][day][s.name])dailySalesDB.data[mk][day][s.name]={};
+  dailySalesDB.data[mk][day][s.name][field]=v;
+  saveDaily();dsRecalc();
   return _dsFmt(num);
 }
-function dsRenderTotals(){
-  var mk=dsKey(),md=dailySalesDB.data[mk]||{};
-  dailySalesDB.stores.forEach(function(store,si){
-    var te=0,tq=0,tp=0;
-    Object.keys(md).forEach(function(day){var c=md[day][store];if(!c)return;te+=_dsN(c.edi);tq+=_dsN(c.qty);tp+=_dsN(c.playmd);});
-    var e1=document.getElementById("dsTot_"+si+"_edi");if(e1)e1.textContent=_dsFmt(te);
-    var e2=document.getElementById("dsTot_"+si+"_qty");if(e2)e2.textContent=_dsFmt(tq);
-    var e3=document.getElementById("dsTot_"+si+"_playmd");if(e3)e3.textContent=_dsFmt(tp);
-  });
+function dsMeta(si,key,val){
+  var s=dailySalesDB.stores[si];if(!s)return "";
+  if(key==="target"||key==="prevYear"){var num=_dsN(val);s[key]=(String(val).trim()===""?"":String(num));saveDaily();dsRecalc();return _dsFmt(num);}
+  s[key]=val;saveDaily();return val;
 }
-function dsAddStore(){var nm=prompt("추가할 매장명:","");if(nm===null)return;nm=nm.trim();if(!nm)return;dailySalesDB.stores.push(nm);saveDaily();renderDaily();}
+function dsRecalc(){
+  var mk=dsKey(),md=dailySalesDB.data[mk]||{},p=mk.split("-"),lastDay=new Date(+p[0],+p[1],0).getDate(),grand=0;
+  dailySalesDB.stores.forEach(function(s,si){
+    var acc={};DS_FIELDS.forEach(function(f){acc[f.k]=0;});
+    Object.keys(md).forEach(function(day){var c=md[day][s.name];if(!c)return;DS_FIELDS.forEach(function(f){acc[f.k]+=_dsN(c[f.k]);});});
+    DS_FIELDS.forEach(function(f){var el=document.getElementById("dsTot_"+si+"_"+f.k);if(el)el.textContent=_dsFmt(acc[f.k]);});
+    var ach=acc.dept+acc.online, qt=acc.deptQ+acc.onlineQ, tgt=_dsN(s.target);
+    var ae=document.getElementById("dsAch_"+si);if(ae)ae.textContent=_dsFmt(ach);
+    var re=document.getElementById("dsRate_"+si);if(re)re.textContent=tgt?Math.round(ach/tgt*100)+"%":"-";
+    var ue=document.getElementById("dsUnit_"+si);if(ue)ue.textContent=qt?_dsFmt(Math.round(ach/qt)):"-";
+    var se=document.getElementById("dsShort_"+si);if(se)se.textContent=tgt?_dsFmt(tgt-ach):"-";
+  });
+  for(var d=1;d<=lastDay;d++){
+    var dt=0;dailySalesDB.stores.forEach(function(s){var c=(md[d]||{})[s.name];if(c)dt+=_dsN(c.dept)+_dsN(c.online);});
+    var de=document.getElementById("dsDay_"+d);if(de)de.textContent=_dsFmt(dt);
+    grand+=dt;
+  }
+  var ge=document.getElementById("dsGrand");if(ge)ge.textContent=_dsFmt(grand);
+}
+function dsAddStore(){var nm=prompt("추가할 매장명:","");if(nm===null)return;nm=nm.trim();if(!nm)return;dailySalesDB.stores.push({name:nm,target:"",prevYear:"",period:""});saveDaily();renderDaily();}
 function dsDelStore(i){
-  var nm=dailySalesDB.stores[i];if(!confirm("'"+nm+"' 매장을 삭제할까요? (입력 데이터도 사라집니다)"))return;
+  var nm=dailySalesDB.stores[i].name;if(!confirm("'"+nm+"' 매장을 삭제할까요? (입력 데이터도 사라집니다)"))return;
   dailySalesDB.stores.splice(i,1);
   Object.keys(dailySalesDB.data).forEach(function(mk){Object.keys(dailySalesDB.data[mk]).forEach(function(d){if(dailySalesDB.data[mk][d][nm])delete dailySalesDB.data[mk][d][nm];});});
   saveDaily();renderDaily();
 }
 function dsRenameStore(i,val){
-  val=(val||"").trim();var old=dailySalesDB.stores[i];if(!val||val===old){renderDaily();return;}
-  dailySalesDB.stores[i]=val;
+  val=(val||"").trim();var old=dailySalesDB.stores[i].name;if(!val||val===old){renderDaily();return;}
+  dailySalesDB.stores[i].name=val;
   Object.keys(dailySalesDB.data).forEach(function(mk){Object.keys(dailySalesDB.data[mk]).forEach(function(d){if(dailySalesDB.data[mk][d][old]){dailySalesDB.data[mk][d][val]=dailySalesDB.data[mk][d][old];delete dailySalesDB.data[mk][d][old];}});});
   saveDaily();renderDaily();
 }
+function _dsInput(val,onblur,extra){return '<input value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 4px;box-sizing:border-box;'+(extra||'')+'">';}
 function renderDaily(){
   dsFillSelectors();
   var wrap=document.getElementById("dailyTableWrap");if(!wrap)return;
   var mk=dsKey(),p=mk.split("-"),Y=+p[0],M=+p[1],lastDay=new Date(Y,M,0).getDate();
-  var stores=dailySalesDB.stores,WD=["일","월","화","수","목","금","토"];
+  var stores=dailySalesDB.stores,WD=["일","월","화","수","목","금","토"],NF=DS_FIELDS.length;
+  var thb='background:#eaf1f9;border:1px solid #c5cdd9;color:#15528f';
   var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap">';
-  h+='<thead><tr>';
-  h+='<th rowspan="2" style="position:sticky;left:0;z-index:4;background:#eaf1f9;border:1px solid #c5cdd9;padding:6px 8px;color:#15528f;min-width:60px">날짜</th>';
-  stores.forEach(function(st,si){
-    h+='<th colspan="3" style="background:#eaf1f9;border:1px solid #c5cdd9;padding:4px 6px;color:#15528f">';
-    h+='<div style="display:flex;align-items:center;gap:4px;justify-content:center"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700">'+_esc(st)+'</span>';
-    h+='<button onclick="dsDelStore('+si+')" title="매장 삭제" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0">✕</button></div></th>';
+  h+='<thead>';
+  /* 매장 헤더(이름+팝업기간+목표+전년+달성+달성률+객단가+부족) */
+  h+='<tr>';
+  h+='<th rowspan="2" style="position:sticky;left:0;top:0;z-index:5;'+thb+';padding:6px 8px;min-width:58px">날짜</th>';
+  h+='<th rowspan="2" style="position:sticky;left:58px;top:0;z-index:5;'+thb+';padding:6px 6px;min-width:96px">달성금액<br><span style="font-size:10px;font-weight:600;color:#64748b">(백화점+온라인)</span></th>';
+  stores.forEach(function(s,si){
+    var mi='width:78px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;text-align:right;padding:2px 4px;outline:none';
+    h+='<th colspan="'+NF+'" style="'+thb+';padding:5px 6px;vertical-align:top">';
+    h+='<div style="display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span><button onclick="dsDelStore('+si+')" title="매장 삭제" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0">✕</button></div>';
+    h+='<div style="display:flex;flex-wrap:wrap;gap:3px 8px;justify-content:center;font-size:11px;font-weight:600;color:#334155">';
+    h+='<span>팝업 <input value="'+_esc(s.period||"")+'" onblur="dsMeta('+si+',\'period\',this.value)" style="width:96px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;padding:2px 4px;outline:none"></span>';
+    h+='<span>목표 <input value="'+_esc(_dsFmt(_dsN(s.target)))+'" onblur="this.value=dsMeta('+si+',\'target\',this.value)" inputmode="numeric" style="'+mi+'"></span>';
+    h+='<span>전년 <input value="'+_esc(_dsFmt(_dsN(s.prevYear)))+'" onblur="this.value=dsMeta('+si+',\'prevYear\',this.value)" inputmode="numeric" style="'+mi+'"></span>';
+    h+='<span>달성 <b id="dsAch_'+si+'" style="color:#15528f"></b></span>';
+    h+='<span>달성률 <b id="dsRate_'+si+'" style="color:#15803d"></b></span>';
+    h+='<span>객단가 <b id="dsUnit_'+si+'" style="color:#7c3aed"></b></span>';
+    h+='<span>부족 <b id="dsShort_'+si+'" style="color:#dc2626"></b></span>';
+    h+='</div></th>';
   });
   h+='</tr><tr>';
-  stores.forEach(function(st,si){
-    h+='<th style="background:#f1f5f9;border:1px solid #c5cdd9;padding:3px 5px;color:#475569;min-width:78px;font-size:11px">EDI</th>';
-    h+='<th style="background:#f1f5f9;border:1px solid #c5cdd9;padding:3px 5px;color:#475569;min-width:50px;font-size:11px">수량</th>';
-    h+='<th style="background:#f1f5f9;border:1px solid #c5cdd9;padding:3px 5px;color:#475569;min-width:78px;font-size:11px">PLAY MD</th>';
+  stores.forEach(function(s,si){
+    DS_FIELDS.forEach(function(f){
+      var qty=/Q$/.test(f.k);
+      h+='<th style="position:sticky;top:52px;z-index:2;background:#f1f5f9;border:1px solid #c5cdd9;padding:3px 5px;color:#475569;font-size:11px;min-width:'+(qty?"46px":"76px")+'">'+f.t+'</th>';
+    });
   });
   h+='</tr></thead><tbody>';
   for(var d=1;d<=lastDay;d++){
     var wd=new Date(Y,M-1,d).getDay(),dcol=wd===0?"#dc2626":(wd===6?"#2563eb":"#475569");
+    var bg=wd===0?"#fef2f2":(wd===6?"#eff6ff":"#fff");
     h+='<tr>';
-    h+='<td style="position:sticky;left:0;z-index:1;background:#f8fafc;border:1px solid #e1e6ee;padding:4px 8px;text-align:center;font-weight:700;color:'+dcol+'">'+d+'('+WD[wd]+')</td>';
-    stores.forEach(function(st,si){
-      var c=dsCell(mk,d,st);
-      h+='<td style="border:1px solid #e1e6ee;padding:0"><input value="'+_esc(_dsFmt(_dsN(c.edi)))+'" onblur="this.value=dsEdit('+d+','+si+',\'edi\',this.value)" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 5px;box-sizing:border-box"></td>';
-      h+='<td style="border:1px solid #e1e6ee;padding:0"><input value="'+_esc(_dsFmt(_dsN(c.qty)))+'" onblur="this.value=dsEdit('+d+','+si+',\'qty\',this.value)" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 5px;box-sizing:border-box"></td>';
-      h+='<td style="border:1px solid #e1e6ee;padding:0"><input value="'+_esc(_dsFmt(_dsN(c.playmd)))+'" onblur="this.value=dsEdit('+d+','+si+',\'playmd\',this.value)" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 5px;box-sizing:border-box"></td>';
+    h+='<td style="position:sticky;left:0;z-index:1;background:'+bg+';border:1px solid #e1e6ee;padding:4px 8px;text-align:center;font-weight:700;color:'+dcol+'">'+d+'('+WD[wd]+')</td>';
+    h+='<td id="dsDay_'+d+'" style="position:sticky;left:58px;z-index:1;background:'+bg+';border:1px solid #e1e6ee;padding:4px 6px;text-align:right;font-weight:700;color:#15528f"></td>';
+    stores.forEach(function(s,si){
+      var c=dsCell(mk,d,s.name);
+      DS_FIELDS.forEach(function(f){
+        h+='<td style="border:1px solid #e1e6ee;padding:0">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)")+'</td>';
+      });
     });
     h+='</tr>';
   }
-  /* 합계행 */
+  /* 총매출 합계행 */
   h+='<tr style="background:#eef2f9;font-weight:800">';
-  h+='<td style="position:sticky;left:0;z-index:1;background:#e2e8f5;border:1px solid #c5cdd9;padding:5px 8px;text-align:center;color:#15528f">합계</td>';
-  stores.forEach(function(st,si){
-    h+='<td id="dsTot_'+si+'_edi" style="border:1px solid #c5cdd9;padding:5px 5px;text-align:right;color:#15528f"></td>';
-    h+='<td id="dsTot_'+si+'_qty" style="border:1px solid #c5cdd9;padding:5px 5px;text-align:right;color:#15528f"></td>';
-    h+='<td id="dsTot_'+si+'_playmd" style="border:1px solid #c5cdd9;padding:5px 5px;text-align:right;color:#15528f"></td>';
+  h+='<td style="position:sticky;left:0;z-index:1;background:#e2e8f5;border:1px solid #c5cdd9;padding:5px 6px;text-align:center;color:#15528f">총매출</td>';
+  h+='<td id="dsGrand" style="position:sticky;left:58px;z-index:1;background:#e2e8f5;border:1px solid #c5cdd9;padding:5px 6px;text-align:right;color:#15528f"></td>';
+  stores.forEach(function(s,si){
+    DS_FIELDS.forEach(function(f){
+      h+='<td id="dsTot_'+si+'_'+f.k+'" style="border:1px solid #c5cdd9;padding:5px 4px;text-align:right;color:#15528f"></td>';
+    });
   });
   h+='</tr></tbody></table>';
   wrap.innerHTML=h;
-  dsRenderTotals();
+  dsRecalc();
 }
 
 /* ── 발주서 ── */
