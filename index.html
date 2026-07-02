@@ -3130,44 +3130,42 @@ function ordSearchInput(){
   _ordMatched=DB.filter(function(d){var c=norm(d["상품명"])+norm(d["칼라명"]);return terms.every(function(t){return c.indexOf(norm(t))>=0;});});
   var seen={},chips=[];
   _ordMatched.forEach(function(d){var nm=d["상품명"]||"";if(nm&&!seen[nm]){seen[nm]=1;chips.push(nm);}});
-  _ordChips=chips;_ordChipSel=chips.length?0:-1;
-  _ordStage="chips";_ordResults=[];_ordResSel=-1;
+  _ordChips=chips;_ordChipSel=-1;
+  _ordResults=_ordMatched.slice();_ordResSel=_ordResults.length?0:-1;
   ordRenderSearch();
 }
 function ordRenderSearch(){
   var box=document.getElementById("ordSearchResults");if(!box)return;
-  if(!_ordChips.length){box.innerHTML='<div style="padding:6px;color:#94a3b8;font-size:12px">검색 결과 없음</div>';return;}
-  var h='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">';
+  if(!_ordMatched.length){box.innerHTML='<div style="padding:6px;color:#94a3b8;font-size:12px">검색 결과 없음</div>';return;}
+  var h='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:5px">';
+  var allOn=(_ordChipSel<0);
+  h+='<span onclick="ordPickChip(-1)" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid '+(allOn?"#2563eb":"#cbd5e1")+';background:'+(allOn?"#dbeafe":"#fff")+';color:'+(allOn?"#1e40af":"#334155")+';font-weight:'+(allOn?"700":"500")+'">전체('+_ordMatched.length+')</span>';
   _ordChips.forEach(function(nm,k){
-    var on=(k===_ordChipSel&&_ordStage==="chips");
-    h+='<span id="ordChip_'+k+'" onclick="ordPickChip('+k+')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid '+(on?"#2563eb":"#cbd5e1")+';background:'+(on?"#dbeafe":"#fff")+';color:'+(on?"#1e40af":"#334155")+';font-weight:'+(on?"700":"500")+'">'+_escX(nm)+'</span>';
+    var on=(k===_ordChipSel);
+    h+='<span onclick="ordPickChip('+k+')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid '+(on?"#2563eb":"#cbd5e1")+';background:'+(on?"#dbeafe":"#fff")+';color:'+(on?"#1e40af":"#334155")+';font-weight:'+(on?"700":"500")+'">'+_escX(nm)+'</span>';
   });
   h+='</div>';
-  h+='<div style="font-size:11px;color:#94a3b8;margin-bottom:6px">'+(_ordStage==="chips"?"↑↓ 상품 선택 · Enter로 색상 목록 보기":"↑↓ 이동 · Enter 추가 · 맨위에서 ↑ 누르면 상품 다시 선택")+'</div>';
-  if(_ordStage==="results"&&_ordResults.length){
-    h+='<div id="ordSrList" style="max-height:240px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
-    _ordResults.forEach(function(d,k){
-      var on=(k===_ordResSel);
-      h+='<div id="ordSr_'+k+'" onclick="ordAddResult('+k+')" onmouseover="ordResHover('+k+')" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;background:'+(on?"#dbeafe":"")+'">'
-        +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]+" "+(d["칼라명"]||""))+'</span>'
-        +'<span style="color:#6366f1;font-family:monospace">'+_escX(d["자사코드"]||"")+'</span></div>';
-    });
-    h+='</div>';
-  }
+  h+='<div style="font-size:11px;color:#94a3b8;margin-bottom:5px">↑↓ 이동 · Enter 추가 · 위 칩으로 상품 좁히기 (현재 '+_ordResults.length+'개)</div>';
+  h+='<div id="ordSrList" style="max-height:280px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
+  _ordResults.forEach(function(d,k){
+    var on=(k===_ordResSel);
+    h+='<div id="ordSr_'+k+'" onclick="ordAddResult('+k+')" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(on?"#dbeafe":"")+'\'" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;background:'+(on?"#dbeafe":"")+'">'
+      +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]+" "+(d["칼라명"]||""))+'</span>'
+      +'<span style="color:#6366f1;font-family:monospace">'+_escX(d["자사코드"]||"")+'</span></div>';
+  });
+  h+='</div>';
   box.innerHTML=h;
-  var selEl=document.getElementById(_ordStage==="results"?("ordSr_"+_ordResSel):("ordChip_"+_ordChipSel));
+  var selEl=document.getElementById("ordSr_"+_ordResSel);
   if(selEl)selEl.scrollIntoView({block:"nearest"});
 }
 function ordPickChip(k){
-  if(k<0||k>=_ordChips.length)return;
   _ordChipSel=k;
-  var nm=_ordChips[k];
-  _ordResults=_ordMatched.filter(function(d){return (d["상품명"]||"")===nm;});
+  if(k<0){_ordResults=_ordMatched.slice();}
+  else{var nm=_ordChips[k];_ordResults=_ordMatched.filter(function(d){return (d["상품명"]||"")===nm;});}
   _ordResSel=_ordResults.length?0:-1;
-  _ordStage="results";
   ordRenderSearch();
+  var si=document.getElementById("ordSearch");if(si)si.focus();
 }
-function ordResHover(k){_ordResSel=k;_ordStage="results";ordRenderSearch();}
 function ordAddResult(k){
   var d=_ordResults[k];if(!d)return;
   var sel=document.getElementById("ordStore");
@@ -3178,18 +3176,10 @@ function ordAddResult(k){
   var si=document.getElementById("ordSearch");if(si)si.focus();
 }
 function ordSearchKey(e){
-  if(_ordStage==="chips"){
-    if(!_ordChips.length)return;
-    if(e.key==="ArrowDown"||e.key==="ArrowRight"){e.preventDefault();_ordChipSel=Math.min(_ordChips.length-1,_ordChipSel+1);ordRenderSearch();}
-    else if(e.key==="ArrowUp"||e.key==="ArrowLeft"){e.preventDefault();_ordChipSel=Math.max(0,_ordChipSel-1);ordRenderSearch();}
-    else if(e.key==="Enter"){e.preventDefault();if(_ordChipSel>=0)ordPickChip(_ordChipSel);}
-  }else{
-    if(!_ordResults.length)return;
-    if(e.key==="ArrowDown"||e.key==="ArrowRight"){e.preventDefault();_ordResSel=Math.min(_ordResults.length-1,_ordResSel+1);ordRenderSearch();}
-    else if(e.key==="ArrowUp"||e.key==="ArrowLeft"){e.preventDefault();if(_ordResSel<=0){_ordStage="chips";_ordResSel=-1;ordRenderSearch();}else{_ordResSel--;ordRenderSearch();}}
-    else if(e.key==="Enter"){e.preventDefault();ordAddResult(_ordResSel>=0?_ordResSel:0);}
-    else if(e.key==="Escape"){e.preventDefault();_ordStage="chips";_ordResSel=-1;ordRenderSearch();}
-  }
+  if(!_ordResults.length)return;
+  if(e.key==="ArrowDown"||e.key==="ArrowRight"){e.preventDefault();_ordResSel=Math.min(_ordResults.length-1,_ordResSel+1);ordRenderSearch();}
+  else if(e.key==="ArrowUp"||e.key==="ArrowLeft"){e.preventDefault();_ordResSel=Math.max(0,_ordResSel-1);ordRenderSearch();}
+  else if(e.key==="Enter"){e.preventDefault();ordAddResult(_ordResSel>=0?_ordResSel:0);}
 }
 function _ord2(n){n=String(n);return n.length<2?"0"+n:n;}
 function ordDownload(){
