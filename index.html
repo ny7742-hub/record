@@ -2954,8 +2954,23 @@ function dsKey(){
   return y+"-"+_ds2(m);
 }
 function dsCell(mk,day,name){return (((dailySalesDB.data[mk]||{})[day]||{})[name])||{};}
+/* 월별 매장 목록 — 각 월이 독립적으로 매장 열을 가짐 */
+function dsStores(mk){
+  mk=mk||dsKey();
+  if(!dailySalesDB.monthStores)dailySalesDB.monthStores={};
+  if(!dailySalesDB.monthStores[mk]){
+    var md=dailySalesDB.data[mk]||{},wd={};
+    Object.keys(md).forEach(function(d){Object.keys(md[d]).forEach(function(n){wd[n]=1;});});
+    var master=dailySalesDB.stores||[];
+    var list=master.filter(function(s){return wd[s.name];}).map(function(s){return {name:s.name,target:s.target||"",prevYear:s.prevYear||"",period:s.period||""};});
+    Object.keys(wd).forEach(function(n){if(!list.some(function(s){return s.name===n;}))list.push({name:n,target:"",prevYear:"",period:""});});
+    if(!list.length)list=master.map(function(s){return {name:s.name,target:"",prevYear:"",period:""};});
+    dailySalesDB.monthStores[mk]=list;
+  }
+  return dailySalesDB.monthStores[mk];
+}
 function dsEdit(day,si,field,val){
-  var s=dailySalesDB.stores[si];if(!s)return "";
+  var s=dsStores()[si];if(!s)return "";
   var mk=dsKey(),num=_dsN(val),v=(String(val).trim()===""?"":String(num));
   if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
   if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
@@ -2965,13 +2980,13 @@ function dsEdit(day,si,field,val){
   return _dsFmt(num);
 }
 function dsMeta(si,key,val){
-  var s=dailySalesDB.stores[si];if(!s)return "";
+  var s=dsStores()[si];if(!s)return "";
   if(key==="target"||key==="prevYear"){var num=_dsN(val);s[key]=(String(val).trim()===""?"":String(num));saveDaily();dsRecalc();return _dsFmt(num);}
   s[key]=val;saveDaily();return val;
 }
 function dsRecalc(){
   var mk=dsKey(),md=dailySalesDB.data[mk]||{},p=mk.split("-"),lastDay=new Date(+p[0],+p[1],0).getDate(),grand=0;
-  dailySalesDB.stores.forEach(function(s,si){
+  dsStores(mk).forEach(function(s,si){
     var acc={};DS_FIELDS.forEach(function(f){acc[f.k]=0;});
     Object.keys(md).forEach(function(day){var c=md[day][s.name];if(!c)return;DS_FIELDS.forEach(function(f){acc[f.k]+=_dsN(c[f.k]);});});
     DS_FIELDS.forEach(function(f){var el=document.getElementById("dsTot_"+si+"_"+f.k);if(el)el.textContent=_dsFmt(acc[f.k]);});
@@ -2982,23 +2997,34 @@ function dsRecalc(){
     var se=document.getElementById("dsShort_"+si);if(se)se.textContent=tgt?_dsFmt(tgt-ach):"-";
   });
   for(var d=1;d<=lastDay;d++){
-    var dt=0;dailySalesDB.stores.forEach(function(s){var c=(md[d]||{})[s.name];if(c)dt+=_dsN(c.dept)+_dsN(c.online);});
+    var dt=0;dsStores(mk).forEach(function(s){var c=(md[d]||{})[s.name];if(c)dt+=_dsN(c.dept)+_dsN(c.online);});
     var de=document.getElementById("dsDay_"+d);if(de)de.textContent=_dsFmt(dt);
     grand+=dt;
   }
   var ge=document.getElementById("dsGrand");if(ge)ge.textContent=_dsFmt(grand);
 }
-function dsAddStore(){var nm=prompt("추가할 매장명:","");if(nm===null)return;nm=nm.trim();if(!nm)return;dailySalesDB.stores.push({name:nm,target:"",prevYear:"",period:""});saveDaily();renderDaily();}
+function dsAddStore(){
+  var nm=prompt("추가할 매장명 (이 달에만 추가됩니다):","");if(nm===null)return;nm=nm.trim();if(!nm)return;
+  var mk=dsKey();
+  if(dsStores(mk).some(function(s){return s.name===nm;})){alert("이미 있는 매장입니다.");return;}
+  dsStores(mk).push({name:nm,target:"",prevYear:"",period:""});
+  if(dailySalesDB.stores&&!dailySalesDB.stores.some(function(s){return s.name===nm;}))dailySalesDB.stores.push({name:nm,target:"",prevYear:"",period:""});
+  saveDaily();renderDaily();
+}
 function dsDelStore(i){
-  var nm=dailySalesDB.stores[i].name;if(!confirm("'"+nm+"' 매장을 삭제할까요? (입력 데이터도 사라집니다)"))return;
-  dailySalesDB.stores.splice(i,1);
-  Object.keys(dailySalesDB.data).forEach(function(mk){Object.keys(dailySalesDB.data[mk]).forEach(function(d){if(dailySalesDB.data[mk][d][nm])delete dailySalesDB.data[mk][d][nm];});});
+  var mk=dsKey(),list=dsStores(mk),st=list[i];if(!st)return;var nm=st.name;
+  if(!confirm("'"+nm+"' 매장을 ["+mk+"]에서만 삭제할까요?\n(다른 월은 그대로 유지됩니다)"))return;
+  list.splice(i,1);
+  var md=dailySalesDB.data[mk]||{};
+  Object.keys(md).forEach(function(d){if(md[d][nm])delete md[d][nm];});
   saveDaily();renderDaily();
 }
 function dsRenameStore(i,val){
-  val=(val||"").trim();var old=dailySalesDB.stores[i].name;if(!val||val===old){renderDaily();return;}
-  dailySalesDB.stores[i].name=val;
-  Object.keys(dailySalesDB.data).forEach(function(mk){Object.keys(dailySalesDB.data[mk]).forEach(function(d){if(dailySalesDB.data[mk][d][old]){dailySalesDB.data[mk][d][val]=dailySalesDB.data[mk][d][old];delete dailySalesDB.data[mk][d][old];}});});
+  var mk=dsKey(),list=dsStores(mk),st=list[i];if(!st){renderDaily();return;}
+  val=(val||"").trim();var old=st.name;if(!val||val===old){renderDaily();return;}
+  st.name=val;
+  var md=dailySalesDB.data[mk]||{};
+  Object.keys(md).forEach(function(d){if(md[d][old]){md[d][val]=md[d][old];delete md[d][old];}});
   saveDaily();renderDaily();
 }
 function _dsInput(val,onblur,extra){return '<input value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 4px;box-sizing:border-box;'+(extra||'')+'">';}
@@ -3006,7 +3032,7 @@ function renderDaily(){
   dsFillSelectors();
   var wrap=document.getElementById("dailyTableWrap");if(!wrap)return;
   var mk=dsKey(),p=mk.split("-"),Y=+p[0],M=+p[1],lastDay=new Date(Y,M,0).getDate();
-  var stores=dailySalesDB.stores,WD=["일","월","화","수","목","금","토"],NF=DS_FIELDS.length;
+  var stores=dsStores(mk),WD=["일","월","화","수","목","금","토"],NF=DS_FIELDS.length;
   var thb='background:#eaf1f9;border:1px solid #c5cdd9;color:#15528f';
   var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap">';
   h+='<thead>';
