@@ -2975,7 +2975,15 @@ function dsEdit(day,si,field,val){
   if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
   if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
   if(!dailySalesDB.data[mk][day][s.name])dailySalesDB.data[mk][day][s.name]={};
-  dailySalesDB.data[mk][day][s.name][field]=v;
+  var cell=dailySalesDB.data[mk][day][s.name];
+  cell[field]=v;
+  /* 백화점수량 + 온라인수량 → EDI수량 자동 합산 */
+  if(field==="deptQ"||field==="onlineQ"){
+    var eq=_dsN(cell.deptQ)+_dsN(cell.onlineQ);
+    cell.ediQ=eq?String(eq):"";
+    var inp=document.getElementById("dsIn_"+day+"_"+si+"_ediQ");
+    if(inp)inp.value=_dsFmt(eq);
+  }
   saveDaily();dsRecalc();
   return _dsFmt(num);
 }
@@ -3027,7 +3035,7 @@ function dsRenameStore(i,val){
   Object.keys(md).forEach(function(d){if(md[d][old]){md[d][val]=md[d][old];delete md[d][old];}});
   saveDaily();renderDaily();
 }
-function _dsInput(val,onblur,extra){return '<input value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 4px;box-sizing:border-box;'+(extra||'')+'">';}
+function _dsInput(val,onblur,idv){return '<input '+(idv?'id="'+idv+'" ':'')+'value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 4px;box-sizing:border-box">';}
 function renderDaily(){
   dsFillSelectors();
   var wrap=document.getElementById("dailyTableWrap");if(!wrap)return;
@@ -3071,7 +3079,7 @@ function renderDaily(){
     stores.forEach(function(s,si){
       var c=dsCell(mk,d,s.name);
       DS_FIELDS.forEach(function(f){
-        h+='<td style="border:1px solid #e1e6ee;padding:0">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)")+'</td>';
+        h+='<td style="border:1px solid #e1e6ee;padding:0">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k)+'</td>';
       });
     });
     h+='</tr>';
