@@ -2984,6 +2984,14 @@ function dsEdit(day,si,field,val){
     var inp=document.getElementById("dsIn_"+day+"_"+si+"_ediQ");
     if(inp)inp.value=_dsFmt(eq);
   }
+  /* EDI금액 ≠ PLAY MD금액 이면 색 표시 (즉시 갱신) */
+  if(field==="edi"||field==="playmd"){
+    var mism=_dsN(cell.edi)!==_dsN(cell.playmd);
+    ["edi","playmd"].forEach(function(fk){
+      var el=document.getElementById("dsIn_"+day+"_"+si+"_"+fk);
+      if(el&&el.parentNode)el.parentNode.style.background=mism?"#fee2e2":"";
+    });
+  }
   saveDaily();dsRecalc();
   return _dsFmt(num);
 }
@@ -3078,8 +3086,10 @@ function renderDaily(){
     h+='<td id="dsDay_'+d+'" style="position:sticky;left:58px;z-index:1;background:'+bg+';border:1px solid #e1e6ee;padding:4px 6px;text-align:right;font-weight:700;color:#15528f"></td>';
     stores.forEach(function(s,si){
       var c=dsCell(mk,d,s.name);
+      var mism=_dsN(c.edi)!==_dsN(c.playmd);
       DS_FIELDS.forEach(function(f){
-        h+='<td style="border:1px solid #e1e6ee;padding:0">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k)+'</td>';
+        var bg=(mism&&(f.k==="edi"||f.k==="playmd"))?"background:#fee2e2;":"";
+        h+='<td style="border:1px solid #e1e6ee;padding:0;'+bg+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k)+'</td>';
       });
     });
     h+='</tr>';
