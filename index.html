@@ -2984,13 +2984,13 @@ function dsEdit(day,si,field,val){
     var inp=document.getElementById("dsIn_"+day+"_"+si+"_ediQ");
     if(inp)inp.value=_dsFmt(eq);
   }
-  /* EDI금액 ≠ PLAY MD금액 이면 색 표시 (즉시 갱신) */
+  /* EDI금액 ≠ PLAY MD금액 이면 PLAY MD 금액을 빨강 표시 (즉시 갱신) */
   if(field==="edi"||field==="playmd"){
     var mism=_dsN(cell.edi)!==_dsN(cell.playmd);
-    ["edi","playmd"].forEach(function(fk){
-      var el=document.getElementById("dsIn_"+day+"_"+si+"_"+fk);
-      if(el&&el.parentNode)el.parentNode.style.background=mism?"#fee2e2":"";
-    });
+    var pm=document.getElementById("dsIn_"+day+"_"+si+"_playmd");
+    if(pm){pm.style.color=mism?"#dc2626":"";pm.style.fontWeight=mism?"700":"";if(pm.parentNode)pm.parentNode.style.background=mism?"#fee2e2":"";}
+    var ed=document.getElementById("dsIn_"+day+"_"+si+"_edi");
+    if(ed&&ed.parentNode)ed.parentNode.style.background="";
   }
   saveDaily();dsRecalc();
   return _dsFmt(num);
@@ -3043,7 +3043,7 @@ function dsRenameStore(i,val){
   Object.keys(md).forEach(function(d){if(md[d][old]){md[d][val]=md[d][old];delete md[d][old];}});
   saveDaily();renderDaily();
 }
-function _dsInput(val,onblur,idv){return '<input '+(idv?'id="'+idv+'" ':'')+'value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 4px;box-sizing:border-box">';}
+function _dsInput(val,onblur,idv,red){return '<input '+(idv?'id="'+idv+'" ':'')+'value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 4px;box-sizing:border-box;'+(red?'color:#dc2626;font-weight:700;':'')+'">';}
 function renderDaily(){
   dsFillSelectors();
   var wrap=document.getElementById("dailyTableWrap");if(!wrap)return;
@@ -3088,8 +3088,8 @@ function renderDaily(){
       var c=dsCell(mk,d,s.name);
       var mism=_dsN(c.edi)!==_dsN(c.playmd);
       DS_FIELDS.forEach(function(f){
-        var bg=(mism&&(f.k==="edi"||f.k==="playmd"))?"background:#fee2e2;":"";
-        h+='<td style="border:1px solid #e1e6ee;padding:0;'+bg+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k)+'</td>';
+        var red=(mism&&f.k==="playmd");
+        h+='<td style="border:1px solid #e1e6ee;padding:0;'+(red?"background:#fee2e2;":"")+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+'</td>';
       });
     });
     h+='</tr>';
