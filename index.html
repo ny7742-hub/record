@@ -211,6 +211,12 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 #deptScrollMirror::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:99px;border:3px solid #e5e7eb}
 #deptScrollMirror::-webkit-scrollbar-thumb:hover{background:#6366f1}
 #deptScrollMirrorInner{height:1px;display:block}
+#dailyScrollMirror{overflow-x:scroll;overflow-y:hidden;height:16px;margin:8px 0 6px}
+#dailyScrollMirror::-webkit-scrollbar{height:16px}
+#dailyScrollMirror::-webkit-scrollbar-track{background:#e5e7eb;border-radius:99px}
+#dailyScrollMirror::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:99px;border:3px solid #e5e7eb}
+#dailyScrollMirror::-webkit-scrollbar-thumb:hover{background:#6366f1}
+#dailyScrollMirrorInner{height:1px;display:block}
 .dept-col{flex:0 0 calc(20% - 9.6px);min-width:240px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:12px}
 .dept-col-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1.5px solid #e0e7ff}
 .dept-col-hd .store-name{font-size:17px;font-weight:700;color:#1a1a2e;white-space:nowrap}
@@ -618,6 +624,7 @@ label{font-size:14px!important}
       <span style="margin-left:auto;font-size:11px;color:#94a3b8">EDI·PLAY MD는 금액, 수량은 개수 · 셀 클릭 후 입력</span>
     </div>
   </div>
+  <div id="dailyScrollMirror"><div id="dailyScrollMirrorInner"></div></div>
   <div class="card" style="padding:0;overflow:hidden">
     <div id="dailyTableWrap" style="overflow-x:auto;padding:0"></div>
   </div>
@@ -3044,6 +3051,22 @@ function dsRenameStore(i,val){
   saveDaily();renderDaily();
 }
 function _dsInput(val,onblur,idv,red){return '<input '+(idv?'id="'+idv+'" ':'')+'value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 4px;box-sizing:border-box;'+(red?'color:#dc2626;font-weight:700;':'')+'">';}
+/* 매장별 표시 필드 — 온라인 매출 없는 매장은 온라인/온라인수량 열 제외 */
+function _dsFldsOf(name,mk){
+  var md=dailySalesDB.data[mk]||{},on=false;
+  for(var d in md){var c=md[d][name];if(c&&(_dsN(c.online)||_dsN(c.onlineQ))){on=true;break;}}
+  return on?DS_FIELDS:DS_FIELDS.filter(function(f){return f.k!=="online"&&f.k!=="onlineQ";});
+}
+function initDailyScroll(){
+  requestAnimationFrame(function(){
+    var mirror=document.getElementById("dailyScrollMirror"),wrap=document.getElementById("dailyTableWrap"),inner=document.getElementById("dailyScrollMirrorInner");
+    if(!mirror||!wrap||!inner)return;
+    var sw=wrap.scrollWidth;inner.style.width=(sw>0?sw:wrap.offsetWidth+1)+"px";
+    var syncing=false;
+    mirror.onscroll=function(){if(syncing)return;syncing=true;wrap.scrollLeft=mirror.scrollLeft;syncing=false;};
+    wrap.onscroll=function(){if(syncing)return;syncing=true;mirror.scrollLeft=wrap.scrollLeft;syncing=false;};
+  });
+}
 function renderDaily(){
   dsFillSelectors();
   var wrap=document.getElementById("dailyTableWrap");if(!wrap)return;
@@ -3058,7 +3081,7 @@ function renderDaily(){
   h+='<th rowspan="2" style="position:sticky;left:58px;top:0;z-index:5;'+thb+';padding:6px 6px;min-width:96px">달성금액<br><span style="font-size:10px;font-weight:600;color:#64748b">(EDI 합계)</span></th>';
   stores.forEach(function(s,si){
     var mi='width:78px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;text-align:right;padding:2px 4px;outline:none';
-    h+='<th colspan="'+NF+'" style="'+thb+';padding:5px 6px;vertical-align:top">';
+    h+='<th colspan="'+_dsFldsOf(s.name,mk).length+'" style="'+thb+';padding:5px 6px;vertical-align:top">';
     h+='<div style="display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span><button onclick="dsDelStore('+si+')" title="매장 삭제" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0">✕</button></div>';
     h+='<div style="display:flex;flex-wrap:wrap;gap:3px 8px;justify-content:center;font-size:11px;font-weight:600;color:#334155">';
     h+='<span>팝업 <input value="'+_esc(s.period||"")+'" onblur="dsMeta('+si+',\'period\',this.value)" style="width:96px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;padding:2px 4px;outline:none"></span>';
@@ -3072,7 +3095,7 @@ function renderDaily(){
   });
   h+='</tr><tr>';
   stores.forEach(function(s,si){
-    DS_FIELDS.forEach(function(f){
+    _dsFldsOf(s.name,mk).forEach(function(f){
       var qty=/Q$/.test(f.k);
       h+='<th style="position:sticky;top:52px;z-index:2;background:#f1f5f9;border:1px solid #c5cdd9;padding:3px 5px;color:#475569;font-size:11px;min-width:'+(qty?"46px":"76px")+'">'+f.t+'</th>';
     });
@@ -3083,7 +3106,7 @@ function renderDaily(){
   h+='<td style="position:sticky;left:0;z-index:1;background:#e2e8f5;border:1px solid #c5cdd9;padding:5px 6px;text-align:center;color:#15528f">총매출</td>';
   h+='<td id="dsGrand" style="position:sticky;left:58px;z-index:1;background:#e2e8f5;border:1px solid #c5cdd9;padding:5px 6px;text-align:right;color:#15528f"></td>';
   stores.forEach(function(s,si){
-    DS_FIELDS.forEach(function(f){
+    _dsFldsOf(s.name,mk).forEach(function(f){
       h+='<td id="dsTot_'+si+'_'+f.k+'" style="border:1px solid #c5cdd9;padding:5px 4px;text-align:right;color:#15528f"></td>';
     });
   });
@@ -3097,7 +3120,7 @@ function renderDaily(){
     stores.forEach(function(s,si){
       var c=dsCell(mk,d,s.name);
       var mism=_dsN(c.edi)!==_dsN(c.playmd);
-      DS_FIELDS.forEach(function(f){
+      _dsFldsOf(s.name,mk).forEach(function(f){
         var red=(mism&&f.k==="playmd");
         h+='<td style="border:1px solid #e1e6ee;padding:0;'+(red?"background:#fee2e2;":"")+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+'</td>';
       });
@@ -3107,6 +3130,7 @@ function renderDaily(){
   h+='</tbody></table>';
   wrap.innerHTML=h;
   dsRecalc();
+  initDailyScroll();
 }
 
 /* ── 발주서 ── */
