@@ -1688,6 +1688,13 @@ var deptStoresMeta=JSON.parse(localStorage.getItem("deptStoresMeta")||"{}");
   if(changed)localStorage.setItem("deptStoresMeta",JSON.stringify(deptStoresMeta));
 })();
 var deptDB=JSON.parse(localStorage.getItem("deptDB")||"{}");
+/* 온라인 매출이 없는 매장 — 이름에 아래 키워드가 포함되면 온라인 칸을 항상 제외 */
+var NO_ONLINE_STORE_KW=["청주","센텀","동부산","목동","김포공항","충청","울산"];
+function isNoOnlineStore(name){
+  if(!name)return false;
+  for(var i=0;i<NO_ONLINE_STORE_KW.length;i++)if(name.indexOf(NO_ONLINE_STORE_KW[i])>=0)return true;
+  return false;
+}
 
 // 팝업 기간 종료 여부 판정
 function parseKoreanDate(s){
@@ -2055,12 +2062,13 @@ function renderDeptAllStores(){
     if(!hasSales){
       h+='<label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#5b6675;cursor:pointer;padding:14px 0;border:1.5px dashed #e5e7eb;border-radius:8px;background:#fafafa" for="si'+si+'_sales">📂 매출 파일을 클릭하여 업로드</label>';
     }else{
+      var hasOnlineCol=!(isNoOnlineStore(store)||(_meta.popup));
       h+='<table class="s-tbl"><thead><tr>';
-      h+='<th style="width:56px"></th><th>백화점</th><th>온라인</th><th>합계</th>';
+      h+='<th style="width:56px"></th><th>백화점</th>'+(hasOnlineCol?'<th>온라인</th>':'')+'<th>합계</th>';
       h+='</tr></thead><tbody>';
-      h+='<tr><td class="row-label">영업매출</td><td class="calc neutral">'+fmt(thisDept)+'</td><td class="calc neutral">'+fmt(thisOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(thisTotal)+'</td></tr>';
-      h+='<tr><td class="row-label">대비매출</td><td class="calc neutral">'+fmt(lastDept)+'</td><td class="calc neutral">'+fmt(lastOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(lastTotal)+'</td></tr>';
-      h+='<tr><td class="row-label">영업수량</td><td class="calc neutral">'+fmt(thisQtyDept)+'</td><td class="calc neutral">'+fmt(thisQtyOnline)+'</td><td class="calc" style="font-weight:700">'+fmt(thisQtyTotal)+'</td></tr>';
+      h+='<tr><td class="row-label">영업매출</td><td class="calc neutral">'+fmt(thisDept)+'</td>'+(hasOnlineCol?'<td class="calc neutral">'+fmt(thisOnline)+'</td>':'')+'<td class="calc" style="font-weight:700">'+fmt(thisTotal)+'</td></tr>';
+      h+='<tr><td class="row-label">대비매출</td><td class="calc neutral">'+fmt(lastDept)+'</td>'+(hasOnlineCol?'<td class="calc neutral">'+fmt(lastOnline)+'</td>':'')+'<td class="calc" style="font-weight:700">'+fmt(lastTotal)+'</td></tr>';
+      h+='<tr><td class="row-label">영업수량</td><td class="calc neutral">'+fmt(thisQtyDept)+'</td>'+(hasOnlineCol?'<td class="calc neutral">'+fmt(thisQtyOnline)+'</td>':'')+'<td class="calc" style="font-weight:700">'+fmt(thisQtyTotal)+'</td></tr>';
       h+='</tbody></table>';
       h+='<div class="dept-info-row">';
       h+='<span class="growth'+(growth!=="-"&&Number(growth)<0?" neg":"")+'">신장률 '+(growth!=="-"?growth+"%":"-")+'</span>';
@@ -3005,7 +3013,9 @@ function dsEdit(day,si,field,val){
 function dsMeta(si,key,val){
   var s=dsStores()[si];if(!s)return "";
   if(key==="target"||key==="prevYear"){var num=_dsN(val);s[key]=(String(val).trim()===""?"":String(num));saveDaily();dsRecalc();return _dsFmt(num);}
-  s[key]=val;saveDaily();return val;
+  s[key]=val;saveDaily();
+  if(key==="period"){renderDaily();return val;}
+  return val;
 }
 function dsRecalc(){
   var mk=dsKey(),md=dailySalesDB.data[mk]||{},p=mk.split("-"),lastDay=new Date(+p[0],+p[1],0).getDate(),grand=0;
@@ -3053,9 +3063,13 @@ function dsRenameStore(i,val){
 function _dsInput(val,onblur,idv,red){return '<input '+(idv?'id="'+idv+'" ':'')+'value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 4px;box-sizing:border-box;'+(red?'color:#dc2626;font-weight:700;':'')+'">';}
 /* 매장별 표시 필드 — 온라인 매출 없는 매장은 온라인/온라인수량 열 제외 */
 function _dsFldsOf(name,mk){
+  var noOnline=DS_FIELDS.filter(function(f){return f.k!=="online"&&f.k!=="onlineQ";});
+  if(isNoOnlineStore(name))return noOnline;
+  var st=dsStores(mk).filter(function(s){return s.name===name;})[0];
+  if(st&&st.period)return noOnline; /* 팝업 매장(팝업기간 설정됨)은 온라인 칸 제외 */
   var md=dailySalesDB.data[mk]||{},on=false;
   for(var d in md){var c=md[d][name];if(c&&(_dsN(c.online)||_dsN(c.onlineQ))){on=true;break;}}
-  return on?DS_FIELDS:DS_FIELDS.filter(function(f){return f.k!=="online"&&f.k!=="onlineQ";});
+  return on?DS_FIELDS:noOnline;
 }
 function initDailyScroll(){
   requestAnimationFrame(function(){
@@ -3082,9 +3096,10 @@ function renderDaily(){
   stores.forEach(function(s,si){
     var mi='width:78px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;text-align:right;padding:2px 4px;outline:none';
     h+='<th colspan="'+_dsFldsOf(s.name,mk).length+'" style="'+thb+';padding:5px 6px;vertical-align:top">';
-    h+='<div style="display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span><button onclick="dsDelStore('+si+')" title="매장 삭제" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0">✕</button></div>';
+    var _dsPopupBanner=s.period?'<span style="font-size:12px;color:#ea580c;font-weight:700;white-space:nowrap;cursor:pointer" onclick="var el=document.getElementById(\'dsPeriod_'+si+'\');if(el){el.focus();el.select();}" title="클릭하여 팝업기간 수정">🎪'+_esc(s.period)+'</span>':'';
+    h+='<div style="display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span>'+_dsPopupBanner+'<button onclick="dsDelStore('+si+')" title="매장 삭제" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0">✕</button></div>';
     h+='<div style="display:flex;flex-wrap:wrap;gap:3px 8px;justify-content:center;font-size:11px;font-weight:600;color:#334155">';
-    h+='<span>팝업 <input value="'+_esc(s.period||"")+'" onblur="dsMeta('+si+',\'period\',this.value)" style="width:96px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;padding:2px 4px;outline:none"></span>';
+    h+='<span>팝업 <input id="dsPeriod_'+si+'" value="'+_esc(s.period||"")+'" onblur="dsMeta('+si+',\'period\',this.value)" style="width:96px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;padding:2px 4px;outline:none"></span>';
     h+='<span>목표 <input value="'+_esc(_dsFmt(_dsN(s.target)))+'" onblur="this.value=dsMeta('+si+',\'target\',this.value)" inputmode="numeric" style="'+mi+'"></span>';
     h+='<span>전년 <input value="'+_esc(_dsFmt(_dsN(s.prevYear)))+'" onblur="this.value=dsMeta('+si+',\'prevYear\',this.value)" inputmode="numeric" style="'+mi+'"></span>';
     h+='<span>달성 <b id="dsAch_'+si+'" style="color:#15528f"></b></span>';
