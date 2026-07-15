@@ -743,12 +743,12 @@ label{font-size:14px!important}
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:600;color:#475569">상품 검색 추가</span>
       <input type="text" id="ordSearch" oninput="ordSearchInput()" onkeydown="ordSearchKey(event)" placeholder="상품명·칼라 입력 (예: 루시 베이지)" autocomplete="off" style="flex:1;min-width:220px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
-      <span style="font-size:11px;color:#94a3b8">검색결과 클릭 시 기본 매장으로 행 추가</span>
+      <span style="font-size:11px;color:#94a3b8">검색결과 클릭 또는 표로 드래그 시 기본 매장으로 행 추가</span>
     </div>
     <div id="ordSearchResults" style="margin-top:6px"></div>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
-    <div id="ordTableWrap" style="overflow-x:auto;padding:0"></div>
+    <div id="ordTableWrap" style="overflow-x:auto;padding:0" ondragover="ordTableDragOver(event)" ondragleave="ordTableDragLeave(event)" ondrop="ordTableDrop(event)"></div>
   </div>
 </div>
 </div><!-- /page-order -->
@@ -3231,7 +3231,7 @@ function ordRenderSearch(){
   h+='<div id="ordSrList" style="max-height:280px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
   _ordResults.forEach(function(d,k){
     var on=(k===_ordResSel);
-    h+='<div id="ordSr_'+k+'" onclick="ordAddResult('+k+')" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(on?"#dbeafe":"")+'\'" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;background:'+(on?"#dbeafe":"")+'">'
+    h+='<div id="ordSr_'+k+'" draggable="true" ondragstart="ordDragStart(event,'+k+')" ondragend="ordDragEnd(event)" onclick="ordAddResult('+k+')" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(on?"#dbeafe":"")+'\'" title="클릭하거나 표로 드래그하면 추가됩니다" style="padding:6px 10px;font-size:12px;cursor:grab;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;background:'+(on?"#dbeafe":"")+'">'
       +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]+" "+(d["칼라명"]||""))+'</span>'
       +'<span style="color:#6366f1;font-family:monospace">'+_escX(d["자사코드"]||"")+'</span></div>';
   });
@@ -3256,6 +3256,34 @@ function ordAddResult(k){
   var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;
   var m=document.getElementById("ordMsg");if(m){m.textContent="✅ 추가됨";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},1500);}
   var si=document.getElementById("ordSearch");if(si)si.focus();
+}
+var _ordDragKey=null;
+function ordDragStart(e,k){
+  _ordDragKey=k;
+  if(e.dataTransfer){e.dataTransfer.effectAllowed="copy";try{e.dataTransfer.setData("text/plain",String(k));}catch(err){}}
+  e.currentTarget.style.opacity="0.4";
+}
+function ordDragEnd(e){
+  if(e&&e.currentTarget)e.currentTarget.style.opacity="";
+  _ordDragKey=null;
+  var w=document.getElementById("ordTableWrap");if(w)w.style.background="";
+}
+function ordTableDragOver(e){
+  if(_ordDragKey===null)return;
+  e.preventDefault();
+  if(e.dataTransfer)e.dataTransfer.dropEffect="copy";
+  var w=document.getElementById("ordTableWrap");if(w)w.style.background="#eff6ff";
+}
+function ordTableDragLeave(e){
+  var w=document.getElementById("ordTableWrap");if(w)w.style.background="";
+}
+function ordTableDrop(e){
+  e.preventDefault();
+  var w=document.getElementById("ordTableWrap");if(w)w.style.background="";
+  var k=_ordDragKey;
+  _ordDragKey=null;
+  if(k===null||k===undefined)return;
+  ordAddResult(k);
 }
 function ordSearchKey(e){
   if(!_ordResults.length)return;
