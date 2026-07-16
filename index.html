@@ -3247,10 +3247,12 @@ function renderOrder(){
     h+='<tr><td colspan="7" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
   }
   orderDB.rows.forEach(function(r,i){
-    h+='<tr>';
+    h+='<tr data-i="'+i+'">';
     h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><select onchange="ordEdit('+i+',\'store\',this.value)" style="border:none;outline:none;font-size:13px;background:transparent;color:#1f2937;max-width:210px">'+_ordStoreOptions(r.store)+'</select></td>';
-    h+='<td contenteditable="true" onblur="ordEdit('+i+',\'name\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;white-space:normal">'+_escX(r.name||"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:0;position:relative">'
+      +'<span contenteditable="true" onblur="ordEdit('+i+',\'name\',this.textContent.trim())" style="display:block;padding:5px 14px 5px 8px;outline:none;color:#1f2937;white-space:normal">'+_escX(r.name||"")+'</span>'
+      +'<span onmousedown="ordFillStart(event,'+i+')" title="드래그하면 이 상품명·코드를 위/아래 행에 복사합니다" style="position:absolute;right:2px;bottom:2px;width:9px;height:9px;background:#2563eb;border:1px solid #fff;cursor:crosshair;z-index:1"></span></td>';
     h+='<td contenteditable="true" onblur="ordEdit('+i+',\'code\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;font-family:monospace">'+_escX(r.code||"")+'</td>';
     h+='<td contenteditable="true" onblur="ordEdit('+i+',\'qty\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;text-align:right">'+_escX(r.qty||"")+'</td>';
     h+='<td id="ordPcode_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;color:#6366f1;font-weight:600;font-family:monospace;background:#f8fafc">'+_escX((r.code||"").slice(0,8))+'</td>';
@@ -3259,6 +3261,49 @@ function renderOrder(){
   });
   h+='</tbody></table>';
   wrap.innerHTML=h;
+}
+/* 상품명 셀 우하단 핸들 드래그: 위/아래 행에 상품명·코드 복사 (엑셀 채우기 핸들 방식) */
+var _ordFillSrc=null;
+function _ordFillRows(){return document.querySelectorAll('#ordTableWrap tbody tr[data-i]');}
+function _ordFillRowAt(clientY){
+  var found=null;
+  _ordFillRows().forEach(function(tr){
+    var rect=tr.getBoundingClientRect();
+    if(clientY>=rect.top&&clientY<=rect.bottom)found=+tr.dataset.i;
+  });
+  return found;
+}
+function _ordFillHighlight(cur){
+  if(_ordFillSrc===null)return;
+  var lo=Math.min(_ordFillSrc,cur===null?_ordFillSrc:cur),hi=Math.max(_ordFillSrc,cur===null?_ordFillSrc:cur);
+  _ordFillRows().forEach(function(tr){
+    var idx=+tr.dataset.i;
+    tr.style.background=(idx>=lo&&idx<=hi&&idx!==_ordFillSrc)?"#dbeafe":"";
+  });
+}
+function _ordFillMove(e){if(_ordFillSrc!==null)_ordFillHighlight(_ordFillRowAt(e.clientY));}
+function _ordFillEnd(e){
+  document.removeEventListener("mousemove",_ordFillMove);
+  document.removeEventListener("mouseup",_ordFillEnd);
+  if(_ordFillSrc===null)return;
+  var srcIdx=_ordFillSrc,cur=_ordFillRowAt(e.clientY);
+  _ordFillRows().forEach(function(tr){tr.style.background="";});
+  _ordFillSrc=null;
+  var src=orderDB.rows[srcIdx];
+  if(cur===null||cur===srcIdx||!src)return;
+  var lo=Math.min(srcIdx,cur),hi=Math.max(srcIdx,cur);
+  for(var idx=lo;idx<=hi;idx++){
+    if(idx===srcIdx||!orderDB.rows[idx])continue;
+    orderDB.rows[idx].name=src.name;
+    orderDB.rows[idx].code=src.code;
+  }
+  saveOrder();renderOrder();
+}
+function ordFillStart(e,i){
+  e.preventDefault();
+  _ordFillSrc=i;
+  document.addEventListener("mousemove",_ordFillMove);
+  document.addEventListener("mouseup",_ordFillEnd);
 }
 /* 판매일보식 2단계 검색: 입력→상품명 칩, Enter→색상 결과 나열, Enter→추가 */
 var _ordMatched=[], _ordChips=[], _ordChipSel=-1, _ordResults=[], _ordResSel=-1, _ordStage="chips";
