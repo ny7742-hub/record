@@ -4163,7 +4163,10 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"오비크", code:"690567", price:27990, colors:["블랙","크림","그레이"]},
     {name:"아르고", code:"690568", price:25990, colors:["챠콜","인디핑크","아이보리"]},
     {name:"헬로나", code:"690570", price:39990, colors:["블랙","브라운","카키"]},
-    {name:"듀리에", code:"WJA08I8M", price:21990, colors:["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"]}
+    {name:"듀리에", code:"WJA08I8M", price:21990, colors:["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"]},
+    {name:"포시타", code:"694099", price:33000, colors:["블루그린","블랙","딥브라운","세이지그린"]},
+    {name:"세팔로", code:"694100", price:33000, colors:["블랙","그레이블루"]},
+    {name:"루시아", code:"693954", price:33000, colors:["코튼핑크","딥블루"]}
   ],
   salePeriods:[],
   cumul:{},
@@ -4206,7 +4209,10 @@ var _defaultNewProds=[
   {name:"오비크",code:"690567",price:27990,colors:["블랙","크림","그레이"]},
   {name:"아르고",code:"690568",price:25990,colors:["챠콜","인디핑크","아이보리"]},
   {name:"헬로나",code:"690570",price:39990,colors:["블랙","브라운","카키"]},
-  {name:"듀리에",code:"WJA08I8M",price:21990,colors:["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"]}
+  {name:"듀리에",code:"WJA08I8M",price:21990,colors:["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"]},
+  {name:"포시타",code:"694099",price:33000,colors:["블루그린","블랙","딥브라운","세이지그린"]},
+  {name:"세팔로",code:"694100",price:33000,colors:["블랙","그레이블루"]},
+  {name:"루시아",code:"693954",price:33000,colors:["코튼핑크","딥블루"]}
 ];
 _defaultNewProds.forEach(function(np){
   if(!costcoDB.products.find(function(p){return p.name===np.name;})){
@@ -4221,6 +4227,33 @@ _defaultNewProds.forEach(function(np){
   if(d.price!==21990){d.price=21990;_needSave=true;}
   if(!d.code){d.code="WJA08I8M";_needSave=true;}
   if(!d.colors||wantColors.some(function(c){return d.colors.indexOf(c)<0;})){d.colors=wantColors;_needSave=true;}
+})();
+/* 장우산 3종(포시타/세팔로/루시아): 업로드 중 자동추가로 코드 없이/일부 색상만 등록된 경우 보정 */
+[
+  {name:"포시타",code:"694099",colors:["블루그린","블랙","딥브라운","세이지그린"]},
+  {name:"세팔로",code:"694100",colors:["블랙","그레이블루"]},
+  {name:"루시아",code:"693954",colors:["코튼핑크","딥블루"]}
+].forEach(function(cfg){
+  var p=costcoDB.products.find(function(x){return x.name===cfg.name;});
+  if(!p)return;
+  if(!p.code){p.code=cfg.code;_needSave=true;}
+  if(!p.colors||cfg.colors.some(function(c){return p.colors.indexOf(c)<0;})){p.colors=cfg.colors;_needSave=true;}
+});
+/* 우양산 세일(6/22~7/5) 종료 → 삭제, 장우산 3종(포시타/세팔로/루시아) 4,000원 할인(7/13~7/26, 29000원) 추가 */
+(function(){
+  var before=costcoDB.salePeriods.length;
+  costcoDB.salePeriods=costcoDB.salePeriods.filter(function(sp){
+    return !(sp.start==="2026-06-22"&&sp.end==="2026-07-05"&&sp.items&&(sp.items["우양산"]||sp.items["우양산 2종"]));
+  });
+  if(costcoDB.salePeriods.length!==before)_needSave=true;
+  var hasNew=costcoDB.salePeriods.some(function(sp){
+    return sp.start==="2026-07-13"&&sp.end==="2026-07-26"&&sp.items&&sp.items["포시타"]&&sp.items["세팔로"]&&sp.items["루시아"];
+  });
+  if(!hasNew){
+    costcoDB.salePeriods.push({start:"2026-07-13",end:"2026-07-26",items:{"포시타":29000,"세팔로":29000,"루시아":29000}});
+    costcoDB.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});
+    _needSave=true;
+  }
 })();
 /* 루시 "에쉬" → "애쉬" 칼라명 마이그레이션 */
 (function migrateEshToAesh(){
