@@ -933,7 +933,9 @@ function wsSetItem(key,value){
         var remoteTs=d._savedAt||0;
         if(remoteTs>localTs){
           costcoDB=d;
-          localStorage.setItem("costcoDB",JSON.stringify(d));
+          /* Firebase 데이터로 교체 후에도 상품/세일 보정 재적용 (루시아 등 신규 상품 유실 방지) */
+          if(typeof ccApplyDataFixes==="function")ccApplyDataFixes(costcoDB);
+          localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
           if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();
         }
       }catch(e){}
@@ -4219,42 +4221,49 @@ _defaultNewProds.forEach(function(np){
     costcoDB.products.push(np);_needSave=true;
   }
 });
-/* 듀리에: 업로드 중 자동추가 폴백(TAG가 평균)으로 잘못 등록된 가격/코드/색상 보정 (실제 판매가 21990원) */
-(function(){
-  var d=costcoDB.products.find(function(p){return p.name==="듀리에";});
-  if(!d)return;
-  var wantColors=["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"];
-  if(d.price!==21990){d.price=21990;_needSave=true;}
-  if(!d.code){d.code="WJA08I8M";_needSave=true;}
-  if(!d.colors||wantColors.some(function(c){return d.colors.indexOf(c)<0;})){d.colors=wantColors;_needSave=true;}
-})();
-/* 장우산 3종(포시타/세팔로/루시아): 업로드 중 자동추가로 코드 없이/일부 색상만 등록된 경우 보정 */
-[
-  {name:"포시타",code:"694099",colors:["블루그린","블랙","딥브라운","세이지그린"]},
-  {name:"세팔로",code:"694100",colors:["블랙","그레이블루"]},
-  {name:"루시아",code:"693954",colors:["코튼핑크","딥블루"]}
-].forEach(function(cfg){
-  var p=costcoDB.products.find(function(x){return x.name===cfg.name;});
-  if(!p)return;
-  if(!p.code){p.code=cfg.code;_needSave=true;}
-  if(!p.colors||cfg.colors.some(function(c){return p.colors.indexOf(c)<0;})){p.colors=cfg.colors;_needSave=true;}
-});
-/* 우양산 세일(6/22~7/5) 종료 → 삭제, 장우산 3종(포시타/세팔로/루시아) 4,000원 할인(7/13~7/26, 29000원) 추가 */
-(function(){
-  var before=costcoDB.salePeriods.length;
-  costcoDB.salePeriods=costcoDB.salePeriods.filter(function(sp){
+/* 상품/세일 데이터 보정 — 로드 시와 Firebase 동기화로 덮어쓴 뒤 양쪽에서 호출.
+   변경이 있었으면 true 반환 */
+function ccApplyDataFixes(db){
+  var ch=false;
+  if(!db||!db.products)return false;
+  if(!db.salePeriods)db.salePeriods=[];
+  /* 듀리에: 업로드 중 자동추가 폴백(TAG가 평균)으로 잘못 등록된 가격/코드/색상 보정 (실제 판매가 21990원) */
+  var d=db.products.find(function(p){return p.name==="듀리에";});
+  if(d){
+    var wantColors=["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"];
+    if(d.price!==21990){d.price=21990;ch=true;}
+    if(!d.code){d.code="WJA08I8M";ch=true;}
+    if(!d.colors||wantColors.some(function(c){return d.colors.indexOf(c)<0;})){d.colors=wantColors;ch=true;}
+  }
+  /* 장우산 3종(포시타/세팔로/루시아): 없으면 추가, 있으면 코드/색상 보정 */
+  [
+    {name:"포시타",code:"694099",price:33000,colors:["블루그린","블랙","딥브라운","세이지그린"]},
+    {name:"세팔로",code:"694100",price:33000,colors:["블랙","그레이블루"]},
+    {name:"루시아",code:"693954",price:33000,colors:["코튼핑크","딥블루"]}
+  ].forEach(function(cfg){
+    var p=db.products.find(function(x){return x.name===cfg.name;});
+    if(!p){db.products.push({name:cfg.name,code:cfg.code,price:cfg.price,colors:cfg.colors.slice()});ch=true;return;}
+    if(!p.code){p.code=cfg.code;ch=true;}
+    if(!p.colors||cfg.colors.some(function(c){return p.colors.indexOf(c)<0;})){p.colors=cfg.colors.slice();ch=true;}
+  });
+  /* 우양산 세일(6/22~7/5) 종료 → 삭제 */
+  var before=db.salePeriods.length;
+  db.salePeriods=db.salePeriods.filter(function(sp){
     return !(sp.start==="2026-06-22"&&sp.end==="2026-07-05"&&sp.items&&(sp.items["우양산"]||sp.items["우양산 2종"]));
   });
-  if(costcoDB.salePeriods.length!==before)_needSave=true;
-  var hasNew=costcoDB.salePeriods.some(function(sp){
+  if(db.salePeriods.length!==before)ch=true;
+  /* 장우산 3종 4,000원 할인(7/13~7/26, 29000원) 추가 */
+  var hasNew=db.salePeriods.some(function(sp){
     return sp.start==="2026-07-13"&&sp.end==="2026-07-26"&&sp.items&&sp.items["포시타"]&&sp.items["세팔로"]&&sp.items["루시아"];
   });
   if(!hasNew){
-    costcoDB.salePeriods.push({start:"2026-07-13",end:"2026-07-26",items:{"포시타":29000,"세팔로":29000,"루시아":29000}});
-    costcoDB.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});
-    _needSave=true;
+    db.salePeriods.push({start:"2026-07-13",end:"2026-07-26",items:{"포시타":29000,"세팔로":29000,"루시아":29000}});
+    db.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});
+    ch=true;
   }
-})();
+  return ch;
+}
+if(ccApplyDataFixes(costcoDB))_needSave=true;
 /* 루시 "에쉬" → "애쉬" 칼라명 마이그레이션 */
 (function migrateEshToAesh(){
   var changed=false;
