@@ -4162,7 +4162,8 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"아말리", code:"690569", price:27990, colors:["애쉬핑크","블랙","아이보리"]},
     {name:"오비크", code:"690567", price:27990, colors:["블랙","크림","그레이"]},
     {name:"아르고", code:"690568", price:25990, colors:["챠콜","인디핑크","아이보리"]},
-    {name:"헬로나", code:"690570", price:39990, colors:["블랙","브라운","카키"]}
+    {name:"헬로나", code:"690570", price:39990, colors:["블랙","브라운","카키"]},
+    {name:"듀리에", code:"WJA08I8M", price:21990, colors:["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"]}
   ],
   salePeriods:[],
   cumul:{},
@@ -4204,13 +4205,23 @@ var _defaultNewProds=[
   {name:"아말리",code:"690569",price:27990,colors:["애쉬핑크","블랙","아이보리"]},
   {name:"오비크",code:"690567",price:27990,colors:["블랙","크림","그레이"]},
   {name:"아르고",code:"690568",price:25990,colors:["챠콜","인디핑크","아이보리"]},
-  {name:"헬로나",code:"690570",price:39990,colors:["블랙","브라운","카키"]}
+  {name:"헬로나",code:"690570",price:39990,colors:["블랙","브라운","카키"]},
+  {name:"듀리에",code:"WJA08I8M",price:21990,colors:["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"]}
 ];
 _defaultNewProds.forEach(function(np){
   if(!costcoDB.products.find(function(p){return p.name===np.name;})){
     costcoDB.products.push(np);_needSave=true;
   }
 });
+/* 듀리에: 업로드 중 자동추가 폴백(TAG가 평균)으로 잘못 등록된 가격/코드/색상 보정 (실제 판매가 21990원) */
+(function(){
+  var d=costcoDB.products.find(function(p){return p.name==="듀리에";});
+  if(!d)return;
+  var wantColors=["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"];
+  if(d.price!==21990){d.price=21990;_needSave=true;}
+  if(!d.code){d.code="WJA08I8M";_needSave=true;}
+  if(!d.colors||wantColors.some(function(c){return d.colors.indexOf(c)<0;})){d.colors=wantColors;_needSave=true;}
+})();
 /* 루시 "에쉬" → "애쉬" 칼라명 마이그레이션 */
 (function migrateEshToAesh(){
   var changed=false;
