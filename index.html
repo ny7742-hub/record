@@ -4165,7 +4165,7 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"오비크", code:"690567", price:27990, colors:["블랙","크림","그레이"]},
     {name:"아르고", code:"690568", price:25990, colors:["챠콜","인디핑크","아이보리"]},
     {name:"헬로나", code:"690570", price:39990, colors:["블랙","브라운","카키"]},
-    {name:"듀리에", code:"WJA08I8M", price:21990, colors:["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"]},
+    {name:"듀리에", code:"WJA08I8M", price:21990, colors:["베이지","블랙"]},
     {name:"포시타", code:"694099", price:33000, colors:["블루그린","블랙","딥브라운","세이지그린"]},
     {name:"세팔로", code:"694100", price:33000, colors:["블랙","그레이블루"]},
     {name:"루시아", code:"693954", price:33000, colors:["코튼핑크","딥블루"]}
@@ -4211,7 +4211,7 @@ var _defaultNewProds=[
   {name:"오비크",code:"690567",price:27990,colors:["블랙","크림","그레이"]},
   {name:"아르고",code:"690568",price:25990,colors:["챠콜","인디핑크","아이보리"]},
   {name:"헬로나",code:"690570",price:39990,colors:["블랙","브라운","카키"]},
-  {name:"듀리에",code:"WJA08I8M",price:21990,colors:["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"]},
+  {name:"듀리에",code:"WJA08I8M",price:21990,colors:["베이지","블랙"]},
   {name:"포시타",code:"694099",price:33000,colors:["블루그린","블랙","딥브라운","세이지그린"]},
   {name:"세팔로",code:"694100",price:33000,colors:["블랙","그레이블루"]},
   {name:"루시아",code:"693954",price:33000,colors:["코튼핑크","딥블루"]}
@@ -4227,13 +4227,14 @@ function ccApplyDataFixes(db){
   var ch=false;
   if(!db||!db.products)return false;
   if(!db.salePeriods)db.salePeriods=[];
-  /* 듀리에: 업로드 중 자동추가 폴백(TAG가 평균)으로 잘못 등록된 가격/코드/색상 보정 (실제 판매가 21990원) */
+  /* 듀리에: 실제 판매는 베이지/블랙 2컬러, 판매가 21990원 — 다르면 강제 보정 */
   var d=db.products.find(function(p){return p.name==="듀리에";});
   if(d){
-    var wantColors=["베이지","블랙","라이트그레이","세이지그린","바이올렛","옐로우"];
+    var wantColors=["베이지","블랙"];
     if(d.price!==21990){d.price=21990;ch=true;}
     if(!d.code){d.code="WJA08I8M";ch=true;}
-    if(!d.colors||wantColors.some(function(c){return d.colors.indexOf(c)<0;})){d.colors=wantColors;ch=true;}
+    var colorsWrong=!d.colors||d.colors.length!==wantColors.length||wantColors.some(function(c){return d.colors.indexOf(c)<0;});
+    if(colorsWrong){d.colors=wantColors.slice();ch=true;}
   }
   /* 장우산 3종(포시타/세팔로/루시아): 없으면 추가, 있으면 코드/색상 보정 */
   [
