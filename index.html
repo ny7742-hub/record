@@ -4165,10 +4165,10 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"오비크", code:"690567", price:27990, colors:["블랙","크림","그레이"]},
     {name:"아르고", code:"690568", price:25990, colors:["챠콜","인디핑크","아이보리"]},
     {name:"헬로나", code:"690570", price:39990, colors:["블랙","브라운","카키"]},
-    {name:"듀리에", code:"WJA08I8M", price:21990, colors:["베이지","블랙"]},
     {name:"포시타", code:"694099", price:19990, colors:["블랙","세이지그린"]},
     {name:"세팔로", code:"694100", price:19990, colors:["블랙","그레이"]},
-    {name:"루시아", code:"693954", price:19990, colors:["화이트"]}
+    {name:"루시아", code:"693954", price:19990, colors:["화이트"]},
+    {name:"듀리에", code:"WJA08I8M", price:21990, colors:["베이지","블랙"]}
   ],
   salePeriods:[],
   cumul:{},
@@ -4211,10 +4211,10 @@ var _defaultNewProds=[
   {name:"오비크",code:"690567",price:27990,colors:["블랙","크림","그레이"]},
   {name:"아르고",code:"690568",price:25990,colors:["챠콜","인디핑크","아이보리"]},
   {name:"헬로나",code:"690570",price:39990,colors:["블랙","브라운","카키"]},
-  {name:"듀리에",code:"WJA08I8M",price:21990,colors:["베이지","블랙"]},
   {name:"포시타",code:"694099",price:19990,colors:["블랙","세이지그린"]},
   {name:"세팔로",code:"694100",price:19990,colors:["블랙","그레이"]},
-  {name:"루시아",code:"693954",price:19990,colors:["화이트"]}
+  {name:"루시아",code:"693954",price:19990,colors:["화이트"]},
+  {name:"듀리에",code:"WJA08I8M",price:21990,colors:["베이지","블랙"]}
 ];
 _defaultNewProds.forEach(function(np){
   if(!costcoDB.products.find(function(p){return p.name===np.name;})){
@@ -4281,6 +4281,21 @@ function ccApplyDataFixes(db){
       if(spNew.items[n]!==saleWant[n]){spNew.items[n]=saleWant[n];ch=true;}
     });
   }
+  /* 표시 순서: 포시타 → 세팔로 → 루시아 → 듀리에 (그룹 첫 상품 위치에 정렬 삽입) */
+  (function(){
+    var names=["포시타","세팔로","루시아","듀리에"];
+    var group=[];
+    names.forEach(function(n){var p=db.products.find(function(x){return x.name===n;});if(p)group.push(p);});
+    if(group.length<2)return;
+    var firstIdx=-1;
+    for(var i=0;i<db.products.length;i++){if(names.indexOf(db.products[i].name)>=0){firstIdx=i;break;}}
+    var rest=db.products.filter(function(p){return names.indexOf(p.name)<0;});
+    var insertAt=0;
+    for(var j=0;j<firstIdx;j++){if(names.indexOf(db.products[j].name)<0)insertAt++;}
+    var newArr=rest.slice(0,insertAt).concat(group,rest.slice(insertAt));
+    var changed=newArr.some(function(p,k){return db.products[k]!==p;});
+    if(changed){db.products=newArr;ch=true;}
+  })();
   return ch;
 }
 if(ccApplyDataFixes(costcoDB))_needSave=true;
