@@ -4166,9 +4166,9 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"아르고", code:"690568", price:25990, colors:["챠콜","인디핑크","아이보리"]},
     {name:"헬로나", code:"690570", price:39990, colors:["블랙","브라운","카키"]},
     {name:"듀리에", code:"WJA08I8M", price:21990, colors:["베이지","블랙"]},
-    {name:"포시타", code:"694099", price:33000, colors:["블루그린","블랙","딥브라운","세이지그린"]},
-    {name:"세팔로", code:"694100", price:33000, colors:["블랙","그레이블루"]},
-    {name:"루시아", code:"693954", price:33000, colors:["코튼핑크","딥블루"]}
+    {name:"포시타", code:"694099", price:19990, colors:["블랙","세이지그린"]},
+    {name:"세팔로", code:"694100", price:19990, colors:["블랙","그레이"]},
+    {name:"루시아", code:"693954", price:19990, colors:["화이트"]}
   ],
   salePeriods:[],
   cumul:{},
@@ -4212,9 +4212,9 @@ var _defaultNewProds=[
   {name:"아르고",code:"690568",price:25990,colors:["챠콜","인디핑크","아이보리"]},
   {name:"헬로나",code:"690570",price:39990,colors:["블랙","브라운","카키"]},
   {name:"듀리에",code:"WJA08I8M",price:21990,colors:["베이지","블랙"]},
-  {name:"포시타",code:"694099",price:33000,colors:["블루그린","블랙","딥브라운","세이지그린"]},
-  {name:"세팔로",code:"694100",price:33000,colors:["블랙","그레이블루"]},
-  {name:"루시아",code:"693954",price:33000,colors:["코튼핑크","딥블루"]}
+  {name:"포시타",code:"694099",price:19990,colors:["블랙","세이지그린"]},
+  {name:"세팔로",code:"694100",price:19990,colors:["블랙","그레이"]},
+  {name:"루시아",code:"693954",price:19990,colors:["화이트"]}
 ];
 _defaultNewProds.forEach(function(np){
   if(!costcoDB.products.find(function(p){return p.name===np.name;})){
@@ -4236,16 +4236,31 @@ function ccApplyDataFixes(db){
     var colorsWrong=!d.colors||d.colors.length!==wantColors.length||wantColors.some(function(c){return d.colors.indexOf(c)<0;});
     if(colorsWrong){d.colors=wantColors.slice();ch=true;}
   }
-  /* 장우산 3종(포시타/세팔로/루시아): 없으면 추가, 있으면 코드/색상 보정 */
+  /* 장우산 3종(포시타/세팔로/루시아): 없으면 추가, 있으면 코드/가격/색상 강제 보정 (코스트코 판매가 19990원) */
   [
-    {name:"포시타",code:"694099",price:33000,colors:["블루그린","블랙","딥브라운","세이지그린"]},
-    {name:"세팔로",code:"694100",price:33000,colors:["블랙","그레이블루"]},
-    {name:"루시아",code:"693954",price:33000,colors:["코튼핑크","딥블루"]}
+    {name:"포시타",code:"694099",price:19990,colors:["블랙","세이지그린"]},
+    {name:"세팔로",code:"694100",price:19990,colors:["블랙","그레이"]},
+    {name:"루시아",code:"693954",price:19990,colors:["화이트"]}
   ].forEach(function(cfg){
     var p=db.products.find(function(x){return x.name===cfg.name;});
     if(!p){db.products.push({name:cfg.name,code:cfg.code,price:cfg.price,colors:cfg.colors.slice()});ch=true;return;}
-    if(!p.code){p.code=cfg.code;ch=true;}
-    if(!p.colors||cfg.colors.some(function(c){return p.colors.indexOf(c)<0;})){p.colors=cfg.colors.slice();ch=true;}
+    if(p.code!==cfg.code){p.code=cfg.code;ch=true;}
+    if(p.price!==cfg.price){p.price=cfg.price;ch=true;}
+    var cw=!p.colors||p.colors.length!==cfg.colors.length||cfg.colors.some(function(c){return p.colors.indexOf(c)<0;});
+    if(cw){p.colors=cfg.colors.slice();ch=true;}
+  });
+  /* 루시아 매출 이관: 상품명 "…우양산 루시아"가 "루시"로 오매칭되어 루시/화이트로 기록된 판매를 루시아/화이트로 이동
+     (루시 보닛햇에는 화이트 색상이 없으므로 화이트 키는 전부 루시아 매출) */
+  Object.keys(db.sales||{}).forEach(function(pk){
+    var lu=db.sales[pk]&&db.sales[pk]["루시"];
+    if(!lu||!lu["화이트"])return;
+    if(!db.sales[pk]["루시아"])db.sales[pk]["루시아"]={};
+    var dst=db.sales[pk]["루시아"];
+    if(!dst["화이트"])dst["화이트"]={qty:0,amount:0};
+    dst["화이트"].qty=(Number(dst["화이트"].qty)||0)+(Number(lu["화이트"].qty)||0);
+    dst["화이트"].amount=(Number(dst["화이트"].amount)||0)+(Number(lu["화이트"].amount)||0);
+    delete lu["화이트"];
+    ch=true;
   });
   /* 우양산 세일(6/22~7/5) 종료 → 삭제 */
   var before=db.salePeriods.length;
@@ -4253,14 +4268,18 @@ function ccApplyDataFixes(db){
     return !(sp.start==="2026-06-22"&&sp.end==="2026-07-05"&&sp.items&&(sp.items["우양산"]||sp.items["우양산 2종"]));
   });
   if(db.salePeriods.length!==before)ch=true;
-  /* 장우산 3종 4,000원 할인(7/13~7/26, 29000원) 추가 */
-  var hasNew=db.salePeriods.some(function(sp){
-    return sp.start==="2026-07-13"&&sp.end==="2026-07-26"&&sp.items&&sp.items["포시타"]&&sp.items["세팔로"]&&sp.items["루시아"];
-  });
-  if(!hasNew){
-    db.salePeriods.push({start:"2026-07-13",end:"2026-07-26",items:{"포시타":29000,"세팔로":29000,"루시아":29000}});
+  /* 장우산 3종 4,000원 할인(7/13~7/26): 19990-4000=15990원. 없으면 추가, 있으면 세일가 보정 */
+  var saleWant={"포시타":15990,"세팔로":15990,"루시아":15990};
+  var spNew=db.salePeriods.find(function(sp){return sp.start==="2026-07-13"&&sp.end==="2026-07-26";});
+  if(!spNew){
+    db.salePeriods.push({start:"2026-07-13",end:"2026-07-26",items:saleWant});
     db.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});
     ch=true;
+  }else{
+    if(!spNew.items)spNew.items={};
+    Object.keys(saleWant).forEach(function(n){
+      if(spNew.items[n]!==saleWant[n]){spNew.items[n]=saleWant[n];ch=true;}
+    });
   }
   return ch;
 }
@@ -4641,9 +4660,13 @@ function ccAliasName(v){
 }
 function ccMatchProd(v){
   v=String(v||"").trim();
+  /* 가장 긴 상품명 우선 매칭 — "루시아"가 "루시"로 잘못 매칭되는 것 방지 */
+  var best=null;
   for(var i=0;i<costcoDB.products.length;i++){
-    if(v.indexOf(costcoDB.products[i].name)>=0)return costcoDB.products[i].name;
+    var nm=costcoDB.products[i].name;
+    if(v.indexOf(nm)>=0&&(!best||nm.length>best.length))best=nm;
   }
+  if(best)return best;
   /* 별칭 매핑(해당 상품이 등록돼 있을 때만) */
   var a=ccAliasName(v);
   if(a&&costcoDB.products.find(function(p){return p.name===a;}))return a;
