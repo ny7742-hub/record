@@ -643,6 +643,7 @@ label{font-size:14px!important}
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <button onclick="openSaleModal()" style="padding:5px 14px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🏷 세일</button>
       <button onclick="openProdModal()" style="padding:5px 14px;background:#334155;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📦 상품관리</button>
+      <button onclick="openPromoModal()" style="padding:5px 14px;background:#ea580c;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🎉 행사</button>
       <div id="ccSaleSummary" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
   </div>
@@ -4999,6 +5000,31 @@ function saveProdCodes(){
   var msg=document.getElementById("costcoMsg");
   if(msg){msg.textContent="✔ 상품번호 저장됨";setTimeout(function(){msg.textContent="";},2500);}
 }
+/* ── 행사 입력 모달 ── */
+function openPromoModal(){document.getElementById("ccPromoModal").style.display="block";renderPromoModal();}
+function closePromoModal(){document.getElementById("ccPromoModal").style.display="none";}
+function renderPromoModal(){
+  var el=document.getElementById("ccPromoList");if(!el)return;
+  var h="";
+  costcoDB.products.forEach(function(p,i){
+    h+='<div style="display:flex;align-items:center;gap:8px">';
+    h+='<label for="ccPromo_'+i+'" style="font-size:13px;font-weight:600;color:#374151;min-width:70px">'+_escX(p.name)+'</label>';
+    h+='<input type="text" id="ccPromo_'+i+'" value="'+_escX(p.promo||"")+'" placeholder="예: 2천원 할인 / 1+1" style="flex:1;padding:6px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">';
+    h+='</div>';
+  });
+  el.innerHTML=h;
+}
+function savePromos(){
+  costcoDB.products.forEach(function(p,i){
+    var inp=document.getElementById("ccPromo_"+i);
+    if(inp)p.promo=inp.value.trim();
+  });
+  saveCostcoDB();
+  renderCostcoPage();
+  closePromoModal();
+  var msg=document.getElementById("costcoMsg");
+  if(msg){msg.textContent="✔ 행사 저장됨";setTimeout(function(){msg.textContent="";},2500);}
+}
 /* 해당 주차에 특정 상품의 세일가 반환 (없으면 0) */
 /* 자동 행사상품: 상품명→{세일가, 기간} */
 var CC_AUTO_SALE=[
@@ -5181,6 +5207,7 @@ function renderCostcoPage(){
   var _hidden=costcoDB.hiddenProds||{};
   var visibleProds=(monthKeys.length?prods.filter(function(prod){
     if(ccGetSalePriceForMonth(prod.name))return true; /* 세일 등록 상품은 매출 없어도 표시 (신규 행사 준비용) */
+    if((prod.promo||'').trim())return true; /* 행사 기재 상품은 매출 없어도 표시 */
     return prod.colors.some(function(color){
       return monthKeys.some(function(k){
         var d=((costcoDB.sales[k]||{})[prod.name]||{})[color]||{};
@@ -5195,11 +5222,14 @@ function renderCostcoPage(){
       if(ci===0){
         var code=prod.code||'';
         var monthSalePrice=ccGetSalePriceForMonth(prod.name);
-        h+='<td class="cc-prod-cell cc-sticky-1" rowspan="'+prod.colors.length+'">';
+        var promo=(prod.promo||'').trim();
+        var promoBg=promo?'background:#fff7ed;':'';
+        h+='<td class="cc-prod-cell cc-sticky-1" rowspan="'+prod.colors.length+'" style="'+promoBg+'">';
         h+=prod.name;
         if(code)h+='<br><span style="font-size:13px;color:#6366f1;font-weight:600">('+code+')</span>';
         h+='<br><span style="font-size:13px;color:#374151;font-weight:600">'+prod.price.toLocaleString()+'원</span>';
         if(monthSalePrice)h+='<br><span style="font-size:13px;color:#dc2626;font-weight:700">세일가 '+monthSalePrice.toLocaleString()+'원</span>';
+        if(promo)h+='<br><span style="display:inline-block;margin-top:3px;background:#ea580c;color:#fff;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700">🎉 '+_escX(promo)+'</span>';
         h+='</td>';
       }
       var cumulVal=ccAutoCalcCumul(prod.name,color);
@@ -5586,6 +5616,19 @@ function deletePopupRow(i){
     <p style="font-size:12px;color:#5b6675;margin:0 0 14px">상품번호를 입력하고 <b>저장</b>을 누르면 즉시 반영됩니다.</p>
     <div id="ccProdList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>
     <button onclick="saveProdCodes()" style="width:100%;padding:10px;background:#334155;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">저장</button>
+  </div>
+</div>
+
+<!-- ===== 행사 입력 모달 ===== -->
+<div id="ccPromoModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2000;overflow-y:auto">
+  <div style="background:white;border-radius:16px;max-width:480px;margin:40px auto;padding:24px;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">🎉 행사 기재</h3>
+      <button onclick="closePromoModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#475569;line-height:1">×</button>
+    </div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 14px">상품별 행사 내용을 입력하고 <b>저장</b>하세요. 입력한 상품은 표에 <span style="background:#ea580c;color:#fff;border-radius:8px;padding:1px 6px;font-weight:700">🎉 행사</span> 표시가 됩니다. (비우면 표시 해제)</p>
+    <div id="ccPromoList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>
+    <button onclick="savePromos()" style="width:100%;padding:10px;background:#ea580c;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">저장</button>
   </div>
 </div>
 </body>
