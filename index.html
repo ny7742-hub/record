@@ -642,6 +642,7 @@ label{font-size:14px!important}
     </div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <button onclick="openSaleModal()" style="padding:5px 14px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🏷 세일</button>
+      <button onclick="openProdModal()" style="padding:5px 14px;background:#334155;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📦 상품관리</button>
       <div id="ccSaleSummary" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
   </div>
@@ -4168,7 +4169,7 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"포시타", code:"694099", price:19990, colors:["블랙","세이지그린"]},
     {name:"세팔로", code:"694100", price:19990, colors:["블랙","그레이"]},
     {name:"루시아", code:"693954", price:19990, colors:["화이트"]},
-    {name:"듀리에", code:"WJA08I8M", price:21990, colors:["베이지","블랙"]}
+    {name:"듀리에", code:"687979", price:21990, colors:["베이지","블랙"]}
   ],
   salePeriods:[],
   cumul:{},
@@ -4214,7 +4215,7 @@ var _defaultNewProds=[
   {name:"포시타",code:"694099",price:19990,colors:["블랙","세이지그린"]},
   {name:"세팔로",code:"694100",price:19990,colors:["블랙","그레이"]},
   {name:"루시아",code:"693954",price:19990,colors:["화이트"]},
-  {name:"듀리에",code:"WJA08I8M",price:21990,colors:["베이지","블랙"]}
+  {name:"듀리에",code:"687979",price:21990,colors:["베이지","블랙"]}
 ];
 _defaultNewProds.forEach(function(np){
   if(!costcoDB.products.find(function(p){return p.name===np.name;})){
@@ -4232,7 +4233,8 @@ function ccApplyDataFixes(db){
   if(d){
     var wantColors=["베이지","블랙"];
     if(d.price!==21990){d.price=21990;ch=true;}
-    if(!d.code){d.code="WJA08I8M";ch=true;}
+    /* 상품번호: 미입력 또는 옛 임시코드면 687979로 보정, 그 외 사용자 수정값은 유지 */
+    if(!d.code||d.code==="WJA08I8M"){d.code="687979";ch=true;}
     var colorsWrong=!d.colors||d.colors.length!==wantColors.length||wantColors.some(function(c){return d.colors.indexOf(c)<0;});
     if(colorsWrong){d.colors=wantColors.slice();ch=true;}
   }
@@ -4244,7 +4246,8 @@ function ccApplyDataFixes(db){
   ].forEach(function(cfg){
     var p=db.products.find(function(x){return x.name===cfg.name;});
     if(!p){db.products.push({name:cfg.name,code:cfg.code,price:cfg.price,colors:cfg.colors.slice()});ch=true;return;}
-    if(p.code!==cfg.code){p.code=cfg.code;ch=true;}
+    /* 상품번호는 미입력일 때만 기본값 적용 (사용자 수정값 유지) */
+    if(!p.code){p.code=cfg.code;ch=true;}
     if(p.price!==cfg.price){p.price=cfg.price;ch=true;}
     var cw=!p.colors||p.colors.length!==cfg.colors.length||cfg.colors.some(function(c){return p.colors.indexOf(c)<0;});
     if(cw){p.colors=cfg.colors.slice();ch=true;}
@@ -4971,6 +4974,31 @@ function deleteSalePeriod(i){
   costcoDB.salePeriods.splice(i,1);
   saveCostcoDB();renderSaleModal();renderCostcoPage();
 }
+/* ── 상품관리 모달 (상품번호 수정) ── */
+function openProdModal(){document.getElementById("ccProdModal").style.display="block";renderProdModal();}
+function closeProdModal(){document.getElementById("ccProdModal").style.display="none";}
+function renderProdModal(){
+  var el=document.getElementById("ccProdList");if(!el)return;
+  var h="";
+  costcoDB.products.forEach(function(p,i){
+    h+='<div style="display:flex;align-items:center;gap:8px">';
+    h+='<label for="ccPcode_'+i+'" style="font-size:13px;font-weight:600;color:#374151;min-width:70px">'+_escX(p.name)+'</label>';
+    h+='<input type="text" id="ccPcode_'+i+'" value="'+_escX(p.code||"")+'" placeholder="상품번호" style="flex:1;padding:6px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:monospace">';
+    h+='</div>';
+  });
+  el.innerHTML=h;
+}
+function saveProdCodes(){
+  costcoDB.products.forEach(function(p,i){
+    var inp=document.getElementById("ccPcode_"+i);
+    if(inp)p.code=inp.value.trim();
+  });
+  saveCostcoDB();
+  renderCostcoPage();
+  closeProdModal();
+  var msg=document.getElementById("costcoMsg");
+  if(msg){msg.textContent="✔ 상품번호 저장됨";setTimeout(function(){msg.textContent="";},2500);}
+}
 /* 해당 주차에 특정 상품의 세일가 반환 (없으면 0) */
 /* 자동 행사상품: 상품명→{세일가, 기간} */
 var CC_AUTO_SALE=[
@@ -5545,6 +5573,19 @@ function deletePopupRow(i){
       <div id="ccSaleNewProds" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
       <button onclick="addSalePeriodFromModal()" style="width:100%;padding:9px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">추가</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== 상품관리 모달 ===== -->
+<div id="ccProdModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2000;overflow-y:auto">
+  <div style="background:white;border-radius:16px;max-width:480px;margin:40px auto;padding:24px;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">📦 상품관리 · 상품번호 수정</h3>
+      <button onclick="closeProdModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#475569;line-height:1">×</button>
+    </div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 14px">상품번호를 입력하고 <b>저장</b>을 누르면 즉시 반영됩니다.</p>
+    <div id="ccProdList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>
+    <button onclick="saveProdCodes()" style="width:100%;padding:10px;background:#334155;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">저장</button>
   </div>
 </div>
 </body>
