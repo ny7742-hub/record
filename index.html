@@ -4230,10 +4230,29 @@ _defaultNewProds.forEach(function(np){
 });
 /* 상품/세일 데이터 보정 — 로드 시와 Firebase 동기화로 덮어쓴 뒤 양쪽에서 호출.
    변경이 있었으면 true 반환 */
+/* 코스트코 상품 페이지 URL (상품명 기준) — 최초 1회 시딩, 이후 사용자 수정값 유지 */
+var CC_PRODUCT_URLS={
+  "루시":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/White-Sands-Bonnet-Hat-Lucy/p/672564",
+  "로슬라":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/White-Sands-Women-Hat-Roslla/p/679601",
+  "소니아":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/Whitesands-UV-Protection-Visor-Sonia/p/672524",
+  "케디리":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/Whitesands-Linen-Bucket-Hat-Kediri/p/694467",
+  "일리안":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/Whitesands-Taslan-Portable-Bucket-Hat-Ilian/p/694468",
+  "린다우":"https://www.costco.co.kr/SportsFitnessCamping/HikingTrekking/White-Sands-UV-Protect-Ajustable-Strap-Mask-2ea/p/693952",
+  "아다나":"https://www.costco.co.kr/SportsFitnessCamping/HikingTrekking/White-Sands-UV-Protect-Cooling-Half-Mask-2ea/p/693950",
+  "메르신":"https://www.costco.co.kr/SportsFitnessCamping/HikingTrekking/White-Sands-UV-Sun-Protect-Ear-Loop-Mask-2ea/p/693953",
+  "포시타":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/694099",
+  "세팔로":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/694100",
+  "루시아":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/693954",
+  "듀리에":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/Whitesands-Hat-Dewlieh/p/687979"
+};
 function ccApplyDataFixes(db){
   var ch=false;
   if(!db||!db.products)return false;
   if(!db.salePeriods)db.salePeriods=[];
+  /* 상품 페이지 URL 시딩: url 속성이 아직 없을 때만 (사용자가 비우거나 수정하면 유지) */
+  db.products.forEach(function(p){
+    if(p.url===undefined&&CC_PRODUCT_URLS[p.name]){p.url=CC_PRODUCT_URLS[p.name];ch=true;}
+  });
   /* 듀리에: 실제 판매는 베이지/블랙 2컬러, 판매가 21990원 — 다르면 강제 보정 */
   var d=db.products.find(function(p){return p.name==="듀리에";});
   if(d){
@@ -4987,9 +5006,12 @@ function renderProdModal(){
   var el=document.getElementById("ccProdList");if(!el)return;
   var h="";
   costcoDB.products.forEach(function(p,i){
+    h+='<div style="display:flex;flex-direction:column;gap:4px;padding:7px 0;border-bottom:1px solid #f1f5f9">';
     h+='<div style="display:flex;align-items:center;gap:8px">';
     h+='<label for="ccPcode_'+i+'" style="font-size:13px;font-weight:600;color:#374151;min-width:70px">'+_escX(p.name)+'</label>';
     h+='<input type="text" id="ccPcode_'+i+'" value="'+_escX(p.code||"")+'" placeholder="상품번호" style="flex:1;padding:6px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:monospace">';
+    h+='</div>';
+    h+='<input type="text" id="ccPurl_'+i+'" value="'+_escX(p.url||"")+'" placeholder="상품 페이지 URL (https://...)" style="width:100%;padding:5px 9px;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;color:#475569">';
     h+='</div>';
   });
   el.innerHTML=h;
@@ -4998,6 +5020,8 @@ function saveProdCodes(){
   costcoDB.products.forEach(function(p,i){
     var inp=document.getElementById("ccPcode_"+i);
     if(inp)p.code=inp.value.trim();
+    var urlInp=document.getElementById("ccPurl_"+i);
+    if(urlInp)p.url=urlInp.value.trim();
   });
   saveCostcoDB();
   renderCostcoPage();
@@ -5247,7 +5271,8 @@ function renderCostcoPage(){
         var promo=(prod.promo||'').trim();
         var promoBg=promo?'background:#fff7ed;':'';
         h+='<td class="cc-prod-cell cc-sticky-1" rowspan="'+prod.colors.length+'" style="'+promoBg+'">';
-        h+=prod.name;
+        if(prod.url){h+='<a href="'+_escX(prod.url)+'" target="_blank" rel="noopener" title="코스트코 상품 페이지 열기" style="color:#0f172a;text-decoration:underline;text-decoration-color:#94a3b8;text-underline-offset:2px">'+prod.name+' <span style="font-size:12px;color:#2563eb">↗</span></a>';}
+        else{h+=prod.name;}
         if(code)h+='<br><span style="font-size:13px;color:#6366f1;font-weight:600">('+code+')</span>';
         h+='<br><span style="font-size:13px;color:#374151;font-weight:600">'+prod.price.toLocaleString()+'원</span>';
         if(monthSalePrice)h+='<br><span style="font-size:13px;color:#dc2626;font-weight:700">세일가 '+monthSalePrice.toLocaleString()+'원</span>';
@@ -5633,10 +5658,10 @@ function deletePopupRow(i){
 <div id="ccProdModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2000;overflow-y:auto">
   <div style="background:white;border-radius:16px;max-width:480px;margin:40px auto;padding:24px;position:relative">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">📦 상품관리 · 상품번호 수정</h3>
+      <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">📦 상품관리 · 상품번호/링크 수정</h3>
       <button onclick="closeProdModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#475569;line-height:1">×</button>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 14px">상품번호를 입력하고 <b>저장</b>을 누르면 즉시 반영됩니다.</p>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 14px">상품번호와 상품 페이지 URL을 입력하고 <b>저장</b>을 누르면 즉시 반영됩니다. URL을 넣으면 표에서 상품명 클릭 시 새 탭으로 열립니다.</p>
     <div id="ccProdList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>
     <button onclick="saveProdCodes()" style="width:100%;padding:10px;background:#334155;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">저장</button>
   </div>
