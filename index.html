@@ -5189,47 +5189,29 @@ function renderCostcoPage(){
   }
   h+='</colgroup><thead>';
 
-  /* ── 헤더 1행: 고정 컬럼 + 주차 범위 + 월 합계 ── */
+  /* ── 헤더 1행: 고정 컬럼 + 일자 + 월 합계 (주차 범위 행 제거, 일자별만 표시) ── */
   h+='<tr>';
-  h+='<th rowspan="3" class="cc-sticky-1" style="position:relative">구분 <button onclick="ccToggleFilterMenu(event)" title="필터" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#15528f;vertical-align:middle">▼</button></th>';
-  h+='<th rowspan="3" class="cc-sticky-2">누적<br>판매수량</th>';
-  h+='<th rowspan="3" class="cc-sticky-3">색상</th>';
-  h+='<th rowspan="3" class="cc-sticky-4">단종</th>';
+  h+='<th rowspan="2" class="cc-sticky-1" style="position:relative">구분 <button onclick="ccToggleFilterMenu(event)" title="필터" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#15528f;vertical-align:middle">▼</button></th>';
+  h+='<th rowspan="2" class="cc-sticky-2">누적<br>판매수량</th>';
+  h+='<th rowspan="2" class="cc-sticky-3">색상</th>';
+  h+='<th rowspan="2" class="cc-sticky-4">단종</th>';
   if(monthKeys.length){
-    weekGroups.forEach(function(wg,wi){
-      var bl=wi>0?'border-left:2px solid #d1d5db;':'';
-      h+='<th colspan="'+(wg.keys.length*2)+'" class="cc-period-th" style="'+bl+'">'+wg.range+'</th>';
+    monthKeys.forEach(function(k){
+      h+='<th colspan="2" style="font-size:11px">'+k+'</th>';
     });
     h+='<th colspan="2" style="background:#1e40af;color:white;text-align:center;border-left:2px solid #93c5fd;font-weight:700">'+_month+'월 합계</th>';
-  }else{
-    h+='<th style="color:#5b6675;font-style:italic">데이터 없음<br><span style="font-size:9px">파일 업로드 후 표시</span></th>';
-  }
-  h+='</tr>';
-
-  /* ── 헤더 2행: 날짜 ── */
-  if(monthKeys.length){
-    h+='<tr>';
-    monthKeys.forEach(function(k,i){
-      var prevWr=i>0?ccKeyToWeekRange(monthKeys[i-1],_year):'';
-      var curWr=ccKeyToWeekRange(k,_year);
-      var bl=(i>0&&prevWr!==curWr)?'border-left:2px solid #d1d5db;':'';
-      var label=k.indexOf('~')>=0?k:k;
-      var kEsc=k.replace(/'/g,"\\'");
-      h+='<th colspan="2" style="'+bl+'font-size:11px">'+label+'</th>';
-    });
-    h+='<th colspan="2" style="background:#1e40af;border-left:2px solid #93c5fd"></th>';
     h+='</tr>';
 
-    /* ── 헤더 3행: 수량/금액 ── */
+    /* ── 헤더 2행: 수량/금액 ── */
     h+='<tr>';
-    monthKeys.forEach(function(k,i){
-      var prevWr=i>0?ccKeyToWeekRange(monthKeys[i-1],_year):'';
-      var curWr=ccKeyToWeekRange(k,_year);
-      var bl=(i>0&&prevWr!==curWr)?'border-left:2px solid #d1d5db;':'';
-      h+='<th style="'+bl+'">수량</th><th>금액</th>';
+    monthKeys.forEach(function(k){
+      h+='<th>수량</th><th>금액</th>';
     });
     h+='<th style="background:#1e40af;color:#bfdbfe;border-left:2px solid #93c5fd">수량</th>';
     h+='<th style="background:#1e40af;color:#bfdbfe">금액</th>';
+    h+='</tr>';
+  }else{
+    h+='<th style="color:#5b6675;font-style:italic">데이터 없음<br><span style="font-size:9px">파일 업로드 후 표시</span></th>';
     h+='</tr>';
   }
   h+='</thead><tbody>';
@@ -5243,12 +5225,9 @@ function renderCostcoPage(){
   h+='<td class="cc-sticky-3" style="background:#e8eaf0;font-size:16px;color:#475569">컬러</td>';
   h+='<td class="cc-sticky-4" style="background:#e8eaf0"></td>';
   if(monthKeys.length){
-    monthKeys.forEach(function(k,i){
+    monthKeys.forEach(function(k){
       var t=ccPeriodTotal(k);
-      var prevWr=i>0?ccKeyToWeekRange(monthKeys[i-1],_year):'';
-      var curWr=ccKeyToWeekRange(k,_year);
-      var bl=(i>0&&prevWr!==curWr)?'border-left:2px solid #d1d5db;':'';
-      h+='<td style="'+bl+'">'+fmtCC(t.qty)+'</td><td style="text-align:right">'+fmtCC(t.amount)+'</td>';
+      h+='<td>'+fmtCC(t.qty)+'</td><td style="text-align:right">'+fmtCC(t.amount)+'</td>';
     });
     h+='<td class="cc-month-tot" style="border-left:2px solid #93c5fd">'+fmtCC(monthTotQty)+'</td>';
     h+='<td class="cc-month-tot" style="text-align:right">'+fmtCC(monthTotAmt)+'</td>';
@@ -5294,16 +5273,13 @@ function renderCostcoPage(){
       h+='<td class="cc-disc-cell cc-sticky-4" onclick="ccToggleDisc(\''+prod.name+'\',\''+color+'\')" title="클릭하여 단종 표시 전환">'+(isDisc?'<span style="color:#dc2626;font-weight:700;font-size:14px">단종</span>':'<span style="color:#cbd5e1;font-size:12px">–</span>')+'</td>';
       if(monthKeys.length){
         var mQty=0,mAmt=0;
-        monthKeys.forEach(function(k,i){
+        monthKeys.forEach(function(k){
           var d=((costcoDB.sales[k]||{})[prod.name]||{})[color]||{};
           var nodata=!(d.qty||d.amount);
           var isSaleProd=ccGetSalePriceForPeriod(prod.name,k)>0;
           var nd=(nodata&&!isSaleProd)?' cc-nodata':'';
           var saleCls=isSaleProd?' cc-sale-td':'';
-          var prevWr=i>0?ccKeyToWeekRange(monthKeys[i-1],_year):'';
-          var curWr=ccKeyToWeekRange(k,_year);
-          var bl=(i>0&&prevWr!==curWr)?'border-left:2px solid #e5e7eb':'';
-          h+='<td class="cc-num-cell'+nd+saleCls+' cc-sel-able" data-val="'+(d.qty||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="qty" style="'+bl+'">'+(d.qty?fmtCC(d.qty):'')+'</td>';
+          h+='<td class="cc-num-cell'+nd+saleCls+' cc-sel-able" data-val="'+(d.qty||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="qty">'+(d.qty?fmtCC(d.qty):'')+'</td>';
           h+='<td class="cc-amt-cell'+nd+saleCls+' cc-sel-able" data-val="'+(d.amount||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="amount">'+(d.amount?fmtCC(d.amount):'')+'</td>';
           mQty+=Number(d.qty||0); mAmt+=Number(d.amount||0);
         });
