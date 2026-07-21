@@ -291,9 +291,9 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-tbl .cc-nodata{background:#c8ccd4}
 .cc-tbl [contenteditable]:focus{outline:2px solid #6366f1;background:#eff6ff!important}
 .cc-tbl .cc-sticky-1{position:sticky;left:0;z-index:3}
-.cc-tbl .cc-sticky-2{position:sticky;left:76px;z-index:3}
-.cc-tbl .cc-sticky-3{position:sticky;left:130px;z-index:3}
-.cc-tbl .cc-sticky-4{position:sticky;left:200px;z-index:3;border-right:2px solid #5b6675!important}
+.cc-tbl .cc-sticky-2{position:sticky;left:var(--ccL2,76px);z-index:3}
+.cc-tbl .cc-sticky-3{position:sticky;left:var(--ccL3,130px);z-index:3}
+.cc-tbl .cc-sticky-4{position:sticky;left:var(--ccL4,200px);z-index:3;border-right:2px solid #5b6675!important}
 .cc-tbl thead .cc-sticky-1,.cc-tbl thead .cc-sticky-2,.cc-tbl thead .cc-sticky-3,.cc-tbl thead .cc-sticky-4{z-index:5;background:#374151}
 .cc-tbl .cc-total-row .cc-sticky-1,.cc-tbl .cc-total-row .cc-sticky-2,.cc-tbl .cc-total-row .cc-sticky-3,.cc-tbl .cc-total-row .cc-sticky-4{background:#e8eaf0}
 .cc-tbl .cc-prod-cell.cc-sticky-1{background:#f1f5f9}
@@ -304,6 +304,20 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-tbl tr.cc-disc-row td{color:#94a3b8}
 .cc-tbl tr.cc-disc-row .cc-color-cell{text-decoration:line-through}
 #costcoTableWrap{overflow-x:auto}
+/* 모바일: 표 글자·패딩·열 너비 축소 → 고정 열이 화면을 다 덮어 겹치는 문제 방지 */
+@media (max-width:700px){
+  .cc-tbl{font-size:12px}
+  .cc-tbl th,.cc-tbl td{padding:2px 5px!important;font-size:12px}
+  .cc-tbl .cc-prod-cell{font-size:12px!important;min-width:60px;max-width:96px;white-space:normal;word-break:break-all;line-height:1.25}
+  .cc-tbl .cc-prod-cell a{font-size:12px!important}
+  .cc-tbl .cc-prod-cell span{font-size:10px!important}
+  .cc-tbl .cc-prod-cell br+span{font-size:10px!important}
+  .cc-tbl .cc-cumul-cell{min-width:40px;font-size:12px!important}
+  .cc-tbl .cc-color-cell{min-width:46px;font-size:11px!important}
+  .cc-tbl .cc-disc-cell{min-width:36px}
+  .cc-tbl .cc-num-cell,.cc-tbl .cc-amt-cell{min-width:40px;font-size:12px}
+  .cc-tbl .cc-total-row td{font-size:12px!important}
+}
 #ccAddMonthDrop button:hover{background:#e0e7ff!important;color:#3730a3!important}
 .cc-period-th{position:relative}
 .cc-month-tot{background:#dbeafe;font-weight:700;text-align:right;color:#1e40af}
@@ -4940,13 +4954,35 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
     var td=e.target.closest('.cc-sel-able');
     if(td)applySelection(_startCoord,cellCoord(td));
   });
-  // 테이블 재렌더 후 선택 초기화
+  // 테이블 재렌더 후 선택 초기화 + 고정 열 오프셋 재계산
   var _origRender=window.renderCostcoPage;
   window.renderCostcoPage=function(){
     _origRender&&_origRender.apply(this,arguments);
     ccClearSel&&ccClearSel();
+    ccSyncStickyOffsets();
   };
+  window.addEventListener('resize',function(){ccSyncStickyOffsets();});
 })();
+/* 고정 열(구분/누적/색상/단종)의 실제 렌더 너비를 측정해 sticky left 오프셋을 정확히 맞춤
+   (셀 min-width·글자 크기로 실제 열이 colgroup보다 넓어져 모바일에서 겹치는 문제 방지) */
+function ccSyncStickyOffsets(){
+  var tbl=document.querySelector('#costcoTableWrap table.cc-tbl');
+  if(!tbl)return;
+  var headRow=tbl.querySelector('thead tr');
+  if(!headRow)return;
+  var c=[
+    headRow.querySelector('.cc-sticky-1'),
+    headRow.querySelector('.cc-sticky-2'),
+    headRow.querySelector('.cc-sticky-3'),
+    headRow.querySelector('.cc-sticky-4')
+  ];
+  if(c.some(function(x){return !x;}))return;
+  /* offsetLeft은 sticky 이동과 무관한 정상 위치를 반환 → 스크롤 상태와 상관없이 정확 */
+  var base=c[0].offsetLeft;
+  tbl.style.setProperty('--ccL2',(c[1].offsetLeft-base)+'px');
+  tbl.style.setProperty('--ccL3',(c[2].offsetLeft-base)+'px');
+  tbl.style.setProperty('--ccL4',(c[3].offsetLeft-base)+'px');
+}
 
 /* ─ 코스트코 연도/월 선택 (전략회의 방식) ─ */
 (function initCCSel(){
