@@ -313,6 +313,10 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-sel{outline:2px solid #2563eb!important;background:#dbeafe!important;color:#1e40af!important}
 #ccSelBar{display:none;padding:6px 16px;background:#1e293b;color:#f1f5f9;font-size:13px;font-weight:600;border-radius:0 0 8px 8px;gap:18px;align-items:center;user-select:none}
 #ccSelBar span{color:#93c5fd}
+#dsSelBar{display:none;padding:6px 16px;background:#1e293b;color:#f1f5f9;font-size:13px;font-weight:600;border-radius:0 0 8px 8px;gap:18px;align-items:center;user-select:none}
+#dsSelBar span{color:#93c5fd}
+.ds-sel-able.ds-sel{background:#bfdbfe!important;box-shadow:inset 0 0 0 1px #3b82f6}
+.ds-dragging,.ds-dragging *{user-select:none!important}
 .cc-sale-badge{display:none}
 .cc-prod-code{font-size:10px;color:#6366f1;font-weight:600;outline:none;cursor:text;border-radius:3px;min-width:20px;display:inline-block}
 .cc-prod-code:empty:before{content:"(코드)";color:#5b6675}
@@ -632,6 +636,13 @@ label{font-size:14px!important}
   <div id="dailyScrollMirror"><div id="dailyScrollMirrorInner"></div></div>
   <div class="card" style="padding:0;overflow:hidden">
     <div id="dailyTableWrap" style="overflow-x:auto;padding:0"></div>
+    <div id="dsSelBar" style="display:none">
+      <span>개수: <span id="dsSelCount">0</span></span>
+      <span>수량 합계: <span id="dsSelQty">0</span></span>
+      <span>금액 합계: <span id="dsSelAmt">0</span>원</span>
+      <span style="color:#fde68a;font-weight:800">합계: <span id="dsSelTotal">0</span></span>
+      <span style="margin-left:auto;font-size:11px;color:#cbd5e1;cursor:pointer" onclick="dsClearSel()">✕ 해제</span>
+    </div>
   </div>
 </div>
 </div><!-- /page-daily -->
@@ -3204,12 +3215,15 @@ function renderDaily(){
     h+='<tr>';
     h+='<td style="position:sticky;left:0;z-index:1;background:'+bg+';border:1px solid #e1e6ee;padding:4px 8px;text-align:center;font-weight:700;color:'+dcol+'">'+d+'('+WD[wd]+')</td>';
     h+='<td id="dsDay_'+d+'" style="position:sticky;left:58px;z-index:1;background:'+bg+';border:1px solid #e1e6ee;padding:4px 6px;text-align:right;font-weight:700;color:#15528f"></td>';
+    var _col=0;
     stores.forEach(function(s,si){
       var c=dsCell(mk,d,s.name);
       var mism=_dsN(c.edi)!==_dsN(c.playmd);
       _dsFldsOf(s.name,mk).forEach(function(f){
         var red=(mism&&f.k==="playmd");
-        h+='<td style="border:1px solid #e1e6ee;padding:0;'+(red?"background:#fee2e2;":"")+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+'</td>';
+        var isQ=/Q$/.test(f.k)?"1":"0";
+        h+='<td class="ds-sel-able" data-dsrow="'+d+'" data-dscol="'+_col+'" data-dsval="'+_dsN(c[f.k])+'" data-dsq="'+isQ+'" style="border:1px solid #e1e6ee;padding:0;'+(red?"background:#fee2e2;":"")+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+'</td>';
+        _col++;
       });
     });
     h+='</tr>';
@@ -3219,6 +3233,71 @@ function renderDaily(){
   dsRecalc();
   initDailyScroll();
 }
+
+/* ── 매장별 일별매출: 엑셀식 드래그 선택 + 합산 (셀 편집과 공존: 이동해야 선택 시작) ── */
+(function initDailySel(){
+  var _sel=[],_dragging=false,_pending=false,_startCoord=null,_startXY=null;
+  function cells(){return Array.prototype.slice.call(document.querySelectorAll('#dailyTableWrap .ds-sel-able'));}
+  function coord(td){return {row:+td.dataset.dsrow,col:+td.dataset.dscol};}
+  function apply(s,e){
+    if(!s||!e)return;
+    var r1=Math.min(s.row,e.row),r2=Math.max(s.row,e.row);
+    var c1=Math.min(s.col,e.col),c2=Math.max(s.col,e.col);
+    _sel=[];
+    cells().forEach(function(td){
+      var r=+td.dataset.dsrow,c=+td.dataset.dscol;
+      if(r>=r1&&r<=r2&&c>=c1&&c<=c2){td.classList.add('ds-sel');_sel.push(td);}
+      else td.classList.remove('ds-sel');
+    });
+    updateBar();
+  }
+  function updateBar(){
+    var bar=document.getElementById('dsSelBar');if(!bar)return;
+    if(_sel.length<2){bar.style.display='none';return;}
+    var qty=0,amt=0,tot=0;
+    _sel.forEach(function(td){
+      var inp=td.querySelector('input');
+      var v=_dsN(inp?inp.value:td.dataset.dsval);
+      tot+=v;
+      if(td.dataset.dsq==='1')qty+=v; else amt+=v;
+    });
+    document.getElementById('dsSelCount').textContent=_sel.length;
+    document.getElementById('dsSelQty').textContent=qty.toLocaleString();
+    document.getElementById('dsSelAmt').textContent=amt.toLocaleString();
+    document.getElementById('dsSelTotal').textContent=tot.toLocaleString();
+    bar.style.display='flex';
+  }
+  window.dsClearSel=function(){cells().forEach(function(td){td.classList.remove('ds-sel');});_sel=[];var b=document.getElementById('dsSelBar');if(b)b.style.display='none';};
+  document.addEventListener('mousedown',function(e){
+    var td=e.target.closest?e.target.closest('#dailyTableWrap .ds-sel-able'):null;
+    if(!td)return;
+    /* preventDefault 하지 않음 → 단순 클릭 시 입력창 포커스(편집) 유지 */
+    _pending=true;_dragging=false;_startCoord=coord(td);_startXY={x:e.clientX,y:e.clientY};
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!_pending)return;
+    if(!_dragging){
+      if(Math.abs(e.clientX-_startXY.x)<4&&Math.abs(e.clientY-_startXY.y)<4)return;
+      _dragging=true;
+      document.body.classList.add('ds-dragging');
+      if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
+      var sc=window.getSelection&&window.getSelection();if(sc&&sc.removeAllRanges)sc.removeAllRanges();
+      window.dsClearSel();
+      apply(_startCoord,_startCoord);
+    }
+    var el=document.elementFromPoint(e.clientX,e.clientY);
+    var td=el&&el.closest?el.closest('#dailyTableWrap .ds-sel-able'):null;
+    if(td)apply(_startCoord,coord(td));
+    e.preventDefault();
+  });
+  document.addEventListener('mouseup',function(){
+    if(_dragging)document.body.classList.remove('ds-dragging');
+    _pending=false;_dragging=false;
+  });
+  /* 재렌더 시 선택 초기화 */
+  var _origRenderDaily=window.renderDaily;
+  window.renderDaily=function(){_origRenderDaily.apply(this,arguments);if(window.dsClearSel)window.dsClearSel();};
+})();
 
 /* ── 발주서 ── */
 var ORDER_STORES=[
