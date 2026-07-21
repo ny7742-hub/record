@@ -292,8 +292,8 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-tbl [contenteditable]:focus{outline:2px solid #6366f1;background:#eff6ff!important}
 .cc-tbl .cc-sticky-1{position:sticky;left:0;z-index:3}
 .cc-tbl .cc-sticky-2{position:sticky;left:var(--ccL2,76px);z-index:3}
-.cc-tbl .cc-sticky-3{position:sticky;left:var(--ccL3,130px);z-index:3}
-.cc-tbl .cc-sticky-4{position:sticky;left:var(--ccL4,200px);z-index:3;border-right:2px solid #5b6675!important}
+.cc-tbl .cc-sticky-3{position:sticky;left:var(--ccL3,76px);z-index:3}
+.cc-tbl .cc-sticky-4{position:sticky;left:var(--ccL4,146px);z-index:3;border-right:2px solid #5b6675!important}
 .cc-tbl thead .cc-sticky-1,.cc-tbl thead .cc-sticky-2,.cc-tbl thead .cc-sticky-3,.cc-tbl thead .cc-sticky-4{z-index:5;background:#374151}
 .cc-tbl .cc-total-row .cc-sticky-1,.cc-tbl .cc-total-row .cc-sticky-2,.cc-tbl .cc-total-row .cc-sticky-3,.cc-tbl .cc-total-row .cc-sticky-4{background:#e8eaf0}
 .cc-tbl .cc-prod-cell.cc-sticky-1{background:#f1f5f9}
@@ -4963,25 +4963,31 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
   };
   window.addEventListener('resize',function(){ccSyncStickyOffsets();});
 })();
-/* 고정 열(구분/누적/색상/단종)의 실제 렌더 너비를 측정해 sticky left 오프셋을 정확히 맞춤
+/* 고정 열(구분/색상/단종)의 실제 렌더 너비를 측정해 sticky left 오프셋을 정확히 맞춤
    (셀 min-width·글자 크기로 실제 열이 colgroup보다 넓어져 모바일에서 겹치는 문제 방지) */
 function ccSyncStickyOffsets(){
-  var tbl=document.querySelector('#costcoTableWrap table.cc-tbl');
+  var wrap=document.getElementById('costcoTableWrap');
+  var tbl=wrap&&wrap.querySelector('table.cc-tbl');
   if(!tbl)return;
   var headRow=tbl.querySelector('thead tr');
   if(!headRow)return;
-  var c=[
-    headRow.querySelector('.cc-sticky-1'),
-    headRow.querySelector('.cc-sticky-2'),
-    headRow.querySelector('.cc-sticky-3'),
-    headRow.querySelector('.cc-sticky-4')
-  ];
-  if(c.some(function(x){return !x;}))return;
-  /* offsetLeft은 sticky 이동과 무관한 정상 위치를 반환 → 스크롤 상태와 상관없이 정확 */
-  var base=c[0].offsetLeft;
-  tbl.style.setProperty('--ccL2',(c[1].offsetLeft-base)+'px');
-  tbl.style.setProperty('--ccL3',(c[2].offsetLeft-base)+'px');
-  tbl.style.setProperty('--ccL4',(c[3].offsetLeft-base)+'px');
+  var c1=headRow.querySelector('.cc-sticky-1');
+  var c3=headRow.querySelector('.cc-sticky-3');
+  var c4=headRow.querySelector('.cc-sticky-4');
+  if(!c1||!c3||!c4)return;
+  /* sticky left 값이 자연 위치보다 크면 스크롤 0에서도 열을 오른쪽으로 밀어 gap을 만든다.
+     → 오프셋을 0으로 초기화하고 스크롤도 좌측 끝으로 되돌려 '자연 위치'를 측정한 뒤 복원 */
+  var prev=wrap.scrollLeft;
+  tbl.style.setProperty('--ccL3','0px');
+  tbl.style.setProperty('--ccL4','0px');
+  wrap.scrollLeft=0;
+  var base=c1.getBoundingClientRect().left;
+  var l3=c3.getBoundingClientRect().left-base;
+  var l4=c4.getBoundingClientRect().left-base;
+  /* 각 고정 열을 왼쪽 이웃과 1px 겹치게 해 서브픽셀 seam으로 데이터가 비치는 것 방지 */
+  tbl.style.setProperty('--ccL3',(l3-1)+'px');
+  tbl.style.setProperty('--ccL4',(l4-1)+'px');
+  wrap.scrollLeft=prev;
 }
 
 /* ─ 코스트코 연도/월 선택 (전략회의 방식) ─ */
@@ -5295,7 +5301,7 @@ function renderCostcoPage(){
   monthKeys.forEach(function(k){var t=ccPeriodTotal(k);monthTotQty+=t.qty;monthTotAmt+=t.amount;});
 
   var h='<table class="cc-tbl"><colgroup>';
-  h+='<col style="width:76px"><col style="width:54px"><col style="width:70px"><col style="width:56px">';
+  h+='<col style="width:76px"><col style="width:70px"><col style="width:56px">';
   if(monthKeys.length){
     monthKeys.forEach(function(){h+='<col style="width:56px"><col style="width:88px">';});
     h+='<col style="width:60px"><col style="width:90px">';
@@ -5306,8 +5312,7 @@ function renderCostcoPage(){
 
   /* ── 헤더 1행: 고정 컬럼 + 일자 + 월 합계 (주차 범위 행 제거, 일자별만 표시) ── */
   h+='<tr>';
-  h+='<th rowspan="2" class="cc-sticky-1" style="position:relative">구분 <button onclick="ccToggleFilterMenu(event)" title="필터" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#15528f;vertical-align:middle">▼</button></th>';
-  h+='<th rowspan="2" class="cc-sticky-2">누적<br>판매수량</th>';
+  h+='<th rowspan="2" class="cc-sticky-1">구분 <button onclick="ccToggleFilterMenu(event)" title="필터" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#15528f;vertical-align:middle">▼</button></th>';
   h+='<th rowspan="2" class="cc-sticky-3">색상</th>';
   h+='<th rowspan="2" class="cc-sticky-4">단종</th>';
   if(monthKeys.length){
@@ -5332,11 +5337,8 @@ function renderCostcoPage(){
   h+='</thead><tbody>';
 
   /* ── 누계 행 ── */
-  var totCumul=0;
-  prods.forEach(function(p){p.colors.forEach(function(c){totCumul+=ccAutoCalcCumul(p.name,c);});});
   h+='<tr class="cc-total-row">';
   h+='<td class="cc-sticky-1" style="background:#e8eaf0;font-size:16px;font-weight:700">누계</td>';
-  h+='<td class="cc-sticky-2" style="background:#e8eaf0;font-weight:700;text-align:right;font-size:16px">'+fmtCC(totCumul)+'</td>';
   h+='<td class="cc-sticky-3" style="background:#e8eaf0;font-size:16px;color:#475569">컬러</td>';
   h+='<td class="cc-sticky-4" style="background:#e8eaf0"></td>';
   if(monthKeys.length){
@@ -5382,8 +5384,6 @@ function renderCostcoPage(){
         if(promo)h+='<br><span style="display:inline-block;margin-top:3px;background:#ea580c;color:#fff;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700">🎉 '+_escX(promo)+'</span>';
         h+='</td>';
       }
-      var cumulVal=ccAutoCalcCumul(prod.name,color);
-      h+='<td class="cc-cumul-cell cc-sticky-2" style="text-align:right">'+(cumulVal?fmtCC(cumulVal):'')+'</td>';
       h+='<td class="cc-color-cell cc-sticky-3">'+color+'</td>';
       h+='<td class="cc-disc-cell cc-sticky-4" onclick="ccToggleDisc(\''+prod.name+'\',\''+color+'\')" title="클릭하여 단종 표시 전환">'+(isDisc?'<span style="color:#dc2626;font-weight:700;font-size:14px">단종</span>':'<span style="color:#cbd5e1;font-size:12px">–</span>')+'</td>';
       if(monthKeys.length){
