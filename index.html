@@ -939,7 +939,14 @@ function wsSetItem(key,value){
         var localTs=costcoDB&&costcoDB._savedAt?costcoDB._savedAt:0;
         var remoteTs=d._savedAt||0;
         if(remoteTs>localTs){
+          /* 단종 표시 유실 방지: 원격 교체 전 로컬 단종 표시를 보존해 병합 */
+          var _localDisc=(costcoDB&&costcoDB.discontinued)||{};
           costcoDB=d;
+          if(!costcoDB.discontinued)costcoDB.discontinued={};
+          Object.keys(_localDisc).forEach(function(nm){
+            if(!costcoDB.discontinued[nm])costcoDB.discontinued[nm]={};
+            Object.keys(_localDisc[nm]).forEach(function(cl){costcoDB.discontinued[nm][cl]=_localDisc[nm][cl];});
+          });
           /* Firebase 데이터로 교체 후에도 상품/세일 보정 재적용 (루시아 등 신규 상품 유실 방지) */
           if(typeof ccApplyDataFixes==="function")ccApplyDataFixes(costcoDB);
           localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
