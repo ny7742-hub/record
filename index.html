@@ -3197,6 +3197,88 @@ function initDailyScroll(){
     wrap.onscroll=function(){if(syncing)return;syncing=true;mirror.scrollLeft=wrap.scrollLeft;syncing=false;};
   });
 }
+/* ── 매장별 파일 업로드 (롯데 형식: 판매수량·총매출만 반영, PLAY MD 등 수기값 보존) ── */
+function dsParseDate(v){
+  if(v==null||v==="")return null;
+  if(v instanceof Date)return isNaN(v.getTime())?null:v;
+  if(typeof v==="number"){var d=new Date(Math.round((v-25569)*86400*1000));return isNaN(d.getTime())?null:d;}
+  var s=String(v).trim();
+  var m=s.match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  if(m)return new Date(+m[1],+m[2]-1,+m[3]);
+  var d2=new Date(s);return isNaN(d2.getTime())?null:d2;
+}
+function dsEnsureStore(mk,storeName){
+  if(!dailySalesDB.monthStores)dailySalesDB.monthStores={};
+  var list=dsStores(mk);
+  if(!list.some(function(s){return s.name===storeName;}))list.push({name:storeName,target:"",prevYear:"",period:""});
+}
+function dsLoadStoreFile(ev,si){
+  var file=ev.target.files&&ev.target.files[0];if(!file)return;
+  var st=dsStores()[si];var storeName=st&&st.name;
+  ev.target.value="";
+  if(!storeName){alert("매장을 찾을 수 없습니다.");return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+      dsParseLotte(rows,storeName);
+    }catch(err){alert("파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function dsParseLotte(rows,storeName){
+  /* 헤더에서 '판매수량'·'총매출' 그룹 시작 열 찾기 (하위 열: 백화점/온라인/모바일/합계) */
+  var psCol=-1,tsCol=-1;
+  for(var r=0;r<Math.min(8,rows.length);r++){
+    var row=rows[r]||[];
+    for(var c=0;c<row.length;c++){
+      var v=String(row[c]==null?"":row[c]).replace(/\s/g,"");
+      if(v==="판매수량"&&psCol<0)psCol=c;
+      if(v==="총매출"&&tsCol<0)tsCol=c;
+    }
+  }
+  if(psCol<0||tsCol<0){alert("롯데 형식 파일이 아닙니다.\n(판매수량·총매출 열을 찾을 수 없습니다)");return;}
+  var byMonth={},count=0;
+  rows.forEach(function(row){
+    if(!row)return;
+    var d=dsParseDate(row[0]);
+    if(!d)return;
+    var mk=d.getFullYear()+"-"+_ds2(d.getMonth()+1),day=d.getDate();
+    (byMonth[mk]=byMonth[mk]||{})[day]={
+      deptQ:_dsN(row[psCol]),        /* 판매수량 백화점 */
+      ediQ:_dsN(row[psCol+3]),       /* 판매수량 합계 */
+      dept:_dsN(row[tsCol]),         /* 총매출 백화점 */
+      edi:_dsN(row[tsCol+3])         /* 총매출 합계 → EDI(달성/총매출) */
+    };
+    count++;
+  });
+  if(!count){alert("인식된 일자 데이터가 없습니다.");return;}
+  Object.keys(byMonth).forEach(function(mk){
+    if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
+    dsEnsureStore(mk,storeName);
+    Object.keys(byMonth[mk]).forEach(function(day){
+      var vals=byMonth[mk][day];
+      if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
+      if(!dailySalesDB.data[mk][day][storeName])dailySalesDB.data[mk][day][storeName]={};
+      var cell=dailySalesDB.data[mk][day][storeName];
+      /* 판매수량·총매출 관련 칸만 덮어쓰고 PLAY MD·온라인 등 나머지 수기값은 보존 */
+      cell.deptQ=vals.deptQ?String(vals.deptQ):"";
+      cell.dept =vals.dept ?String(vals.dept ):"";
+      cell.ediQ =vals.ediQ ?String(vals.ediQ ):"";
+      cell.edi  =vals.edi  ?String(vals.edi  ):"";
+    });
+  });
+  saveDaily();
+  /* 파일 월로 이동 후 렌더 */
+  var mks=Object.keys(byMonth).sort(),targetMk=mks[mks.length-1],tp=targetMk.split("-");
+  var yEl=document.getElementById("dsYear"),mEl=document.getElementById("dsMonth");
+  if(yEl)yEl.value=+tp[0];if(mEl)mEl.value=+tp[1];
+  renderDaily();
+  var msg=document.getElementById("dsMsg");
+  if(msg){msg.textContent="✔ "+storeName+" "+count+"일 반영 (PLAY MD 유지)";setTimeout(function(){msg.textContent="";},4000);}
+}
 function renderDaily(){
   dsFillSelectors();
   var wrap=document.getElementById("dailyTableWrap");if(!wrap)return;
@@ -3213,7 +3295,8 @@ function renderDaily(){
     var mi='width:78px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;text-align:right;padding:2px 4px;outline:none';
     h+='<th colspan="'+_dsFldsOf(s.name,mk).length+'" style="'+thb+';padding:5px 6px;vertical-align:top">';
     var _dsPopupBanner=s.period?'<span style="font-size:12px;color:#ea580c;font-weight:700;white-space:nowrap;cursor:pointer" onclick="var el=document.getElementById(\'dsPeriod_'+si+'\');if(el){el.focus();el.select();}" title="클릭하여 팝업기간 수정">🎪'+_esc(s.period)+'</span>':'';
-    h+='<div style="display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span>'+_dsPopupBanner+'<button onclick="dsDelStore('+si+')" title="매장 삭제" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0">✕</button></div>';
+    var _dsUpBtn='<label title="파일 업로드 (판매수량·총매출)" style="cursor:pointer;font-size:12px;line-height:1;user-select:none">📁<input type="file" accept=".xlsx,.xls" style="display:none" onchange="dsLoadStoreFile(event,'+si+')"></label>';
+    h+='<div style="display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span>'+_dsPopupBanner+_dsUpBtn+'<button onclick="dsDelStore('+si+')" title="매장 삭제" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0">✕</button></div>';
     h+='<div style="display:flex;flex-wrap:wrap;gap:3px 8px;justify-content:center;font-size:11px;font-weight:600;color:#334155">';
     h+='<span>목표 <input value="'+_esc(_dsFmt(_dsN(s.target)))+'" onblur="this.value=dsMeta('+si+',\'target\',this.value)" inputmode="numeric" style="'+mi+'"></span>';
     h+='<span>달성 <b id="dsAch_'+si+'" style="color:#15528f"></b></span>';
