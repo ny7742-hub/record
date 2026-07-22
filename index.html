@@ -4978,18 +4978,39 @@ function ccSyncStickyOffsets(){
   var c3=headRow.querySelector('.cc-sticky-3');
   var c4=headRow.querySelector('.cc-sticky-4');
   if(!c1||!c3||!c4)return;
-  /* sticky left 값이 자연 위치보다 크면 스크롤 0에서도 열을 오른쪽으로 밀어 gap을 만든다.
-     → 오프셋을 0으로 초기화하고 스크롤도 좌측 끝으로 되돌려 '자연 위치'를 측정한 뒤 복원 */
+  /* border-collapse+sticky 환경에서는 sticky left 값과 실제 렌더 위치가 서브픽셀 이상 어긋나
+     열 사이에 gap이 생긴다. → 스크롤로 고정 열을 실제로 밀어붙인(clamped) 상태에서
+     렌더 위치를 측정해, 색상은 구분 바로 뒤·단종은 색상 바로 뒤에 붙도록 반복 보정한다. */
   var prev=wrap.scrollLeft;
+  /* 1차: 자연 위치(오프셋 0, 스크롤 0)에서 누적 폭 측정 */
   tbl.style.setProperty('--ccL3','0px');
   tbl.style.setProperty('--ccL4','0px');
   wrap.scrollLeft=0;
   var base=c1.getBoundingClientRect().left;
   var l3=c3.getBoundingClientRect().left-base;
   var l4=c4.getBoundingClientRect().left-base;
-  /* 각 고정 열을 왼쪽 이웃과 2px 겹치게 해 서브픽셀 seam으로 데이터가 비치는 것 방지 */
-  tbl.style.setProperty('--ccL3',(l3-2)+'px');
-  tbl.style.setProperty('--ccL4',(l4-2)+'px');
+  tbl.style.setProperty('--ccL3',l3+'px');
+  tbl.style.setProperty('--ccL4',l4+'px');
+  /* 2차: clamped 상태에서 실제 렌더 위치 기준으로 반복 보정 */
+  var clampX=Math.max(400,l4+150);
+  for(var i=0;i<5;i++){
+    wrap.scrollLeft=clampX;
+    var wl=wrap.getBoundingClientRect().left;
+    var prodR=c1.getBoundingClientRect().right-wl;
+    var colorL=c3.getBoundingClientRect().left-wl;
+    var colorR=c3.getBoundingClientRect().right-wl;
+    var discL=c4.getBoundingClientRect().left-wl;
+    var d3=colorL-prodR;   /* 색상이 구분 오른쪽 끝에서 시작하도록 */
+    var d4=discL-colorR;   /* 단종이 색상 오른쪽 끝에서 시작하도록 */
+    if(Math.abs(d3)<0.5&&Math.abs(d4)<0.5)break;
+    l3-=d3;
+    l4-=(d3+d4);
+    tbl.style.setProperty('--ccL3',l3+'px');
+    tbl.style.setProperty('--ccL4',l4+'px');
+  }
+  /* 1px 겹침으로 남은 서브픽셀 seam 제거 */
+  tbl.style.setProperty('--ccL3',(l3-1)+'px');
+  tbl.style.setProperty('--ccL4',(l4-1)+'px');
   wrap.scrollLeft=prev;
 }
 
