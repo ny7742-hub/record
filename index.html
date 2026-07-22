@@ -3223,7 +3223,7 @@ function dsLoadStoreFile(ev,si){
       var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
       var ws=wb.Sheets[wb.SheetNames[0]];
       var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-      dsParseLotte(rows,storeName);
+      dsDispatchStoreFile(rows,storeName);
     }catch(err){alert("파일 오류: "+err.message);}
   };
   reader.readAsArrayBuffer(file);
@@ -3255,6 +3255,48 @@ function dsParseLotte(rows,storeName){
     count++;
   });
   if(!count){alert("인식된 일자 데이터가 없습니다.");return;}
+  dsWriteImport(byMonth,storeName,count);
+}
+/* 현대 형식: 영업일(날짜) · 매출액(총매출) · 고객수(판매수량). 백화점/EDI 모두 매출액, 수량은 고객수 */
+function dsParseHyundai(rows,storeName){
+  var dateCol=-1,salesCol=-1,custCol=-1;
+  for(var r=0;r<Math.min(6,rows.length);r++){
+    var row=rows[r]||[];
+    for(var c=0;c<row.length;c++){
+      var v=String(row[c]==null?"":row[c]).replace(/\s/g,"");
+      if(v==="영업일"&&dateCol<0)dateCol=c;
+      if(v==="매출액"&&salesCol<0)salesCol=c;
+      if(v==="고객수"&&custCol<0)custCol=c;
+    }
+  }
+  if(dateCol<0)dateCol=5;
+  if(salesCol<0){alert("현대 형식 파일이 아닙니다.\n(매출액 열을 찾을 수 없습니다)");return;}
+  var byMonth={},count=0;
+  rows.forEach(function(row){
+    if(!row)return;
+    var d=dsParseDate(row[dateCol]);
+    if(!d)return;
+    var mk=d.getFullYear()+"-"+_ds2(d.getMonth()+1),day=d.getDate();
+    var sales=_dsN(row[salesCol]),qty=custCol>=0?_dsN(row[custCol]):0;
+    (byMonth[mk]=byMonth[mk]||{})[day]={deptQ:qty,ediQ:qty,dept:sales,edi:sales};
+    count++;
+  });
+  if(!count){alert("인식된 일자 데이터가 없습니다.");return;}
+  dsWriteImport(byMonth,storeName,count);
+}
+/* 파일 형식 자동 판별 (내용 기준, 실패 시 매장명 힌트) */
+function dsDispatchStoreFile(rows,storeName){
+  var flat=rows.slice(0,6).map(function(r){return (r||[]).map(function(c){return String(c==null?"":c).replace(/\s/g,"");});});
+  var has=function(kw){return flat.some(function(r){return r.indexOf(kw)>=0;});};
+  if(has("판매수량")&&has("총매출"))return dsParseLotte(rows,storeName);
+  if(has("영업일")||(has("매출액")&&has("고객수")))return dsParseHyundai(rows,storeName);
+  var nm=storeName||"";
+  if(nm.indexOf("롯데")>=0)return dsParseLotte(rows,storeName);
+  if(nm.indexOf("현대")>=0)return dsParseHyundai(rows,storeName);
+  alert("지원하지 않는 파일 형식입니다.\n(롯데: 판매수량·총매출 / 현대: 영업일·매출액·고객수)");
+}
+/* 공용: byMonth 데이터를 매장에 반영 (지정 칸만 덮어쓰고 PLAY MD 등 수기값 보존) */
+function dsWriteImport(byMonth,storeName,count){
   Object.keys(byMonth).forEach(function(mk){
     if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
     dsEnsureStore(mk,storeName);
@@ -3263,7 +3305,6 @@ function dsParseLotte(rows,storeName){
       if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
       if(!dailySalesDB.data[mk][day][storeName])dailySalesDB.data[mk][day][storeName]={};
       var cell=dailySalesDB.data[mk][day][storeName];
-      /* 판매수량·총매출 관련 칸만 덮어쓰고 PLAY MD·온라인 등 나머지 수기값은 보존 */
       cell.deptQ=vals.deptQ?String(vals.deptQ):"";
       cell.dept =vals.dept ?String(vals.dept ):"";
       cell.ediQ =vals.ediQ ?String(vals.ediQ ):"";
@@ -3271,7 +3312,6 @@ function dsParseLotte(rows,storeName){
     });
   });
   saveDaily();
-  /* 파일 월로 이동 후 렌더 */
   var mks=Object.keys(byMonth).sort(),targetMk=mks[mks.length-1],tp=targetMk.split("-");
   var yEl=document.getElementById("dsYear"),mEl=document.getElementById("dsMonth");
   if(yEl)yEl.value=+tp[0];if(mEl)mEl.value=+tp[1];
