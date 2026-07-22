@@ -217,6 +217,19 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 #dailyScrollMirror::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:99px;border:3px solid #e5e7eb}
 #dailyScrollMirror::-webkit-scrollbar-thumb:hover{background:#6366f1}
 #dailyScrollMirrorInner{height:1px;display:block}
+/* 코스트코 상단 스크롤 미러 */
+#costcoScrollMirror{overflow-x:scroll;overflow-y:hidden;height:16px;margin:8px 0 6px}
+#costcoScrollMirror::-webkit-scrollbar{height:16px}
+#costcoScrollMirror::-webkit-scrollbar-track{background:#e5e7eb;border-radius:99px}
+#costcoScrollMirror::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:99px;border:3px solid #e5e7eb}
+#costcoScrollMirror::-webkit-scrollbar-thumb:hover{background:#6366f1}
+#costcoScrollMirrorInner{height:1px;display:block}
+/* 3개 카테고리 표 하단 스크롤바 색상 통일 (백화점/매장별일별매출/코스트코) */
+#dailyTableWrap,#costcoTableWrap{scrollbar-width:auto;scrollbar-color:#a5b4fc #e5e7eb}
+#dailyTableWrap::-webkit-scrollbar,#costcoTableWrap::-webkit-scrollbar{height:16px}
+#dailyTableWrap::-webkit-scrollbar-track,#costcoTableWrap::-webkit-scrollbar-track{background:#e5e7eb;border-radius:99px}
+#dailyTableWrap::-webkit-scrollbar-thumb,#costcoTableWrap::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:99px;border:3px solid #e5e7eb}
+#dailyTableWrap::-webkit-scrollbar-thumb:hover,#costcoTableWrap::-webkit-scrollbar-thumb:hover{background:#6366f1}
 .dept-col{flex:0 0 calc(20% - 9.6px);min-width:240px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:12px}
 .dept-col-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1.5px solid #e0e7ff}
 .dept-col-hd .store-name{font-size:17px;font-weight:700;color:#1a1a2e;white-space:nowrap}
@@ -680,6 +693,7 @@ label{font-size:14px!important}
       <div id="ccSaleSummary" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
   </div>
+  <div id="costcoScrollMirror"><div id="costcoScrollMirrorInner"></div></div>
   <div class="card" style="padding:0;overflow:hidden">
     <div id="costcoTableWrap" style="overflow-x:auto;padding:0"></div>
     <div id="ccSelBar" style="display:flex">
@@ -3316,6 +3330,31 @@ function renderDaily(){
   window.renderDaily=function(){_origRenderDaily.apply(this,arguments);if(window.dsClearSel)window.dsClearSel();};
 })();
 
+/* ── 매장별 일별매출: 입력 셀 키보드 이동 (Enter/↓ 아래, ↑ 위, ←→ 좌우 셀) ── */
+(function initDailyKeyNav(){
+  function inputCells(row){return Array.prototype.filter.call(row.children,function(c){return c.querySelector&&c.querySelector('input');});}
+  function cellAt(row,col){if(!row)return null;var cs=inputCells(row);return cs[col]||null;}
+  document.addEventListener('keydown',function(e){
+    var inp=e.target;
+    if(!inp||!inp.id||inp.id.indexOf('dsIn_')!==0)return;
+    var key=e.key;
+    if(key!=='Enter'&&key!=='ArrowDown'&&key!=='ArrowUp'&&key!=='ArrowLeft'&&key!=='ArrowRight')return;
+    var td=inp.closest&&inp.closest('td');if(!td)return;
+    var tr=td.parentElement,tbody=tr.parentElement;
+    var rows=Array.prototype.filter.call(tbody.children,function(r){return r.querySelector('input');});
+    var rowCells=inputCells(tr);
+    var rowIdx=rows.indexOf(tr),col=rowCells.indexOf(td);
+    var target=null;
+    if(key==='Enter'||key==='ArrowDown'){target=cellAt(rows[rowIdx+1],col);}
+    else if(key==='ArrowUp'){target=cellAt(rows[rowIdx-1],col);}
+    else if(key==='ArrowRight'){ /* 커서가 끝일 때만 옆 셀로 이동 (텍스트 편집 방해 안 함) */
+      if(inp.selectionStart===inp.value.length&&inp.selectionEnd===inp.value.length)target=rowCells[col+1];}
+    else if(key==='ArrowLeft'){
+      if(inp.selectionStart===0&&inp.selectionEnd===0)target=rowCells[col-1];}
+    if(target){var t=target.querySelector('input');if(t){e.preventDefault();t.focus();if(t.select)t.select();}}
+  });
+})();
+
 /* ── 발주서 ── */
 var ORDER_STORES=[
   {code:"AVE", name:"롯데백화점 청량리점",      recv:"화이트샌즈", tel:"010-8839-9224", addr:"서울 동대문구 왕산로 214 롯데백화점 청량리점 2층"},
@@ -4963,9 +5002,21 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
     _origRender&&_origRender.apply(this,arguments);
     ccClearSel&&ccClearSel();
     ccSyncStickyOffsets();
+    initCostcoScroll();
   };
-  window.addEventListener('resize',function(){ccSyncStickyOffsets();});
+  window.addEventListener('resize',function(){ccSyncStickyOffsets();initCostcoScroll();});
 })();
+/* 코스트코 상단 스크롤 미러 ↔ 표 가로 스크롤 동기화 (백화점/매장별일별매출과 동일) */
+function initCostcoScroll(){
+  requestAnimationFrame(function(){
+    var mirror=document.getElementById("costcoScrollMirror"),wrap=document.getElementById("costcoTableWrap"),inner=document.getElementById("costcoScrollMirrorInner");
+    if(!mirror||!wrap||!inner)return;
+    var sw=wrap.scrollWidth;inner.style.width=(sw>0?sw:wrap.offsetWidth+1)+"px";
+    var syncing=false;
+    mirror.onscroll=function(){if(syncing)return;syncing=true;wrap.scrollLeft=mirror.scrollLeft;syncing=false;};
+    wrap.onscroll=function(){if(syncing)return;syncing=true;mirror.scrollLeft=wrap.scrollLeft;syncing=false;};
+  });
+}
 /* 고정 열(구분/색상/단종)의 실제 렌더 너비를 측정해 sticky left 오프셋을 정확히 맞춤
    (셀 min-width·글자 크기로 실제 열이 colgroup보다 넓어져 모바일에서 겹치는 문제 방지) */
 function ccSyncStickyOffsets(){
