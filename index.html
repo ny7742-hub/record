@@ -3625,31 +3625,41 @@ function ordRenderSearch(){
   });
   h+='</div>';
   h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
-  h+='<span style="font-size:11px;color:#94a3b8">↑↓ 이동 · Enter 추가 · 위 칩으로 상품 좁히기 (현재 '+_ordResults.length+'개)</span>';
-  h+='<button onclick="ordCopyResults()" title="검색 결과를 클립보드로 복사" style="margin-left:auto;padding:3px 10px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📋 검색내역 복사</button>';
-  h+='<span id="ordCopyMsg" style="font-size:11px;color:#059669;font-weight:700"></span>';
+  h+='<span style="font-size:11px;color:#94a3b8">↑↓ 이동 · Enter 추가 · 항목 더블클릭 = 복사 (현재 '+_ordResults.length+'개)</span>';
+  h+='<span id="ordCopyMsg" style="margin-left:auto;font-size:11px;color:#059669;font-weight:700"></span>';
   h+='</div>';
   h+='<div id="ordSrList" style="max-height:280px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
   _ordResults.forEach(function(d,k){
     var on=(k===_ordResSel);
-    h+='<div id="ordSr_'+k+'" draggable="true" ondragstart="ordDragStart(event,'+k+')" ondragend="ordDragEnd(event)" onclick="ordAddResult('+k+')" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(on?"#dbeafe":"")+'\'" title="클릭하거나 표로 드래그하면 추가됩니다" style="padding:6px 10px;font-size:12px;cursor:grab;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;background:'+(on?"#dbeafe":"")+'">'
-      +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]+" "+(d["칼라명"]||""))+'</span>'
-      +'<span style="color:#6366f1;font-family:monospace">'+_escX(d["자사코드"]||"")+'</span></div>';
+    var _full=(d["상품명"]+" "+(d["칼라명"]||"")).trim();
+    var _ccode=d["자사코드"]||"";
+    var _pcode=_ccode.slice(0,8);
+    h+='<div id="ordSr_'+k+'" draggable="true" ondragstart="ordDragStart(event,'+k+')" ondragend="ordDragEnd(event)" onclick="ordResultClick('+k+')" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(on?"#dbeafe":"")+'\'" title="클릭=추가 · 각 항목 더블클릭=복사" style="padding:6px 10px;font-size:12px;cursor:grab;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;background:'+(on?"#dbeafe":"")+'">'
+      +'<span ondblclick="ordCopyField(event,this,\'상품명\')" title="더블클릭하여 상품명 복사" style="flex:1;color:#1f2937;cursor:copy">'+_escX(_full)+'</span>'
+      +'<span ondblclick="ordCopyField(event,this,\'상품컬러코드\')" title="더블클릭하여 상품컬러코드 복사" style="color:#6366f1;font-family:monospace;cursor:copy">'+_escX(_ccode)+'</span>'
+      +'<span ondblclick="ordCopyField(event,this,\'상품코드\')" title="더블클릭하여 상품코드 복사" style="color:#0891b2;font-family:monospace;cursor:copy">'+_escX(_pcode)+'</span></div>';
   });
   h+='</div>';
   box.innerHTML=h;
   var selEl=document.getElementById("ordSr_"+_ordResSel);
   if(selEl)selEl.scrollIntoView({block:"nearest"});
 }
-/* 현재 검색 결과를 클립보드로 복사 (상품명 칼라명 / 자사코드 · 탭 구분 → 엑셀 붙여넣기 가능) */
-function ordCopyResults(){
-  if(!_ordResults||!_ordResults.length){alert("복사할 검색 결과가 없습니다.");return;}
-  var txt=_ordResults.map(function(d){
-    return (d["상품명"]+" "+(d["칼라명"]||"")).trim()+"\t"+(d["자사코드"]||"");
-  }).join("\n");
+/* 검색 결과 항목 클릭=추가. 더블클릭(복사) 시 추가가 두 번 되지 않도록 살짝 지연 후 실행 */
+var _ordClickTimer=null;
+function ordResultClick(k){
+  clearTimeout(_ordClickTimer);
+  _ordClickTimer=setTimeout(function(){ordAddResult(k);},220);
+}
+/* 항목 더블클릭 → 해당 값만 클립보드로 복사 (추가 동작은 취소) */
+function ordCopyField(ev,el,label){
+  if(ev){ev.stopPropagation();ev.preventDefault();}
+  clearTimeout(_ordClickTimer);
+  var txt=(el&&el.textContent||"").trim();
+  if(!txt)return;
   var done=function(){
     var m=document.getElementById("ordCopyMsg");
-    if(m){m.textContent="✔ "+_ordResults.length+"건 복사됨";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},2500);}
+    if(m){m.textContent="✔ "+label+" 복사됨";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},2000);}
+    if(el){var ob=el.style.background;el.style.background="#bbf7d0";setTimeout(function(){el.style.background=ob;},400);}
   };
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(done,function(){ordCopyFallback(txt,done);});
