@@ -3200,12 +3200,22 @@ function initDailyScroll(){
 /* ── 매장별 파일 업로드 (롯데 형식: 판매수량·총매출만 반영, PLAY MD 등 수기값 보존) ── */
 function dsParseDate(v){
   if(v==null||v==="")return null;
-  if(v instanceof Date)return isNaN(v.getTime())?null:v;
-  if(typeof v==="number"){var d=new Date(Math.round((v-25569)*86400*1000));return isNaN(d.getTime())?null:d;}
+  /* Date 객체로 들어온 경우: UTC 성분으로 달력 날짜를 복원 (로컬 변환 오차 회피) */
+  if(v instanceof Date){
+    if(isNaN(v.getTime()))return null;
+    return new Date(v.getUTCFullYear(),v.getUTCMonth(),v.getUTCDate());
+  }
+  /* 엑셀 날짜 시리얼: 1899-12-30을 UTC 기준 기점으로 계산해 타임존 영향 제거 */
+  if(typeof v==="number"){
+    if(v<20000||v>80000)return null;
+    var dt=new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000);
+    if(isNaN(dt.getTime()))return null;
+    return new Date(dt.getUTCFullYear(),dt.getUTCMonth(),dt.getUTCDate());
+  }
   var s=String(v).trim();
   var m=s.match(/(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
   if(m)return new Date(+m[1],+m[2]-1,+m[3]);
-  var d2=new Date(s);return isNaN(d2.getTime())?null:d2;
+  var d2=new Date(s);return isNaN(d2.getTime())?null:new Date(d2.getFullYear(),d2.getMonth(),d2.getDate());
 }
 function dsEnsureStore(mk,storeName){
   if(!dailySalesDB.monthStores)dailySalesDB.monthStores={};
@@ -3220,7 +3230,10 @@ function dsLoadStoreFile(ev,si){
   var reader=new FileReader();
   reader.onload=function(e){
     try{
-      var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+      /* cellDates 미사용: SheetJS는 1899-12-30 '로컬' 기준으로 시리얼을 변환하는데
+         한국 1899년 표준시(+08:27:52)와 현재 KST(+09:00)의 32분 차이로 날짜가 하루 밀린다.
+         → 시리얼 숫자를 그대로 받아 dsParseDate에서 UTC 기준으로 변환 */
+      var wb=XLSX.read(e.target.result,{type:"array"});
       var ws=wb.Sheets[wb.SheetNames[0]];
       var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
       dsDispatchStoreFile(rows,storeName);
@@ -5131,14 +5144,18 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
 })();
 /* 코스트코 상단 스크롤 미러 ↔ 표 가로 스크롤 동기화 (백화점/매장별일별매출과 동일) */
 function initCostcoScroll(){
-  requestAnimationFrame(function(){
+  var apply=function(){
     var mirror=document.getElementById("costcoScrollMirror"),wrap=document.getElementById("costcoTableWrap"),inner=document.getElementById("costcoScrollMirrorInner");
     if(!mirror||!wrap||!inner)return;
-    var sw=wrap.scrollWidth;inner.style.width=(sw>0?sw:wrap.offsetWidth+1)+"px";
+    var sw=wrap.scrollWidth;
+    if(sw>0)inner.style.width=sw+"px";   /* 표가 아직 안 그려졌으면 기존 폭 유지 */
     var syncing=false;
     mirror.onscroll=function(){if(syncing)return;syncing=true;wrap.scrollLeft=mirror.scrollLeft;syncing=false;};
     wrap.onscroll=function(){if(syncing)return;syncing=true;mirror.scrollLeft=wrap.scrollLeft;syncing=false;};
-  });
+  };
+  apply();                        /* 즉시 (렌더 직후 레이아웃 사용 가능) */
+  requestAnimationFrame(apply);   /* 레이아웃 확정 후 보정 */
+  setTimeout(apply,0);            /* rAF 미발화 환경 대비 */
 }
 /* 고정 열(구분/색상/단종)의 실제 렌더 너비를 측정해 sticky left 오프셋을 정확히 맞춤
    (셀 min-width·글자 크기로 실제 열이 colgroup보다 넓어져 모바일에서 겹치는 문제 방지) */
