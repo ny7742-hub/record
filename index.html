@@ -5297,7 +5297,7 @@ function renderSaleModal(){
   if(listEl){
     var lh="";
     (costcoDB.salePeriods||[]).forEach(function(sp,i){
-      var sd=new Date(sp.start),ed=new Date(sp.end);
+      var sd=_ccYMD(sp.start),ed=_ccYMD(sp.end);
       var label=(sd.getMonth()+1)+"/"+(sd.getDate())+"~"+(ed.getMonth()+1)+"/"+(ed.getDate());
       var prods=Object.keys(sp.items||{}).map(function(k){return k+' '+Number(sp.items[k]).toLocaleString()+'원';}).join(', ');
       lh+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;margin-bottom:6px;gap:8px">';
@@ -5429,6 +5429,12 @@ function _ccAutoCfg(prodName){
   return null;
 }
 function ccAutoSalePrice(prodName){var c=_ccAutoCfg(prodName);return c?c.price:0;}
+/* "YYYY-MM-DD"를 로컬 자정으로 파싱. new Date("2026-07-21")은 UTC 자정이라
+   로컬로 만든 날짜(new Date(y,m,d))와 비교 시 KST에서 9시간 어긋나 세일 첫날이 누락된다. */
+function _ccYMD(s){
+  var m=String(s||"").match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m?new Date(+m[1],+m[2]-1,+m[3]):new Date(s);
+}
 function ccGetSalePriceForPeriod(prodName,periodStr){
   var yr=parseInt((document.getElementById("ccYear")||{}).value)||new Date().getFullYear();
   var pStart,pEnd;
@@ -5446,7 +5452,7 @@ function ccGetSalePriceForPeriod(prodName,periodStr){
   }
   var price=0;
   (costcoDB.salePeriods||[]).forEach(function(sp){
-    if(pStart<=new Date(sp.end)&&pEnd>=new Date(sp.start)){
+    if(pStart<=_ccYMD(sp.end)&&pEnd>=_ccYMD(sp.start)){
       if(sp.items&&sp.items[prodName])price=sp.items[prodName];
     }
   });
@@ -5464,7 +5470,7 @@ function ccGetSalePriceForMonth(prodName){
   }
   var price=0;
   (costcoDB.salePeriods||[]).some(function(sp){
-    if(mStart<=new Date(sp.end)&&mEnd>=new Date(sp.start)&&sp.items&&sp.items[prodName]){
+    if(mStart<=_ccYMD(sp.end)&&mEnd>=_ccYMD(sp.start)&&sp.items&&sp.items[prodName]){
       price=sp.items[prodName];return true;
     }
   });
@@ -5487,8 +5493,8 @@ function renderCcSaleSummary(){
     }
   });
   (costcoDB.salePeriods||[]).forEach(function(sp){
-    if(mStart<=new Date(sp.end)&&mEnd>=new Date(sp.start)){
-      var sd=new Date(sp.start),ed=new Date(sp.end);
+    if(mStart<=_ccYMD(sp.end)&&mEnd>=_ccYMD(sp.start)){
+      var sd=_ccYMD(sp.start),ed=_ccYMD(sp.end);
       var label=(sd.getMonth()+1)+"/"+(sd.getDate())+"~"+(ed.getMonth()+1)+"/"+(ed.getDate());
       /* 자동 행사상품은 위에서 이미 표기 → 제외 */
       var names=sp.items?Object.keys(sp.items).filter(function(n){return !_ccAutoCfg(n);}):[];
