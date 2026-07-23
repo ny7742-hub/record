@@ -3200,14 +3200,20 @@ function initDailyScroll(){
 /* ── 매장별 파일 업로드 (롯데 형식: 판매수량·총매출만 반영, PLAY MD 등 수기값 보존) ── */
 function dsParseDate(v){
   if(v==null||v==="")return null;
-  /* Date 객체로 들어온 경우: UTC 성분으로 달력 날짜를 복원 (로컬 변환 오차 회피) */
+  /* Date 객체: SheetJS는 '로컬 자정'으로 만들므로 로컬 성분을 써야 날짜가 맞다 */
   if(v instanceof Date){
     if(isNaN(v.getTime()))return null;
-    return new Date(v.getUTCFullYear(),v.getUTCMonth(),v.getUTCDate());
+    return new Date(v.getFullYear(),v.getMonth(),v.getDate());
   }
-  /* 엑셀 날짜 시리얼: 1899-12-30을 UTC 기준 기점으로 계산해 타임존 영향 제거 */
+  /* 엑셀 날짜 시리얼: SheetJS 자체 디코더(SSF)를 우선 사용 — 타임존 영향 없음 */
   if(typeof v==="number"){
     if(v<20000||v>80000)return null;
+    try{
+      if(window.XLSX&&XLSX.SSF&&XLSX.SSF.parse_date_code){
+        var p=XLSX.SSF.parse_date_code(v);
+        if(p&&p.y)return new Date(p.y,p.m-1,p.d);
+      }
+    }catch(e){}
     var dt=new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000);
     if(isNaN(dt.getTime()))return null;
     return new Date(dt.getUTCFullYear(),dt.getUTCMonth(),dt.getUTCDate());
