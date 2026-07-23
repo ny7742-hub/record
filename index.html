@@ -3499,6 +3499,7 @@ function renderDaily(){
 
 /* ── 발주서 ── */
 var ORDER_STORES=[
+  {code:"",    name:"매장없음",                recv:"",           tel:"",              addr:""},
   {code:"AVE", name:"롯데백화점 청량리점",      recv:"화이트샌즈", tel:"010-8839-9224", addr:"서울 동대문구 왕산로 214 롯데백화점 청량리점 2층"},
   {code:"LJS", name:"롯데백화점 잠실점",        recv:"화이트샌즈", tel:"010-9135-8952", addr:"서울시 올림픽로 240 롯데백화점 잠실점 2층 화이트샌즈"},
   {code:"LPC", name:"롯데백화점 평촌점",        recv:"김류아",     tel:"01039402877",   addr:"경기 안양시 동안구 시민대로 180 롯데백화정 평촌점 2층 화이트샌즈"},
@@ -3520,8 +3521,8 @@ var ORDER_STORES=[
 var ORDER_HEADERS=["출고일","주문번호(사방넷)","주문번호(쇼핑몰)","쇼핑몰","수령인","택배사","운송장번호","받는분연락처","받는분기타연락처","주소","배송메세지","상품명","수량","결제금액","큐텐(한글상품명)","바코드","큐텐바코드","상품코드","쇼핑몰(참고용)","상품컬러코드","상품명(수집)","옵션(수집)","주문자명","구분","주문일시(YYYY-MM-DD HH:MM)","주문자전화번호1","주문자전화번호2"];
 var orderDB=(function(){try{var d=JSON.parse(localStorage.getItem("orderDB")||"null");return (d&&d.rows)?d:{rows:[]};}catch(e){return {rows:[]};}})();
 function saveOrder(){wsSetItem("orderDB",JSON.stringify(orderDB));}
-function _ordStoreByCode(code){for(var i=0;i<ORDER_STORES.length;i++)if(ORDER_STORES[i].code===code)return ORDER_STORES[i];return null;}
-function _ordStoreOptions(selCode){return ORDER_STORES.map(function(s){return '<option value="'+s.code+'"'+(s.code===selCode?' selected':'')+'>'+s.code+' · '+s.name+'</option>';}).join("");}
+function _ordStoreByCode(code){if(!code)return null;/* 매장없음(공백)은 매장정보 없음으로 취급 */for(var i=0;i<ORDER_STORES.length;i++)if(ORDER_STORES[i].code===code)return ORDER_STORES[i];return null;}
+function _ordStoreOptions(selCode){return ORDER_STORES.map(function(s){var label=s.code?(s.code+' · '+s.name):s.name;return '<option value="'+s.code+'"'+(s.code===selCode?' selected':'')+'>'+label+'</option>';}).join("");}
 function ordFillStoreSelect(){var sel=document.getElementById("ordStore");if(!sel||sel.options.length)return;sel.innerHTML=_ordStoreOptions(ORDER_STORES[0].code);}
 function ordAddRow(){var sel=document.getElementById("ordStore");var code=sel?sel.value:(ORDER_STORES[0]&&ORDER_STORES[0].code);orderDB.rows.push({store:code||"",name:"",code:"",qty:""});saveOrder();renderOrder();var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;}
 function ordDelRow(i){orderDB.rows.splice(i,1);saveOrder();renderOrder();}
@@ -3623,7 +3624,11 @@ function ordRenderSearch(){
     h+='<span onclick="ordPickChip('+k+')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid '+(on?"#2563eb":"#cbd5e1")+';background:'+(on?"#dbeafe":"#fff")+';color:'+(on?"#1e40af":"#334155")+';font-weight:'+(on?"700":"500")+'">'+_escX(nm)+'</span>';
   });
   h+='</div>';
-  h+='<div style="font-size:11px;color:#94a3b8;margin-bottom:5px">↑↓ 이동 · Enter 추가 · 위 칩으로 상품 좁히기 (현재 '+_ordResults.length+'개)</div>';
+  h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+  h+='<span style="font-size:11px;color:#94a3b8">↑↓ 이동 · Enter 추가 · 위 칩으로 상품 좁히기 (현재 '+_ordResults.length+'개)</span>';
+  h+='<button onclick="ordCopyResults()" title="검색 결과를 클립보드로 복사" style="margin-left:auto;padding:3px 10px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📋 검색내역 복사</button>';
+  h+='<span id="ordCopyMsg" style="font-size:11px;color:#059669;font-weight:700"></span>';
+  h+='</div>';
   h+='<div id="ordSrList" style="max-height:280px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px">';
   _ordResults.forEach(function(d,k){
     var on=(k===_ordResSel);
@@ -3635,6 +3640,27 @@ function ordRenderSearch(){
   box.innerHTML=h;
   var selEl=document.getElementById("ordSr_"+_ordResSel);
   if(selEl)selEl.scrollIntoView({block:"nearest"});
+}
+/* 현재 검색 결과를 클립보드로 복사 (상품명 칼라명 / 자사코드 · 탭 구분 → 엑셀 붙여넣기 가능) */
+function ordCopyResults(){
+  if(!_ordResults||!_ordResults.length){alert("복사할 검색 결과가 없습니다.");return;}
+  var txt=_ordResults.map(function(d){
+    return (d["상품명"]+" "+(d["칼라명"]||"")).trim()+"\t"+(d["자사코드"]||"");
+  }).join("\n");
+  var done=function(){
+    var m=document.getElementById("ordCopyMsg");
+    if(m){m.textContent="✔ "+_ordResults.length+"건 복사됨";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},2500);}
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done,function(){ordCopyFallback(txt,done);});
+  }else{ordCopyFallback(txt,done);}
+}
+function ordCopyFallback(txt,done){
+  var ta=document.createElement("textarea");
+  ta.value=txt;ta.style.position="fixed";ta.style.left="-9999px";
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand("copy");done();}catch(e){alert("복사 실패: 직접 선택해 복사해주세요.");}
+  document.body.removeChild(ta);
 }
 function ordPickChip(k){
   _ordChipSel=k;
@@ -3692,7 +3718,8 @@ function ordDownload(){
   if(!orderDB.rows.length){alert("발주 상품이 없습니다.");return;}
   var aoa=[ORDER_HEADERS.slice()];
   orderDB.rows.forEach(function(r){
-    var st=_ordStoreByCode(r.store)||{};
+    /* 매장없음(코드 공백)은 매장 관련 칸을 모두 비움 */
+    var st=(r.store?_ordStoreByCode(r.store):null)||{};
     var row=[];for(var c=0;c<27;c++)row.push("");
     row[2]=r.store||"";              /* C 주문번호(쇼핑몰)=매장코드 */
     row[3]=st.name||"";              /* D 쇼핑몰 */
