@@ -4787,7 +4787,22 @@ function parseCostcoRows(rows){
   /* 헤더 감지 결과 콘솔 출력 */
   console.log("[코스트코 업로드] 헤더행:"+hRow+" 날짜:"+cDate+" 상품명:"+cProd+" 칼라:"+cColor+" 수량:"+cQty+" 금액:"+cAmt+" 판매구분:"+cSaleDiv);
   if(hRow>=0&&rows[hRow]){console.log("[코스트코 업로드] 헤더행 내용:",rows[hRow].join(" | "));}
-  if(hRow<0||cProd<0||cQty<0){
+  /* 헤더 없는 단순형(날짜|상품명|수량) 자동 감지 → 금액은 판매가로 자동계산, 해당 날짜만 병합 */
+  var _ccSimple=false,_ccFileYear=null,_ccFileMonth=null;
+  if(cProd<0||cQty<0){
+    var okN=0,totN=0;
+    for(var sr=0;sr<Math.min(40,rows.length);sr++){
+      var srow=rows[sr];if(!srow)continue;
+      if((srow[0]==null||srow[0]==="")&&(srow[1]==null||srow[1]==="")&&(srow[2]==null||srow[2]===""))continue;
+      totN++;
+      if(ccParseDate(srow[0])&&String(srow[1]||"").trim()&&String(srow[2]).trim()!==""&&!isNaN(Number(srow[2])))okN++;
+    }
+    if(totN>0&&okN>=Math.max(3,Math.floor(totN*0.6))){
+      cDate=0;cProd=1;cColor=-1;cQty=2;cAmt=-1;hRow=-1;_ccSimple=true;
+      console.log("[코스트코 업로드] 헤더 없는 단순형 감지 → 금액=수량×판매가 자동계산, 해당 날짜 병합");
+    }
+  }
+  if((hRow<0&&!_ccSimple)||cProd<0||cQty<0){
     alert("파일 형식을 인식할 수 없습니다.\n판매일자·상품명·판매수량 컬럼이 필요합니다.\n\n감지된 컬럼:\n날짜:"+(cDate>=0?cDate:"없음")+" 상품명:"+(cProd>=0?cProd:"없음")+" 수량:"+(cQty>=0?cQty:"없음")+"\n\n브라우저 F12 콘솔에서 상세 내용을 확인하세요.");
     return;
   }
@@ -4822,6 +4837,7 @@ function parseCostcoRows(rows){
     }
     var dt=ccParseDate(cDate>=0?row[cDate]:null);
     if(!dt){skipDate++;continue;}
+    if(_ccSimple&&!_ccFileYear){_ccFileYear=dt.getFullYear();_ccFileMonth=dt.getMonth()+1;}
     var period=(dt.getMonth()+1)+"/"+dt.getDate();
     var prodCell=String(row[cProd]||"").trim();
     var prodName=ccMatchProd(prodCell);
@@ -4847,6 +4863,7 @@ function parseCostcoRows(rows){
     var qty=Number(row[cQty])||0;
     var amt=cAmt>=0?(Number(row[cAmt])||0):0;
     if(CC_SET_PRODS.indexOf(prodName)>=0)qty=qty/2;
+    if(_ccSimple){var _pp=costcoDB.products.find(function(p){return p.name===prodName;});amt=Math.round(qty*((_pp&&_pp.price)||0));}
     addToWeekMap(period,prodName,colorName,qty,amt);
   }
 
@@ -4895,14 +4912,21 @@ function parseCostcoRows(rows){
     if(autoAdded.length)localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
     return;
   }
-  ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn,autoAdded:autoAdded});
+  ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn,autoAdded:autoAdded},_ccSimple?{merge:true,year:_ccFileYear,month:_ccFileMonth}:null);
 }
 
-function ccMergeWeekMap(weekMap,skipInfo){
+function ccMergeWeekMap(weekMap,skipInfo,opt){
   var _yr=new Date().getFullYear();
-  /* 기존 데이터 전체 삭제 후 업로드 데이터만 표시 */
-  costcoDB.sales={};
-  costcoDB.periods=[];
+  var _merge=opt&&opt.merge;
+  /* 병합 모드: 파일에 있는 날짜만 추가/갱신하고 나머지는 보존.
+     기본(전체 판매파일): 기존 데이터 전체 삭제 후 업로드 데이터만 표시 */
+  if(!_merge){
+    costcoDB.sales={};
+    costcoDB.periods=[];
+  }else{
+    if(!costcoDB.sales)costcoDB.sales={};
+    if(!costcoDB.periods)costcoDB.periods=[];
+  }
   Object.keys(weekMap).forEach(function(period){
     if(costcoDB.periods.indexOf(period)<0)costcoDB.periods.push(period);
     /* 같은 기간 재업로드 시 해당 기간 전체 교체 (합산 방지) */
@@ -4920,12 +4944,14 @@ function ccMergeWeekMap(weekMap,skipInfo){
   });
   costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
   saveCostcoDB(true);
-  /* 업로드 후 → 당월(오늘)로 자동 이동 */
+  /* 업로드 후 자동 이동: 병합(단순형)은 파일의 월, 그 외는 당월 */
   var _now=new Date();
+  var _navY=(_merge&&opt.year)?opt.year:_now.getFullYear();
+  var _navM=(_merge&&opt.month)?opt.month:_now.getMonth()+1;
   var _mElNav=document.getElementById("ccMonth");
   var _yElNav=document.getElementById("ccYear");
-  if(_mElNav)_mElNav.value=_now.getMonth()+1;
-  if(_yElNav)_yElNav.value=_now.getFullYear();
+  if(_mElNav)_mElNav.value=_navM;
+  if(_yElNav)_yElNav.value=_navY;
   renderCostcoPage();
   var msg=document.getElementById("costcoMsg");
   if(msg){
