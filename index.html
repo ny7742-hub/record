@@ -4858,7 +4858,15 @@ function parseCostcoRows(rows){
       skipProd++;continue;
     }
     var colorCell=cColor>=0?String(row[cColor]||"").trim():"";
-    var colorName=ccNormColor(colorCell)||ccMatchColor(colorCell,prodName)||ccMatchColor(prodCell,prodName);
+    var colorName;
+    if(_ccSimple){
+      /* 단순형: 색상은 항상 상품명 '뒤쪽'에 있으므로 상품명 이후 꼬리에서만 추출.
+         (전체 문자열로 찾으면 브랜드명 "화이트샌즈"의 "화이트"가 색상으로 오매칭됨) */
+      var _tail=prodCell.split(prodName).pop().replace(/\([^)]*\)/g,"").trim();
+      colorName=ccNormColor(_tail)||ccMatchColor(_tail,prodName);
+    }else{
+      colorName=ccNormColor(colorCell)||ccMatchColor(colorCell,prodName)||ccMatchColor(prodCell,prodName);
+    }
     if(!colorName){skipColor++;continue;}
     var qty=Number(row[cQty])||0;
     var amt=cAmt>=0?(Number(row[cAmt])||0):0;
