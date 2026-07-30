@@ -4206,7 +4206,9 @@ function mgAutofillFromCostco(i){
   if(!p)return false;
   r.code=p.code||"";
   r.color=(p.colors||[]).join(", ");
-  r.price=(p.price!=null&&p.price!=="")?String(p.price):"";
+  /* 판매가: 업로드 파일에서 캡처한 실제 판매단가(mgPrice)를 우선, 없으면 코스트코 정상가(price) */
+  var _pv=(p.mgPrice!=null&&p.mgPrice!=="")?p.mgPrice:p.price;
+  r.price=(_pv!=null&&_pv!=="")?String(_pv):"";
   if(p.cost!=null&&p.cost!=="")r.cost=String(p.cost);
   return true;
 }
@@ -4777,7 +4779,7 @@ function loadCostcoFile(input){
 
 function parseCostcoRows(rows){
   /* ─ 헤더 행 탐색 & 컬럼 매핑 ─ */
-  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1,cSaleDiv=-1,cCost=-1;
+  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1,cSaleDiv=-1,cCost=-1,cUnit=-1;
   for(var r=0;r<Math.min(20,rows.length);r++){
     var row=rows[r]; var found=false;
     for(var c=0;c<row.length;c++){
@@ -4802,6 +4804,8 @@ function parseCostcoRows(rows){
       if(v==="판매구분"&&cSaleDiv<0)cSaleDiv=c;
       /* 사전원가 (마진계산용, 단위원가) — '사전원가합' 등 합계열 제외 */
       if(v==="사전원가"&&cCost<0)cCost=c;
+      /* 판매단가 (마진계산용 실제 판매가, 행 단위 단가) */
+      if(v==="판매단가"&&cUnit<0)cUnit=c;
     }
     if(found&&cProd>=0&&cQty>=0)break;
   }
@@ -4841,6 +4845,7 @@ function parseCostcoRows(rows){
   var unmatchedRows=[]; /* 미매칭 행 보관 (2차 처리용) */
   var autoAddCandidates={}; /* {단축명: {colors:{}, prices:[]}} */
   var prodCosts={}; /* {상품명: 사전원가(단위)} — 마진계산 자동로드용 */
+  var prodPriceVotes={}; /* {상품명: {단가: 수량합}} — 판매단가 최빈값 수집 (마진계산 판매가 자동로드용) */
 
   function addToWeekMap(period,prodName,colorName,qty,amt){
     if(!weekMap[period])weekMap[period]={};
@@ -4896,6 +4901,15 @@ function parseCostcoRows(rows){
     if(_ccSimple){var _pp=costcoDB.products.find(function(p){return p.name===prodName;});amt=Math.round(qty*((_pp&&_pp.price)||0));}
     /* 사전원가(단위) 수집 — 마진계산 자동로드용 */
     if(cCost>=0){var _cst=Number(row[cCost])||0;if(_cst>0)prodCosts[prodName]=_cst;}
+    /* 판매단가 수집(수량 가중 투표) — 마진계산 판매가 자동로드용 */
+    if(cUnit>=0){
+      var _unit=Number(row[cUnit])||0;
+      if(_unit>0){
+        if(!prodPriceVotes[prodName])prodPriceVotes[prodName]={};
+        var _uk=String(_unit);
+        prodPriceVotes[prodName][_uk]=(prodPriceVotes[prodName][_uk]||0)+(qty||1);
+      }
+    }
     addToWeekMap(period,prodName,colorName,qty,amt);
   }
 
@@ -4951,6 +4965,18 @@ function parseCostcoRows(rows){
     if(p){p.cost=prodCosts[nm];_costN++;}
   });
   if(_costN)console.log("[코스트코 업로드] 사전원가 저장:",_costN+"개 상품");
+  /* 판매단가 최빈값(수량 가중)을 마진계산 전용 판매가(mgPrice)로 저장.
+     코스트코 정상가(price)는 세일가 판정 등 다른 로직이 쓰므로 건드리지 않는다. */
+  var _priceN=0;
+  Object.keys(prodPriceVotes).forEach(function(nm){
+    var votes=prodPriceVotes[nm];
+    var bestUnit=null,bestQty=-1;
+    Object.keys(votes).forEach(function(uk){if(votes[uk]>bestQty){bestQty=votes[uk];bestUnit=uk;}});
+    if(bestUnit==null)return;
+    var p=costcoDB.products.find(function(x){return x.name===nm;});
+    if(p){p.mgPrice=Number(bestUnit);_priceN++;}
+  });
+  if(_priceN)console.log("[코스트코 업로드] 마진계산 판매가(판매단가 최빈값) 저장:",_priceN+"개 상품");
   ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn,autoAdded:autoAdded,costN:_costN},_ccSimple?{merge:true,year:_ccFileYear,month:_ccFileMonth}:null);
 }
 
