@@ -4777,7 +4777,7 @@ function loadCostcoFile(input){
 
 function parseCostcoRows(rows){
   /* ─ 헤더 행 탐색 & 컬럼 매핑 ─ */
-  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1,cSaleDiv=-1;
+  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1,cSaleDiv=-1,cCost=-1;
   for(var r=0;r<Math.min(20,rows.length);r++){
     var row=rows[r]; var found=false;
     for(var c=0;c<row.length;c++){
@@ -4800,6 +4800,8 @@ function parseCostcoRows(rows){
       else if(/금액|amount/i.test(vl)&&!/할인|부가|에누리|즉시|tag|예정|원가/i.test(vl)&&cAmt<0)cAmt=c;
       /* 판매구분 (반품 필터) */
       if(v==="판매구분"&&cSaleDiv<0)cSaleDiv=c;
+      /* 사전원가 (마진계산용, 단위원가) — '사전원가합' 등 합계열 제외 */
+      if(v==="사전원가"&&cCost<0)cCost=c;
     }
     if(found&&cProd>=0&&cQty>=0)break;
   }
@@ -4838,6 +4840,7 @@ function parseCostcoRows(rows){
   var skipDate=0,skipProd=0,skipColor=0,skipReturn=0;
   var unmatchedRows=[]; /* 미매칭 행 보관 (2차 처리용) */
   var autoAddCandidates={}; /* {단축명: {colors:{}, prices:[]}} */
+  var prodCosts={}; /* {상품명: 사전원가(단위)} — 마진계산 자동로드용 */
 
   function addToWeekMap(period,prodName,colorName,qty,amt){
     if(!weekMap[period])weekMap[period]={};
@@ -4891,6 +4894,8 @@ function parseCostcoRows(rows){
     var amt=cAmt>=0?(Number(row[cAmt])||0):0;
     if(CC_SET_PRODS.indexOf(prodName)>=0)qty=qty/2;
     if(_ccSimple){var _pp=costcoDB.products.find(function(p){return p.name===prodName;});amt=Math.round(qty*((_pp&&_pp.price)||0));}
+    /* 사전원가(단위) 수집 — 마진계산 자동로드용 */
+    if(cCost>=0){var _cst=Number(row[cCost])||0;if(_cst>0)prodCosts[prodName]=_cst;}
     addToWeekMap(period,prodName,colorName,qty,amt);
   }
 
@@ -4939,7 +4944,14 @@ function parseCostcoRows(rows){
     if(autoAdded.length)localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
     return;
   }
-  ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn,autoAdded:autoAdded},_ccSimple?{merge:true,year:_ccFileYear,month:_ccFileMonth}:null);
+  /* 사전원가를 상품 원가로 저장 (마진계산에서 상품명 입력 시 자동로드) */
+  var _costN=0;
+  Object.keys(prodCosts).forEach(function(nm){
+    var p=costcoDB.products.find(function(x){return x.name===nm;});
+    if(p){p.cost=prodCosts[nm];_costN++;}
+  });
+  if(_costN)console.log("[코스트코 업로드] 사전원가 저장:",_costN+"개 상품");
+  ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn,autoAdded:autoAdded,costN:_costN},_ccSimple?{merge:true,year:_ccFileYear,month:_ccFileMonth}:null);
 }
 
 function ccMergeWeekMap(weekMap,skipInfo,opt){
