@@ -3414,12 +3414,15 @@ function renderDaily(){
     h+='</div></th>';
   });
   h+='</tr><tr>';
+  var _dsColMeta=[];
   stores.forEach(function(s,si){
     _dsFldsOf(s.name,mk).forEach(function(f){
       var qty=/Q$/.test(f.k);
       h+='<th style="position:sticky;top:52px;z-index:2;background:#f1f5f9;border:1px solid #c5cdd9;padding:3px 5px;color:#475569;font-size:11px;min-width:'+(qty?"46px":"76px")+'">'+f.t+'</th>';
+      _dsColMeta.push({si:si,field:f.k});
     });
   });
+  window._dsColMeta=_dsColMeta;
   h+='</tr></thead><tbody>';
   /* 총매출 합계행 (맨 위, 1일 앞) */
   h+='<tr style="background:#eef2f9;font-weight:800">';
@@ -3514,8 +3517,72 @@ function renderDaily(){
   });
   document.addEventListener('mouseup',function(){
     if(_dragging)document.body.classList.remove('ds-dragging');
+    else if(_pending)window.dsClearSel(); /* 드래그 없는 단순 클릭 → 이전 블록 선택 해제(새 셀이 붙여넣기 기준점) */
     _pending=false;_dragging=false;
   });
+
+  /* ── 드래그 선택 → Ctrl+C / Ctrl+V ── */
+  var _dsClip=null; /* 2차원 문자열 배열 */
+  function bounds(){
+    if(!_sel.length)return null;
+    var r1=Infinity,r2=-Infinity,c1=Infinity,c2=-Infinity;
+    _sel.forEach(function(td){
+      var r=+td.dataset.dsrow,c=+td.dataset.dscol;
+      if(r<r1)r1=r;if(r>r2)r2=r;if(c<c1)c1=c;if(c>c2)c2=c;
+    });
+    return {r1:r1,r2:r2,c1:c1,c2:c2};
+  }
+  function cellAt(r,c){return document.querySelector('#dailyTableWrap .ds-sel-able[data-dsrow="'+r+'"][data-dscol="'+c+'"]');}
+  function pasteAnchor(){
+    var b=bounds();
+    if(b)return {row:b.r1,col:b.c1};
+    var ae=document.activeElement;
+    if(ae&&ae.id&&ae.id.indexOf('dsIn_')===0){
+      var td=ae.closest('.ds-sel-able');
+      if(td)return {row:+td.dataset.dsrow,col:+td.dataset.dscol};
+    }
+    return null;
+  }
+  document.addEventListener('keydown',function(e){
+    var pg=document.getElementById('page-daily');
+    if(!pg||pg.style.display==='none')return;
+    if(!(e.ctrlKey||e.metaKey))return;
+    var k=e.key.toLowerCase();
+    if(k==='c'){
+      var b=bounds();
+      if(!b)return; /* 선택 없으면 기본 복사 동작 유지 */
+      var grid=[];
+      for(var r=b.r1;r<=b.r2;r++){
+        var row=[];
+        for(var c=b.c1;c<=b.c2;c++){
+          var td=cellAt(r,c),inp=td&&td.querySelector('input');
+          row.push(inp?inp.value:'');
+        }
+        grid.push(row);
+      }
+      _dsClip=grid;
+      try{navigator.clipboard&&navigator.clipboard.writeText(grid.map(function(row){return row.join('\t');}).join('\n'));}catch(err){}
+      e.preventDefault();
+    }else if(k==='v'){
+      var anchor=pasteAnchor();
+      if(!anchor||!_dsClip||!window._dsColMeta)return;
+      e.preventDefault();
+      var _origSave=window.saveDaily;
+      window.saveDaily=function(){}; /* 셀마다 저장하지 않고 붙여넣기 끝나면 한 번만 저장 */
+      _dsClip.forEach(function(rowVals,dr){
+        rowVals.forEach(function(val,dc){
+          var r=anchor.row+dr,c=anchor.col+dc;
+          var meta=window._dsColMeta[c];if(!meta)return;
+          var td=cellAt(r,c),inp=td&&td.querySelector('input');
+          if(!inp)return;
+          inp.value=dsEdit(r,meta.si,meta.field,val);
+        });
+      });
+      window.saveDaily=_origSave;
+      saveDaily();dsRecalc();
+    }
+  });
+
   /* 재렌더 시 선택 초기화 */
   var _origRenderDaily=window.renderDaily;
   window.renderDaily=function(){_origRenderDaily.apply(this,arguments);if(window.dsClearSel)window.dsClearSel();};
