@@ -3106,6 +3106,26 @@ function dsKey(){
   return y+"-"+_ds2(m);
 }
 function dsCell(mk,day,name){return (((dailySalesDB.data[mk]||{})[day]||{})[name])||{};}
+/* 백화점 탭의 매장 순서(deptStores)와 동일하게 일별매출 매장 순서 자동 동기화 */
+function dsSyncOrderFromDept(){
+  if(!dailySalesDB.stores||!dailySalesDB.stores.length||typeof deptStores==="undefined"||!deptStores.length)return;
+  var rank={};deptStores.forEach(function(n,i){rank[n]=i;});
+  var changed=false;
+  function reorder(list){
+    var before=list.map(function(s){return s.name;}).join("|");
+    list.sort(function(a,b){
+      var ra=rank.hasOwnProperty(a.name)?rank[a.name]:9999;
+      var rb=rank.hasOwnProperty(b.name)?rank[b.name]:9999;
+      return ra-rb;
+    });
+    if(list.map(function(s){return s.name;}).join("|")!==before)changed=true;
+  }
+  reorder(dailySalesDB.stores);
+  if(dailySalesDB.monthStores){
+    Object.keys(dailySalesDB.monthStores).forEach(function(mk){reorder(dailySalesDB.monthStores[mk]);});
+  }
+  if(changed)saveDaily();
+}
 /* 월별 매장 목록 — 각 월이 독립적으로 매장 열을 가짐 */
 function dsStores(mk){
   mk=mk||dsKey();
@@ -3364,6 +3384,7 @@ function dsWriteImport(byMonth,storeName,count){
   if(msg){msg.textContent="✔ "+storeName+" "+count+"일 반영 (PLAY MD 유지)";setTimeout(function(){msg.textContent="";},4000);}
 }
 function renderDaily(){
+  dsSyncOrderFromDept();
   dsFillSelectors();
   var wrap=document.getElementById("dailyTableWrap");if(!wrap)return;
   var mk=dsKey(),p=mk.split("-"),Y=+p[0],M=+p[1],lastDay=new Date(Y,M,0).getDate();
