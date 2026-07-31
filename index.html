@@ -3106,16 +3106,19 @@ function dsKey(){
   return y+"-"+_ds2(m);
 }
 function dsCell(mk,day,name){return (((dailySalesDB.data[mk]||{})[day]||{})[name])||{};}
-/* 백화점 탭의 매장 순서(deptStores)와 동일하게 일별매출 매장 순서 자동 동기화 */
+/* 백화점 탭의 매장 순서(deptStores)와 동일하게 일별매출 매장 순서 자동 동기화
+   (일별매출 매장명은 "롯데 잠실"처럼 "점"이 없거나 "커넥트현대"처럼 표기가 달라 정규화 후 매칭) */
+function _dsNormStoreName(n){return String(n||"").replace(/\s+/g,"").replace(/점$/,"").replace(/^커넥트현대/,"현대");}
 function dsSyncOrderFromDept(){
   if(!dailySalesDB.stores||!dailySalesDB.stores.length||typeof deptStores==="undefined"||!deptStores.length)return;
-  var rank={};deptStores.forEach(function(n,i){rank[n]=i;});
+  var rank={};deptStores.forEach(function(n,i){rank[_dsNormStoreName(n)]=i;});
   var changed=false;
   function reorder(list){
     var before=list.map(function(s){return s.name;}).join("|");
     list.sort(function(a,b){
-      var ra=rank.hasOwnProperty(a.name)?rank[a.name]:9999;
-      var rb=rank.hasOwnProperty(b.name)?rank[b.name]:9999;
+      var na=_dsNormStoreName(a.name),nb=_dsNormStoreName(b.name);
+      var ra=rank.hasOwnProperty(na)?rank[na]:9999;
+      var rb=rank.hasOwnProperty(nb)?rank[nb]:9999;
       return ra-rb;
     });
     if(list.map(function(s){return s.name;}).join("|")!==before)changed=true;
