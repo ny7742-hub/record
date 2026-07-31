@@ -786,15 +786,21 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">🏭 홈쇼핑몰 재고확인</div>
-      <button onclick="reloadStock()" class="bs" style="padding:5px 12px;font-size:12px">🔄 새로고침</button>
-      <span style="font-size:11px;color:#5b6675">창고재고 + 홈쇼핑 상품리스트 엑셀을 올려 색상별 재고를 교차 확인합니다.</span>
+      <label style="cursor:pointer"><span class="bs" style="padding:4px 10px;font-size:11px;display:inline-block">📂 창고재고현황 업로드</span><input type="file" id="stockWhIn" accept=".xlsx,.xls" style="display:none" onchange="loadWarehouseStockFile(this)"/></label>
+      <span id="stockWhMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+      <button onclick="startStockCheck()" id="stockCheckBtn" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700" disabled>▶ 재고 확인 시작</button>
       <span id="stockCheckLogWrap" style="font-size:11px;color:#15528f;font-weight:600;white-space:nowrap"></span>
-      <a href="홈쇼핑상품리스트.xlsx" download style="font-size:12px;color:#15803d;font-weight:700;text-decoration:none;white-space:nowrap">📥 홈쇼핑 상품리스트 다운로드</a>
-      <a href="https://homeshopping-stock.netlify.app/" target="_blank" rel="noopener" style="margin-left:auto;font-size:12px;color:#15528f;font-weight:700;text-decoration:none;white-space:nowrap">↗ 새 창에서 열기</a>
+      <a href="홈쇼핑상품리스트.xlsx" download style="margin-left:auto;font-size:12px;color:#15803d;font-weight:700;text-decoration:none;white-space:nowrap">📥 홈쇼핑 상품리스트 다운로드</a>
     </div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8">PlayMD 창고재고현황 → 출고관리 → 현황 → 창고재고현황에서 엑셀로 받은 파일을 올리고 "재고 확인 시작"을 누르면, 홈쇼핑 상품리스트 기준으로 색상별 재고를 교차 확인합니다.</div>
   </div>
-  <div class="card" style="padding:0;overflow:hidden">
-    <iframe id="stockFrame" src="" title="홈쇼핑 재고 확인" style="width:100%;height:calc(100vh - 190px);min-height:520px;border:0;display:block"></iframe>
+  <div class="card" style="padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+      <input id="stockResultSearch" type="text" placeholder="상품명/상품코드 검색" oninput="renderStockCheckResults()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;width:220px">
+      <label style="font-size:11px;color:#5b6675;cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="stockOnlyZero" onchange="renderStockCheckResults()"> 품절만 보기</label>
+      <span id="stockResultSummary" style="font-size:11px;color:#5b6675;margin-left:auto"></span>
+    </div>
+    <div id="stockResultWrap" style="overflow:auto;max-height:calc(100vh - 260px)"></div>
   </div>
 </div>
 </div><!-- /page-stock -->
@@ -3071,8 +3077,7 @@ function toggleSheetAuto(){
   if(cb&&cb.checked)_sheetAutoTimer=setInterval(reloadSheet,60000);
 }
 
-/* ── 홈쇼핑 재고확인 임베드 ── */
-var STOCK_EMBED_URL="https://homeshopping-stock.netlify.app/";
+/* ── 홈쇼핑 재고확인 (창고재고현황 × 홈쇼핑 상품리스트 교차확인) ── */
 var stockCheckLog=(function(){try{var d=JSON.parse(localStorage.getItem("stockCheckLog")||"[]");return Array.isArray(d)?d:[];}catch(e){return [];}})();
 function logStockCheck(){
   stockCheckLog.unshift(new Date().toISOString());
@@ -3089,14 +3094,117 @@ function renderStockCheckLog(){
   };
   el.textContent="최근 확인: "+stockCheckLog.map(fmt).join(" · ");
 }
+var HS_PRODUCT_LIST_URL="홈쇼핑상품리스트.xlsx";
+var hsProductList=[];       /* {code,name,colorCode,colorName} */
+var stockWarehouseRows=[];  /* {code,color,qty,wh} */
+var stockWarehouseDate="";
+var stockCheckResults=null; /* {code,name,colorCode,colorName,qty}[] */
 function initStockTab(){
-  var f=document.getElementById("stockFrame");
-  if(f&&!f.getAttribute("src")){f.src=STOCK_EMBED_URL;logStockCheck();}
+  loadHsProductList();
   renderStockCheckLog();
 }
-function reloadStock(){
-  var f=document.getElementById("stockFrame");
-  if(f) f.src=STOCK_EMBED_URL+"?_="+Date.now();
+function loadHsProductList(){
+  if(hsProductList.length)return;
+  fetch(HS_PRODUCT_LIST_URL).then(function(r){return r.arrayBuffer();}).then(function(buf){
+    var wb=XLSX.read(buf,{type:"array"});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    var list=[];
+    for(var r=1;r<rows.length;r++){
+      var row=rows[r];if(!row||!row[1])continue;
+      list.push({code:String(row[1]).trim(),name:String(row[2]||"").trim(),colorCode:String(row[3]||"").trim(),colorName:String(row[4]||"").trim()});
+    }
+    hsProductList=list;
+  }).catch(function(e){console.warn("홈쇼핑 상품리스트 로드 실패",e);});
+}
+function loadWarehouseStockFile(input){
+  var file=input.files[0];if(!file)return;
+  var msg=document.getElementById("stockWhMsg");if(msg)msg.textContent="불러오는 중...";
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      var hRow=-1;
+      for(var r=0;r<Math.min(5,rows.length);r++){
+        if(rows[r].indexOf("상품코드")>=0){hRow=r;break;}
+      }
+      if(hRow<0){alert("창고재고현황 형식을 인식할 수 없습니다.\n(상품코드 열이 필요합니다)");if(msg)msg.textContent="";return;}
+      var H=rows[hRow];
+      var cCode=H.indexOf("상품코드"),cColor=H.indexOf("칼라"),cQty=H.indexOf("재고 합계"),cWh=H.indexOf("창고명");
+      var whRows=[];
+      for(var r=hRow+1;r<rows.length;r++){
+        var row=rows[r];if(!row||!row[cCode])continue;
+        whRows.push({code:String(row[cCode]).trim(),color:String(row[cColor]||"").trim(),qty:Number(row[cQty])||0,wh:cWh>=0?String(row[cWh]||"").trim():""});
+      }
+      stockWarehouseRows=whRows;
+      var m=/재고일자\s*:\s*(\d{8})/.exec(String((rows[0]&&rows[0][0])||""));
+      stockWarehouseDate=m?(m[1].slice(0,4)+"-"+m[1].slice(4,6)+"-"+m[1].slice(6,8)):"";
+      stockCheckResults=null;
+      if(msg)msg.textContent="✔ "+whRows.length+"행 불러옴"+(stockWarehouseDate?" (재고일자 "+stockWarehouseDate+")":"");
+      var btn=document.getElementById("stockCheckBtn");if(btn)btn.disabled=false;
+      var wrap=document.getElementById("stockResultWrap");if(wrap)wrap.innerHTML="";
+      var sm=document.getElementById("stockResultSummary");if(sm)sm.textContent="";
+    }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
+  };
+  reader.readAsArrayBuffer(file);
+  input.value="";
+}
+function startStockCheck(){
+  if(!stockWarehouseRows.length){alert("먼저 창고재고현황 파일을 업로드하세요.");return;}
+  if(!hsProductList.length){
+    loadHsProductList();
+    setTimeout(function(){
+      if(hsProductList.length)startStockCheck();
+      else alert("홈쇼핑 상품리스트를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    },800);
+    return;
+  }
+  var idx={};
+  stockWarehouseRows.forEach(function(r){
+    var k=r.code+"|"+r.color;
+    idx[k]=(idx[k]||0)+r.qty;
+  });
+  stockCheckResults=hsProductList.map(function(p){
+    return {code:p.code,name:p.name,colorCode:p.colorCode,colorName:p.colorName,qty:idx[p.code+"|"+p.colorCode]||0};
+  });
+  renderStockCheckResults();
+  logStockCheck();
+}
+function renderStockCheckResults(){
+  var wrap=document.getElementById("stockResultWrap");if(!wrap)return;
+  if(!stockCheckResults){wrap.innerHTML="";return;}
+  var qEl=document.getElementById("stockResultSearch"),zEl=document.getElementById("stockOnlyZero");
+  var q=(qEl&&qEl.value||"").trim();
+  var onlyZero=zEl&&zEl.checked;
+  var list=stockCheckResults.filter(function(r){
+    if(onlyZero&&r.qty>0)return false;
+    if(q&&r.name.indexOf(q)<0&&r.code.indexOf(q)<0)return false;
+    return true;
+  });
+  var soldOut=stockCheckResults.filter(function(r){return r.qty<=0;}).length;
+  var sm=document.getElementById("stockResultSummary");
+  if(sm)sm.textContent="전체 "+stockCheckResults.length+"건 · 품절 "+soldOut+"건"+(stockWarehouseDate?" · 창고재고 기준일 "+stockWarehouseDate:"");
+  var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
+  h+='<thead><tr>';
+  [['상품코드',''],['상품명','min-width:280px'],['칼라',''],['재고수량',''],['상태','']].forEach(function(c){
+    h+='<th style="position:sticky;top:0;background:#eaf1f9;border:1px solid #c5cdd9;padding:6px 8px;color:#15528f;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  list.forEach(function(r){
+    var out=r.qty<=0;
+    h+='<tr style="'+(out?"background:#fef2f2":"")+'">';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace">'+_escX(r.code)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;white-space:normal">'+_escX(r.name)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center">'+_escX(r.colorName||r.colorCode)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;font-weight:700;color:'+(out?"#dc2626":"#15803d")+'">'+r.qty.toLocaleString()+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;font-weight:700;color:'+(out?"#dc2626":"#15803d")+'">'+(out?"품절":"재고있음")+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  if(!list.length)h='<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">결과가 없습니다.</div>';
+  wrap.innerHTML=h;
 }
 
 /* ── 매장별 일별매출 (시트 전 항목) ── */
