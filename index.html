@@ -3543,6 +3543,16 @@ var ORDER_HEADERS=["출고일","주문번호(사방넷)","주문번호(쇼핑몰
 var orderDB=(function(){try{var d=JSON.parse(localStorage.getItem("orderDB")||"null");return (d&&d.rows)?d:{rows:[]};}catch(e){return {rows:[]};}})();
 function saveOrder(){wsSetItem("orderDB",JSON.stringify(orderDB));}
 function _ordStoreByCode(code){if(!code)return null;/* 매장없음(공백)은 매장정보 없음으로 취급 */for(var i=0;i<ORDER_STORES.length;i++)if(ORDER_STORES[i].code===code)return ORDER_STORES[i];return null;}
+function _ordAddrBookAoa(){
+  var aoa=[ORDER_HEADERS.slice()];
+  ORDER_STORES.forEach(function(s){
+    if(!s.code)return;
+    var row=[];for(var c=0;c<27;c++)row.push("");
+    row[2]=s.code;row[3]=s.name;row[4]=s.recv||"";row[7]=s.tel||"";row[9]=s.addr||"";
+    aoa.push(row);
+  });
+  return aoa;
+}
 function _ordStoreOptions(selCode){return ORDER_STORES.map(function(s){var label=s.code?(s.code+' · '+s.name):s.name;return '<option value="'+s.code+'"'+(s.code===selCode?' selected':'')+'>'+label+'</option>';}).join("");}
 function ordFillStoreSelect(){var sel=document.getElementById("ordStore");if(!sel||sel.options.length)return;sel.innerHTML=_ordStoreOptions(ORDER_STORES[0].code);}
 function ordAddRow(){var sel=document.getElementById("ordStore");var code=sel?sel.value:(ORDER_STORES[0]&&ORDER_STORES[0].code);orderDB.rows.push({store:code||"",name:"",code:"",qty:""});saveOrder();renderOrder();var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;}
@@ -3766,6 +3776,7 @@ function ordDownload(){
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"발주서");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(_ordAddrBookAoa()),"매장주소록");
   var d=new Date();
   XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 도매발주서.xlsx");
 }
@@ -3871,6 +3882,7 @@ function ocDownload(){
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"발주서");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(_ordAddrBookAoa()),"매장주소록");
   var d=new Date();
   XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 도매발주서.xlsx");
 }
