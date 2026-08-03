@@ -1941,6 +1941,13 @@ function isNoOnlineStore(name){
   for(var i=0;i<NO_ONLINE_STORE_KW.length;i++)if(name.indexOf(NO_ONLINE_STORE_KW[i])>=0)return true;
   return false;
 }
+/* 온라인 매출을 반드시 기재해야 하는 매장 — 이름에 아래 키워드가 포함되면 온라인 칸을 항상 표시(다른 제외 규칙보다 우선) */
+var FORCE_ONLINE_STORE_KW=["청량리","잠실","본점"];
+function isForceOnlineStore(name){
+  if(!name)return false;
+  for(var i=0;i<FORCE_ONLINE_STORE_KW.length;i++)if(name.indexOf(FORCE_ONLINE_STORE_KW[i])>=0)return true;
+  return false;
+}
 
 // 팝업 기간 종료 여부 판정
 function parseKoreanDate(s){
@@ -3805,6 +3812,7 @@ function _dsInput(val,onblur,idv,red){return '<input '+(idv?'id="'+idv+'" ':'')+
 /* 매장별 표시 필드 — 온라인 매출 없는 매장은 온라인/온라인수량 열 제외 */
 function _dsFldsOf(name,mk){
   var noOnline=DS_FIELDS.filter(function(f){return f.k!=="online"&&f.k!=="onlineQ";});
+  if(isForceOnlineStore(name))return DS_FIELDS;
   if(isNoOnlineStore(name))return noOnline;
   var st=dsStores(mk).filter(function(s){return s.name===name;})[0];
   if(st&&st.period)return noOnline; /* 팝업 매장(팝업기간 설정됨)은 온라인 칸 제외 */
