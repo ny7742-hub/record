@@ -931,16 +931,27 @@ label{font-size:14px!important}
 <div class="main" style="max-width:1000px">
   <div class="card">
     <div class="sec-title">🧾 팝업 종료 로스 품의서</div>
+    <div class="fg" style="margin-bottom:12px">
+      <label>🏪 팝업에서 불러오기</label>
+      <select id="lrPopupSel" onchange="lrLoadFromPopup()" style="padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:white"><option value="">팝업 선택...</option></select>
+    </div>
     <div class="grid3">
-      <div class="fg"><label>매장명</label><input id="lrStore" type="text" placeholder="예: 롯데백화점 평촌점" oninput="lrSave()"></div>
-      <div class="fg"><label>운영 시작일</label><input id="lrStart" type="date" onchange="lrSave();lrRenderSummary()"></div>
-      <div class="fg"><label>운영 종료일</label><input id="lrEnd" type="date" onchange="lrSave();lrRenderSummary()"></div>
+      <div class="fg"><label>매장명</label><input id="lrStore" type="text" placeholder="예: 롯데백화점 평촌점" oninput="lrSave()" onblur="lrAutoFillSales()"></div>
+      <div class="fg"><label>운영 시작일</label><input id="lrStart" type="date" onchange="lrSave();lrRenderSummary();lrAutoFillSales()"></div>
+      <div class="fg"><label>운영 종료일</label><input id="lrEnd" type="date" onchange="lrSave();lrRenderSummary();lrAutoFillSales()"></div>
     </div>
     <div class="grid3" style="margin-top:12px">
-      <div class="fg"><label>총매출(원)</label><input id="lrSales" type="text" inputmode="numeric" oninput="fmtTargetInput(this);lrSave()"></div>
+      <div class="fg">
+        <label>총매출(원)</label>
+        <div style="display:flex;gap:6px">
+          <input id="lrSales" type="text" inputmode="numeric" oninput="fmtTargetInput(this);lrSave()" style="flex:1">
+          <button class="bs" onclick="lrAutoFillSales()" title="매장별 일별매출에서 다시 가져오기" style="padding:0 12px">🔄</button>
+        </div>
+      </div>
       <div class="fg"><label>총판매수량(개)</label><input id="lrQty" type="text" inputmode="numeric" oninput="fmtTargetInput(this);lrSave()"></div>
       <div class="fg"><label>운영일수</label><input id="lrDays" type="text" disabled style="background:#f3f4f6"></div>
     </div>
+    <div id="lrSalesMsg" style="font-size:11px;margin-top:6px"></div>
   </div>
   <div class="card">
     <div class="ri">
@@ -3270,6 +3281,63 @@ function initLossReportTab(){
   if(!lrDB.rows.length)lrDB.rows.push({name:"",color:"",qty:"",tag:""});
   lrRenderRows();
   lrRenderSummary();
+  lrFillPopupSelect();
+}
+function lrFillPopupSelect(){
+  var sel=document.getElementById("lrPopupSel");if(!sel)return;
+  var opts='<option value="">팝업 선택...</option>';
+  if(typeof popupDB!=="undefined"&&Array.isArray(popupDB)){
+    popupDB.forEach(function(p,i){
+      if(!p.store)return;
+      var label=p.store+(p.start?" ("+p.start+"~"+(p.end||"")+")":"");
+      opts+='<option value="'+i+'">'+_esc(label)+'</option>';
+    });
+  }
+  sel.innerHTML=opts;
+}
+function lrLoadFromPopup(){
+  var sel=document.getElementById("lrPopupSel");
+  if(!sel||sel.value==="")return;
+  var p=popupDB[+sel.value];if(!p)return;
+  document.getElementById("lrStore").value=p.store||"";
+  document.getElementById("lrStart").value=p.start||"";
+  document.getElementById("lrEnd").value=p.end||"";
+  lrSave();
+  lrRenderSummary();
+  lrAutoFillSales();
+}
+function lrAutoFillSales(){
+  var msg=document.getElementById("lrSalesMsg");
+  var store=(document.getElementById("lrStore").value||"").trim();
+  var start=document.getElementById("lrStart").value;
+  var end=document.getElementById("lrEnd").value;
+  if(!store||!start||!end){if(msg)msg.textContent="";return;}
+  if(typeof dailySalesDB==="undefined"||!dailySalesDB.data){if(msg)msg.textContent="";return;}
+  var d0=new Date(start+"T00:00:00"),d1=new Date(end+"T00:00:00");
+  if(isNaN(d0)||isNaN(d1)||d0>d1){if(msg)msg.textContent="";return;}
+  var normTarget=_dsNormStoreName(store);
+  var sumEdi=0,sumEdiQ=0,found=false;
+  for(var d=new Date(d0);d<=d1;d.setDate(d.getDate()+1)){
+    var mk=d.getFullYear()+"-"+(d.getMonth()+1<10?"0"+(d.getMonth()+1):(d.getMonth()+1));
+    var day=d.getDate();
+    var md=dailySalesDB.data[mk];
+    if(!md||!md[day])continue;
+    Object.keys(md[day]).forEach(function(sn){
+      if(_dsNormStoreName(sn)===normTarget){
+        found=true;
+        sumEdi+=Number(String(md[day][sn].edi||0).replace(/,/g,""))||0;
+        sumEdiQ+=Number(String(md[day][sn].ediQ||0).replace(/,/g,""))||0;
+      }
+    });
+  }
+  if(found){
+    document.getElementById("lrSales").value=sumEdi.toLocaleString();
+    document.getElementById("lrQty").value=sumEdiQ.toLocaleString();
+    lrSave();
+    if(msg){msg.textContent="✔ 매장별 일별매출에서 "+start+"~"+end+" 매출 "+sumEdi.toLocaleString()+"원 자동 반영됨";msg.style.color="#059669";}
+  }else{
+    if(msg){msg.textContent="⚠ 매장별 일별매출에서 '"+store+"' 매장의 해당 기간 데이터를 찾지 못했습니다. 직접 입력하세요.";msg.style.color="#dc2626";}
+  }
 }
 function lrAddRow(){lrDB.rows.push({name:"",color:"",qty:"",tag:""});lrSave();lrRenderRows();lrRenderSummary();}
 function lrDelRow(i){lrDB.rows.splice(i,1);lrSave();lrRenderRows();lrRenderSummary();}
