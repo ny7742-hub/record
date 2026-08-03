@@ -956,7 +956,11 @@ label{font-size:14px!important}
   <div class="card">
     <div class="ri">
       <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none">📋 로스 세부내역</div>
-      <button class="bs" onclick="lrAddRow()">+ 행 추가</button>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span id="lrUploadMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+        <label style="cursor:pointer"><span class="bs" style="padding:8px 14px;font-size:13px;font-weight:600;display:inline-block;border-radius:8px">📂 엑셀 업로드</span><input type="file" accept=".xlsx,.xls" style="display:none" onchange="lrLoadFile(this)"/></label>
+        <button class="bs" onclick="lrAddRow()">+ 행 추가</button>
+      </div>
     </div>
     <table style="margin-top:10px">
       <thead><tr><th style="width:34px">NO</th><th>상품명</th><th style="width:100px">색상</th><th style="width:80px;text-align:right">수량</th><th style="width:100px;text-align:right">TAG가</th><th style="width:110px;text-align:right">로스금액</th><th style="width:34px"></th></tr></thead>
@@ -3338,6 +3342,58 @@ function lrAutoFillSales(){
   }else{
     if(msg){msg.textContent="⚠ 매장별 일별매출에서 '"+store+"' 매장의 해당 기간 데이터를 찾지 못했습니다. 직접 입력하세요.";msg.style.color="#dc2626";}
   }
+}
+function lrLoadFile(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      var hRow=-1,H={};
+      for(var r=0;r<Math.min(10,rows.length);r++){
+        var row=rows[r]||[];
+        var cName=_ocCol(row,["상품명"]);
+        if(cName>=0){
+          hRow=r;H.name=cName;
+          H.color=_ocCol(row,["색상","칼라","칼라명","컬러","컬러명"]);
+          H.qty=_ocCol(row,["수량","로스수량","조정수량"]);
+          H.tag=_ocCol(row,["TAG가","택가","TAG가격","단가","판매가"]);
+          break;
+        }
+      }
+      if(hRow<0){alert("엑셀 형식을 인식할 수 없습니다.\n(상품명 열이 필요합니다)");return;}
+      var newRows=[];
+      for(var r=hRow+1;r<rows.length;r++){
+        var row=rows[r];if(!row)continue;
+        var name=String(row[H.name]||"").trim();
+        if(!name||/^합계/.test(name))continue;
+        newRows.push({
+          name:name,
+          color:H.color>=0?String(row[H.color]||"").trim():"",
+          qty:H.qty>=0?String(row[H.qty]||"").replace(/,/g,"").trim():"",
+          tag:H.tag>=0?String(row[H.tag]||"").replace(/[,원]/g,"").trim():""
+        });
+      }
+      if(!newRows.length){alert("불러올 로스 내역이 없습니다.");return;}
+      var hasExisting=lrDB.rows.some(function(r){return r.name;});
+      if(hasExisting){
+        if(confirm(newRows.length+"행을 불러왔습니다. 기존 로스 세부내역을 덮어쓸까요?\n(취소하면 기존 내역 뒤에 추가됩니다)")){
+          lrDB.rows=newRows;
+        }else{
+          lrDB.rows=lrDB.rows.filter(function(r){return r.name;}).concat(newRows);
+        }
+      }else{
+        lrDB.rows=newRows;
+      }
+      lrSave();lrRenderRows();lrRenderSummary();
+      var msg=document.getElementById("lrUploadMsg");
+      if(msg){msg.textContent="✔ "+newRows.length+"행 불러옴";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},3000);}
+    }catch(err){alert("파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+  input.value="";
 }
 function lrAddRow(){lrDB.rows.push({name:"",color:"",qty:"",tag:""});lrSave();lrRenderRows();lrRenderSummary();}
 function lrDelRow(i){lrDB.rows.splice(i,1);lrSave();lrRenderRows();lrRenderSummary();}
