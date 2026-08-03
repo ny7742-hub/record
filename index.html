@@ -970,6 +970,10 @@ label{font-size:14px!important}
   </div>
   <div class="card">
     <div class="fg"><label>제외 품목 안내문구</label><input id="lrNote" type="text" oninput="lrSave()"></div>
+    <div class="fg" style="margin-top:12px">
+      <label>상계처리 거래처명 (선택 — 입력 시 "○○에 로스금액의 50%인 N원에 대하여 상계처리" 문구로 표시)</label>
+      <input id="lrPartner" type="text" placeholder="예: 앨리웁" oninput="lrSave()">
+    </div>
     <div class="btn-row" style="margin-top:14px">
       <button class="bs" onclick="lrClear()">🗑 새로 작성</button>
       <button class="bg" onclick="lrDownload()">📥 품의서 다운로드(.doc)</button>
@@ -3271,7 +3275,7 @@ var lrDB=(function(){
     var d=JSON.parse(localStorage.getItem("lrDB")||"null");
     if(d&&Array.isArray(d.rows))return d;
   }catch(e){}
-  return {store:"",start:"",end:"",sales:"",qty:"",note:LR_DEFAULT_NOTE,rows:[{name:"",color:"",qty:"",tag:""}]};
+  return {store:"",start:"",end:"",sales:"",qty:"",note:LR_DEFAULT_NOTE,partner:"",rows:[{name:"",color:"",qty:"",tag:""}]};
 })();
 function lrSave(){
   lrDB.store=document.getElementById("lrStore").value;
@@ -3280,6 +3284,7 @@ function lrSave(){
   lrDB.sales=document.getElementById("lrSales").value;
   lrDB.qty=document.getElementById("lrQty").value;
   lrDB.note=document.getElementById("lrNote").value;
+  lrDB.partner=document.getElementById("lrPartner").value;
   localStorage.setItem("lrDB",JSON.stringify(lrDB));
 }
 function initLossReportTab(){
@@ -3289,6 +3294,7 @@ function initLossReportTab(){
   document.getElementById("lrSales").value=lrDB.sales||"";
   document.getElementById("lrQty").value=lrDB.qty||"";
   document.getElementById("lrNote").value=lrDB.note||LR_DEFAULT_NOTE;
+  document.getElementById("lrPartner").value=lrDB.partner||"";
   if(!lrDB.rows.length)lrDB.rows.push({name:"",color:"",qty:"",tag:""});
   lrRenderRows();
   lrRenderSummary();
@@ -3448,7 +3454,7 @@ function lrRenderSummary(){
 }
 function lrClear(){
   if(!confirm("작성 중인 내용을 모두 지우고 새로 작성할까요?"))return;
-  lrDB={store:"",start:"",end:"",sales:"",qty:"",note:LR_DEFAULT_NOTE,rows:[{name:"",color:"",qty:"",tag:""}]};
+  lrDB={store:"",start:"",end:"",sales:"",qty:"",note:LR_DEFAULT_NOTE,partner:"",rows:[{name:"",color:"",qty:"",tag:""}]};
   localStorage.setItem("lrDB",JSON.stringify(lrDB));
   initLossReportTab();
 }
@@ -3459,6 +3465,7 @@ function lrDownload(){
   var sales=Number((document.getElementById("lrSales").value||"").replace(/,/g,""))||0;
   var qty=Number((document.getElementById("lrQty").value||"").replace(/,/g,""))||0;
   var note=document.getElementById("lrNote").value||"";
+  var partner=(document.getElementById("lrPartner").value||"").trim();
   var rows=lrDB.rows.filter(function(r){return r.name;});
   if(!rows.length){alert("로스 세부내역을 1건 이상 입력하세요.");return;}
   var sumQty=0,sumAmt=0;
@@ -3502,7 +3509,9 @@ function lrDownload(){
     +'</tbody></table>'
     +(note?'<p style="font-size:9pt;color:#555">*'+_esc(note)+'</p>':'')
     +'<p><b>5. 승인 요청 사항</b><br>'
-    +_esc(store)+' 폐점 및 재고 정리 과정에서 확인된 상기 상품의 최종 로스 수량 '+Math.abs(sumQty).toLocaleString()+'개, 로스 금액 '+Math.abs(sumAmt).toLocaleString()+'원에 대하여 전산상 로스 처리 및 상품 재고조정등록을 진행하고자 하오니, 검토 후 승인 부탁드립니다.</p>'
+    +(partner
+      ? _esc(store)+' 폐점 및 재고 정리 과정에서 확인된 상기 상품의 최종 로스 수량 '+Math.abs(sumQty).toLocaleString()+'개, 로스 금액 '+Math.abs(sumAmt).toLocaleString()+'원이며, '+_esc(partner)+'에 로스금액의 50%인 '+Math.round(Math.abs(sumAmt)/2).toLocaleString()+'원에 대하여 상계처리 및 전산상 로스 처리, 상품 재고조정등록을 진행하고자 하오니, 검토 후 승인 부탁드립니다.</p>'
+      : _esc(store)+' 폐점 및 재고 정리 과정에서 확인된 상기 상품의 최종 로스 수량 '+Math.abs(sumQty).toLocaleString()+'개, 로스 금액 '+Math.abs(sumAmt).toLocaleString()+'원에 대하여 전산상 로스 처리 및 상품 재고조정등록을 진행하고자 하오니, 검토 후 승인 부탁드립니다.</p>')
     +'</body></html>';
 
   var blob=new Blob(['﻿'+html],{type:"application/msword"});
