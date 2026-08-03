@@ -734,6 +734,15 @@ label{font-size:14px!important}
       <span style="margin-left:auto;font-size:11px;color:#cbd5e1;cursor:pointer" onclick="dsClearSel()">✕ 해제</span>
     </div>
   </div>
+  <div id="dsNotePopup" style="display:none;position:fixed;z-index:4000;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);padding:10px;width:220px">
+    <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px" id="dsNotePopupTitle">메모</div>
+    <textarea id="dsNoteText" rows="3" placeholder="금액이 다른 사유를 입력하세요" style="width:100%;border:1px solid #fcd34d;border-radius:6px;padding:6px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+    <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+      <button onclick="dsDeleteNote()" style="padding:4px 10px;font-size:11px;border:1px solid #fca5a5;background:#fff;color:#dc2626;border-radius:6px;cursor:pointer">삭제</button>
+      <button onclick="dsCloseNotePopup()" style="padding:4px 10px;font-size:11px;border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:6px;cursor:pointer">취소</button>
+      <button onclick="dsSaveNote()" style="padding:4px 10px;font-size:11px;border:none;background:#f59e0b;color:#fff;font-weight:700;border-radius:6px;cursor:pointer">저장</button>
+    </div>
+  </div>
 </div>
 </div><!-- /page-daily -->
 <div id="page-costco" style="display:none">
@@ -4034,7 +4043,7 @@ function renderDaily(){
   h+='<th rowspan="2" style="position:sticky;left:58px;top:0;z-index:5;'+thb+';padding:6px 6px;min-width:96px">달성금액<br><span style="font-size:10px;font-weight:600;color:#64748b">(EDI 합계)</span></th>';
   stores.forEach(function(s,si){
     var mi='width:78px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;text-align:right;padding:2px 4px;outline:none';
-    h+='<th colspan="'+_dsFldsOf(s.name,mk).length+'" style="'+thb+';padding:5px 6px;vertical-align:top">';
+    h+='<th colspan="'+_dsFldsOf(s.name,mk).length+'" style="'+thb+';padding:5px 6px;vertical-align:top;border-left:3px solid #1b6e82">';
     var _dsPopupBanner=s.period?'<span style="font-size:12px;color:#ea580c;font-weight:700;white-space:nowrap;cursor:pointer" onclick="var el=document.getElementById(\'dsPeriod_'+si+'\');if(el){el.focus();el.select();}" title="클릭하여 팝업기간 수정">🎪'+_esc(s.period)+'</span>':'';
     var _dsUpBtn='<label title="파일 업로드 (판매수량·총매출)" style="cursor:pointer;font-size:12px;line-height:1;user-select:none">📁<input type="file" accept=".xlsx,.xls" style="display:none" onchange="dsLoadStoreFile(event,'+si+')"></label>';
     h+='<div style="display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span>'+_dsPopupBanner+_dsUpBtn+'<button onclick="dsDelStore('+si+')" title="매장 삭제" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0">✕</button></div>';
@@ -4049,9 +4058,9 @@ function renderDaily(){
   h+='</tr><tr>';
   var _dsColMeta=[];
   stores.forEach(function(s,si){
-    _dsFldsOf(s.name,mk).forEach(function(f){
+    _dsFldsOf(s.name,mk).forEach(function(f,fi){
       var qty=/Q$/.test(f.k);
-      h+='<th style="position:sticky;top:52px;z-index:2;background:#f1f5f9;border:1px solid #e7dcc4;padding:3px 5px;color:#475569;font-size:11px;min-width:'+(qty?"46px":"76px")+'">'+f.t+'</th>';
+      h+='<th style="position:sticky;top:52px;z-index:2;background:#f1f5f9;border:1px solid #e7dcc4;padding:3px 5px;color:#475569;font-size:11px;min-width:'+(qty?"46px":"76px")+';'+(fi===0?"border-left:3px solid #1b6e82;":"")+'">'+f.t+'</th>';
       _dsColMeta.push({si:si,field:f.k});
     });
   });
@@ -4062,8 +4071,8 @@ function renderDaily(){
   h+='<td style="position:sticky;left:0;z-index:1;background:#e2e8f5;border:1px solid #e7dcc4;padding:5px 6px;text-align:center;color:#1b6e82">총매출</td>';
   h+='<td id="dsGrand" style="position:sticky;left:58px;z-index:1;background:#e2e8f5;border:1px solid #e7dcc4;padding:5px 6px;text-align:right;color:#1b6e82"></td>';
   stores.forEach(function(s,si){
-    _dsFldsOf(s.name,mk).forEach(function(f){
-      h+='<td id="dsTot_'+si+'_'+f.k+'" style="border:1px solid #e7dcc4;padding:5px 4px;text-align:right;color:#1b6e82"></td>';
+    _dsFldsOf(s.name,mk).forEach(function(f,fi){
+      h+='<td id="dsTot_'+si+'_'+f.k+'" style="border:1px solid #e7dcc4;padding:5px 4px;text-align:right;color:#1b6e82;'+(fi===0?"border-left:3px solid #1b6e82;":"")+'"></td>';
     });
   });
   h+='</tr>';
@@ -4077,10 +4086,12 @@ function renderDaily(){
     stores.forEach(function(s,si){
       var c=dsCell(mk,d,s.name);
       var mism=_dsN(c.edi)!==_dsN(c.playmd);
-      _dsFldsOf(s.name,mk).forEach(function(f){
+      _dsFldsOf(s.name,mk).forEach(function(f,fi){
         var red=(mism&&f.k==="playmd");
         var isQ=/Q$/.test(f.k)?"1":"0";
-        h+='<td class="ds-sel-able" data-dsrow="'+d+'" data-dscol="'+_col+'" data-dsval="'+_dsN(c[f.k])+'" data-dsq="'+isQ+'" style="border:1px solid #e1e6ee;padding:0;'+(red?"background:#fee2e2;":"")+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+'</td>';
+        var noteTxt=(c._notes&&c._notes[f.k])||"";
+        var noteFlag=noteTxt?'<span style="position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 7px 7px 0;border-color:transparent #f59e0b transparent transparent;pointer-events:none" title="메모 있음"></span>':"";
+        h+='<td class="ds-sel-able" data-dsrow="'+d+'" data-dscol="'+_col+'" data-dsval="'+_dsN(c[f.k])+'" data-dsq="'+isQ+'" oncontextmenu="return dsOpenNote(event,this)" title="'+_esc(noteTxt)+'" style="position:relative;border:1px solid #e1e6ee;padding:0;'+(fi===0?"border-left:3px solid #1b6e82;":"")+(red?"background:#fee2e2;":"")+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+noteFlag+'</td>';
         _col++;
       });
     });
@@ -4091,6 +4102,65 @@ function renderDaily(){
   dsRecalc();
   initDailyScroll();
 }
+
+/* ── 매장별 일별매출: 셀 메모(구글시트 댓글 방식 — 우클릭으로 열기) ── */
+var _dsNoteTarget=null;
+function dsOpenNote(e,td){
+  e.preventDefault();
+  var day=+td.dataset.dsrow,col=+td.dataset.dscol;
+  var meta=window._dsColMeta&&window._dsColMeta[col];
+  if(!meta)return false;
+  var s=dsStores()[meta.si];if(!s)return false;
+  var mk=dsKey();
+  var c=dsCell(mk,day,s.name);
+  var existing=(c._notes&&c._notes[meta.field])||"";
+  _dsNoteTarget={day:day,si:meta.si,field:meta.field};
+  var fLabel=(DS_FIELDS.filter(function(f){return f.k===meta.field;})[0]||{}).t||meta.field;
+  var pop=document.getElementById("dsNotePopup");
+  document.getElementById("dsNotePopupTitle").textContent=s.name+" "+day+"일 · "+fLabel+" 메모";
+  document.getElementById("dsNoteText").value=existing;
+  var r=td.getBoundingClientRect();
+  pop.style.left=Math.max(4,Math.min(r.left,window.innerWidth-236))+"px";
+  pop.style.top=(r.bottom+4)+"px";
+  pop.style.display="block";
+  document.getElementById("dsNoteText").focus();
+  return false;
+}
+function dsCloseNotePopup(){
+  var pop=document.getElementById("dsNotePopup");if(pop)pop.style.display="none";
+  _dsNoteTarget=null;
+}
+function dsSaveNote(){
+  if(!_dsNoteTarget)return;
+  var text=document.getElementById("dsNoteText").value;
+  dsSetNote(_dsNoteTarget.day,_dsNoteTarget.si,_dsNoteTarget.field,text);
+  dsCloseNotePopup();
+}
+function dsDeleteNote(){
+  if(!_dsNoteTarget)return;
+  dsSetNote(_dsNoteTarget.day,_dsNoteTarget.si,_dsNoteTarget.field,"");
+  dsCloseNotePopup();
+}
+function dsSetNote(day,si,field,text){
+  var s=dsStores()[si];if(!s)return;
+  var mk=dsKey();
+  if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
+  if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
+  if(!dailySalesDB.data[mk][day][s.name])dailySalesDB.data[mk][day][s.name]={};
+  var cell=dailySalesDB.data[mk][day][s.name];
+  if(text&&text.trim()){
+    if(!cell._notes)cell._notes={};
+    cell._notes[field]=text.trim();
+  }else if(cell._notes){
+    delete cell._notes[field];
+  }
+  saveDaily();
+  renderDaily();
+}
+document.addEventListener("mousedown",function(e){
+  var pop=document.getElementById("dsNotePopup");
+  if(pop&&pop.style.display==="block"&&!pop.contains(e.target))dsCloseNotePopup();
+});
 
 /* ── 매장별 일별매출: 엑셀식 드래그 선택 + 합산 (셀 편집과 공존: 이동해야 선택 시작) ── */
 (function initDailySel(){
