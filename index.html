@@ -3798,7 +3798,13 @@ function dsEdit(day,si,field,val){
 }
 function dsMeta(si,key,val){
   var s=dsStores()[si];if(!s)return "";
-  if(key==="target"||key==="prevYear"){var num=_dsN(val);s[key]=(String(val).trim()===""?"":String(num));saveDaily();dsRecalc();return _dsFmt(num);}
+  if(key==="target"){
+    /* 목표금액은 만원 단위로 입력 — 3300 입력 시 33,000,000으로 환산 저장 */
+    var num=_dsN(val)*10000;
+    s.target=(String(val).trim()===""?"":String(num));
+    saveDaily();dsRecalc();return _dsFmt(num);
+  }
+  if(key==="prevYear"){var num=_dsN(val);s[key]=(String(val).trim()===""?"":String(num));saveDaily();dsRecalc();return _dsFmt(num);}
   s[key]=val;saveDaily();
   if(key==="period"){renderDaily();return val;}
   return val;
