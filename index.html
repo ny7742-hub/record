@@ -3354,21 +3354,24 @@ function lrLoadFile(input){
       var hRow=-1,H={};
       for(var r=0;r<Math.min(10,rows.length);r++){
         var row=rows[r]||[];
-        var cName=_ocCol(row,["상품명"]);
+        var cName=_ocCol(row,["상품명","상품코드명"]);
         if(cName>=0){
           hRow=r;H.name=cName;
-          H.color=_ocCol(row,["색상","칼라","칼라명","컬러","컬러명"]);
-          H.qty=_ocCol(row,["수량","로스수량","조정수량"]);
+          H.color=_ocCol(row,["칼라명","컬러명"]);
+          if(H.color<0)H.color=_ocCol(row,["색상","칼라","컬러"]);
+          H.qty=_ocCol(row,["수량","로스수량","조정수량","재고수량"]);
           H.tag=_ocCol(row,["TAG가","택가","TAG가격","단가","판매가"]);
+          H.store=_ocCol(row,["매장명"]);
           break;
         }
       }
-      if(hRow<0){alert("엑셀 형식을 인식할 수 없습니다.\n(상품명 열이 필요합니다)");return;}
-      var newRows=[];
+      if(hRow<0){alert("엑셀 형식을 인식할 수 없습니다.\n(상품명/상품코드명 열이 필요합니다)");return;}
+      var newRows=[],storeFromFile="";
       for(var r=hRow+1;r<rows.length;r++){
         var row=rows[r];if(!row)continue;
         var name=String(row[H.name]||"").trim();
         if(!name||/^합계/.test(name))continue;
+        if(!storeFromFile&&H.store>=0){var sv=String(row[H.store]||"").trim();if(sv)storeFromFile=sv;}
         newRows.push({
           name:name,
           color:H.color>=0?String(row[H.color]||"").trim():"",
@@ -3388,6 +3391,10 @@ function lrLoadFile(input){
         lrDB.rows=newRows;
       }
       lrSave();lrRenderRows();lrRenderSummary();
+      var storeInput=document.getElementById("lrStore");
+      if(storeFromFile&&storeInput&&!storeInput.value.trim()){
+        storeInput.value=storeFromFile;lrSave();lrAutoFillSales();
+      }
       var msg=document.getElementById("lrUploadMsg");
       if(msg){msg.textContent="✔ "+newRows.length+"행 불러옴";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},3000);}
     }catch(err){alert("파일 오류: "+err.message);}
