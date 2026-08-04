@@ -677,11 +677,15 @@ label{font-size:14px!important}
       <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none;font-size:13px" id="deptPageTitle">🏬 백화점 주간 현황</div>
       <button class="bs" style="padding:4px 10px;font-size:11px" onclick="addDeptStore()">+ 매장</button>
       <span style="font-size:11px;font-weight:600;color:#475569;margin-left:4px">영업기간</span>
-      <input type="date" id="dPeriodStart" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="deptWeekSnap(this.value)"/>
+      <div id="deptModeToggle" style="display:inline-flex;border:1.5px solid #6366f1;border-radius:8px;overflow:hidden">
+        <button type="button" class="dept-mode-btn" data-mode="day" onclick="setDeptMode('day',event)" style="padding:5px 10px;font-size:12px;font-weight:600;border:none;background:white;color:#6366f1;cursor:pointer">일</button>
+        <button type="button" class="dept-mode-btn" data-mode="week" onclick="setDeptMode('week',event)" style="padding:5px 10px;font-size:12px;font-weight:600;border:none;border-left:1.5px solid #6366f1;background:#6366f1;color:white;cursor:pointer">주</button>
+        <button type="button" class="dept-mode-btn" data-mode="month" onclick="setDeptMode('month',event)" style="padding:5px 10px;font-size:12px;font-weight:600;border:none;border-left:1.5px solid #6366f1;background:white;color:#6366f1;cursor:pointer">월</button>
+      </div>
+      <input type="date" id="dPeriodStart" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="deptDateChanged(this.value)"/>
       <span style="color:#5b6675;font-size:12px">~</span>
-      <input type="date" id="dPeriodEnd" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="renderDeptPage()"/>
+      <input type="date" id="dPeriodEnd" class="date-inp" style="padding:5px 8px;font-size:12px;width:130px" onchange="deptPeriodEndChanged(this.value)"/>
       <div style="position:relative;display:inline-block">
-        <button onclick="toggleDeptMonthPicker(event)" style="padding:5px 12px;font-size:12px;font-weight:600;border:1.5px solid #6366f1;border-radius:8px;background:white;color:#6366f1;cursor:pointer">📅 월간</button>
         <div id="deptMonthPicker" style="display:none;position:absolute;top:110%;left:0;background:white;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.13);z-index:300;padding:12px 14px;min-width:200px">
           <div style="font-size:11px;font-weight:700;color:#6366f1;margin-bottom:8px">월 단위 기간 선택</div>
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
@@ -1993,6 +1997,8 @@ function dMonday(d){
 }
 function deptWeekSnap(dateStr){
   if(!dateStr)return;
+  deptMode="week";
+  updateDeptModeButtons();
   var d=new Date(dateStr+"T00:00:00");
   var mon=dMonday(d);
   var sun=new Date(mon);sun.setDate(mon.getDate()+6);
@@ -2008,6 +2014,59 @@ function deptWeekSnap(dateStr){
   var title=document.getElementById("deptPageTitle");
   if(title)title.textContent="🏬 백화점 주간 현황";
   renderDeptPage();
+}
+var deptMode="week";
+function updateDeptModeButtons(){
+  ["day","week","month"].forEach(function(m){
+    var btn=document.querySelector('.dept-mode-btn[data-mode="'+m+'"]');
+    if(!btn)return;
+    var active=(m===deptMode);
+    btn.style.background=active?"#6366f1":"white";
+    btn.style.color=active?"white":"#6366f1";
+  });
+}
+function setDeptMode(mode,e){
+  if(e)e.stopPropagation();
+  deptMode=mode;
+  updateDeptModeButtons();
+  var picker=document.getElementById("deptMonthPicker");
+  if(mode==="month"){
+    if(picker)picker.style.display="block";
+    return; /* 적용 버튼 클릭 시 deptMonthSnap()이 실제 반영 */
+  }
+  if(picker)picker.style.display="none";
+  var s=document.getElementById("dPeriodStart");
+  if(!s||!s.value)return;
+  if(mode==="day")deptDateChanged(s.value);
+  else if(mode==="week")deptWeekSnap(s.value);
+}
+function deptDateChanged(dateStr){
+  if(!dateStr)return;
+  if(deptMode==="day"){
+    document.getElementById("dPeriodStart").value=dateStr;
+    document.getElementById("dPeriodEnd").value=dateStr;
+    var d=new Date(dateStr+"T00:00:00");
+    var cD=new Date(d);cD.setDate(d.getDate()-364);
+    document.getElementById("dCompStart").value=dFmt(cD);
+    document.getElementById("dCompEnd").value=dFmt(cD);
+    var sec=document.getElementById("monthlyUploadSection");
+    if(sec)sec.style.display="none";
+    var title=document.getElementById("deptPageTitle");
+    if(title)title.textContent="🏬 백화점 일일 현황";
+    renderDeptPage();
+  }else if(deptMode==="week"){
+    deptWeekSnap(dateStr);
+  }else{
+    renderDeptPage();
+  }
+}
+function deptPeriodEndChanged(dateStr){
+  if(deptMode==="day"){
+    document.getElementById("dPeriodStart").value=dateStr;
+    deptDateChanged(dateStr);
+  }else{
+    renderDeptPage();
+  }
 }
 
 function initDeptDates(){
@@ -2050,19 +2109,16 @@ function initDeptDates(){
   if(c1&&!c1.value)c1.value=dFmt(cMon);
   if(c2&&!c2.value)c2.value=dFmt(cSun);
   updateDayLabels();
+  updateDeptModeButtons();
 }
 initDeptDates();
 
-function toggleDeptMonthPicker(e){
-  if(e)e.stopPropagation();
-  var el=document.getElementById("deptMonthPicker");
-  if(!el)return;
-  el.style.display=el.style.display==="none"?"block":"none";
-}
 function deptMonthSnap(){
   var yEl=document.getElementById("dMonthYear");
   var mEl=document.getElementById("dMonthMon");
   if(!yEl||!mEl)return;
+  deptMode="month";
+  updateDeptModeButtons();
   var y=parseInt(yEl.value);
   var m=parseInt(mEl.value);
   var first=new Date(y,m-1,1);
@@ -2104,7 +2160,7 @@ function renderMonthlyUploadSection(y,m){
 document.addEventListener("click",function(e){
   var picker=document.getElementById("deptMonthPicker");
   if(picker&&picker.style.display!=="none"){
-    if(!picker.parentElement.contains(e.target))picker.style.display="none";
+    if(!picker.contains(e.target))picker.style.display="none";
   }
 });
 
@@ -3253,7 +3309,7 @@ function renderHomeDashboard(){
     {label:"재고 확인 시작",tab:"stock",icon:'<path d="M5 13l4 4L19 7"/>'},
     {label:"오늘 팝업 일정 보기",tab:"popup",icon:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/>'},
     {label:"발주서(수기) 작성",tab:"order",icon:'<path d="M3 12l18-8-8 18-2-8-8-2z"/>'},
-    {label:"채팅으로 요청(PlayMD)",url:"https://playmd.xmd.co.kr/",icon:'<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>'}
+    {label:"백화점 업데이트",tab:"dept",icon:'<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 21v-4h6v4M9 7h.01M15 7h.01M9 11h.01M15 11h.01"/>'}
   ];
   var qw=document.getElementById("homeQuick");
   if(qw)qw.innerHTML=quick.map(function(q){
