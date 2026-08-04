@@ -4117,11 +4117,14 @@ function renderDaily(){
   var mk=dsKey(),p=mk.split("-"),Y=+p[0],M=+p[1],lastDay=new Date(Y,M,0).getDate();
   var stores=dsStores(mk),WD=["일","월","화","수","목","금","토"],NF=DS_FIELDS.length;
   var thb='background:#e3eeee;border:1px solid #e7dcc4;color:#1b6e82';
+  var mobileMode=window.innerWidth<=700;
+  var achTh='<th rowspan="2" style="position:sticky;'+(mobileMode?'':'left:58px;')+'top:0;z-index:5;'+thb+';padding:6px 6px;min-width:96px">달성금액<br><span style="font-size:10px;font-weight:600;color:#64748b">(EDI 합계)</span></th>';
   var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap">';
   h+='<thead>';
   /* 매장 헤더(이름+팝업기간+목표+전년+달성+달성률+객단가+부족) */
   h+='<tr>';
   h+='<th rowspan="2" style="position:sticky;left:0;top:0;z-index:5;'+thb+';padding:6px 8px;min-width:58px">날짜</th>';
+  if(!mobileMode)h+=achTh;
   stores.forEach(function(s,si){
     var mi='width:78px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;text-align:right;padding:2px 4px;outline:none';
     h+='<th colspan="'+_dsFldsOf(s.name,mk).length+'" style="'+thb+';padding:5px 6px;vertical-align:top;border-left:3px solid #1b6e82">';
@@ -4136,7 +4139,7 @@ function renderDaily(){
     h+='<span>부족 <b id="dsShort_'+si+'" style="color:#dc2626"></b></span>';
     h+='</div></th>';
   });
-  h+='<th rowspan="2" style="position:sticky;top:0;z-index:5;'+thb+';padding:6px 6px;min-width:96px">달성금액<br><span style="font-size:10px;font-weight:600;color:#64748b">(EDI 합계)</span></th>';
+  if(mobileMode)h+=achTh;
   h+='</tr><tr>';
   var _dsColMeta=[];
   stores.forEach(function(s,si){
@@ -4151,18 +4154,22 @@ function renderDaily(){
   /* 총매출 합계행 (맨 위, 1일 앞) */
   h+='<tr style="background:#eef2f9;font-weight:800">';
   h+='<td style="position:sticky;left:0;z-index:1;background:#e2e8f5;border:1px solid #e7dcc4;padding:5px 6px;text-align:center;color:#1b6e82">총매출</td>';
+  var grandTd='<td id="dsGrand" style="'+(mobileMode?'':'position:sticky;left:58px;z-index:1;')+'background:#e2e8f5;border:1px solid #e7dcc4;padding:5px 6px;text-align:right;color:#1b6e82"></td>';
+  if(!mobileMode)h+=grandTd;
   stores.forEach(function(s,si){
     _dsFldsOf(s.name,mk).forEach(function(f,fi){
       h+='<td id="dsTot_'+si+'_'+f.k+'" style="border:1px solid #e7dcc4;padding:5px 4px;text-align:right;color:#1b6e82;'+(fi===0?"border-left:3px solid #1b6e82;":"")+'"></td>';
     });
   });
-  h+='<td id="dsGrand" style="background:#e2e8f5;border:1px solid #e7dcc4;padding:5px 6px;text-align:right;color:#1b6e82"></td>';
+  if(mobileMode)h+=grandTd;
   h+='</tr>';
   for(var d=1;d<=lastDay;d++){
     var wd=new Date(Y,M-1,d).getDay(),dcol=wd===0?"#dc2626":(wd===6?"#2563eb":"#475569");
     var bg=wd===0?"#fef2f2":(wd===6?"#eff6ff":"#fff");
     h+='<tr>';
     h+='<td style="position:sticky;left:0;z-index:1;background:'+bg+';border:1px solid #e1e6ee;padding:4px 8px;text-align:center;font-weight:700;color:'+dcol+'">'+d+'('+WD[wd]+')</td>';
+    var dayTd='<td id="dsDay_'+d+'" style="'+(mobileMode?'':'position:sticky;left:58px;z-index:1;')+'background:'+bg+';border:1px solid #e1e6ee;padding:4px 6px;text-align:right;font-weight:700;color:#1b6e82"></td>';
+    if(!mobileMode)h+=dayTd;
     var _col=0;
     stores.forEach(function(s,si){
       var c=dsCell(mk,d,s.name);
@@ -4176,7 +4183,7 @@ function renderDaily(){
         _col++;
       });
     });
-    h+='<td id="dsDay_'+d+'" style="background:'+bg+';border:1px solid #e1e6ee;padding:4px 6px;text-align:right;font-weight:700;color:#1b6e82"></td>';
+    if(mobileMode)h+=dayTd;
     h+='</tr>';
   }
   h+='</tbody></table>';
@@ -4184,6 +4191,22 @@ function renderDaily(){
   dsRecalc();
   initDailyScroll();
 }
+/* 화면폭이 모바일↔데스크톱 경계를 넘나들 때 달성금액 열 위치 재계산 */
+(function(){
+  var _dsWasMobile=window.innerWidth<=700;
+  var _t=null;
+  window.addEventListener("resize",function(){
+    clearTimeout(_t);
+    _t=setTimeout(function(){
+      var isMobile=window.innerWidth<=700;
+      if(isMobile!==_dsWasMobile){
+        _dsWasMobile=isMobile;
+        var pg=document.getElementById("page-daily");
+        if(pg&&pg.style.display!=="none")renderDaily();
+      }
+    },200);
+  });
+})();
 
 /* ── 매장별 일별매출: 셀 메모(구글시트 댓글 방식 — 우클릭으로 열기) ── */
 var _dsNoteTarget=null;
