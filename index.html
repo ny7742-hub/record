@@ -841,7 +841,7 @@ label{font-size:14px!important}
       <div class="sec-title" style="margin:0;font-size:13px">🏭 홈쇼핑몰 재고확인</div>
       <label style="cursor:pointer"><span class="bs" style="padding:4px 10px;font-size:11px;display:inline-block">📂 창고재고현황 업로드</span><input type="file" id="stockWhIn" accept=".xlsx,.xls" style="display:none" onchange="loadWarehouseStockFile(this)"/></label>
       <span id="stockWhMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
-      <button onclick="startStockCheck()" id="stockCheckBtn" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700" disabled>▶ 재고 확인 시작</button>
+      <button onclick="startStockCheck()" id="stockCheckBtn" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700">▶ 재고 확인 시작</button>
       <span id="stockCheckLogWrap" style="font-size:11px;color:#1b6e82;font-weight:600;white-space:nowrap"></span>
       <a href="홈쇼핑상품리스트.xlsx" download style="margin-left:auto;font-size:12px;color:#15803d;font-weight:700;text-decoration:none;white-space:nowrap">📥 홈쇼핑 상품리스트 다운로드</a>
     </div>
@@ -3688,13 +3688,23 @@ function loadWarehouseStockFile(input){
       var wb=XLSX.read(e.target.result,{type:"array"});
       var ws=wb.Sheets[wb.SheetNames[0]];
       var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      var findCol=function(H,keywords){
+        for(var c=0;c<H.length;c++){
+          var cell=String(H[c]||"").replace(/\s/g,"");
+          for(var k=0;k<keywords.length;k++){
+            if(cell.indexOf(keywords[k])>=0)return c;
+          }
+        }
+        return -1;
+      };
       var hRow=-1;
-      for(var r=0;r<Math.min(5,rows.length);r++){
-        if(rows[r].indexOf("상품코드")>=0){hRow=r;break;}
+      for(var r=0;r<Math.min(10,rows.length);r++){
+        if(findCol(rows[r],["상품코드"])>=0){hRow=r;break;}
       }
       if(hRow<0){alert("창고재고현황 형식을 인식할 수 없습니다.\n(상품코드 열이 필요합니다)");if(msg)msg.textContent="";return;}
       var H=rows[hRow];
-      var cCode=H.indexOf("상품코드"),cColor=H.indexOf("칼라"),cQty=H.indexOf("재고 합계"),cWh=H.indexOf("창고명");
+      var cCode=findCol(H,["상품코드"]),cColor=findCol(H,["칼라"]),cQty=findCol(H,["재고합계","가용재고","현재고","재고수량","재고"]),cWh=findCol(H,["창고명","창고"]);
+      if(cQty<0){alert("창고재고현황에서 재고수량 열을 찾을 수 없습니다.\n(열 이름: "+H.join(", ")+")");if(msg)msg.textContent="";return;}
       var whRows=[];
       for(var r=hRow+1;r<rows.length;r++){
         var row=rows[r];if(!row||!row[cCode])continue;
