@@ -851,6 +851,7 @@ label{font-size:14px!important}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <input id="stockResultSearch" type="text" placeholder="상품명/상품코드 검색" oninput="renderStockCheckResults()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;width:220px">
       <label style="font-size:11px;color:#5b6675;cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="stockOnlyZero" onchange="renderStockCheckResults()"> 품절만 보기</label>
+      <label style="font-size:11px;color:#5b6675;cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="stockOnlyBroadcast" onchange="renderStockCheckResults()"> <span id="stockBroadcastLabel">방송상품만 보기</span></label>
       <span id="stockResultSummary" style="font-size:11px;color:#5b6675;margin-left:auto"></span>
     </div>
     <div id="stockResultWrap" style="overflow:auto;max-height:calc(100vh - 260px)"></div>
@@ -3657,12 +3658,15 @@ function renderStockCheckLog(){
   el.textContent="최근 확인: "+stockCheckLog.map(fmt).join(" · ");
 }
 var HS_PRODUCT_LIST_URL="홈쇼핑상품리스트.xlsx";
+var HS_BROADCAST_LIST_URL="홈쇼핑재고확인상품.xlsx";
 var hsProductList=[];       /* {code,name,colorCode,colorName} */
+var hsBroadcastCodes=null;  /* Set<string> 방송중 상품코드, null=미로딩 */
 var stockWarehouseRows=[];  /* {code,color,qty,wh} */
 var stockWarehouseDate="";
 var stockCheckResults=null; /* {code,name,colorCode,colorName,qty}[] */
 function initStockTab(){
   loadHsProductList();
+  loadHsBroadcastList();
   renderStockCheckLog();
 }
 function loadHsProductList(){
@@ -3678,6 +3682,22 @@ function loadHsProductList(){
     }
     hsProductList=list;
   }).catch(function(e){console.warn("홈쇼핑 상품리스트 로드 실패",e);});
+}
+function loadHsBroadcastList(){
+  if(hsBroadcastCodes)return;
+  fetch(HS_BROADCAST_LIST_URL).then(function(r){return r.arrayBuffer();}).then(function(buf){
+    var wb=XLSX.read(buf,{type:"array"});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    var set=new Set();
+    for(var r=1;r<rows.length;r++){
+      var row=rows[r];if(!row||!row[3])continue;
+      set.add(String(row[3]).trim());
+    }
+    hsBroadcastCodes=set;
+    var lbl=document.getElementById("stockBroadcastLabel");
+    if(lbl)lbl.textContent="방송상품만 보기 ("+set.size+")";
+  }).catch(function(e){console.warn("홈쇼핑 방송상품 리스트 로드 실패",e);});
 }
 function loadWarehouseStockFile(input){
   var file=input.files[0];if(!file)return;
@@ -3737,11 +3757,13 @@ function startStockCheck(){
 function renderStockCheckResults(){
   var wrap=document.getElementById("stockResultWrap");if(!wrap)return;
   if(!stockCheckResults){wrap.innerHTML="";return;}
-  var qEl=document.getElementById("stockResultSearch"),zEl=document.getElementById("stockOnlyZero");
+  var qEl=document.getElementById("stockResultSearch"),zEl=document.getElementById("stockOnlyZero"),bEl=document.getElementById("stockOnlyBroadcast");
   var q=(qEl&&qEl.value||"").trim();
   var onlyZero=zEl&&zEl.checked;
+  var onlyBroadcast=bEl&&bEl.checked;
   var list=stockCheckResults.filter(function(r){
     if(onlyZero&&r.qty>0)return false;
+    if(onlyBroadcast&&hsBroadcastCodes&&!hsBroadcastCodes.has(r.code))return false;
     if(q&&r.name.indexOf(q)<0&&r.code.indexOf(q)<0)return false;
     return true;
   });
