@@ -845,13 +845,12 @@ label{font-size:14px!important}
       <span id="stockCheckLogWrap" style="font-size:11px;color:#1b6e82;font-weight:600;white-space:nowrap"></span>
       <a href="홈쇼핑상품리스트.xlsx" download style="margin-left:auto;font-size:12px;color:#15803d;font-weight:700;text-decoration:none;white-space:nowrap">📥 홈쇼핑 상품리스트 다운로드</a>
     </div>
-    <div style="margin-top:8px;font-size:11px;color:#94a3b8">PlayMD 창고재고현황 → 출고관리 → 현황 → 창고재고현황에서 엑셀로 받은 파일을 올리고 "재고 확인 시작"을 누르면, 홈쇼핑 상품리스트 기준으로 색상별 재고를 교차 확인합니다.</div>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8">PlayMD 창고재고현황 → 출고관리 → 현황 → 창고재고현황에서 엑셀로 받은 파일을 올리고 "재고 확인 시작"을 누르면, 홈쇼핑 상품리스트 기준으로 상품코드별 재고(전 칼라 합계)를 교차 확인합니다.</div>
   </div>
   <div class="card" style="padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <input id="stockResultSearch" type="text" placeholder="상품명/상품코드 검색" oninput="renderStockCheckResults()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;width:220px">
       <label style="font-size:11px;color:#5b6675;cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="stockOnlyZero" onchange="renderStockCheckResults()"> 품절만 보기</label>
-      <label style="font-size:11px;color:#5b6675;cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="stockOnlyBroadcast" onchange="renderStockCheckResults()"> <span id="stockBroadcastLabel">방송상품만 보기</span></label>
       <span id="stockResultSummary" style="font-size:11px;color:#5b6675;margin-left:auto"></span>
     </div>
     <div id="stockResultWrap" style="overflow:auto;max-height:calc(100vh - 260px)"></div>
@@ -3658,46 +3657,27 @@ function renderStockCheckLog(){
   el.textContent="최근 확인: "+stockCheckLog.map(fmt).join(" · ");
 }
 var HS_PRODUCT_LIST_URL="홈쇼핑상품리스트.xlsx";
-var HS_BROADCAST_LIST_URL="홈쇼핑재고확인상품.xlsx";
-var hsProductList=[];       /* {code,name,colorCode,colorName} */
-var hsBroadcastCodes=null;  /* Set<string> 방송중 상품코드, null=미로딩 */
+var hsProductList=[];       /* {code,name,ch1,ch2} */
 var stockWarehouseRows=[];  /* {code,color,qty,wh} */
 var stockWarehouseDate="";
-var stockCheckResults=null; /* {code,name,colorCode,colorName,qty}[] */
+var stockCheckResults=null; /* {code,name,ch1,ch2,qty}[] */
 function initStockTab(){
   loadHsProductList();
-  loadHsBroadcastList();
   renderStockCheckLog();
 }
 function loadHsProductList(){
   if(hsProductList.length)return;
-  fetch(HS_PRODUCT_LIST_URL).then(function(r){return r.arrayBuffer();}).then(function(buf){
+  fetch(HS_PRODUCT_LIST_URL,{cache:"no-store"}).then(function(r){return r.arrayBuffer();}).then(function(buf){
     var wb=XLSX.read(buf,{type:"array"});
     var ws=wb.Sheets[wb.SheetNames[0]];
     var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
     var list=[];
     for(var r=1;r<rows.length;r++){
-      var row=rows[r];if(!row||!row[1])continue;
-      list.push({code:String(row[1]).trim(),name:String(row[2]||"").trim(),colorCode:String(row[3]||"").trim(),colorName:String(row[4]||"").trim()});
+      var row=rows[r];if(!row||!row[3])continue;
+      list.push({ch1:String(row[0]||"").trim(),ch2:String(row[1]||"").trim(),name:String(row[2]||"").trim(),code:String(row[3]).trim()});
     }
     hsProductList=list;
   }).catch(function(e){console.warn("홈쇼핑 상품리스트 로드 실패",e);});
-}
-function loadHsBroadcastList(){
-  if(hsBroadcastCodes)return;
-  fetch(HS_BROADCAST_LIST_URL).then(function(r){return r.arrayBuffer();}).then(function(buf){
-    var wb=XLSX.read(buf,{type:"array"});
-    var ws=wb.Sheets[wb.SheetNames[0]];
-    var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
-    var set=new Set();
-    for(var r=1;r<rows.length;r++){
-      var row=rows[r];if(!row||!row[3])continue;
-      set.add(String(row[3]).trim());
-    }
-    hsBroadcastCodes=set;
-    var lbl=document.getElementById("stockBroadcastLabel");
-    if(lbl)lbl.textContent="방송상품만 보기 ("+set.size+")";
-  }).catch(function(e){console.warn("홈쇼핑 방송상품 리스트 로드 실패",e);});
 }
 function loadWarehouseStockFile(input){
   var file=input.files[0];if(!file)return;
@@ -3745,11 +3725,10 @@ function startStockCheck(){
   }
   var idx={};
   stockWarehouseRows.forEach(function(r){
-    var k=r.code+"|"+r.color;
-    idx[k]=(idx[k]||0)+r.qty;
+    idx[r.code]=(idx[r.code]||0)+r.qty;
   });
   stockCheckResults=hsProductList.map(function(p){
-    return {code:p.code,name:p.name,colorCode:p.colorCode,colorName:p.colorName,qty:idx[p.code+"|"+p.colorCode]||0};
+    return {code:p.code,name:p.name,ch1:p.ch1,ch2:p.ch2,qty:idx[p.code]||0};
   });
   renderStockCheckResults();
   logStockCheck();
@@ -3757,13 +3736,11 @@ function startStockCheck(){
 function renderStockCheckResults(){
   var wrap=document.getElementById("stockResultWrap");if(!wrap)return;
   if(!stockCheckResults){wrap.innerHTML="";return;}
-  var qEl=document.getElementById("stockResultSearch"),zEl=document.getElementById("stockOnlyZero"),bEl=document.getElementById("stockOnlyBroadcast");
+  var qEl=document.getElementById("stockResultSearch"),zEl=document.getElementById("stockOnlyZero");
   var q=(qEl&&qEl.value||"").trim();
   var onlyZero=zEl&&zEl.checked;
-  var onlyBroadcast=bEl&&bEl.checked;
   var list=stockCheckResults.filter(function(r){
     if(onlyZero&&r.qty>0)return false;
-    if(onlyBroadcast&&hsBroadcastCodes&&!hsBroadcastCodes.has(r.code))return false;
     if(q&&r.name.indexOf(q)<0&&r.code.indexOf(q)<0)return false;
     return true;
   });
@@ -3772,16 +3749,17 @@ function renderStockCheckResults(){
   if(sm)sm.textContent="전체 "+stockCheckResults.length+"건 · 품절 "+soldOut+"건"+(stockWarehouseDate?" · 창고재고 기준일 "+stockWarehouseDate:"");
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  [['상품코드',''],['상품명','min-width:280px'],['칼라',''],['재고수량',''],['상태','']].forEach(function(c){
+  [['상품코드',''],['상품명','min-width:280px'],['채널',''],['재고수량',''],['상태','']].forEach(function(c){
     h+='<th style="position:sticky;top:0;background:#e3eeee;border:1px solid #e7dcc4;padding:6px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
   list.forEach(function(r){
     var out=r.qty<=0;
+    var ch=[r.ch1,r.ch2].filter(Boolean).join(" · ");
     h+='<tr style="'+(out?"background:#fef2f2":"")+'">';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace">'+_escX(r.code)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;white-space:normal">'+_escX(r.name)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center">'+_escX(r.colorName||r.colorCode)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center">'+_escX(ch)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;font-weight:700;color:'+(out?"#dc2626":"#15803d")+'">'+r.qty.toLocaleString()+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;font-weight:700;color:'+(out?"#dc2626":"#15803d")+'">'+(out?"품절":"재고있음")+'</td>';
     h+='</tr>';
