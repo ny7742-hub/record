@@ -960,7 +960,7 @@ label{font-size:14px!important}
     </div>
     <div style="overflow-x:auto">
       <table style="border-collapse:collapse;font-size:13px;width:100%;table-layout:fixed">
-        <colgroup><col style="width:40px"><col style="width:36px"><col style="width:160px"><col><col style="width:180px"><col style="width:36px"></colgroup>
+        <colgroup><col style="width:40px"><col style="width:36px"><col style="width:150px"><col style="width:260px"><col style="width:320px"><col style="width:36px"></colgroup>
         <thead><tr style="background:#f1f5f9">
           <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">완료</th>
           <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">NO</th>
@@ -982,7 +982,7 @@ label{font-size:14px!important}
     </div>
     <div style="overflow-x:auto">
       <table style="border-collapse:collapse;font-size:13px;width:100%;table-layout:fixed">
-        <colgroup><col style="width:40px"><col style="width:36px"><col style="width:160px"><col><col style="width:180px"><col style="width:36px"></colgroup>
+        <colgroup><col style="width:40px"><col style="width:36px"><col style="width:150px"><col style="width:260px"><col style="width:320px"><col style="width:36px"></colgroup>
         <thead><tr style="background:#f1f5f9">
           <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">완료</th>
           <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">NO</th>
@@ -7026,6 +7026,20 @@ function renderPopupChecklist(){
   if(storeInput&&!storeInput.value&&_pclCurStore)storeInput.value=_pclCurStore;
   renderPopupChecklistLists();
 }
+function _pclNoteLinesHtml(section,i,note,noteChecks){
+  var lines=String(note||"").split("\n");
+  var h='<div style="display:flex;flex-direction:column;gap:2px">';
+  lines.forEach(function(line,li){
+    var checked=!!(noteChecks&&noteChecks[li]);
+    h+='<div style="display:flex;align-items:center;gap:4px">';
+    h+='<input type="checkbox" '+(checked?"checked":"")+' onchange="pclToggleNoteLine(\''+section+'\','+i+','+li+',this.checked)" style="width:13px;height:13px;flex-shrink:0;cursor:pointer">';
+    h+='<input type="text" value="'+_esc(line)+'" onchange="pclEditNoteLine(\''+section+'\','+i+','+li+',this.value)" style="flex:1;min-width:0;border:none;outline:none;font-size:11.5px;background:transparent;'+(checked?"text-decoration:line-through;color:#94a3b8":"color:#7c3aed")+'">';
+    h+='</div>';
+  });
+  h+='<button onclick="pclAddNoteLine(\''+section+'\','+i+')" style="align-self:flex-start;border:none;background:none;color:#94a3b8;font-size:10px;cursor:pointer;padding:1px 0">+ 줄 추가</button>';
+  h+='</div>';
+  return h;
+}
 function _pclRowsHtml(section,list){
   if(!list.length)return '<tr><td colspan="6" style="padding:16px;text-align:center;color:#94a3b8">항목 없음</td></tr>';
   var h="";
@@ -7035,7 +7049,7 @@ function _pclRowsHtml(section,list){
     h+='<td style="border:1px solid #e1e6ee;padding:6px;text-align:center;color:#94a3b8;font-size:12px">'+(i+1)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:4px"><input value="'+_esc(it.title)+'" onchange="pclEdit(\''+section+'\','+i+',\'title\',this.value)" style="width:100%;border:none;outline:none;font-weight:700;font-size:12.5px;background:transparent;'+(it.checked?"text-decoration:line-through;color:#94a3b8":"")+'"></td>';
     h+='<td style="border:1px solid #e1e6ee;padding:4px"><textarea onchange="pclEdit(\''+section+'\','+i+',\'content\',this.value)" rows="2" style="width:100%;border:none;outline:none;resize:vertical;font-size:12px;white-space:pre-wrap;font-family:inherit;background:transparent">'+_escX(it.content)+'</textarea></td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px"><textarea onchange="pclEdit(\''+section+'\','+i+',\'note\',this.value)" rows="2" style="width:100%;border:none;outline:none;resize:vertical;font-size:12px;white-space:pre-wrap;font-family:inherit;background:transparent;color:#7c3aed">'+_escX(it.note)+'</textarea></td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:4px">'+_pclNoteLinesHtml(section,i,it.note,it.noteChecks)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:6px;text-align:center"><button onclick="pclDelRow(\''+section+'\','+i+')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px">✕</button></td>';
     h+='</tr>';
   });
@@ -7070,6 +7084,29 @@ function pclEdit(section,i,field,val){
   var inst=popupChecklistDB[_pclCurStore];if(!inst||!inst[section][i])return;
   inst[section][i][field]=val;
   savePopupChecklistDB();
+}
+function pclToggleNoteLine(section,i,li,checked){
+  var inst=popupChecklistDB[_pclCurStore];if(!inst||!inst[section][i])return;
+  var it=inst[section][i];
+  if(!it.noteChecks)it.noteChecks=[];
+  it.noteChecks[li]=checked;
+  savePopupChecklistDB();
+  renderPopupChecklistLists();
+}
+function pclEditNoteLine(section,i,li,val){
+  var inst=popupChecklistDB[_pclCurStore];if(!inst||!inst[section][i])return;
+  var it=inst[section][i];
+  var lines=String(it.note||"").split("\n");
+  lines[li]=val;
+  it.note=lines.join("\n");
+  savePopupChecklistDB();
+}
+function pclAddNoteLine(section,i){
+  var inst=popupChecklistDB[_pclCurStore];if(!inst||!inst[section][i])return;
+  var it=inst[section][i];
+  it.note=(it.note?it.note+"\n":"");
+  savePopupChecklistDB();
+  renderPopupChecklistLists();
 }
 function pclAddRow(section){
   if(!_pclCurStore){alert("먼저 매장을 선택하거나 입력해주세요.");return;}
