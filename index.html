@@ -1078,7 +1078,7 @@ var FB_PATH={
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults",
-  "popupChecklistDB":"ws/popupChecklist"
+  "popupChecklistDB":"ws/popupChecklist","popupNaverDismissed":"ws/popupNaverDismissed"
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
 
@@ -1182,6 +1182,11 @@ function wsSetItem(key,value){
   apply("ws/popupChecklist","popupChecklistDB",
     function(d){if(d&&typeof d==="object")popupChecklistDB=d;},
     function(){var pg=document.getElementById("page-popupchecklist");if(pg&&pg.style.display!=="none"&&typeof renderPopupChecklistLists==="function")renderPopupChecklistLists();}
+  );
+  /* 홈 화면 네이버 스마트플레이스 등록 알림 체크 상태 (팀 공유) */
+  apply("ws/popupNaverDismissed","popupNaverDismissed",
+    function(d){if(d&&typeof d==="object")popupNaverDismissed=d;},
+    function(){var pg=document.getElementById("page-home");if(pg&&pg.style.display!=="none"&&typeof renderHomeDashboard==="function")renderHomeDashboard();}
   );
   /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
   /* Firebase에는 백업용으로만 저장하고, 읽기는 localStorage 기준 */
@@ -3289,6 +3294,15 @@ function saveDept(){
 
 
 /* ── 탭 전환 ── */
+var popupNaverDismissed=(function(){
+  try{var d=JSON.parse(localStorage.getItem("popupNaverDismissed")||"{}");return (d&&typeof d==="object")?d:{};}catch(e){return {};}
+})();
+function homeDismissNaverReminder(key){
+  if(!key)return;
+  popupNaverDismissed[key]=true;
+  wsSetItem("popupNaverDismissed",JSON.stringify(popupNaverDismissed));
+  renderHomeDashboard();
+}
 function renderHomeDashboard(){
   var now=new Date();
   var todayEl=document.getElementById("homeToday");
@@ -3308,6 +3322,14 @@ function renderHomeDashboard(){
   var popupOngoing=0;
   if(typeof popupDB!=="undefined"&&Array.isArray(popupDB)){
     popupOngoing=popupDB.filter(function(p){return p.status==="진행중";}).length;
+  }
+
+  var todayStr=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
+  var naverPending=[];
+  if(typeof popupDB!=="undefined"&&Array.isArray(popupDB)){
+    naverPending=popupDB.filter(function(p){
+      return p.start===todayStr && !popupNaverDismissed[todayStr+"|"+p.store];
+    });
   }
 
   var stockState=(typeof stockWarehouseRows!=="undefined"&&stockWarehouseRows.length)
@@ -3367,10 +3389,21 @@ function renderHomeDashboard(){
   var sw=document.getElementById("homeShelf");
   if(sw)sw.innerHTML=cats.map(function(c){
     var chip=c.chip?'<span class="hc-chip">'+_esc(String(c.chip))+'</span>':"";
+    var naverHtml="";
+    if(c.tab==="popup"&&naverPending.length){
+      naverHtml=naverPending.map(function(p){
+        var key=todayStr+"|"+p.store;
+        return '<div style="display:flex;align-items:center;gap:5px;margin-top:5px">'
+          +'<input type="checkbox" data-key="'+_esc(key)+'" onclick="event.stopPropagation()" onchange="homeDismissNaverReminder(this.dataset.key)" style="width:13px;height:13px;cursor:pointer;flex-shrink:0">'
+          +'<span style="color:#dc2626;font-weight:700;font-size:11px">'+_esc(p.store)+' 스마트플레이스 등록요망</span>'
+          +'</div>';
+      }).join("");
+    }
     return '<div class="home-cat" onclick="switchTab(\''+c.tab+'\')" tabindex="0" onkeydown="if(event.key===\'Enter\')switchTab(\''+c.tab+'\')">'
       +chip
       +'<div class="hc-icon" style="background:'+ACC_SOFT[c.acc]+';color:'+ACC[c.acc]+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+ICONS[c.icon]+'</svg></div>'
       +'<div><b>'+c.title+'</b><span>'+c.desc+'</span></div>'
+      +naverHtml
       +'</div>';
   }).join("");
 
