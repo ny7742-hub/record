@@ -3324,6 +3324,31 @@ function renderHomeDashboard(){
     popupOngoing=popupDB.filter(function(p){return p.status==="진행중";}).length;
   }
 
+  /* 코스트코 이번달 합산 금액 */
+  var ccMonthAmt=0;
+  if(typeof costcoDB!=="undefined"&&costcoDB.sales){
+    var ccYear=now.getFullYear();
+    var ccFirst=new Date(ccYear,now.getMonth(),1).getTime();
+    var ccLast=new Date(ccYear,now.getMonth()+1,0).getTime();
+    Object.keys(costcoDB.sales).forEach(function(k){
+      var ms=ccKeyToMs(k,ccYear);
+      if(ms>=ccFirst&&ms<=ccLast)ccMonthAmt+=ccPeriodTotal(k).amount;
+    });
+  }
+
+  /* 홈쇼핑 이번달 합산 금액 (판매가×판매수량) */
+  var hsMonthAmt=0;
+  if(typeof homeshoppingDB!=="undefined"&&Array.isArray(homeshoppingDB)){
+    var curYm=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+    homeshoppingDB.forEach(function(row){
+      if(row.date&&row.date.slice(0,7)===curYm){
+        var price=Number(String(row.price||0).replace(/,/g,""))||0;
+        var sold=Number(String(row.sold||0).replace(/,/g,""))||0;
+        hsMonthAmt+=price*sold;
+      }
+    });
+  }
+
   var todayStr=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
   var naverPending=[];
   if(typeof popupDB!=="undefined"&&Array.isArray(popupDB)){
@@ -3379,12 +3404,12 @@ function renderHomeDashboard(){
     {tab:"popupchecklist",icon:"docCheck",acc:"sage",title:"팝업 체크리스트",desc:"매장별 오픈·철수 체크리스트 관리"},
     {tab:"lossreport",icon:"docCheck",acc:"coral",title:"로스 품의서",desc:"팝업 종료 후 상품 로스 품의서 작성·다운로드"},
     {tab:"dept",icon:"building",acc:"ocean",title:"백화점",desc:"매장별 매출·목표·팝업 현황"},
-    {tab:"daily",icon:"calendar",acc:"sage",title:"매장별 일별매출",desc:"백화점 순서와 자동 동기화"},
-    {tab:"costco",icon:"cart",acc:"coral",title:"코스트코",desc:"행사·마진·판매 현황 관리"},
+    {tab:"daily",icon:"calendar",acc:"sage",title:"매장별 일별매출",desc:"백화점 순서와 자동 동기화",chip:(monthEdi?"이번달 "+monthEdi.toLocaleString()+"원":null)},
+    {tab:"costco",icon:"cart",acc:"coral",title:"코스트코",desc:"행사·마진·판매 현황 관리",chip:(ccMonthAmt?"이번달 "+ccMonthAmt.toLocaleString()+"원":null)},
     {tab:"margin",icon:"coin",acc:"mustard",title:"마진계산",desc:"코스트코 온라인몰 쿠폰 마진 계산"},
-    {tab:"homeshopping",icon:"tv",acc:"rose",title:"홈쇼핑",desc:"방송 매출·재고수량 체크"},
+    {tab:"homeshopping",icon:"tv",acc:"rose",title:"홈쇼핑",desc:"방송 매출·재고수량 체크",chip:(hsMonthAmt?"이번달 "+hsMonthAmt.toLocaleString()+"원":null)},
     {tab:"sheet",icon:"share",acc:"slate",title:"공유캘린더",desc:"팀 구글 시트 캘린더 임베드"},
-    {tab:"stock",icon:"stack",acc:"sage",title:"홈쇼핑몰 재고확인",desc:"창고재고 × 상품리스트 교차확인",chip:(typeof stockWarehouseRows!=="undefined"&&stockWarehouseRows.length?null:"NEW")}
+    {tab:"stock",icon:"stack",acc:"sage",title:"홈쇼핑몰 재고확인",desc:"창고재고 × 상품리스트 교차확인",chip:(lastCheck!=="-"?"최근 확인 "+lastCheck:"미확인")}
   ];
   var sw=document.getElementById("homeShelf");
   if(sw)sw.innerHTML=cats.map(function(c){
