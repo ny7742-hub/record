@@ -7040,14 +7040,19 @@ function _pclNoteLinesHtml(section,i,note,noteChecks){
   h+='</div>';
   return h;
 }
+function _pclFirstUrl(text){
+  var m=/https?:\/\/[^\s"'<>]+/.exec(text||"");
+  return m?m[0]:null;
+}
 function _pclRowsHtml(section,list){
   if(!list.length)return '<tr><td colspan="6" style="padding:16px;text-align:center;color:#94a3b8">항목 없음</td></tr>';
   var h="";
   list.forEach(function(it,i){
+    var url=_pclFirstUrl(it.content)||_pclFirstUrl(it.note);
     h+='<tr style="'+(it.checked?"background:#f0fdf4":"")+'">';
     h+='<td style="border:1px solid #e1e6ee;padding:6px;text-align:center"><input type="checkbox" '+(it.checked?"checked":"")+' onchange="pclToggle(\''+section+'\','+i+',this.checked)" style="width:17px;height:17px;cursor:pointer"></td>';
     h+='<td style="border:1px solid #e1e6ee;padding:6px;text-align:center;color:#94a3b8;font-size:12px">'+(i+1)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px"><input value="'+_esc(it.title)+'" onchange="pclEdit(\''+section+'\','+i+',\'title\',this.value)" style="width:100%;border:none;outline:none;font-weight:700;font-size:12.5px;background:transparent;'+(it.checked?"text-decoration:line-through;color:#94a3b8":"")+'"></td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:4px"><input value="'+_esc(it.title)+'" onchange="pclEdit(\''+section+'\','+i+',\'title\',this.value)" style="width:100%;border:none;outline:none;font-weight:700;font-size:12.5px;background:transparent;'+(it.checked?"text-decoration:line-through;color:#94a3b8":"")+'">'+(url?'<a href="'+_esc(url)+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:3px;font-size:10px;color:#2563eb;text-decoration:none;font-weight:700;white-space:nowrap">🔗 바로가기</a>':'')+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:4px"><textarea onchange="pclEdit(\''+section+'\','+i+',\'content\',this.value)" rows="2" style="width:100%;border:none;outline:none;resize:vertical;font-size:12px;white-space:pre-wrap;font-family:inherit;background:transparent">'+_escX(it.content)+'</textarea></td>';
     h+='<td style="border:1px solid #e1e6ee;padding:4px">'+_pclNoteLinesHtml(section,i,it.note,it.noteChecks)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:6px;text-align:center"><button onclick="pclDelRow(\''+section+'\','+i+')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px">✕</button></td>';
