@@ -403,12 +403,22 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .home-cat b{display:block;font-size:14px;font-weight:800;letter-spacing:-.1px;margin-bottom:2px;color:#22303a}
 .home-cat span{display:block;font-size:11px;color:#67767f;line-height:1.4}
 .home-cat .hc-chip{position:absolute;top:14px;right:14px;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;color:#fff;background:#e8734a}
-.home-quick{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--ec-line);border-radius:999px;padding:8px 16px 8px 10px;font-size:12.5px;font-weight:700;color:#3e4e58;cursor:pointer;box-shadow:0 1px 2px rgba(34,48,58,.05)}
+.home-quick{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--ec-line);border-radius:999px;padding:8px 16px 8px 10px;font-size:12.5px;font-weight:700;color:#3e4e58;cursor:pointer;box-shadow:0 1px 2px rgba(34,48,58,.05);white-space:nowrap}
 .home-quick:hover{border-color:#2a8aa0;color:#1b6e82}
 .home-quick .hq-dot{width:22px;height:22px;border-radius:50%;background:#e3eeee;display:grid;place-items:center;flex:none}
 .home-quick .hq-dot svg{width:12px;height:12px;color:#1b6e82}
+.qc-card{display:flex;flex-direction:column;gap:5px;min-width:150px;max-width:220px}
+.qc-card.qc-full{width:100%}
 @media(max-width:1000px){.home-shelf{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.home-shelf{grid-template-columns:1fr}}
+@media(max-width:600px){
+  #homeQuick{gap:6px}
+  .qc-card{min-width:90px;max-width:140px;flex:1 1 140px;gap:4px}
+  .qc-card.qc-full{max-width:100%;flex:1 1 100%}
+  .home-quick{white-space:normal;line-height:1.25;font-size:11px;padding:6px 10px 6px 8px;gap:6px}
+  .home-quick .hq-dot{width:18px;height:18px}
+  .home-quick .hq-dot svg{width:10px;height:10px}
+}
 
 /* ===== 공통 폰트 최소 14px · 색상/채움 통일 ===== */
 .hint{color:#475569!important;font-size:14px!important}
@@ -3470,7 +3480,7 @@ function renderQuickLaunch(){
     var tag=q.url?'a href="'+_esc(q.url)+'" target="_blank" rel="noopener"':'div onclick="switchTab(\''+q.tab+'\')"';
     var closeTag=q.url?'a':'div';
     var cred=quickCreds[q.label]||{};
-    var linkHtml='<'+tag+' class="home-quick" style="text-decoration:none;white-space:nowrap">'
+    var linkHtml='<'+tag+' class="home-quick" style="text-decoration:none;box-sizing:border-box">'
       +'<span class="hq-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">'+q.icon+'</svg></span>'
       +q.label+'</'+closeTag+'>';
     var credHtml=q.noCred?"":(
@@ -3478,7 +3488,7 @@ function renderQuickLaunch(){
       +'<input type="password" placeholder="비밀번호" data-label="'+_esc(q.label)+'" value="'+_esc(cred.pw||"")+'" onchange="qcSave(this.dataset.label,\'pw\',this.value)" style="width:100%;border:1px solid #e2e5ea;border-radius:6px;padding:4px 7px;font-size:11px;box-sizing:border-box;color:#374151">'
       +(q.defaultEmail!==undefined?'<input type="email" placeholder="이메일주소" data-label="'+_esc(q.label)+'" value="'+_esc(cred.email!==undefined?cred.email:q.defaultEmail)+'" onchange="qcSave(this.dataset.label,\'email\',this.value)" style="width:100%;border:1px solid #e2e5ea;border-radius:6px;padding:4px 7px;font-size:11px;box-sizing:border-box;color:#374151">':"")
     );
-    var card='<div style="display:flex;flex-direction:column;gap:5px;min-width:150px;max-width:220px">'
+    var card='<div class="qc-card'+(q.fullRow?" qc-full":"")+'">'
       +linkHtml
       +credHtml
       +'</div>';
