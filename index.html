@@ -409,12 +409,16 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .home-quick .hq-dot svg{width:12px;height:12px;color:#1b6e82}
 .qc-card{display:flex;flex-direction:column;gap:5px;min-width:150px;max-width:220px}
 .qc-card.qc-full{width:100%}
+.qc-group{display:flex;flex-direction:column;gap:8px;min-width:150px;max-width:220px}
+.qc-group>.qc-card{flex:none}
 @media(max-width:1000px){.home-shelf{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.home-shelf{grid-template-columns:1fr}}
 @media(max-width:600px){
-  #homeQuick{gap:6px}
+  #homeQuick{gap:6px;align-items:flex-start}
   .qc-card{min-width:90px;max-width:140px;flex:1 1 140px;gap:4px}
   .qc-card.qc-full{max-width:100%;flex:1 1 100%}
+  .qc-group{min-width:90px;max-width:140px;flex:1 1 140px;gap:4px}
+  .qc-group>.qc-card{flex:none}
   .home-quick{white-space:normal;line-height:1.25;font-size:11px;padding:6px 10px 6px 8px;gap:6px}
   .home-quick .hq-dot{width:18px;height:18px}
   .home-quick .hq-dot svg{width:10px;height:10px}
@@ -502,7 +506,7 @@ label{font-size:14px!important}
 
 <div style="background:#fff;border-bottom:1px solid var(--ec-line);padding:10px 20px">
   <div style="font-size:11px;font-weight:700;color:#8a95a6;margin-bottom:6px">⚡ 바로가기</div>
-  <div id="homeQuick" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  <div id="homeQuick" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
 </div>
 
 <!-- 업로드 모달 -->
@@ -3463,12 +3467,16 @@ function qcSave(label,field,val){
 function renderQuickLaunch(){
   var _extLinkIcon='<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/>';
   var quick=[
-    {label:"플레이엠디",url:"https://playmd.xmd.co.kr/member/login",icon:_extLinkIcon,noCred:true},
-    {label:"롯데 백화점 EDI",url:"https://together.lotteshopping.com/EMDV3/index.html",icon:_extLinkIcon},
-    {label:"공식홈페이지",url:"https://whitesands.co.kr/",icon:_extLinkIcon,noCred:true},
-    {label:"현대 백화점 EDI",url:"https://partners.ehyundai.com/nx-web/",icon:_extLinkIcon},
-    {label:"영업2팀",url:"https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/edit?gid=1131579574#gid=1131579574",icon:_extLinkIcon,noCred:true},
-    {label:"롯데 작업계",url:"https://partner.lottedept.com/login",icon:_extLinkIcon},
+    {group:[
+      {label:"플레이엠디",url:"https://playmd.xmd.co.kr/member/login",icon:_extLinkIcon,noCred:true},
+      {label:"공식홈페이지",url:"https://whitesands.co.kr/",icon:_extLinkIcon,noCred:true},
+      {label:"영업2팀",url:"https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/edit?gid=1131579574#gid=1131579574",icon:_extLinkIcon,noCred:true}
+    ]},
+    {group:[
+      {label:"롯데 백화점 EDI",url:"https://together.lotteshopping.com/EMDV3/index.html",icon:_extLinkIcon},
+      {label:"현대 백화점 EDI",url:"https://partners.ehyundai.com/nx-web/",icon:_extLinkIcon},
+      {label:"롯데 작업계",url:"https://partner.lottedept.com/login",icon:_extLinkIcon}
+    ]},
     {label:"현대 홈쇼핑",url:"https://partner.hmall.com/",icon:_extLinkIcon},
     {label:"GS 홈쇼핑",url:"https://partners.gsshop.com",icon:_extLinkIcon},
     {label:"홈앤쇼핑",url:"https://partners.hnsmall.com/app/index.html",icon:_extLinkIcon},
@@ -3476,7 +3484,7 @@ function renderQuickLaunch(){
     {label:"메일함",url:"https://mails.office.hiworks.com/list/inbox?page=1",icon:_extLinkIcon,noCred:true}
   ];
   var qw=document.getElementById("homeQuick");
-  if(qw)qw.innerHTML=quick.map(function(q){
+  function renderCard(q){
     var tag=q.url?'a href="'+_esc(q.url)+'" target="_blank" rel="noopener"':'div onclick="switchTab(\''+q.tab+'\')"';
     var closeTag=q.url?'a':'div';
     var cred=quickCreds[q.label]||{};
@@ -3491,10 +3499,16 @@ function renderQuickLaunch(){
       +'</div>'
       +(q.defaultEmail!==undefined?'<input type="email" placeholder="이메일주소" data-label="'+_esc(q.label)+'" value="'+_esc(cred.email!==undefined?cred.email:q.defaultEmail)+'" onchange="qcSave(this.dataset.label,\'email\',this.value)" style="'+credInputStyle+'">':"")
     );
-    var card='<div class="qc-card'+(q.fullRow?" qc-full":"")+'">'
+    return '<div class="qc-card'+(q.fullRow?" qc-full":"")+'">'
       +linkHtml
       +credHtml
       +'</div>';
+  }
+  if(qw)qw.innerHTML=quick.map(function(q){
+    if(q.group){
+      return '<div class="qc-group">'+q.group.map(renderCard).join("")+'</div>';
+    }
+    var card=renderCard(q);
     if(q.fullRow){
       var lineBreak='<div style="flex-basis:100%;width:100%;height:0"></div>';
       return lineBreak+card+lineBreak;
