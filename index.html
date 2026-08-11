@@ -5954,7 +5954,25 @@ function parseCostcoRows(rows){
       console.log("[코스트코 업로드] 헤더 없는 단순형 감지 → 금액=수량×판매가 자동계산, 해당 날짜 병합");
     }
   }
-  if((hRow<0&&!_ccSimple)||cProd<0||cQty<0){
+  /* 헤더 없는 상품코드형(상품명|수량|가격|상품코드-컬러|바코드|…) 자동 감지 → 날짜 열이 없으므로 오늘 날짜로 등록 */
+  var _ccCodeFmt=false;
+  if(!_ccSimple&&(cProd<0||cQty<0)){
+    var okN2=0,totN2=0;
+    for(var sr2=0;sr2<Math.min(60,rows.length);sr2++){
+      var srow2=rows[sr2];if(!srow2)continue;
+      if((srow2[0]==null||srow2[0]==="")&&(srow2[1]==null||srow2[1]===""))continue;
+      totN2++;
+      var nameOk=/\[화이트샌즈/.test(String(srow2[0]||""))||!!ccMatchProd(String(srow2[0]||""));
+      var qtyOk=String(srow2[1]||"").trim()!==""&&!isNaN(Number(srow2[1]))&&Number(srow2[1])>0;
+      var priceOk=srow2[2]!=null&&String(srow2[2]).trim()!==""&&!isNaN(Number(String(srow2[2]).replace(/,/g,"")));
+      if(nameOk&&qtyOk&&priceOk)okN2++;
+    }
+    if(totN2>0&&okN2>=Math.max(3,Math.floor(totN2*0.6))){
+      cProd=0;cQty=1;cColor=-1;cAmt=-1;hRow=-1;_ccCodeFmt=true;
+      console.log("[코스트코 업로드] 헤더 없는 상품코드형 감지 → 날짜열 없음, 오늘 날짜로 등록, 금액=수량×가격 자동계산");
+    }
+  }
+  if((hRow<0&&!_ccSimple&&!_ccCodeFmt)||cProd<0||cQty<0){
     alert("파일 형식을 인식할 수 없습니다.\n판매일자·상품명·판매수량 컬럼이 필요합니다.\n\n감지된 컬럼:\n날짜:"+(cDate>=0?cDate:"없음")+" 상품명:"+(cProd>=0?cProd:"없음")+" 수량:"+(cQty>=0?cQty:"없음")+"\n\n브라우저 F12 콘솔에서 상세 내용을 확인하세요.");
     return;
   }
@@ -5989,7 +6007,7 @@ function parseCostcoRows(rows){
       var sd=String(row[cSaleDiv]||"").trim();
       if(/반품|취소|cancel/i.test(sd)){skipReturn++;continue;}
     }
-    var dt=ccParseDate(cDate>=0?row[cDate]:null);
+    var dt=_ccCodeFmt?new Date():ccParseDate(cDate>=0?row[cDate]:null);
     if(!dt){skipDate++;continue;}
     if(_ccSimple&&!_ccFileYear){_ccFileYear=dt.getFullYear();_ccFileMonth=dt.getMonth()+1;}
     var period=(dt.getMonth()+1)+"/"+dt.getDate();
@@ -6024,6 +6042,7 @@ function parseCostcoRows(rows){
     if(!colorName){skipColor++;continue;}
     var qty=Number(row[cQty])||0;
     var amt=cAmt>=0?(Number(row[cAmt])||0):0;
+    if(_ccCodeFmt){var _unitPrice=Number(String(row[2]).replace(/,/g,""))||0;amt=Math.round(qty*_unitPrice);}
     if(CC_SET_PRODS.indexOf(prodName)>=0)qty=qty/2;
     if(_ccSimple){var _pp=costcoDB.products.find(function(p){return p.name===prodName;});amt=Math.round(qty*((_pp&&_pp.price)||0));}
     /* 사전원가(단위) 수집 — 마진계산 자동로드용 */
@@ -6280,11 +6299,19 @@ function ccNormColor(v){
 function ccMatchColor(v,prodName){
   /* 상품명 셀에서 색상 추출 */
   v=String(v||"").trim();
+  var vNoSpace=v.replace(/\s+/g,"");     /* "세이지 그린" vs "세이지그린" 등 공백 표기차 흡수 */
   var prod=costcoDB.products.find(function(p){return p.name===prodName;});
   var colors=prod?prod.colors:Object.values?Object.values(CC_COLOR_MAP).filter(function(c,i,a){return a.indexOf(c)===i;}):["베이지","블랙","아이보리","에쉬","샌드","화이트","라이트그레이","스킨"];
-  for(var i=0;i<colors.length;i++){if(v.indexOf(colors[i])>=0)return colors[i];}
-  /* 파일 색상명으로도 시도 */
-  for(var k in CC_COLOR_MAP){if(v.toLowerCase().indexOf(k)>=0)return CC_COLOR_MAP[k];}
+  for(var i=0;i<colors.length;i++){if(vNoSpace.indexOf(colors[i].replace(/\s+/g,""))>=0)return colors[i];}
+  /* 파일 색상명(별칭/영문 등)으로도 시도 — "화이트샌즈" 같은 브랜드명 오매칭 방지 위해
+     상품에 실제 등록된 색상 목록에 있는 경우에만 인정 */
+  var vLowerNoSpace=vNoSpace.toLowerCase();
+  for(var k in CC_COLOR_MAP){
+    if(vLowerNoSpace.indexOf(k.replace(/\s+/g,""))>=0){
+      var mapped=CC_COLOR_MAP[k];
+      if(!prod||colors.indexOf(mapped)>=0)return mapped;
+    }
+  }
   return null;
 }
 
