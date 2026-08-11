@@ -776,7 +776,7 @@ label{font-size:14px!important}
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <button onclick="openSaleModal()" style="padding:5px 14px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">세일</button>
       <button onclick="openProdModal()" style="padding:5px 14px;background:#334155;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📦 상품관리</button>
-      <button onclick="openPromoModal()" style="padding:5px 14px;background:#ea580c;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🎉 행사</button>
+      <button onclick="openPromoModal()" style="padding:5px 14px;background:#ea580c;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">행사</button>
       <div id="ccSaleSummary" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
   </div>
@@ -6044,7 +6044,12 @@ function parseCostcoRows(rows){
     var amt=cAmt>=0?(Number(row[cAmt])||0):0;
     if(_ccCodeFmt){var _unitPrice=Number(String(row[2]).replace(/,/g,""))||0;amt=Math.round(qty*_unitPrice);}
     if(CC_SET_PRODS.indexOf(prodName)>=0)qty=qty/2;
-    if(_ccSimple){var _pp=costcoDB.products.find(function(p){return p.name===prodName;});amt=Math.round(qty*((_pp&&_pp.price)||0));}
+    if(_ccSimple){
+      var _pp=costcoDB.products.find(function(p){return p.name===prodName;});
+      var _salePr=_ccSalePriceForDate(prodName,dt);      /* 해당 날짜에 세일기간이면 세일가 우선 사용 */
+      var _unitPr=_salePr>0?_salePr:((_pp&&_pp.price)||0);
+      amt=Math.round(qty*_unitPr);
+    }
     /* 사전원가(단위) 수집 — 마진계산 자동로드용 */
     if(cCost>=0){var _cst=Number(row[cCost])||0;if(_cst>0)prodCosts[prodName]=_cst;}
     /* 판매단가 수집(수량 가중 투표) — 마진계산 판매가 자동로드용 */
@@ -6748,6 +6753,21 @@ function _ccYMD(s){
   var m=String(s||"").match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
   return m?new Date(+m[1],+m[2]-1,+m[3]):new Date(s);
 }
+/* 특정 날짜(Date 객체) 기준 세일가 조회 — UI(ccYear 셀렉트)에 의존하지 않아 업로드 파싱 중에도 안전하게 사용 가능 */
+function _ccSalePriceForDate(prodName,dateObj){
+  if(!dateObj||isNaN(dateObj))return 0;
+  var cfg=_ccAutoCfg(prodName);
+  if(cfg){
+    var sD=new Date(dateObj.getFullYear(),cfg.start.m-1,cfg.start.d),eD=new Date(dateObj.getFullYear(),cfg.end.m-1,cfg.end.d);
+    if(dateObj>=sD&&dateObj<=eD)return cfg.price;
+  }
+  var price=0;
+  (costcoDB.salePeriods||[]).forEach(function(sp){
+    var s=_ccYMD(sp.start),e=_ccYMD(sp.end);
+    if(dateObj>=s&&dateObj<=e&&sp.items&&sp.items[prodName]!==undefined)price=sp.items[prodName];
+  });
+  return price;
+}
 function ccGetSalePriceForPeriod(prodName,periodStr){
   var yr=parseInt((document.getElementById("ccYear")||{}).value)||new Date().getFullYear();
   var pStart,pEnd;
@@ -6921,7 +6941,7 @@ function renderCostcoPage(){
         if(code)h+='<br><span style="font-size:13px;color:#6366f1;font-weight:600">('+code+')</span>';
         h+='<br><span style="font-size:13px;color:#374151;font-weight:600">'+prod.price.toLocaleString()+'원</span>';
         if(monthSalePrice)h+='<br><span style="font-size:13px;color:#dc2626;font-weight:700">'+monthSalePrice.toLocaleString()+'원</span>';
-        if(promo)h+='<br><span style="display:inline-block;margin-top:3px;background:#ea580c;color:#fff;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700">🎉 '+_escX(promo)+'</span>';
+        if(promo)h+='<br><span style="display:inline-block;margin-top:3px;background:#ea580c;color:#fff;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700">'+_escX(promo)+'</span>';
         h+='</td>';
       }
       h+='<td class="cc-color-cell cc-sticky-3">'+color+'</td>';
@@ -7513,10 +7533,10 @@ renderHomeDashboard();
 <div id="ccPromoModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2000;overflow-y:auto">
   <div style="background:white;border-radius:16px;max-width:480px;margin:40px auto;padding:24px;position:relative">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">🎉 행사 기재</h3>
+      <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">행사 기재</h3>
       <button onclick="closePromoModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#475569;line-height:1">×</button>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 14px">상품별 행사 내용을 입력하고 <b>저장</b>하세요. 입력한 상품은 표에 <span style="background:#ea580c;color:#fff;border-radius:8px;padding:1px 6px;font-weight:700">🎉 행사</span> 표시가 됩니다. (비우면 표시 해제)</p>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 14px">상품별 행사 내용을 입력하고 <b>저장</b>하세요. 입력한 상품은 표에 <span style="background:#ea580c;color:#fff;border-radius:8px;padding:1px 6px;font-weight:700">행사</span> 표시가 됩니다. (비우면 표시 해제)</p>
     <div id="ccPromoList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px"></div>
     <button onclick="savePromos()" style="width:100%;padding:10px;background:#ea580c;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">저장</button>
   </div>
