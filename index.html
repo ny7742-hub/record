@@ -5773,18 +5773,13 @@ function ccApplyDataFixes(db){
     delete lu["화이트"];
     ch=true;
   });
-  /* 우양산 세일(6/22~7/5) 종료 → 삭제 */
-  var before=db.salePeriods.length;
-  db.salePeriods=db.salePeriods.filter(function(sp){
-    return !(sp.start==="2026-06-22"&&sp.end==="2026-07-05"&&sp.items&&(sp.items["우양산"]||sp.items["우양산 2종"]));
-  });
-  if(db.salePeriods.length!==before)ch=true;
-  /* 마스크3종(아다나/린다우/메르신) 세일(7/21~8/3) 종료 → 삭제(행사가 환원) */
-  var beforeMask=db.salePeriods.length;
-  db.salePeriods=db.salePeriods.filter(function(sp){
-    return !(sp.start==="2026-07-21"&&sp.end==="2026-08-03"&&sp.items&&(sp.items["아다나"]||sp.items["린다우"]||sp.items["메르신"]));
-  });
-  if(db.salePeriods.length!==beforeMask)ch=true;
+  /* 마스크3종(아다나/린다우/메르신) 세일(7/21~8/3): 기간이 지나도 기록은 남겨둔다(삭제하지 않음) */
+  var hasMaskSale=db.salePeriods.some(function(sp){return sp.start==="2026-07-21"&&sp.end==="2026-08-03";});
+  if(!hasMaskSale){
+    db.salePeriods.push({start:"2026-07-21",end:"2026-08-03",items:{"아다나":12990,"린다우":12990,"메르신":14990}});
+    db.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});
+    ch=true;
+  }
   /* 장우산 3종 4,000원 할인(7/13~7/26): 19990-4000=15990원. 없으면 추가, 있으면 세일가 보정 */
   var saleWant={"포시타":15990,"세팔로":15990,"루시아":15990};
   var spNew=db.salePeriods.find(function(sp){return sp.start==="2026-07-13"&&sp.end==="2026-07-26";});
@@ -6589,18 +6584,26 @@ function closeSaleModal(){
   document.getElementById("ccSaleModal").style.display="none";
 }
 function renderSaleModal(){
-  /* 기존 세일 목록 */
+  /* 기존 세일 목록 — 기간이 지나도 삭제하지 않고 전부 표시하되, 진행중/예정/종료를 색으로 구분 */
   var listEl=document.getElementById("ccSaleList");
   if(listEl){
     var lh="";
-    (costcoDB.salePeriods||[]).forEach(function(sp,i){
+    var today=new Date();today.setHours(0,0,0,0);
+    var sorted=(costcoDB.salePeriods||[]).map(function(sp,i){return {sp:sp,i:i};}).sort(function(a,b){return _ccYMD(b.sp.start)-_ccYMD(a.sp.start);});
+    sorted.forEach(function(row){
+      var sp=row.sp,i=row.i;
       var sd=_ccYMD(sp.start),ed=_ccYMD(sp.end);
       var label=(sd.getMonth()+1)+"/"+(sd.getDate())+"~"+(ed.getMonth()+1)+"/"+(ed.getDate());
       var prods=Object.keys(sp.items||{}).map(function(k){return k+' '+Number(sp.items[k]).toLocaleString()+'원';}).join(', ');
-      lh+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;margin-bottom:6px;gap:8px">';
-      lh+='<div><span style="font-size:12px;font-weight:700;color:#dc2626">'+label+'</span>';
+      var state,bg,border,txt;
+      if(today>=sd&&today<=ed){state="진행중";bg="#fff5f5";border="#fca5a5";txt="#dc2626";}
+      else if(today<sd){state="예정";bg="#eff6ff";border="#93c5fd";txt="#1d4ed8";}
+      else{state="종료";bg="#f8fafc";border="#e2e8f0";txt="#64748b";}
+      lh+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:'+bg+';border:1px solid '+border+';border-radius:8px;margin-bottom:6px;gap:8px">';
+      lh+='<div><span style="font-size:11px;font-weight:800;color:'+txt+';background:'+border+'33;border-radius:8px;padding:1px 7px;margin-right:5px">'+state+'</span>';
+      lh+='<span style="font-size:12px;font-weight:700;color:'+txt+'">'+label+'</span>';
       lh+='<br><span style="font-size:11px;color:#475569">'+prods+'</span></div>';
-      lh+='<button onclick="deleteSalePeriod('+i+')" style="background:none;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">삭제</button>';
+      lh+='<button onclick="deleteSalePeriod('+i+')" style="background:none;border:1px solid '+border+';color:'+txt+';border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">삭제</button>';
       lh+='</div>';
     });
     listEl.innerHTML=lh||'<p style="font-size:12px;color:#5b6675;margin:0 0 12px">등록된 세일 없음</p>';
