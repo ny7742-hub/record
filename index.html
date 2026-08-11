@@ -3368,10 +3368,20 @@ function renderHomeDashboard(){
   }
 
   var todayStr=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
+  function _popupDurDays(p){
+    if(!p||!p.start||!p.end)return 0;
+    var s=new Date(p.start+"T00:00:00"),e=new Date(p.end+"T00:00:00");
+    if(isNaN(s)||isNaN(e))return 0;
+    return Math.round((e-s)/86400000)+1;
+  }
+  /* 2주(14일) 이상 진행하는 팝업이 오늘 시작하면: 공홈 게시판 팝업공지 + 스마트플레이스 등록 두 가지를 리마인드 */
   var naverPending=[];
   if(typeof popupDB!=="undefined"&&Array.isArray(popupDB)){
     naverPending=popupDB.filter(function(p){
-      return p.start===todayStr && !popupNaverDismissed[todayStr+"|"+p.store];
+      if(p.start!==todayStr||_popupDurDays(p)<14)return false;
+      var notBoard=!popupNaverDismissed[todayStr+"|board|"+p.store];
+      var notNaver=!popupNaverDismissed[todayStr+"|naver|"+p.store];
+      return notBoard||notNaver;
     });
   }
 
@@ -3435,11 +3445,21 @@ function renderHomeDashboard(){
     var naverHtml="";
     if(c.tab==="popup"&&naverPending.length){
       naverHtml=naverPending.map(function(p){
-        var key=todayStr+"|"+p.store;
-        return '<div style="display:flex;align-items:center;gap:5px;margin-top:5px">'
-          +'<input type="checkbox" data-key="'+_esc(key)+'" onclick="event.stopPropagation()" onchange="homeDismissNaverReminder(this.dataset.key)" style="width:13px;height:13px;cursor:pointer;flex-shrink:0">'
-          +'<span style="color:#dc2626;font-weight:700;font-size:11px">'+_esc(p.store)+' 스마트플레이스 등록요망</span>'
-          +'</div>';
+        var boardKey=todayStr+"|board|"+p.store, naverKey=todayStr+"|naver|"+p.store;
+        var lines="";
+        if(!popupNaverDismissed[boardKey]){
+          lines+='<div style="display:flex;align-items:center;gap:5px;margin-top:5px">'
+            +'<input type="checkbox" data-key="'+_esc(boardKey)+'" onclick="event.stopPropagation()" onchange="homeDismissNaverReminder(this.dataset.key)" style="width:13px;height:13px;cursor:pointer;flex-shrink:0">'
+            +'<span style="color:#dc2626;font-weight:700;font-size:11px">'+_esc(p.store)+' 공홈 게시판 팝업공지 필요</span>'
+            +'</div>';
+        }
+        if(!popupNaverDismissed[naverKey]){
+          lines+='<div style="display:flex;align-items:center;gap:5px;margin-top:5px">'
+            +'<input type="checkbox" data-key="'+_esc(naverKey)+'" onclick="event.stopPropagation()" onchange="homeDismissNaverReminder(this.dataset.key)" style="width:13px;height:13px;cursor:pointer;flex-shrink:0">'
+            +'<span style="color:#dc2626;font-weight:700;font-size:11px">'+_esc(p.store)+' 스마트플레이스 등록요망 (당일 11시까지)</span>'
+            +'</div>';
+        }
+        return lines;
       }).join("");
     }
     return '<div class="home-cat" onclick="switchTab(\''+c.tab+'\')" tabindex="0" onkeydown="if(event.key===\'Enter\')switchTab(\''+c.tab+'\')">'
