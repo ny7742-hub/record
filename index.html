@@ -6044,12 +6044,7 @@ function parseCostcoRows(rows){
     var amt=cAmt>=0?(Number(row[cAmt])||0):0;
     if(_ccCodeFmt){var _unitPrice=Number(String(row[2]).replace(/,/g,""))||0;amt=Math.round(qty*_unitPrice);}
     if(CC_SET_PRODS.indexOf(prodName)>=0)qty=qty/2;
-    if(_ccSimple){
-      var _pp=costcoDB.products.find(function(p){return p.name===prodName;});
-      var _salePr=_ccSalePriceForDate(prodName,dt);      /* 해당 날짜에 세일기간이면 세일가 우선 사용 */
-      var _unitPr=_salePr>0?_salePr:((_pp&&_pp.price)||0);
-      amt=Math.round(qty*_unitPr);
-    }
+    if(_ccSimple){var _pp=costcoDB.products.find(function(p){return p.name===prodName;});amt=Math.round(qty*((_pp&&_pp.price)||0));}
     /* 사전원가(단위) 수집 — 마진계산 자동로드용 */
     if(cCost>=0){var _cst=Number(row[cCost])||0;if(_cst>0)prodCosts[prodName]=_cst;}
     /* 판매단가 수집(수량 가중 투표) — 마진계산 판매가 자동로드용 */
@@ -6752,21 +6747,6 @@ function ccAutoSalePrice(prodName){var c=_ccAutoCfg(prodName);return c?c.price:0
 function _ccYMD(s){
   var m=String(s||"").match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
   return m?new Date(+m[1],+m[2]-1,+m[3]):new Date(s);
-}
-/* 특정 날짜(Date 객체) 기준 세일가 조회 — UI(ccYear 셀렉트)에 의존하지 않아 업로드 파싱 중에도 안전하게 사용 가능 */
-function _ccSalePriceForDate(prodName,dateObj){
-  if(!dateObj||isNaN(dateObj))return 0;
-  var cfg=_ccAutoCfg(prodName);
-  if(cfg){
-    var sD=new Date(dateObj.getFullYear(),cfg.start.m-1,cfg.start.d),eD=new Date(dateObj.getFullYear(),cfg.end.m-1,cfg.end.d);
-    if(dateObj>=sD&&dateObj<=eD)return cfg.price;
-  }
-  var price=0;
-  (costcoDB.salePeriods||[]).forEach(function(sp){
-    var s=_ccYMD(sp.start),e=_ccYMD(sp.end);
-    if(dateObj>=s&&dateObj<=e&&sp.items&&sp.items[prodName]!==undefined)price=sp.items[prodName];
-  });
-  return price;
 }
 function ccGetSalePriceForPeriod(prodName,periodStr){
   var yr=parseInt((document.getElementById("ccYear")||{}).value)||new Date().getFullYear();
