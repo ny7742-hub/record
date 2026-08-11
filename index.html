@@ -774,7 +774,7 @@ label{font-size:14px!important}
       <span id="costcoMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
     </div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <button onclick="openSaleModal()" style="padding:5px 14px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🏷 세일</button>
+      <button onclick="openSaleModal()" style="padding:5px 14px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">세일</button>
       <button onclick="openProdModal()" style="padding:5px 14px;background:#334155;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📦 상품관리</button>
       <button onclick="openPromoModal()" style="padding:5px 14px;background:#ea580c;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🎉 행사</button>
       <div id="ccSaleSummary" style="display:flex;gap:6px;flex-wrap:wrap"></div>
@@ -6576,8 +6576,15 @@ function renderSaleModal(){
 }
 function addSalePeriodFromModal(){
   var startEl=document.getElementById("ccSaleStart");
+  var endEl=document.getElementById("ccSaleEnd");
   if(!startEl||!startEl.value){alert("시작일을 선택해주세요.");return;}
-  var ed=new Date(startEl.value); ed.setDate(ed.getDate()+13);
+  var endVal;
+  if(endEl&&endEl.value){
+    endVal=endEl.value;
+  }else{
+    var ed=new Date(startEl.value); ed.setDate(ed.getDate()+13);
+    endVal=ed.toISOString().slice(0,10);
+  }
   var items={};
   costcoDB.products.forEach(function(p){
     var cb=document.getElementById("ccScb_"+p.name);
@@ -6588,10 +6595,11 @@ function addSalePeriodFromModal(){
     }
   });
   if(!Object.keys(items).length){alert("세일 상품을 하나 이상 선택하고 세일가를 입력해주세요.");return;}
-  costcoDB.salePeriods.push({start:startEl.value,end:ed.toISOString().slice(0,10),items:items});
+  costcoDB.salePeriods.push({start:startEl.value,end:endVal,items:items});
   costcoDB.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});
   saveCostcoDB();
   startEl.value="";
+  if(endEl)endEl.value="";
   renderSaleModal();
   renderCostcoPage();
 }
@@ -6747,7 +6755,7 @@ function renderCcSaleSummary(){
     var sD=new Date(yr,cfg.start.m-1,cfg.start.d),eD=new Date(yr,cfg.end.m-1,cfg.end.d);
     if(mStart<=eD&&mEnd>=sD){
       var label=cfg.start.m+"/"+cfg.start.d+"~"+cfg.end.m+"/"+cfg.end.d;
-      h+='<span style="background:#fce7f3;color:#9d174d;border:1px solid #f9a8d4;border-radius:12px;padding:3px 10px;font-size:12px;font-weight:700">🏷 '+cfg.name+' '+label+' ('+cfg.price.toLocaleString()+'원)</span>';
+      h+='<span style="background:#fce7f3;color:#9d174d;border:1px solid #f9a8d4;border-radius:12px;padding:3px 10px;font-size:12px;font-weight:700">'+cfg.name+' '+label+' ('+cfg.price.toLocaleString()+'원)</span>';
     }
   });
   (costcoDB.salePeriods||[]).forEach(function(sp){
@@ -6757,7 +6765,7 @@ function renderCcSaleSummary(){
       /* 자동 행사상품은 위에서 이미 표기 → 제외 */
       var names=sp.items?Object.keys(sp.items).filter(function(n){return !_ccAutoCfg(n);}):[];
       if(!names.length)return;
-      h+='<span style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:12px;padding:3px 10px;font-size:12px;font-weight:600">🏷 '+names.join(", ")+' '+label+'</span>';
+      h+='<span style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:12px;padding:3px 10px;font-size:12px;font-weight:600">'+names.join(", ")+' '+label+'</span>';
     }
   });
   el.innerHTML=h;
@@ -7418,7 +7426,7 @@ renderHomeDashboard();
 <div id="ccSaleModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2000;overflow-y:auto">
   <div style="background:white;border-radius:16px;max-width:520px;margin:40px auto;padding:24px;position:relative">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">🏷 세일 설정</h3>
+      <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">세일 설정</h3>
       <button onclick="closeSaleModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#475569;line-height:1">×</button>
     </div>
     <!-- 기존 세일 목록 -->
@@ -7430,6 +7438,9 @@ renderHomeDashboard();
         <span style="font-size:12px;color:#475569;font-weight:600">시작일</span>
         <input type="date" id="ccSaleStart" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:7px;font-size:12px">
         <span style="font-size:11px;color:#5b6675">→ 2주(14일) 자동</span>
+        <span style="font-size:12px;color:#475569;font-weight:600;margin-left:8px">종료일(선택)</span>
+        <input type="date" id="ccSaleEnd" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:7px;font-size:12px">
+        <span style="font-size:11px;color:#5b6675">비워두면 자동 계산</span>
       </div>
       <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">세일 상품 및 세일가</div>
       <div id="ccSaleNewProds" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
