@@ -5759,6 +5759,12 @@ function ccApplyDataFixes(db){
     return !(sp.start==="2026-06-22"&&sp.end==="2026-07-05"&&sp.items&&(sp.items["우양산"]||sp.items["우양산 2종"]));
   });
   if(db.salePeriods.length!==before)ch=true;
+  /* 마스크3종(아다나/린다우/메르신) 세일(7/21~8/3) 종료 → 삭제(행사가 환원) */
+  var beforeMask=db.salePeriods.length;
+  db.salePeriods=db.salePeriods.filter(function(sp){
+    return !(sp.start==="2026-07-21"&&sp.end==="2026-08-03"&&sp.items&&(sp.items["아다나"]||sp.items["린다우"]||sp.items["메르신"]));
+  });
+  if(db.salePeriods.length!==beforeMask)ch=true;
   /* 장우산 3종 4,000원 할인(7/13~7/26): 19990-4000=15990원. 없으면 추가, 있으면 세일가 보정 */
   var saleWant={"포시타":15990,"세팔로":15990,"루시아":15990};
   var spNew=db.salePeriods.find(function(sp){return sp.start==="2026-07-13"&&sp.end==="2026-07-26";});
