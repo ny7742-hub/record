@@ -6084,15 +6084,10 @@ function parseCostcoRows(rows){
 function ccMergeWeekMap(weekMap,skipInfo,opt){
   var _yr=new Date().getFullYear();
   var _merge=opt&&opt.merge;
-  /* 병합 모드: 파일에 있는 날짜만 추가/갱신하고 나머지는 보존.
-     기본(전체 판매파일): 기존 데이터 전체 삭제 후 업로드 데이터만 표시 */
-  if(!_merge){
-    costcoDB.sales={};
-    costcoDB.periods=[];
-  }else{
-    if(!costcoDB.sales)costcoDB.sales={};
-    if(!costcoDB.periods)costcoDB.periods=[];
-  }
+  /* 파일에 있는 기간(period)만 추가/교체하고, 그 외 기존 기간(지난달 등)은 항상 보존한다.
+     (예전엔 병합모드가 아니면 전체 삭제했으나, 수시 업로드 시 과거 데이터가 날아가는 문제가 있어 항상 보존으로 변경) */
+  if(!costcoDB.sales)costcoDB.sales={};
+  if(!costcoDB.periods)costcoDB.periods=[];
   Object.keys(weekMap).forEach(function(period){
     if(costcoDB.periods.indexOf(period)<0)costcoDB.periods.push(period);
     /* 같은 기간 재업로드 시 해당 기간 전체 교체 (합산 방지) */
