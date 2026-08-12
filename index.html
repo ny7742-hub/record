@@ -6453,6 +6453,10 @@ function renderSalesVerify(){
   var now=new Date();
   var todayStr=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
   var rows=_verifyRows();
+  rows.sort(function(a,b){
+    if(a.ok!==b.ok)return a.ok?1:-1; /* 불일치 먼저 */
+    return String(a.prod).localeCompare(String(b.prod),"ko");
+  });
   var badCount=rows.filter(function(r){return !r.ok;}).length;
   var h='<div style="font-size:12px;color:#475569;margin-bottom:8px">'+todayStr+' · 등록 '+rows.length+'건 · 불일치 '+badCount+'건</div>';
   if(!rows.length){
@@ -6544,6 +6548,11 @@ function renderShipmentVerify(){
     wrap.innerHTML='<p style="font-size:13px;color:#94a3b8">업로드된 출고 파일이 없습니다.</p>';
     return;
   }
+  shipmentDB.sort(function(a,b){
+    var aBad=!a.matched||!a.qty||!a.price, bBad=!b.matched||!b.qty||!b.price;
+    if(aBad!==bBad)return aBad?-1:1; /* 확인필요(불일치) 먼저 */
+    return String(a.name||a.code).localeCompare(String(b.name||b.code),"ko");
+  });
   var badCount=shipmentDB.filter(function(r){return !r.matched||!r.qty||!r.price;}).length;
   var h='<div style="font-size:12px;color:#475569;margin-bottom:8px">등록 '+shipmentDB.length+'건 · 확인필요 '+badCount+'건</div>';
   var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px;color:#1b6e82;font-size:12px';
@@ -6673,6 +6682,11 @@ function renderOnlineOrderVerify(){
     wrap.innerHTML='<p style="font-size:13px;color:#94a3b8">업로드된 온라인 주문 파일이 없습니다.</p>';
     return;
   }
+  onlineOrderRows.sort(function(a,b){
+    var aBad=a.status!=="정상", bBad=b.status!=="정상";
+    if(aBad!==bBad)return aBad?-1:1; /* 불일치/확인필요 먼저 */
+    return String(a.prod).localeCompare(String(b.prod),"ko");
+  });
   var badCount=onlineOrderRows.filter(function(r){return r.status!=="정상";}).length;
   var h='<div style="font-size:12px;color:#475569;margin-bottom:8px">등록 '+onlineOrderRows.length+'건 · 불일치/확인필요 '+badCount+'건 (개인정보 미저장)</div>';
   var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px;color:#1b6e82;font-size:12px';
