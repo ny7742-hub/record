@@ -1072,9 +1072,12 @@ label{font-size:14px!important}
   <div class="card">
     <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span>🔍 판매등록 검증 (당일)</span>
-      <button class="bg" onclick="verifyDownload()">📥 엑셀 다운로드</button>
+      <div style="display:flex;gap:8px">
+        <label class="bs" style="cursor:pointer">📁 파일 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="loadVerifyCostcoFile(this)"></label>
+        <button class="bg" onclick="verifyDownload()">📥 엑셀 다운로드</button>
+      </div>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">오늘 등록된 코스트코 매출을 "수량×적용가격(세일가/정상가)" 기준으로 검증합니다. 금액 칸을 클릭해서 바로 고칠 수 있고, 수정하면 코스트코 탭에도 즉시 반영됩니다.</p>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코 매출 파일을 올리면 바로 등록되면서 검증됩니다. "수량×적용가격(세일가/정상가)" 기준으로 오늘 등록된 매출을 검증합니다. 금액 칸을 클릭해서 바로 고칠 수 있고, 수정하면 코스트코 탭에도 즉시 반영됩니다.</p>
     <div id="verifyCostcoWrap"></div>
   </div>
 </div>
@@ -6445,6 +6448,21 @@ function verifyDownload(){
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"코스트코검증");
   XLSX.writeFile(wb,"판매등록검증_"+todayStr+".xlsx");
+}
+function loadVerifyCostcoFile(input){
+  var file=input.files[0]; if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
+      parseCostcoRows(rows);
+      renderSalesVerify();
+    }catch(err){alert("파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+  input.value="";
 }
 
 /* ── 코스트코 셀 드래그 선택 (엑셀 스타일) ── */
