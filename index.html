@@ -3496,7 +3496,7 @@ function renderQuickLaunch(){
     {label:"GS 홈쇼핑",url:"https://partners.gsshop.com",icon:_extLinkIcon},
     {label:"홈앤쇼핑",url:"https://partners.hnsmall.com/app/index.html",icon:_extLinkIcon},
     {label:"롯데 홈쇼핑",url:"https://partners.lotteimall.com/",icon:_extLinkIcon,defaultEmail:"offline@whitesands.co.kr"},
-    {label:"코스트코 DSS",url:"https://costcokr.logistics.reply.com/",icon:_extLinkIcon},
+    {label:"코스트코 DSS",url:"https://costcokr.logistics.reply.com/",icon:_extLinkIcon,dualCred:true},
     {label:"영업2팀내공유",url:"https://docs.google.com/spreadsheets/d/1SY3GJjTtTw7SYHzmTvBoPrCQwL-r3gHWeOXHeTFqOag/edit?gid=0#gid=0",icon:_extLinkIcon,noCred:true}
   ];
   var qw=document.getElementById("homeQuick");
@@ -3508,11 +3508,15 @@ function renderQuickLaunch(){
       +'<span class="hq-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">'+q.icon+'</svg></span>'
       +q.label+'</'+closeTag+'>';
     var credInputStyle="width:100%;border:1px solid #e2e5ea;border-radius:6px;padding:4px 7px;font-size:11px;box-sizing:border-box;color:#374151";
+    function credRow(idField,pwField){
+      return '<div style="display:flex;gap:5px">'
+        +'<input type="text" placeholder="아이디" data-label="'+_esc(q.label)+'" data-field="'+idField+'" value="'+_esc(cred[idField]||"")+'" onchange="qcSave(this.dataset.label,this.dataset.field,this.value)" style="'+credInputStyle+'">'
+        +'<input type="password" placeholder="비밀번호" data-label="'+_esc(q.label)+'" data-field="'+pwField+'" value="'+_esc(cred[pwField]||"")+'" onchange="qcSave(this.dataset.label,this.dataset.field,this.value)" style="'+credInputStyle+'">'
+        +'</div>';
+    }
     var credHtml=q.noCred?"":(
-      '<div style="display:flex;gap:5px">'
-      +'<input type="text" placeholder="아이디" data-label="'+_esc(q.label)+'" value="'+_esc(cred.id||"")+'" onchange="qcSave(this.dataset.label,\'id\',this.value)" style="'+credInputStyle+'">'
-      +'<input type="password" placeholder="비밀번호" data-label="'+_esc(q.label)+'" value="'+_esc(cred.pw||"")+'" onchange="qcSave(this.dataset.label,\'pw\',this.value)" style="'+credInputStyle+'">'
-      +'</div>'
+      credRow("id","pw")
+      +(q.dualCred?credRow("id2","pw2"):"")
       +(q.defaultEmail!==undefined?'<input type="email" placeholder="이메일주소" data-label="'+_esc(q.label)+'" value="'+_esc(cred.email!==undefined?cred.email:q.defaultEmail)+'" onchange="qcSave(this.dataset.label,\'email\',this.value)" style="'+credInputStyle+'">':"")
     );
     return '<div class="qc-card">'
