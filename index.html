@@ -6756,8 +6756,9 @@ function renderSaleModal(){
       if(today>=sd&&today<=ed){state="진행중";bg="#fff5f5";border="#fca5a5";txt="#dc2626";}
       else if(today<sd){state="예정";bg="#eff6ff";border="#93c5fd";txt="#1d4ed8";}
       else{state="종료";bg="#f8fafc";border="#e2e8f0";txt="#64748b";}
+      var inlineTag=sp.inlineOnly?'<span style="font-size:11px;font-weight:800;color:#7c2d12;background:#fed7aa;border-radius:8px;padding:1px 7px;margin-right:5px">🏬 인라인만</span>':'';
       lh+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:'+bg+';border:1px solid '+border+';border-radius:8px;margin-bottom:6px;gap:8px">';
-      lh+='<div><span style="font-size:11px;font-weight:800;color:'+txt+';background:'+border+'33;border-radius:8px;padding:1px 7px;margin-right:5px">'+state+'</span>';
+      lh+='<div><span style="font-size:11px;font-weight:800;color:'+txt+';background:'+border+'33;border-radius:8px;padding:1px 7px;margin-right:5px">'+state+'</span>'+inlineTag;
       lh+='<span style="font-size:12px;font-weight:700;color:'+txt+'">'+label+'</span>';
       lh+='<br><span style="font-size:11px;color:#475569">'+prods+'</span></div>';
       lh+='<button onclick="deleteSalePeriod('+i+')" style="background:none;border:1px solid '+border+';color:'+txt+';border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">삭제</button>';
@@ -6802,11 +6803,15 @@ function addSalePeriodFromModal(){
     }
   });
   if(!Object.keys(items).length){alert("세일 상품을 하나 이상 선택하고 세일가를 입력해주세요.");return;}
-  costcoDB.salePeriods.push({start:startEl.value,end:endVal,items:items});
+  var inlineOnlyEl=document.getElementById("ccSaleInlineOnly");
+  var sp={start:startEl.value,end:endVal,items:items};
+  if(inlineOnlyEl&&inlineOnlyEl.checked)sp.inlineOnly=true;
+  costcoDB.salePeriods.push(sp);
   costcoDB.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});
   saveCostcoDB();
   startEl.value="";
   if(endEl)endEl.value="";
+  if(inlineOnlyEl)inlineOnlyEl.checked=false;
   renderSaleModal();
   renderCostcoPage();
 }
@@ -7620,6 +7625,10 @@ renderHomeDashboard();
         <span style="font-size:12px;color:#475569;font-weight:600;margin-left:8px">종료일(선택)</span>
         <input type="date" id="ccSaleEnd" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:7px;font-size:12px">
         <span style="font-size:11px;color:#5b6675">비워두면 자동 계산</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+        <input type="checkbox" id="ccSaleInlineOnly" style="width:15px;height:15px;cursor:pointer">
+        <label for="ccSaleInlineOnly" style="font-size:12px;font-weight:600;color:#374151;cursor:pointer">인라인만 진행 (온라인 미적용)</label>
       </div>
       <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">세일 상품 및 세일가</div>
       <div id="ccSaleNewProds" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
