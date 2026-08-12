@@ -499,6 +499,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <button class="tab-btn" id="tab-sheet" onclick="switchTab('sheet')">📄 공유캘린더</button>
   <button class="tab-btn" id="tab-stock" onclick="switchTab('stock')">🏭 홈쇼핑몰 재고확인</button>
+  <button class="tab-btn" id="tab-verify" onclick="switchTab('verify')">🔍 판매등록 검증</button>
 </div>
 
 <div style="background:#fff;border-bottom:1px solid var(--ec-line);padding:10px 20px">
@@ -1065,6 +1066,19 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-lossreport -->
+
+<div id="page-verify" style="display:none">
+<div class="main" style="max-width:1100px">
+  <div class="card">
+    <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>🔍 판매등록 검증 (당일)</span>
+      <button class="bg" onclick="verifyDownload()">📥 엑셀 다운로드</button>
+    </div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">오늘 등록된 코스트코 매출을 "수량×적용가격(세일가/정상가)" 기준으로 검증합니다. 금액 칸을 클릭해서 바로 고칠 수 있고, 수정하면 코스트코 탭에도 즉시 반영됩니다.</p>
+    <div id="verifyCostcoWrap"></div>
+  </div>
+</div>
+</div><!-- /page-verify -->
 
 
 <script>
@@ -3543,6 +3557,7 @@ function switchTab(tab){
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("page-popupchecklist").style.display=tab==="popupchecklist"?"block":"none";
   document.getElementById("page-lossreport").style.display=tab==="lossreport"?"block":"none";
+  document.getElementById("page-verify").style.display=tab==="verify"?"block":"none";
   document.getElementById("tab-home").classList.toggle("active",tab==="home");
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
@@ -3558,6 +3573,7 @@ function switchTab(tab){
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   document.getElementById("tab-popupchecklist").classList.toggle("active",tab==="popupchecklist");
   document.getElementById("tab-lossreport").classList.toggle("active",tab==="lossreport");
+  document.getElementById("tab-verify").classList.toggle("active",tab==="verify");
   if(tab==="home") renderHomeDashboard();
   if(tab==="meeting") renderMeetingGrid();
   if(tab==="dept"){initDeptDates();renderDeptPage();}
@@ -3572,6 +3588,7 @@ function switchTab(tab){
   if(tab==="popup") renderPopupPage();
   if(tab==="popupchecklist") renderPopupChecklist();
   if(tab==="lossreport") initLossReportTab();
+  if(tab==="verify") renderSalesVerify();
 }
 
 /* ── 팝업 종료 로스 품의서 ── */
@@ -6354,6 +6371,81 @@ function ccPeriodTotal(period){
   return {qty:qty,amount:amt};
 }
 function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocaleString():"";}
+
+/* ── 판매등록 검증 탭 (당일, 코스트코) ── */
+function _verifyTodayPeriod(){var now=new Date();return (now.getMonth()+1)+"/"+now.getDate();}
+function _verifyRows(){
+  var period=_verifyTodayPeriod();
+  var rows=[];
+  costcoDB.products.forEach(function(p){
+    p.colors.forEach(function(c){
+      var d=((costcoDB.sales[period]||{})[p.name]||{})[c]||{};
+      if(!d.qty&&!d.amount)return;
+      var salePr=ccGetSalePriceForPeriod(p.name,period);
+      var expUnit=salePr>0?salePr:p.price;
+      var expAmt=Math.round((d.qty||0)*expUnit);
+      var ok=Math.abs(expAmt-(d.amount||0))<=1;
+      rows.push({prod:p.name,color:c,qty:d.qty||0,amount:d.amount||0,expAmt:expAmt,unit:expUnit,ok:ok,isSale:salePr>0});
+    });
+  });
+  return rows;
+}
+function renderSalesVerify(){
+  var wrap=document.getElementById("verifyCostcoWrap");
+  if(!wrap)return;
+  var now=new Date();
+  var todayStr=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
+  var rows=_verifyRows();
+  var badCount=rows.filter(function(r){return !r.ok;}).length;
+  var h='<div style="font-size:12px;color:#475569;margin-bottom:8px">'+todayStr+' · 등록 '+rows.length+'건 · 불일치 '+badCount+'건</div>';
+  if(!rows.length){
+    wrap.innerHTML=h+'<p style="font-size:13px;color:#94a3b8">오늘 등록된 코스트코 매출이 없습니다.</p>';
+    return;
+  }
+  var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px;color:#1b6e82;font-size:12px';
+  h+='<table style="border-collapse:collapse;width:100%;font-size:13px">';
+  h+='<thead><tr>'
+    +'<th style="'+th+'">상품명</th><th style="'+th+'">색상</th><th style="'+th+'">수량</th>'
+    +'<th style="'+th+'">적용단가</th><th style="'+th+'">기대금액</th><th style="'+th+'">저장된 금액(수정가능)</th><th style="'+th+'">상태</th>'
+    +'</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var rowBg=r.ok?"":"background:#fef08a";
+    h+='<tr style="'+rowBg+'">'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px">'+_esc(r.prod)+(r.isSale?' <span style="color:#dc2626;font-size:11px;font-weight:700">(세일)</span>':'')+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px">'+_esc(r.color)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+r.unit.toLocaleString()+'원</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+r.expAmt.toLocaleString()+'원</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:2px"><input type="text" value="'+r.amount+'" data-prod="'+_esc(r.prod)+'" data-color="'+_esc(r.color)+'" onchange="verifyEditAmt(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;text-align:right;font-size:13px"></td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center;font-weight:700;color:'+(r.ok?'#16a34a':'#b45309')+'">'+(r.ok?'정상':'불일치')+'</td>'
+      +'</tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+}
+function verifyEditAmt(input){
+  var prod=input.dataset.prod,color=input.dataset.color;
+  var val=Math.round(Number(String(input.value).replace(/,/g,""))||0);
+  var period=_verifyTodayPeriod();
+  if(!costcoDB.sales[period])costcoDB.sales[period]={_uploaded:true};
+  if(!costcoDB.sales[period][prod])costcoDB.sales[period][prod]={};
+  if(!costcoDB.sales[period][prod][color])costcoDB.sales[period][prod][color]={qty:0,amount:0};
+  costcoDB.sales[period][prod][color].amount=val;
+  saveCostcoDB();
+  renderSalesVerify();
+  if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();
+}
+function verifyDownload(){
+  var now=new Date();
+  var todayStr=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
+  var rows=_verifyRows();
+  var aoa=[["상품명","색상","수량","적용단가","기대금액","저장된금액","상태"]];
+  rows.forEach(function(r){aoa.push([r.prod,r.color,r.qty,r.unit,r.expAmt,r.amount,r.ok?"정상":"불일치"]);});
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"코스트코검증");
+  XLSX.writeFile(wb,"판매등록검증_"+todayStr+".xlsx");
+}
 
 /* ── 코스트코 셀 드래그 선택 (엑셀 스타일) ── */
 (function(){
