@@ -6623,7 +6623,7 @@ function _onlineSalePriceForDate(prodName,dateObj){
   return price;
 }
 function _processOnlineRows(rows){
-  var hRow=-1,cShop=-1,cProd=-1,cQty=-1,cAmt=-1,cDate=-1;
+  var hRow=-1,cShop=-1,cProd=-1,cQty=-1,cAmt=-1,cDate=-1,cColorCode=-1;
   for(var r=0;r<Math.min(5,rows.length);r++){
     var row=rows[r]||[];
     for(var c=0;c<row.length;c++){
@@ -6632,6 +6632,7 @@ function _processOnlineRows(rows){
       if(v==="상품명"&&cProd<0)cProd=c;
       if(v==="수량"&&cQty<0)cQty=c;
       if(v==="결제금액"&&cAmt<0)cAmt=c;
+      if(v==="상품컬러코드"&&cColorCode<0)cColorCode=c;
       if((v==="출고일"||v==="출고일자"||/일자|날짜/.test(v))&&cDate<0)cDate=c;
     }
     if(cProd>=0&&cQty>=0&&cAmt>=0){hRow=r;break;}
@@ -6648,32 +6649,51 @@ function _processOnlineRows(rows){
     var qty=Number(row[cQty])||0;
     var amt=Number(row[cAmt])||0;
     var shop=cShop>=0?String(row[cShop]==null?"":row[cShop]).trim():"";
+    var colorCode=cColorCode>=0?String(row[cColorCode]==null?"":row[cColorCode]).trim():"";
     var d=cDate>=0?_onlineParseDate(row[cDate]):null;
     var matched=ccMatchProd(prodCell);
     var salePr=(matched&&d)?_onlineSalePriceForDate(matched,d):0;
     var pObj=matched?costcoDB.products.find(function(p){return p.name===matched;}):null;
     var expUnit=salePr>0?salePr:(pObj?pObj.price:0);
-    var setQty=(matched&&CC_SET_PRODS.indexOf(matched)>=0)?qty/2:qty; /* 2개1세트 상품은 개수→세트로 환산 */
-    var expAmt=Math.round(setQty*expUnit);
-    var status;
-    if(!matched)status="상품매칭안됨";
-    else if(!expUnit)status="가격정보없음";
-    else if(Math.abs(expAmt-amt)>1)status="불일치";
-    else status="정상";
-    out.push({shop:shop,prod:prodCell,qty:qty,amt:amt,expAmt:expAmt,status:status});
+    var r={shop:shop,prod:prodCell,colorCode:colorCode,qty:qty,amt:amt,matched:matched,expUnit:expUnit};
+    _onlineRecalc(r);
+    out.push(r);
   }
   onlineOrderRows=out;
 }
+/* 결제금액/수량 기준으로 기대금액·상태 재계산 (결제금액 수정 시에도 사용) */
+function _onlineRecalc(r){
+  var setQty=(r.matched&&CC_SET_PRODS.indexOf(r.matched)>=0)?r.qty/2:r.qty; /* 2개1세트 상품은 개수→세트로 환산 */
+  r.expAmt=Math.round(setQty*r.expUnit);
+  if(!r.matched)r.status="상품매칭안됨";
+  else if(!r.expUnit)r.status="가격정보없음";
+  else if(Math.abs(r.expAmt-r.amt)>1)r.status="불일치";
+  else r.status="정상";
+}
+function onlineEditAmt(input){
+  var i=Number(input.dataset.i);
+  if(!onlineOrderRows[i])return;
+  onlineOrderRows[i].amt=Math.round(Number(String(input.value).replace(/,/g,""))||0);
+  _onlineRecalc(onlineOrderRows[i]);
+  renderOnlineOrderVerify();
+}
+/* 온라인 주문 → 사입출고양식으로 출력.
+   출고창고코드/매장코드는 사입출고양식 그대로(CSTC/COSO), 출고일자는 전일(어제),
+   바코드는 상품컬러코드, 공급가는 결제금액÷수량 */
+var ONLINE_OUT_WH="CSTC", ONLINE_OUT_STORE="COSO";
 function onlineDownload(){
   if(!onlineOrderRows.length){alert("다운로드할 온라인 주문 데이터가 없습니다.");return;}
-  var aoa=[["쇼핑몰","상품명","수량","결제금액","기대금액","상태"]];
-  onlineOrderRows.forEach(function(r){aoa.push([r.shop,r.prod,r.qty,r.amt,r.expAmt,r.status]);});
+  var y=new Date();y.setDate(y.getDate()-1);
+  var ymd=y.getFullYear()+String(y.getMonth()+1).padStart(2,"0")+String(y.getDate()).padStart(2,"0");
+  var aoa=[["출고창고코드","매장코드","출고일자(8자리 숫자만)","바코드","공급가","출고수량","비고"]];
+  onlineOrderRows.forEach(function(r){
+    var unit=r.qty?Math.round(r.amt/r.qty):0;
+    aoa.push([ONLINE_OUT_WH,ONLINE_OUT_STORE,ymd,r.colorCode||"",unit,r.qty,""]);
+  });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   var wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"온라인주문검증");
-  var now=new Date();
-  var todayStr=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
-  XLSX.writeFile(wb,"온라인주문검증_"+todayStr+".xlsx");
+  XLSX.utils.book_append_sheet(wb,ws,"사입출고양식");
+  XLSX.writeFile(wb,"사입출고양식_"+ymd+".xlsx");
 }
 function renderOnlineOrderVerify(){
   var wrap=document.getElementById("verifyResultWrap");
@@ -6693,16 +6713,16 @@ function renderOnlineOrderVerify(){
   h+='<table style="border-collapse:collapse;width:100%;font-size:13px">';
   h+='<thead><tr>'
     +'<th style="'+th+'">쇼핑몰</th><th style="'+th+'">상품명</th><th style="'+th+'">수량</th>'
-    +'<th style="'+th+'">결제금액</th><th style="'+th+'">기대금액</th><th style="'+th+'">상태</th>'
+    +'<th style="'+th+'">결제금액(수정가능)</th><th style="'+th+'">기대금액</th><th style="'+th+'">상태</th>'
     +'</tr></thead><tbody>';
-  onlineOrderRows.forEach(function(r){
+  onlineOrderRows.forEach(function(r,i){
     var bad=r.status!=="정상";
     var rowBg=bad?"background:#fef08a":"";
     h+='<tr style="'+rowBg+'">'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px">'+_esc(r.shop)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px">'+_esc(r.prod)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
-      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+Number(r.amt).toLocaleString()+'원</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:2px"><input type="text" value="'+r.amt+'" data-i="'+i+'" onchange="onlineEditAmt(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;text-align:right;font-size:13px"></td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right;color:#64748b">'+(r.expAmt?Number(r.expAmt).toLocaleString()+'원':'-')+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center;font-weight:700;color:'+(bad?'#b45309':'#16a34a')+'">'+r.status+'</td>'
       +'</tr>';
