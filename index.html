@@ -6387,8 +6387,17 @@ function _ccoParseDate(v){
   if(m)return new Date(new Date().getFullYear(),+m[1]-1,+m[2]);
   return ccParseDate(v);
 }
+/* 사입출고양식 출력값 미리보기 계산(출고일자=전일, 공급가=결제금액÷수량) — 표시와 다운로드에서 공용 */
+function _ccoOutFields(r){
+  var d=_ccoParseDate(r.date);
+  var base=(d&&!isNaN(d))?new Date(d):new Date();
+  base.setDate(base.getDate()-1);
+  var ymd=base.getFullYear()+String(base.getMonth()+1).padStart(2,"0")+String(base.getDate()).padStart(2,"0");
+  var unit=r.qty?Math.round(r.amt/r.qty):0;
+  return {ymd:ymd,unit:unit};
+}
 function _ccoProcessRows(rows){
-  var hRow=-1,cShop=-1,cProd=-1,cQty=-1,cAmt=-1,cDate=-1,cColorCode=-1;
+  var hRow=-1,cShop=-1,cProd=-1,cQty=-1,cAmt=-1,cDate=-1,cColorCode=-1,cBarcode=-1;
   for(var r=0;r<Math.min(5,rows.length);r++){
     var row=rows[r]||[];
     for(var c=0;c<row.length;c++){
@@ -6398,6 +6407,7 @@ function _ccoProcessRows(rows){
       if(v==="수량"&&cQty<0)cQty=c;
       if(v==="결제금액"&&cAmt<0)cAmt=c;
       if(v==="상품컬러코드"&&cColorCode<0)cColorCode=c;
+      if(v==="바코드"&&cBarcode<0)cBarcode=c;
       if((v==="출고일"||v==="출고일자"||/일자|날짜/.test(v))&&cDate<0)cDate=c;
     }
     if(cProd>=0&&cQty>=0&&cAmt>=0){hRow=r;break;}
@@ -6415,6 +6425,7 @@ function _ccoProcessRows(rows){
       shop:cShop>=0?String(row[cShop]==null?"":row[cShop]).trim():"",
       prod:prodCell,
       colorCode:cColorCode>=0?String(row[cColorCode]==null?"":row[cColorCode]).trim():"",
+      barcode:cBarcode>=0?String(row[cBarcode]==null?"":row[cBarcode]).trim():"",
       qty:Number(row[cQty])||0,
       amt:Number(row[cAmt])||0,
       date:cDate>=0?String(row[cDate]==null?"":row[cDate]).trim():""
@@ -6454,19 +6465,28 @@ function renderCcoTable(){
     wrap.innerHTML='<p style="font-size:13px;color:#94a3b8">등록된 주문이 없습니다.</p>';
     return;
   }
-  var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px;color:#1b6e82;font-size:12px';
+  var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px;color:#1b6e82;font-size:12px;white-space:nowrap';
   var h='<div style="font-size:12px;color:#475569;margin-bottom:8px">등록 '+ccoRows.length+'건 (개인정보 미저장)</div>';
-  h+='<table style="border-collapse:collapse;width:100%;font-size:13px">';
-  h+='<thead><tr><th style="'+th+'">쇼핑몰</th><th style="'+th+'">상품명</th><th style="'+th+'">수량</th><th style="'+th+'">결제금액(수정가능)</th></tr></thead><tbody>';
+  h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:13px">';
+  h+='<thead><tr>'
+    +'<th style="'+th+'">쇼핑몰</th><th style="'+th+'">상품명</th><th style="'+th+'">컬러코드</th>'
+    +'<th style="'+th+'">출고일자</th><th style="'+th+'">바코드</th><th style="'+th+'">수량</th>'
+    +'<th style="'+th+'">결제금액(수정가능)</th><th style="'+th+'">공급가</th>'
+    +'</tr></thead><tbody>';
   ccoRows.forEach(function(r,i){
+    var out=_ccoOutFields(r);
     h+='<tr>'
-      +'<td style="border:1px solid #e2e8f0;padding:5px 8px">'+_esc(r.shop)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+_esc(r.shop)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px">'+_esc(r.prod)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.colorCode)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+out.ymd+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.barcode)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
-      +'<td style="border:1px solid #e2e8f0;padding:2px"><input type="text" value="'+r.amt+'" data-i="'+i+'" onchange="ccoEditAmt(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;text-align:right;font-size:13px"></td>'
+      +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:90px"><input type="text" value="'+r.amt+'" data-i="'+i+'" onchange="ccoEditAmt(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;text-align:right;font-size:13px"></td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right;color:#64748b;white-space:nowrap">'+fmtCC(out.unit)+'</td>'
       +'</tr>';
   });
-  h+='</tbody></table>';
+  h+='</tbody></table></div>';
   wrap.innerHTML=h;
 }
 function ccoEditAmt(input){
@@ -6479,17 +6499,8 @@ function ccoDownload(){
   if(!ccoRows.length){alert("다운로드할 주문 데이터가 없습니다.");return;}
   var aoa=[["출고창고코드","매장코드","출고일자(8자리 숫자만)","바코드","공급가","출고수량","비고"]];
   ccoRows.forEach(function(r){
-    var d=_ccoParseDate(r.date);
-    var ymd;
-    if(d&&!isNaN(d)){
-      var y=new Date(d); y.setDate(y.getDate()-1);
-      ymd=y.getFullYear()+String(y.getMonth()+1).padStart(2,"0")+String(y.getDate()).padStart(2,"0");
-    }else{
-      var now=new Date(); now.setDate(now.getDate()-1);
-      ymd=now.getFullYear()+String(now.getMonth()+1).padStart(2,"0")+String(now.getDate()).padStart(2,"0");
-    }
-    var unit=r.qty?Math.round(r.amt/r.qty):0;
-    aoa.push([CCO_OUT_WH,CCO_OUT_STORE,ymd,r.colorCode||"",unit,r.qty,""]);
+    var out=_ccoOutFields(r);
+    aoa.push([CCO_OUT_WH,CCO_OUT_STORE,out.ymd,r.colorCode||"",out.unit,r.qty,""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   var wb=XLSX.utils.book_new();
