@@ -8,6 +8,8 @@
 <meta http-equiv="Expires" content="0">
 <title>영업2팀 자비스</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window["pdfjsLib"]){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#eef0f6;color:#0f172a;min-height:100vh;zoom:1.15}
@@ -489,12 +491,12 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-order" onclick="switchTab('order')">📦 발주서(수기)</button>
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
   <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">🏪 팝업</button>
-  <button class="tab-btn" id="tab-popupchecklist" onclick="switchTab('popupchecklist')">✅ 팝업 체크리스트</button>
   <button class="tab-btn" id="tab-lossreport" onclick="switchTab('lossreport')">🧾 로스 품의서</button>
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
   <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">📅 매장별 일별매출</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
   <button class="tab-btn" id="tab-ccorder" onclick="switchTab('ccorder')">🚚 코스트코 발주</button>
+  <button class="tab-btn" id="tab-ccpdforder" onclick="switchTab('ccpdforder')">📄 코스트코 PDF발주</button>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <button class="tab-btn" id="tab-sheet" onclick="switchTab('sheet')">📄 공유캘린더</button>
@@ -816,11 +818,8 @@ label{font-size:14px!important}
       <span>🏷️ 홈쇼핑 코드매칭표</span>
       <label class="bs" style="cursor:pointer">📁 파일 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="hsCodeMatchLoadFile(this)"></label>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 8px">홈쇼핑 상품리스트+코드매칭표를 붙여넣으면(헤더: 홈쇼핑·상품컬러명·상품컬러코드·상품코드 등) 위 주문 내역에서 상품컬러코드가 비어있는 홈쇼핑 주문의 쇼핑몰·상품명을 매칭해서 자동으로 채워줍니다. 팀 전체가 공유하며, 새 상품이 추가되면 그 부분만 다시 붙여넣어도 기존 매칭표에 자동으로 추가/갱신됩니다(전체가 지워지지 않습니다).</p>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <div id="hsCodeMatchStatus" style="font-size:12px"></div>
-      <span onclick="hsCodeMatchClearAll()" style="font-size:11px;color:#94a3b8;cursor:pointer;text-decoration:underline">전체 삭제</span>
-    </div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 8px">홈쇼핑 상품리스트+코드매칭표를 붙여넣으면(헤더: 홈쇼핑·상품컬러명·상품컬러코드·상품코드 등) 위 주문 내역에서 상품컬러코드가 비어있는 홈쇼핑 주문의 쇼핑몰·상품명을 매칭해서 자동으로 채워줍니다. 팀 전체가 공유하며, 새로 붙여넣으면 기존 표는 교체됩니다.</p>
+    <div id="hsCodeMatchStatus" style="font-size:12px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px;align-items:flex-start">
       <textarea id="hsCodeMatchPasteArea" placeholder="홈쇼핑 상품리스트+코드매칭표를 여기에 붙여넣으세요 (Ctrl+V)" style="flex:1;min-height:60px;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
       <button class="bs" onclick="hsCodeMatchPasteRows()" style="white-space:nowrap">📋 붙여넣어 등록</button>
@@ -828,6 +827,23 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-ccorder -->
+
+<div id="page-ccpdforder" style="display:none">
+<div class="main" style="max-width:1000px">
+  <div class="card">
+    <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>📄 코스트코 PDF 주문서 업로드</span>
+      <div style="display:flex;gap:8px">
+        <label class="bs" style="cursor:pointer">📁 PDF 업로드(여러 개 선택 가능)<input type="file" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)"></label>
+        <button class="bg" onclick="ccPdfDownload()">📥 엑셀 다운로드</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코 어드민 '주문관리 &gt; 인쇄'에서 다운로드한 주문서 PDF를 그대로 올리면, 주문(페이지)별로 받는분·연락처·주소·상품명·수량·배송메시지를 자동으로 읽어 '화이트샌즈 CX 통합관리' <b>발주서 양식</b>으로 바로 변환합니다. 상품컬러코드는 사내 상품 데이터로 자동 매칭되며(매칭 안 되면 빨간 칸에 직접 입력), <b>린다우·아다나·메르신 마스크는 2개입 1세트라 수량이 자동으로 2배</b>로 계산됩니다. 개인정보(받는분·연락처·주소)는 발주서 작성 목적으로만 이번 세션에서 읽으며 별도 저장은 하지 않습니다.</p>
+    <div id="ccPdfStatus" style="font-size:12px;color:#94a3b8;margin-bottom:8px">업로드된 PDF가 없습니다.</div>
+    <div id="ccPdfResultWrap"></div>
+  </div>
+</div>
+</div><!-- /page-ccpdforder -->
 
 <div id="page-margin" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
@@ -989,63 +1005,6 @@ label{font-size:14px!important}
 </div>
 </div><!-- /page-popup -->
 
-<div id="page-popupchecklist" style="display:none">
-<div class="main" style="max-width:none;padding:16px 20px">
-  <div class="card" style="margin-bottom:12px;padding:12px 16px">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <div class="sec-title" style="margin:0;font-size:13px">✅ 팝업 오픈·철수 체크리스트</div>
-      <select id="pclPopupSel" onchange="pclLoadFromPopup()" style="padding:7px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-size:12px;background:white"><option value="">🏪 팝업에서 불러오기...</option></select>
-      <input id="pclStore" type="text" placeholder="매장명 직접 입력" onchange="pclSelectStore(this.value)" style="padding:7px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-size:12px;min-width:160px">
-      <span style="font-size:11px;color:#94a3b8">매장을 선택하거나 입력하면 체크리스트가 매장별로 저장됩니다</span>
-    </div>
-  </div>
-  <div class="card" style="margin-bottom:12px;padding:12px 16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-      <div class="sec-title" style="margin:0;font-size:13px;color:#059669">🏁 오픈 체크리스트</div>
-      <span id="pclOpenProg" style="font-size:12px;font-weight:700;color:#059669"></span>
-      <button onclick="pclAddRow('open')" style="margin-left:auto;padding:4px 10px;background:#4f46e5;color:white;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">+ 항목 추가</button>
-      <button onclick="pclResetDefault('open')" style="padding:4px 10px;background:white;border:1px solid #d1d5db;color:#5b6675;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">기본값 초기화</button>
-    </div>
-    <div style="overflow-x:auto">
-      <table style="border-collapse:collapse;font-size:13px;width:100%;table-layout:fixed">
-        <colgroup><col style="width:40px"><col style="width:36px"><col style="width:150px"><col style="width:260px"><col style="width:320px"><col style="width:36px"></colgroup>
-        <thead><tr style="background:#f1f5f9">
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">완료</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">NO</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">목록</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">내용</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">비고</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">삭제</th>
-        </tr></thead>
-        <tbody id="pclOpenBody"></tbody>
-      </table>
-    </div>
-  </div>
-  <div class="card" style="padding:12px 16px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-      <div class="sec-title" style="margin:0;font-size:13px;color:#dc2626">🚚 철수 체크리스트</div>
-      <span id="pclCloseProg" style="font-size:12px;font-weight:700;color:#dc2626"></span>
-      <button onclick="pclAddRow('close')" style="margin-left:auto;padding:4px 10px;background:#4f46e5;color:white;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">+ 항목 추가</button>
-      <button onclick="pclResetDefault('close')" style="padding:4px 10px;background:white;border:1px solid #d1d5db;color:#5b6675;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer">기본값 초기화</button>
-    </div>
-    <div style="overflow-x:auto">
-      <table style="border-collapse:collapse;font-size:13px;width:100%;table-layout:fixed">
-        <colgroup><col style="width:40px"><col style="width:36px"><col style="width:150px"><col style="width:260px"><col style="width:320px"><col style="width:36px"></colgroup>
-        <thead><tr style="background:#f1f5f9">
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">완료</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">NO</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">목록</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">내용</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">비고</th>
-          <th style="border:1px solid #e2e8f0;padding:6px;font-size:11px;color:#475569">삭제</th>
-        </tr></thead>
-        <tbody id="pclCloseBody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-</div><!-- /page-popupchecklist -->
-
 <div id="page-lossreport" style="display:none">
 <div class="main" style="max-width:1000px">
   <div class="card">
@@ -1126,7 +1085,7 @@ var FB_PATH={
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults",
-  "popupChecklistDB":"ws/popupChecklist","popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
+  "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch"
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
@@ -1234,11 +1193,6 @@ function wsSetItem(key,value){
   apply("ws/stockCheckResults","stockCheckResults",
     function(d){if(d&&d.results){stockCheckResults=d.results;stockWarehouseDate=d.date||stockWarehouseDate;}},
     function(){var pg=document.getElementById("page-stock");if(pg&&pg.style.display!=="none"&&typeof renderStockCheckResults==="function")renderStockCheckResults();}
-  );
-  /* 팝업 오픈·철수 체크리스트 (팀 공유) */
-  apply("ws/popupChecklist","popupChecklistDB",
-    function(d){if(d&&typeof d==="object")popupChecklistDB=d;},
-    function(){var pg=document.getElementById("page-popupchecklist");if(pg&&pg.style.display!=="none"&&typeof renderPopupChecklistLists==="function")renderPopupChecklistLists();}
   );
   /* 홈 화면 네이버 스마트플레이스 등록 알림 체크 상태 (팀 공유) */
   apply("ws/popupNaverDismissed","popupNaverDismissed",
@@ -3473,7 +3427,6 @@ function renderHomeDashboard(){
     {tab:"order",icon:"box",acc:"coral",title:"발주서(수기)",desc:"매장코드로 수령인·주소 자동입력"},
     {tab:"meeting",icon:"clip",acc:"slate",title:"전략회의",desc:"주간 전략 메모를 팀과 공유"},
     {tab:"popup",icon:"tent",acc:"rose",title:"팝업",desc:"진행중·예정 팝업 일정 관리",chip:(popupOngoing?popupOngoing+"개 진행중":null)},
-    {tab:"popupchecklist",icon:"docCheck",acc:"sage",title:"팝업 체크리스트",desc:"매장별 오픈·철수 체크리스트 관리"},
     {tab:"lossreport",icon:"docCheck",acc:"coral",title:"로스 품의서",desc:"팝업 종료 후 상품 로스 품의서 작성·다운로드"},
     {tab:"dept",icon:"building",acc:"ocean",title:"백화점",desc:"매장별 매출·목표·팝업 현황"},
     {tab:"daily",icon:"calendar",acc:"sage",title:"매장별 일별매출",desc:"백화점 순서와 자동 동기화",chip:(monthEdi?"이번달 "+monthEdi.toLocaleString()+"원":null)},
@@ -3540,7 +3493,8 @@ function renderQuickLaunch(){
     {label:"GS 홈쇼핑",url:"https://partners.gsshop.com",icon:_extLinkIcon},
     {label:"홈앤쇼핑",url:"https://partners.hnsmall.com/app/index.html",icon:_extLinkIcon},
     {label:"롯데 홈쇼핑",url:"https://partners.lotteimall.com/",icon:_extLinkIcon,defaultEmail:"offline@whitesands.co.kr"},
-    {label:"코스트코 DSS",url:"https://costcokr.logistics.reply.com/",icon:_extLinkIcon,dualCred:true},
+    {label:"코스트코 DSS",url:"https://costcokr.logistics.reply.com/auth/realms/costcokr/protocol/openid-connect/auth?client_id=sce&redirect_uri=https%3A%2F%2Fcostcokr.logistics.reply.com%2Fcostcokr%2F%23%2Fcostcokr%2Fdropship%2F&response_mode=fragment&response_type=code&scope=openid",icon:_extLinkIcon,dualCred:true},
+    {label:"CX통합관리",url:"https://wscx.pages.dev/",icon:_extLinkIcon},
     {label:"영업2팀내공유",url:"https://docs.google.com/spreadsheets/d/1SY3GJjTtTw7SYHzmTvBoPrCQwL-r3gHWeOXHeTFqOag/edit?gid=0#gid=0",icon:_extLinkIcon,noCred:true},
     {label:"OneDrive",url:"https://onedrive.live.com/?id=FEBA372AF61138D3%21187394&cid=FEBA372AF61138D3&redeem=aHR0cHM6Ly8xZHJ2Lm1zL2YvYy9mZWJhMzcyYWY2MTEzOGQzL1F0TTRFZllxTjdvZ2dQNEMzQUlBQUFBQXhmTllYWVJMUVpZWUt3",icon:_extLinkIcon,noCred:true}
   ];
@@ -3556,7 +3510,7 @@ function renderQuickLaunch(){
     function credRow(idField,pwField){
       return '<div style="display:flex;gap:5px">'
         +'<input type="text" placeholder="아이디" data-label="'+_esc(q.label)+'" data-field="'+idField+'" value="'+_esc(cred[idField]||"")+'" onchange="qcSave(this.dataset.label,this.dataset.field,this.value)" style="'+credInputStyle+'">'
-        +'<input type="password" placeholder="비밀번호" data-label="'+_esc(q.label)+'" data-field="'+pwField+'" value="'+_esc(cred[pwField]||"")+'" onchange="qcSave(this.dataset.label,this.dataset.field,this.value)" style="'+credInputStyle+'">'
+        +'<input type="text" placeholder="비밀번호" data-label="'+_esc(q.label)+'" data-field="'+pwField+'" value="'+_esc(cred[pwField]||"")+'" onchange="qcSave(this.dataset.label,this.dataset.field,this.value)" style="'+credInputStyle+'">'
         +'</div>';
     }
     var credHtml=q.noCred?"":(
@@ -3587,7 +3541,6 @@ function switchTab(tab){
   document.getElementById("page-order").style.display=tab==="order"?"block":"none";
   document.getElementById("page-orderconv").style.display=tab==="orderconv"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
-  document.getElementById("page-popupchecklist").style.display=tab==="popupchecklist"?"block":"none";
   document.getElementById("page-lossreport").style.display=tab==="lossreport"?"block":"none";
   document.getElementById("tab-home").classList.toggle("active",tab==="home");
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
@@ -3603,7 +3556,6 @@ function switchTab(tab){
   document.getElementById("tab-order").classList.toggle("active",tab==="order");
   document.getElementById("tab-orderconv").classList.toggle("active",tab==="orderconv");
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
-  document.getElementById("tab-popupchecklist").classList.toggle("active",tab==="popupchecklist");
   document.getElementById("tab-lossreport").classList.toggle("active",tab==="lossreport");
   if(tab==="home") renderHomeDashboard();
   if(tab==="meeting") renderMeetingGrid();
@@ -3618,7 +3570,6 @@ function switchTab(tab){
   if(tab==="order") renderOrder();
   if(tab==="orderconv") ocRender();
   if(tab==="popup") renderPopupPage();
-  if(tab==="popupchecklist") renderPopupChecklist();
   if(tab==="lossreport") initLossReportTab();
 }
 
@@ -6485,25 +6436,10 @@ function _hsCodeMatchProcessRows(rows){
     });
   }
   if(!out.length){alert("인식된 매칭 데이터가 없습니다.");return;}
-  var map={};
-  hsCodeMatchDB.forEach(function(e){map[e.colorCode]=e;});
-  var added=0,updated=0;
-  out.forEach(function(e){
-    if(map[e.colorCode])updated++;else added++;
-    map[e.colorCode]=e;
-  });
-  hsCodeMatchDB=Object.keys(map).map(function(k){return map[k];});
+  hsCodeMatchDB=out;
   saveHsCodeMatchDB();
   renderHsCodeMatchStatus();
   _ccoReapplyMatches();
-  alert("매칭표 업데이트 완료 (기존 표에 추가/갱신)\n신규 "+added+"건, 갱신 "+updated+"건 → 전체 "+hsCodeMatchDB.length+"건");
-}
-function hsCodeMatchClearAll(){
-  if(!hsCodeMatchDB.length)return;
-  if(!confirm("등록된 매칭표 "+hsCodeMatchDB.length+"건을 전체 삭제할까요?"))return;
-  hsCodeMatchDB=[];
-  saveHsCodeMatchDB();
-  renderHsCodeMatchStatus();
 }
 function hsCodeMatchPasteRows(){
   var ta=document.getElementById("hsCodeMatchPasteArea");
@@ -6695,6 +6631,172 @@ function ccoDownload(){
   var now2=new Date();
   var todayStr=now2.getFullYear()+"-"+String(now2.getMonth()+1).padStart(2,"0")+"-"+String(now2.getDate()).padStart(2,"0");
   XLSX.writeFile(wb,"사입출고양식_"+todayStr+".xlsx");
+}
+
+/* ── 코스트코 PDF 주문서 업로드 — 어드민에서 다운받은 주문서 PDF를 파싱해
+   '화이트샌즈 CX 통합관리' 발주서 양식으로 바로 변환. 받는분·연락처·주소는
+   발주서 작성에 필요한 최소 정보만 이번 세션에서 읽어 엑셀에 담을 뿐, 별도 저장(localStorage 등)은 하지 않음 ── */
+var ccPdfRows=[];
+/* 코스트코 상품코드(6자리) → 화이트샌즈 내부 상품코드/정식 상품명 매핑표 */
+var CC_PDF_CODE_MAP={
+  "687979":{base:"WJA08I8M",name:"[화이트샌즈] 24SS 아쿠아가드 보닛햇 듀리에 (Dewlieh)"},
+  "679601":{base:"WIM76H4M",name:"[화이트샌즈] 23SS 마 블렌디드 언밸런스 플로피햇 로슬라 (Roslla)"},
+  "672524":{base:"WVHM8A9X",name:"[화이트샌즈] 22SS UV 프로텍션 8.5 바이저 소니아"},
+  "694467":{base:"WKS53K4C",name:"[화이트샌즈] 25SS 린넨 퍼퓰러 라운드 버킷햇 케디리(Kediri)"},
+  "694468":{base:"WKS83N8J",name:"[화이트샌즈] 25SS 타스란 포터블 변형 버킷햇 일리안(Ilian)"},
+  "693950":{base:"GKM116Z9U",name:"[화이트샌즈] 25SS 그린라벨 냉감 UV 쿨링 하프 마스크 아다나(Adana)",setQty:2},
+  "693952":{base:"GKM117Z9U",name:"[화이트샌즈_그린라벨] 25SS 그린라벨 냉감 UV 쿨링 끈조절 마스크 린다우(Lindau)",setQty:2},
+  "693953":{base:"GKM115Z9U",name:"[화이트샌즈_그린라벨] 25SS 그린라벨 냉감 UV 쿨링이어마스크 메르신(Mersin)",setQty:2}
+};
+var CC_PDF_COLOR_MAP={LG:"LGY",SK:"SN",WT:"WH",BK:"BK",BE:"BE",WH:"WH",SGN:"SGN"};
+function _ccPdfExtractItems(pageText){
+  var startIdx=pageText.indexOf("수량");
+  var endIdx=pageText.indexOf("코스트코 상품을");
+  var block=(startIdx>=0&&endIdx>startIdx)?pageText.slice(startIdx+2,endIdx):pageText;
+  var re=/(\d{6})-([A-Za-z]{2,4})/g;
+  var starts=[];var m;
+  while((m=re.exec(block))){starts.push({idx:m.index,code:m[1],color:m[2].toUpperCase()});}
+  var items=[];
+  for(var i=0;i<starts.length;i++){
+    var s=starts[i];
+    var segEnd=(i+1<starts.length)?starts[i+1].idx:block.length;
+    var seg=block.slice(s.idx,segEnd).trim();
+    var afterCode=seg.replace(/^\d{6}-[A-Za-z]{2,4}\s*/,"");
+    var qm=afterCode.match(/(\d{1,4})\s*$/);
+    var qty=qm?parseInt(qm[1],10):0;
+    var name=qm?afterCode.slice(0,qm.index).trim():afterCode.trim();
+    if(name&&qty)items.push({code:s.code,color:s.color,name:name,qty:qty});
+  }
+  return items;
+}
+function _ccPdfFmtPhone(p){
+  p=String(p||"").replace(/\D/g,"");
+  return p.length===11?(p.slice(0,3)+"-"+p.slice(3,7)+"-"+p.slice(7)):p;
+}
+/* 페이지 텍스트를 줄 단위(라인)로 분해해서 받는분/연락처/주소/우편번호/주문정보/상품목록을 추출.
+   pdf.js는 줄바꿈 정보를 주지 않으므로, item의 y좌표가 바뀌는 지점을 줄바꿈으로 간주해서 재구성한다. */
+async function _ccPdfGetPageLines(page){
+  var tc=await page.getTextContent();
+  var lines=[];var curY=null;var curParts=[];
+  tc.items.forEach(function(it){
+    var y=Math.round(it.transform[5]);
+    if(curY===null||Math.abs(y-curY)>2){
+      if(curParts.length)lines.push(curParts.join(" ").replace(/\s+/g," ").trim());
+      curParts=[it.str];curY=y;
+    }else{
+      curParts.push(it.str);
+    }
+  });
+  if(curParts.length)lines.push(curParts.join(" ").replace(/\s+/g," ").trim());
+  return lines.filter(function(l){return l.length>0;});
+}
+function _ccPdfParsePageLines(lines){
+  var idx=lines.indexOf("주문내역");
+  if(idx<0)return[];
+  var phone=lines[idx-1]||"";
+  var name=lines[idx-2]||"";
+  var zipc=lines[idx-3]||"";
+  var address=lines.slice(1,idx-3).join(" ").trim();
+  var orderLine=lines[idx+2]||"";
+  var om=orderLine.match(/(\d{9})\s+(\d{4}\/\d{2}\/\d{2})\s*(.*)/);
+  var orderNo=om?om[1]:"",orderDate=om?om[2]:"",msg=om?om[3].trim():"";
+  var itemBlockStart=lines.slice(idx+3).join("\n");
+  var items=_ccPdfExtractItems(itemBlockStart.replace(/\n/g," "));
+  return items.map(function(it){
+    var cm=CC_PDF_CODE_MAP[it.code];
+    var mappedColor=CC_PDF_COLOR_MAP[it.color]||it.color;
+    var qty=it.qty*((cm&&cm.setQty)||1);
+    return{
+      name:name,phone:_ccPdfFmtPhone(phone),zip:zipc,address:address,
+      orderNo:orderNo,orderDate:orderDate,msg:msg,
+      prodName:cm?cm.name:it.name,
+      colorCode:cm?(cm.base+mappedColor+"X"):"",
+      qty:qty,matched:!!cm
+    };
+  });
+}
+async function ccPdfLoadFiles(input){
+  var files=Array.from(input.files||[]);
+  if(!files.length)return;
+  if(typeof pdfjsLib==="undefined"){alert("PDF 라이브러리 로드에 실패했습니다. 새로고침 후 다시 시도해주세요.");return;}
+  var statusEl=document.getElementById("ccPdfStatus");
+  statusEl.textContent="PDF 분석 중... (0/"+files.length+")";
+  var allRows=[];
+  for(var fi=0;fi<files.length;fi++){
+    try{
+      var buf=await files[fi].arrayBuffer();
+      var pdf=await pdfjsLib.getDocument({data:buf}).promise;
+      for(var p=1;p<=pdf.numPages;p++){
+        var page=await pdf.getPage(p);
+        var lines=await _ccPdfGetPageLines(page);
+        var rows=_ccPdfParsePageLines(lines);
+        allRows=allRows.concat(rows);
+      }
+    }catch(err){
+      console.error("PDF 파싱 오류",files[fi].name,err);
+    }
+    statusEl.textContent="PDF 분석 중... ("+(fi+1)+"/"+files.length+")";
+  }
+  ccPdfRows=ccPdfRows.concat(allRows);
+  renderCcPdfTable();
+  input.value="";
+}
+function renderCcPdfTable(){
+  var statusEl=document.getElementById("ccPdfStatus");
+  var wrap=document.getElementById("ccPdfResultWrap");
+  if(!ccPdfRows.length){
+    statusEl.textContent="업로드된 PDF가 없습니다.";
+    wrap.innerHTML="";
+    return;
+  }
+  var noMatch=ccPdfRows.filter(function(r){return !r.matched;}).length;
+  statusEl.innerHTML="총 "+ccPdfRows.length+"건 인식됨"+(noMatch?' <span style="color:#dc2626">('+noMatch+'건 상품코드 미매칭 — 상품명 그대로 다운로드되며, 필요시 발주서에서 직접 코드 입력)</span>':' <span style="color:#16a34a">(전체 상품코드 매칭 완료)</span>');
+  var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px;color:#1b6e82;font-size:12px;white-space:nowrap';
+  var h='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:13px">';
+  h+='<thead><tr>'
+    +'<th style="'+th+'">받는분</th><th style="'+th+'">연락처</th><th style="'+th+'">주소</th>'
+    +'<th style="'+th+'">상품명</th><th style="'+th+'">상품컬러코드</th><th style="'+th+'">수량</th>'
+    +'<th style="'+th+'">배송메시지</th><th style="'+th+'"></th>'
+    +'</tr></thead><tbody>';
+  ccPdfRows.forEach(function(r,i){
+    h+='<tr'+(!r.matched?' style="background:#fef2f2"':'')+'>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+_esc(r.name)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+_esc(r.phone)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11.5px;color:#64748b">'+_esc(r.address+" ("+r.zip+")")+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px">'+_esc(r.prodName)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:130px"><input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="ccPdfEditColorCode(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.matched?'#d1d5db':'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:12px'+(r.matched?'':';color:#dc2626')+'"></td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11.5px;color:#64748b">'+_esc(r.msg)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center"><button onclick="ccPdfRemoveRow('+i+')" style="border:none;background:none;color:#94a3b8;cursor:pointer;font-size:14px">✕</button></td>'
+      +'</tr>';
+  });
+  h+='</tbody></table></div>';
+  wrap.innerHTML=h;
+}
+function ccPdfEditColorCode(input){
+  var i=Number(input.dataset.i);
+  if(!ccPdfRows[i])return;
+  ccPdfRows[i].colorCode=input.value.trim();
+  ccPdfRows[i].matched=true;
+  renderCcPdfTable();
+}
+function ccPdfRemoveRow(i){
+  ccPdfRows.splice(i,1);
+  renderCcPdfTable();
+}
+function ccPdfDownload(){
+  if(!ccPdfRows.length){alert("다운로드할 주문 데이터가 없습니다.");return;}
+  var aoa=[["구분","받는분","연락처","주소","전산 처리 방법","상품명","상품컬러코드","수량","희망출고일","배송메세지"]];
+  ccPdfRows.forEach(function(r){
+    aoa.push(["코스트코",r.name,r.phone,r.address+" ("+r.zip+")","사입출고등록(기타온라인)",r.prodName,r.colorCode,r.qty,"",r.msg]);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=[{wch:10},{wch:10},{wch:16},{wch:45},{wch:22},{wch:55},{wch:18},{wch:7},{wch:12},{wch:20}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"발주서");
+  var now2=new Date();
+  var todayStr=now2.getFullYear()+"-"+String(now2.getMonth()+1).padStart(2,"0")+"-"+String(now2.getDate()).padStart(2,"0");
+  XLSX.writeFile(wb,"코스트코_발주서_"+todayStr+".xlsx");
 }
 
 /* ── 코스트코 셀 드래그 선택 (엑셀 스타일) ── */
@@ -7449,197 +7551,6 @@ var popupDB=(function(){
 })();
 
 function savePopupDB(){wsSetItem(_POPUP_KEY,JSON.stringify(popupDB));}
-
-/* ── 팝업 오픈·철수 체크리스트 ── */
-var POPUP_CL_OPEN_DEFAULT=[
-  {title:"상품 라인 시트 공유",content:"■오픈전 상품 라인시트 공유",note:"■대표님 및 상무님께 확인 후 진행"},
-  {title:"행사이벤트 기획",content:"■오픈프로모션, 마케팅 요청(체험단 및 네이버 플레이스 등록, 기본 마케팅 구성), 파트리더 공문",note:"■ 백화점 팝업 오픈시\n- 장소(층수), 팝업기간,오픈프로모션, 매장 위치 내용 컨텐츠기획팀 공유\n- 공홈->coming soon 문구로 안내, 오픈후 오픈으로 문구 수정\n(오픈매장사진 전달할것)\n- 기본바이럴 요청+공홈 뉴스이밴트탭 베너 노출+피드 ,스토리 요청\n(매장 오픈 7일전)"},
-  {title:"네이버플레이스 등록",content:"■네이버 스마트플레이스 등록\n링크: https://new.smartplace.naver.com/\n아이디: \n비밀번호: ",note:"⚠ 비밀번호는 이 체크리스트(팀 전체 공유)에 평문으로 저장됩니다. 보안상 별도 관리를 권장합니다."},
-  {title:"프로모션 공문 및 작업계 신청",content:"■백화점 담당자 연락 및 상무님과 상의 후 진행\n■백화점EDI로 작업계 제출 및 차량 등록",note:"■업체는 업체에서 직접 진행"},
-  {title:"상품 리스트 제작",content:"■BEST/ 간절기(포시즌) 제품으로 입고 상품 구성\n■매장크기에 따라 적정 SKU로 구성\n■악세사리 5종 필수 추가(헤어밴드/스크런치 류)\n■이너 밴드 및 이너 패치 입고 여부",note:"■시간 필요한 작업\n■물류 배차 확인 필수 및 오픈 당일 배차 기사님 [차량번호/전화번호] 공유\n-검품장 도착 시간 발주서에 기입 및 확인"},
-  {title:"상품 발주",content:"■오픈 상품 리스트 확정 후 발주리스트 작성",note:""},
-  {title:"비품 리스트 준비 / 인터넷 및 전화 설치 여부",content:"■비품리스트 확인 후 준비 및 선구매 요청(비품 네임택 부착)\n■인터넷 및 전화 설치 여부 매장 운영 기간에 따라 결정",note:""},
-  {title:"롯데EDI 생성 / 플레이엠디 매장 및 아이디 등록",content:"■아이디등록\n-백화점에서 롯데포털 신규 아이디 생성시\n사용자명: 담당자 이름을 넣지말고 지점 이름으로 넣어주세요. 예) 인천점,평촌점 (퇴사시 담당자 변경으로 인해, 추후 수정안됨)\n휴대전화: 매니저 전화번호(추후 수정가능)\n나머지칸은 이미지와 같이 입력해서 생성하면 됩니다.\n■신규 온라인 운영시 아이디는 본사에서 만들어서 공지해주세요. 아이디/비번은 본사에서 관리합니다",note:"■롯데 EDI 생성 시 거래선코드532627\n■화이트샌즈 사업자번호로 필히 가입해야함.\n담당자 메일주소: offline@whitesands.co.kr\n\n플레이엠디 회사 id :jhgroup / pw : jhgroup\n매장 아이디 생성후 로그인시 위 내용 기재\n\nEDI->매니저님생성"},
-  {title:"전산 매뉴얼 공유 및 제작",content:"■매장 판매 등록, 발주서 양식, 반품리스트 양식 등",note:""},
-  {title:"로스터 양식 공유",content:"■근태관리 A,B시트",note:""},
-  {title:"플레이 엠디 전산 매뉴얼 공유",content:"■오픈전 , 플레이엠디 전산 매뉴얼 필수 공유",note:""},
-  {title:"샵솔 및 매장 별 카톡방 생성",content:"■카톡 업무방 생성 및 화이트샌즈 매니저님 방 초대",note:"■마감 보고 내용\n예시) 평촌점 5/9(목)마감보고\n\n화이트샌즈 1,859,400\n퍼플 0\n블랙 0\n\n총매출 1,859,400원 입니다"},
-  {title:"물류 배차정보 공유",content:"■매장 카톡방에 공유, 기사님 차량번호/연락처 공유",note:""},
-  {title:"매장 오픈 후 전경 사진",content:"■매장사진 공유 매장전경(가로촬영) 및 동영상(세로촬영)",note:""},
-  {title:"네이버",content:"■네이버 스마트플레이스 등록\nhttps://new.smartplace.naver.com/",note:""},
-  {title:"자사 홈페이지 매장안내 내용 추가",content:"■매장사진, 매장 주소 ,영업시간, 전화번호 내용 포함하여 웹디 전달하여 매장정보 업데이트",note:"매장오픈날 맞춰서 바로 올릴수있도록 체크"},
-  {title:"매뉴얼 교육",content:"■매장 판매등록, 발주서 및 반품 리스트 교육",note:""},
-  {title:"매장 오픈 체크리스트",content:"■오픈 체크리스트 체크(제작해야함)",note:""},
-  {title:"온라인 운영 여부",content:"■온라인 생성 후 코드 등록",note:""},
-  {title:"팝업 매장 판매일보 등록",content:"■노트북 미제공 매장 진행",note:""}
-];
-var POPUP_CL_CLOSE_DEFAULT=[
-  {title:"매장 철수 매뉴얼 및 제작",content:"■제작 후 사전 공유\n■매장 철수 시 미리 정리 할 수 있는 부분 진행",note:""},
-  {title:"본사 비품리스트 및 반품리스트 공유",content:"■최초 오픈 시 본사에서 발송 했던 비품 리스트 공유\n■최종적으로 본사까지 도착 할 수 있도록 핸들링\n■반품리스트 공유하여 진열상품 및 불량상품 미리 리스트 작성 가능하도록 팔로업",note:"■매니저 사전 공유 필수"},
-  {title:"상품 재고 리스트 확인",content:"■매장 재고 확인 후 실재고 수량 맞는지 검수",note:"■로스 발생 시 기안서 작성"},
-  {title:"집기 리스트 및 파손 여부 확인(물류로 이동)",content:"■집기 컨디션 및 파손 여부 확인",note:"■로스 발생 시 기안서 작성"},
-  {title:"소도구 리스트 및 소품(본사로 이동)",content:"■소품 컨디션 및 소품 파손 여부 확인",note:""}
-];
-var _POPUP_CL_KEY="popupChecklistDB";
-function _pclNewInstance(){
-  return {
-    open:POPUP_CL_OPEN_DEFAULT.map(function(it){return {title:it.title,content:it.content,note:it.note,checked:false};}),
-    close:POPUP_CL_CLOSE_DEFAULT.map(function(it){return {title:it.title,content:it.content,note:it.note,checked:false};})
-  };
-}
-var popupChecklistDB=(function(){
-  try{
-    var s=localStorage.getItem(_POPUP_CL_KEY);
-    if(s){var d=JSON.parse(s);if(d&&typeof d==="object")return d;}
-  }catch(e){}
-  return {};
-})();
-function savePopupChecklistDB(){wsSetItem(_POPUP_CL_KEY,JSON.stringify(popupChecklistDB));}
-var _pclCurStore="";
-function pclFillPopupSelect(){
-  var sel=document.getElementById("pclPopupSel");if(!sel)return;
-  var opts='<option value="">🏪 팝업에서 불러오기...</option>';
-  if(typeof popupDB!=="undefined"&&Array.isArray(popupDB)){
-    popupDB.forEach(function(p,i){
-      if(!p.store)return;
-      var label=p.store+(p.start?" ("+p.start+"~"+(p.end||"")+")":"");
-      opts+='<option value="'+i+'">'+_esc(label)+'</option>';
-    });
-  }
-  sel.innerHTML=opts;
-}
-function pclLoadFromPopup(){
-  var sel=document.getElementById("pclPopupSel");
-  if(!sel||sel.value==="")return;
-  var p=popupDB[+sel.value];if(!p)return;
-  var inp=document.getElementById("pclStore");
-  if(inp)inp.value=p.store||"";
-  pclSelectStore(p.store||"");
-}
-function pclSelectStore(name){
-  name=(name||"").trim();
-  _pclCurStore=name;
-  if(name&&!popupChecklistDB[name]){
-    popupChecklistDB[name]=_pclNewInstance();
-    savePopupChecklistDB();
-  }
-  renderPopupChecklistLists();
-}
-function renderPopupChecklist(){
-  pclFillPopupSelect();
-  var storeInput=document.getElementById("pclStore");
-  if(storeInput&&!storeInput.value&&_pclCurStore)storeInput.value=_pclCurStore;
-  renderPopupChecklistLists();
-}
-function _pclNoteLinesHtml(section,i,note,noteChecks){
-  var lines=String(note||"").split("\n");
-  var h='<div style="display:flex;flex-direction:column;gap:2px">';
-  lines.forEach(function(line,li){
-    var checked=!!(noteChecks&&noteChecks[li]);
-    h+='<div style="display:flex;align-items:center;gap:4px">';
-    h+='<input type="checkbox" '+(checked?"checked":"")+' onchange="pclToggleNoteLine(\''+section+'\','+i+','+li+',this.checked)" style="width:13px;height:13px;flex-shrink:0;cursor:pointer">';
-    h+='<input type="text" value="'+_esc(line)+'" onchange="pclEditNoteLine(\''+section+'\','+i+','+li+',this.value)" style="flex:1;min-width:0;border:none;outline:none;font-size:11.5px;background:transparent;'+(checked?"text-decoration:line-through;color:#94a3b8":"color:#7c3aed")+'">';
-    h+='</div>';
-  });
-  h+='<button onclick="pclAddNoteLine(\''+section+'\','+i+')" style="align-self:flex-start;border:none;background:none;color:#94a3b8;font-size:10px;cursor:pointer;padding:1px 0">+ 줄 추가</button>';
-  h+='</div>';
-  return h;
-}
-function _pclFirstUrl(text){
-  var m=/https?:\/\/[^\s"'<>]+/.exec(text||"");
-  return m?m[0]:null;
-}
-function _pclRowsHtml(section,list){
-  if(!list.length)return '<tr><td colspan="6" style="padding:16px;text-align:center;color:#94a3b8">항목 없음</td></tr>';
-  var h="";
-  list.forEach(function(it,i){
-    var url=_pclFirstUrl(it.content)||_pclFirstUrl(it.note);
-    h+='<tr style="'+(it.checked?"background:#f0fdf4":"")+'">';
-    h+='<td style="border:1px solid #e1e6ee;padding:6px;text-align:center"><input type="checkbox" '+(it.checked?"checked":"")+' onchange="pclToggle(\''+section+'\','+i+',this.checked)" style="width:17px;height:17px;cursor:pointer"></td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:6px;text-align:center;color:#94a3b8;font-size:12px">'+(i+1)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px"><input value="'+_esc(it.title)+'" onchange="pclEdit(\''+section+'\','+i+',\'title\',this.value)" style="width:100%;border:none;outline:none;font-weight:700;font-size:12.5px;background:transparent;'+(it.checked?"text-decoration:line-through;color:#94a3b8":"")+'">'+(url?'<a href="'+_esc(url)+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:3px;font-size:10px;color:#2563eb;text-decoration:none;font-weight:700;white-space:nowrap">🔗 바로가기</a>':'')+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px"><textarea onchange="pclEdit(\''+section+'\','+i+',\'content\',this.value)" rows="2" style="width:100%;border:none;outline:none;resize:vertical;font-size:12px;white-space:pre-wrap;font-family:inherit;background:transparent">'+_escX(it.content)+'</textarea></td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:4px">'+_pclNoteLinesHtml(section,i,it.note,it.noteChecks)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:6px;text-align:center"><button onclick="pclDelRow(\''+section+'\','+i+')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px">✕</button></td>';
-    h+='</tr>';
-  });
-  return h;
-}
-function renderPopupChecklistLists(){
-  var openWrap=document.getElementById("pclOpenBody"),closeWrap=document.getElementById("pclCloseBody");
-  var openProg=document.getElementById("pclOpenProg"),closeProg=document.getElementById("pclCloseProg");
-  if(!openWrap||!closeWrap)return;
-  var inst=_pclCurStore?popupChecklistDB[_pclCurStore]:null;
-  if(!inst){
-    openWrap.innerHTML='<tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8">매장을 선택하거나 입력해주세요</td></tr>';
-    closeWrap.innerHTML='';
-    if(openProg)openProg.textContent="";
-    if(closeProg)closeProg.textContent="";
-    return;
-  }
-  var openDone=inst.open.filter(function(it){return it.checked;}).length;
-  var closeDone=inst.close.filter(function(it){return it.checked;}).length;
-  if(openProg)openProg.textContent=openDone+" / "+inst.open.length+" 완료";
-  if(closeProg)closeProg.textContent=closeDone+" / "+inst.close.length+" 완료";
-  openWrap.innerHTML=_pclRowsHtml("open",inst.open);
-  closeWrap.innerHTML=_pclRowsHtml("close",inst.close);
-}
-function pclToggle(section,i,checked){
-  var inst=popupChecklistDB[_pclCurStore];if(!inst||!inst[section][i])return;
-  inst[section][i].checked=checked;
-  savePopupChecklistDB();
-  renderPopupChecklistLists();
-}
-function pclEdit(section,i,field,val){
-  var inst=popupChecklistDB[_pclCurStore];if(!inst||!inst[section][i])return;
-  inst[section][i][field]=val;
-  savePopupChecklistDB();
-}
-function pclToggleNoteLine(section,i,li,checked){
-  var inst=popupChecklistDB[_pclCurStore];if(!inst||!inst[section][i])return;
-  var it=inst[section][i];
-  if(!it.noteChecks)it.noteChecks=[];
-  it.noteChecks[li]=checked;
-  savePopupChecklistDB();
-  renderPopupChecklistLists();
-}
-function pclEditNoteLine(section,i,li,val){
-  var inst=popupChecklistDB[_pclCurStore];if(!inst||!inst[section][i])return;
-  var it=inst[section][i];
-  var lines=String(it.note||"").split("\n");
-  lines[li]=val;
-  it.note=lines.join("\n");
-  savePopupChecklistDB();
-}
-function pclAddNoteLine(section,i){
-  var inst=popupChecklistDB[_pclCurStore];if(!inst||!inst[section][i])return;
-  var it=inst[section][i];
-  it.note=(it.note?it.note+"\n":"");
-  savePopupChecklistDB();
-  renderPopupChecklistLists();
-}
-function pclAddRow(section){
-  if(!_pclCurStore){alert("먼저 매장을 선택하거나 입력해주세요.");return;}
-  var inst=popupChecklistDB[_pclCurStore];if(!inst)return;
-  inst[section].push({title:"",content:"",note:"",checked:false});
-  savePopupChecklistDB();
-  renderPopupChecklistLists();
-}
-function pclDelRow(section,i){
-  var inst=popupChecklistDB[_pclCurStore];if(!inst)return;
-  inst[section].splice(i,1);
-  savePopupChecklistDB();
-  renderPopupChecklistLists();
-}
-function pclResetDefault(section){
-  if(!_pclCurStore){alert("먼저 매장을 선택하거나 입력해주세요.");return;}
-  if(!confirm((section==="open"?"오픈":"철수")+" 체크리스트를 기본 양식으로 초기화할까요?\n현재 체크 상태와 수정 내용이 모두 사라집니다."))return;
-  var inst=popupChecklistDB[_pclCurStore];if(!inst)return;
-  var def=section==="open"?POPUP_CL_OPEN_DEFAULT:POPUP_CL_CLOSE_DEFAULT;
-  inst[section]=def.map(function(it){return {title:it.title,content:it.content,note:it.note,checked:false};});
-  savePopupChecklistDB();
-  renderPopupChecklistLists();
-}
 
 /* ── 팝업 칼럼 리사이즈 (내용·비고만, 고정 칼럼은 유지) ── */
 var _popColW={content:300,note:200};
