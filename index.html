@@ -6383,17 +6383,104 @@ function _hsCodeNormChannel(s){
   s=s.replace(/\s/g,"");
   return s.toLowerCase().trim();
 }
-function _hsFindMatch(shop,prod){
-  if(!hsCodeMatchDB.length)return null;
-  var nProd=_hsCodeNormName(prod),nShop=_hsCodeNormChannel(shop);
-  var exact=null,generic=null;
-  for(var i=0;i<hsCodeMatchDB.length;i++){
-    var e=hsCodeMatchDB[i];
-    if(e.normName!==nProd)continue;
-    if(nShop&&e.normChannel&&e.normChannel===nShop){exact=e;break;}
-    if(!generic)generic=e;
+/* DEFAULT_DATA(판매일보 상품데이터)에서 쓰이는 컬러명 전체 목록(긴 이름부터) — 주문 상품명 끝에 붙은 컬러 텍스트를 잘라내는 데 사용 */
+var _hsColorNamesCache=null;
+function _hsColorNames(){
+  if(_hsColorNamesCache)return _hsColorNamesCache;
+  var set={};
+  (typeof DEFAULT_DATA!=="undefined"?DEFAULT_DATA:[]).forEach(function(row){if(row&&row[4])set[row[4]]=true;});
+  _hsColorNamesCache=Object.keys(set).sort(function(a,b){return b.length-a.length;});
+  return _hsColorNamesCache;
+}
+/* 주문 상품명에서 [기본상품명]과 [컬러명]을 분리.
+   예: "23SS 화이트샌즈 멜리나 리본 클로슈햇 1종 00001_베이지" → base:"화이트샌즈 멜리나 리본 클로슈햇", color:"베이지"
+   예: "[화이트샌즈]캘러한 퍼 머플러 블랙" → base:"[화이트샌즈]캘러한 퍼 머플러", color:"블랙" */
+function _hsSplitOrderProdName(name){
+  var s=String(name||"").trim();
+  var um=s.match(/_([^_]+)\s*$/);
+  if(um){
+    var color=um[1].trim();
+    var base=s.slice(0,um.index).replace(/1종\s*\d*\s*$/,"").trim();
+    return {base:base,color:color};
   }
-  return exact||generic;
+  var colors=_hsColorNames();
+  for(var i=0;i<colors.length;i++){
+    var c=colors[i];
+    if(c.length>=2&&s.endsWith(c)){
+      return {base:s.slice(0,s.length-c.length).trim(),color:c};
+    }
+  }
+  return {base:s,color:""};
+}
+/* 판매일보 상품데이터(DEFAULT_DATA) 상품명에서 고유 모델명(마지막 단어)을 추출.
+   예: "[화이트샌즈] 23FW 코듀로이 이어머프 버킷햇 먼스터(Munster)" → "먼스터" */
+function _hsModelName(fullName){
+  var s=String(fullName||"");
+  s=s.replace(/\([^)]*\)/g,"");
+  s=s.replace(/\[[^\]]*\]/g,"");
+  s=s.replace(/화이트샌즈_?그린라벨|화이트샌즈|그린라벨/g,"");
+  s=s.replace(/^\s*\d{2}(SS|FW|AW|SW)\s*/i,"");
+  s=s.trim();
+  var parts=s.split(/\s+/).filter(Boolean);
+  return parts.length?parts[parts.length-1]:"";
+}
+/* 주문 상품명을 단어 단위로 분리(2글자 미만 토큰 제외) — "블렌디드"처럼 다른 상품 모델명을 부분 포함하는 단어로 인한 오매칭 방지용 */
+function _hsOrderWords(base){
+  return String(base||"").replace(/화이트샌즈/g," ").split(/[\s._\-()]+/).filter(function(w){return w.length>=2;});
+}
+/* DEFAULT_DATA 상품명 목록(모델명 추출용) — 최초 1회만 계산해 캐시 */
+var _hsDefaultDataModelsCache=null;
+function _hsDefaultDataModels(){
+  if(_hsDefaultDataModelsCache)return _hsDefaultDataModelsCache;
+  var seen={},out=[];
+  (typeof DEFAULT_DATA!=="undefined"?DEFAULT_DATA:[]).forEach(function(row){
+    if(!row||!row[1]||!row[2])return;
+    var key=row[1]+"|"+row[2];
+    if(seen[key])return;
+    seen[key]=true;
+    out.push({prodCode:row[1],model:_hsModelName(row[2])});
+  });
+  _hsDefaultDataModelsCache=out;
+  return out;
+}
+/* 상품코드(base)+컬러명으로 DEFAULT_DATA에서 정확한 상품컬러사이즈코드를 찾음 */
+function _hsResolveColorCode(baseProdCode,colorName){
+  if(!baseProdCode||typeof DEFAULT_DATA==="undefined")return "";
+  var nColor=String(colorName||"").replace(/\s/g,"");
+  var candidates=DEFAULT_DATA.filter(function(row){return row&&row[1]===baseProdCode;});
+  if(!candidates.length)return "";
+  var exact=candidates.find(function(row){return String(row[4]||"").replace(/\s/g,"")===nColor;});
+  if(exact)return exact[7]||"";
+  if(!nColor)return candidates[0][7]||"";
+  return "";
+}
+/* 판매일보 상품데이터에서 모델명(단어 단위 매칭)+컬러명으로 폴백 매칭 */
+function _hsFindMatchFromDefaultData(prod){
+  if(typeof DEFAULT_DATA==="undefined")return null;
+  var split=_hsSplitOrderProdName(prod);
+  var words=_hsOrderWords(split.base);
+  var models=_hsDefaultDataModels();
+  var cand=models.find(function(m){return m.model&&m.model.length>=2&&words.indexOf(m.model)>=0;});
+  if(!cand)return null;
+  var colorCode=_hsResolveColorCode(cand.prodCode,split.color);
+  if(!colorCode)return null;
+  return {colorCode:colorCode,prodCode:cand.prodCode,colorName:split.color};
+}
+function _hsFindMatch(shop,prod){
+  if(hsCodeMatchDB.length){
+    var nProd=_hsCodeNormName(prod),nShop=_hsCodeNormChannel(shop);
+    var exact=null,generic=null;
+    for(var i=0;i<hsCodeMatchDB.length;i++){
+      var e=hsCodeMatchDB[i];
+      if(e.normName!==nProd)continue;
+      if(nShop&&e.normChannel&&e.normChannel===nShop){exact=e;break;}
+      if(!generic)generic=e;
+    }
+    var picked=exact||generic;
+    if(picked)return picked;
+  }
+  /* 매칭표에 없으면 판매일보 상품데이터에서 한 번 더 찾아본다 */
+  return _hsFindMatchFromDefaultData(prod);
 }
 /* 실제 매칭표 형식: 홈쇼핑(채널명)·상품컬러명(주문상품명과 동일한 형태, 컬러 포함)·상품컬러코드(최종코드)·상품코드(기본코드)·상품명·현재가·칼라코드·칼라명 */
 function _hsCodeMatchProcessRows(rows){
