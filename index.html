@@ -495,7 +495,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
   <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">📅 매장별 일별매출</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
-  <button class="tab-btn" id="tab-ccorder" onclick="switchTab('ccorder')">🚚 코스트코 발주</button>
+  <button class="tab-btn" id="tab-ccorder" onclick="switchTab('ccorder')">🚚 사입출고</button>
   <button class="tab-btn" id="tab-ccpdforder" onclick="switchTab('ccpdforder')">📄 코스트코 PDF발주</button>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
@@ -800,7 +800,7 @@ label{font-size:14px!important}
 <div class="main" style="max-width:1000px">
   <div class="card">
     <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <span>🚚 코스트코 발주</span>
+      <span>🚚 사입출고</span>
       <div style="display:flex;gap:8px">
         <label class="bs" style="cursor:pointer">📁 파일 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="ccoLoadFile(this)"></label>
         <button class="bg" onclick="ccoDownload()">📥 사입출고양식 다운로드</button>
@@ -818,7 +818,7 @@ label{font-size:14px!important}
       <span>🏷️ 홈쇼핑 코드매칭표</span>
       <label class="bs" style="cursor:pointer">📁 파일 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="hsCodeMatchLoadFile(this)"></label>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 8px">홈쇼핑 상품리스트+코드매칭표를 붙여넣으면(헤더: 홈쇼핑·상품컬러명·상품컬러코드·상품코드 등) 위 주문 내역에서 상품컬러코드가 비어있는 홈쇼핑 주문의 쇼핑몰·상품명을 매칭해서 자동으로 채워줍니다. 팀 전체가 공유하며, 새로 붙여넣으면 기존 표는 교체됩니다.</p>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 8px">홈쇼핑상품리스트.xlsx(헤더: 홈쇼핑·홈쇼핑·상품명·상품코드)를 붙여넣거나 업로드하면, 위 주문 내역에서 상품컬러코드가 비어있는 홈쇼핑 주문을 자동 매칭합니다. 주문 상품명 끝에 붙은 컬러 텍스트(예: "…1종 00001_베이지", "…캘러한 퍼 머플러 블랙")를 자동으로 인식해서 정확한 컬러 코드까지 채워줍니다. 팀 전체가 공유하며, 새로 붙여넣으면 기존 표는 교체됩니다.</p>
     <div id="hsCodeMatchStatus" style="font-size:12px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px;align-items:flex-start">
       <textarea id="hsCodeMatchPasteArea" placeholder="홈쇼핑 상품리스트+코드매칭표를 여기에 붙여넣으세요 (Ctrl+V)" style="flex:1;min-height:60px;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
@@ -6369,12 +6369,12 @@ function _hsCodeNormName(s){
   s=String(s||"");
   s=s.replace(/\[[^\]]*\]/g,"");
   s=s.replace(/[○◎①②③④⑤⑥⑦⑧⑨⑩★♥]/g,"");
+  s=s.replace(/화이트샌즈_?그린라벨/g,"");
   s=s.replace(/화이트샌즈/g,"");
   s=s.replace(/그린라벨/g,"");
+  s=s.replace(/^\s*\d{2}(SS|FW|AW|SW)\b/i,"");
   s=s.replace(/1종/g,"");
-  s=s.replace(/\/\d{6,}\/\d+\/?$/,"");
-  s=s.replace(/\d{4,}_/g,"");
-  s=s.replace(/[\s\-_,]/g,"");
+  s=s.replace(/[\s\-_,()]/g,"");
   return s.toLowerCase().trim();
 }
 function _hsCodeNormChannel(s){
@@ -6383,62 +6383,108 @@ function _hsCodeNormChannel(s){
   s=s.replace(/\s/g,"");
   return s.toLowerCase().trim();
 }
+/* DEFAULT_DATA(상품마스터)에서 쓰이는 컬러명 전체 목록(긴 이름부터) — 주문 상품명 끝에 붙은 컬러 텍스트를 잘라내는 데 사용 */
+var _hsColorNamesCache=null;
+function _hsColorNames(){
+  if(_hsColorNamesCache)return _hsColorNamesCache;
+  var set={};
+  (typeof DEFAULT_DATA!=="undefined"?DEFAULT_DATA:[]).forEach(function(row){if(row&&row[4])set[row[4]]=true;});
+  _hsColorNamesCache=Object.keys(set).sort(function(a,b){return b.length-a.length;});
+  return _hsColorNamesCache;
+}
+/* 주문 상품명에서 [기본상품명]과 [컬러명]을 분리.
+   예: "23SS 화이트샌즈 멜리나 리본 클로슈햇 1종 00001_베이지" → base:"화이트샌즈 멜리나 리본 클로슈햇", color:"베이지"
+   예: "[화이트샌즈]캘러한 퍼 머플러 블랙" → base:"[화이트샌즈]캘러한 퍼 머플러", color:"블랙" */
+function _hsSplitOrderProdName(name){
+  var s=String(name||"").trim();
+  var um=s.match(/_([^_]+)\s*$/);
+  if(um){
+    var color=um[1].trim();
+    var base=s.slice(0,um.index).replace(/1종\s*\d*\s*$/,"").trim();
+    return {base:base,color:color};
+  }
+  var colors=_hsColorNames();
+  for(var i=0;i<colors.length;i++){
+    var c=colors[i];
+    if(c.length>=2&&s.endsWith(c)){
+      return {base:s.slice(0,s.length-c.length).trim(),color:c};
+    }
+  }
+  return {base:s,color:""};
+}
+/* 상품코드(base)+컬러명으로 DEFAULT_DATA에서 정확한 상품컬러사이즈코드를 찾음 */
+function _hsResolveColorCode(baseProdCode,colorName){
+  if(!baseProdCode||typeof DEFAULT_DATA==="undefined")return "";
+  var nColor=String(colorName||"").replace(/\s/g,"");
+  var candidates=DEFAULT_DATA.filter(function(row){return row&&row[1]===baseProdCode;});
+  if(!candidates.length)return "";
+  var exact=candidates.find(function(row){return String(row[4]||"").replace(/\s/g,"")===nColor;});
+  if(exact)return exact[7]||"";
+  if(!nColor)return candidates[0][7]||"";
+  return "";
+}
+/* 홈쇼핑상품리스트.xlsx의 상품명에서 고유 모델명(마지막 단어, 영문 병기·시즌코드·브랜드명 제외)을 추출.
+   예: "[화이트샌즈] 23FW 코듀로이 이어머프 버킷햇 먼스터(Munster)" → "먼스터" */
+function _hsModelName(fullName){
+  var s=String(fullName||"");
+  s=s.replace(/\([^)]*\)/g,"");
+  s=s.replace(/\[[^\]]*\]/g,"");
+  s=s.replace(/화이트샌즈_?그린라벨|화이트샌즈|그린라벨/g,"");
+  s=s.replace(/^\s*\d{2}(SS|FW|AW|SW)\s*/i,"");
+  s=s.trim();
+  var parts=s.split(/\s+/).filter(Boolean);
+  return parts.length?parts[parts.length-1]:"";
+}
+/* 주문 상품명을 단어 단위로 분리(2글자 미만 토큰 제외) — "블렌디드"처럼 다른 상품 모델명을 부분 포함하는 단어로 인한 오매칭 방지용 */
+function _hsOrderWords(base){
+  return String(base||"").replace(/화이트샌즈/g," ").split(/[\s._\-()]+/).filter(function(w){return w.length>=2;});
+}
 function _hsFindMatch(shop,prod){
   if(!hsCodeMatchDB.length)return null;
-  var nProd=_hsCodeNormName(prod),nShop=_hsCodeNormChannel(shop);
-  var exact=null,generic=null;
-  for(var i=0;i<hsCodeMatchDB.length;i++){
-    var e=hsCodeMatchDB[i];
-    if(e.normName!==nProd)continue;
-    if(e.normChannel&&nShop&&e.normChannel===nShop){exact=e;break;}
-    if(!e.normChannel&&!generic)generic=e;
-  }
-  return exact||generic;
+  var split=_hsSplitOrderProdName(prod);
+  var words=_hsOrderWords(split.base);
+  var nShop=_hsCodeNormChannel(shop);
+  var candidates=hsCodeMatchDB.filter(function(e){return e.model&&words.indexOf(e.model)>=0;});
+  if(!candidates.length)return null;
+  var exact=candidates.find(function(e){return nShop&&e.normChannels&&e.normChannels.indexOf(nShop)>=0;});
+  var picked=exact||candidates[0];
+  var colorCode=_hsResolveColorCode(picked.prodCode,split.color);
+  if(!colorCode)return null;
+  return {colorCode:colorCode,prodCode:picked.prodCode,colorName:split.color};
 }
+/* 홈쇼핑상품리스트.xlsx 형식: 헤더 "홈쇼핑"(채널, 최대 2칸), "상품명", "상품코드" */
 function _hsCodeMatchProcessRows(rows){
-  var hRow=-1,cCh=-1,cName=-1,cCode=-1,cProdCode=-1,cProdName=-1,cPrice=-1,cColorCode=-1,cColorName=-1;
+  var hRow=-1,chCols=[],cName=-1,cCode=-1;
   for(var r=0;r<Math.min(5,rows.length);r++){
     var row=rows[r]||[];
+    var localCh=[];
+    var lName=-1,lCode=-1;
     for(var c=0;c<row.length;c++){
       var v=String(row[c]==null?"":row[c]).trim();
-      if(v==="홈쇼핑"&&cCh<0)cCh=c;
-      if(v==="상품컬러명"&&cName<0)cName=c;
-      if(v==="상품컬러코드"&&cCode<0)cCode=c;
-      if(v==="상품코드"&&cProdCode<0)cProdCode=c;
-      if(v==="상품명"&&cProdName<0)cProdName=c;
-      if(v==="현재가"&&cPrice<0)cPrice=c;
-      if(v==="칼라코드"&&cColorCode<0)cColorCode=c;
-      if(v==="칼라명"&&cColorName<0)cColorName=c;
+      if(v==="홈쇼핑")localCh.push(c);
+      if(v==="상품명"&&lName<0)lName=c;
+      if(v==="상품코드"&&lCode<0)lCode=c;
     }
-    if(cName>=0&&cCode>=0&&cProdCode>=0){hRow=r;break;}
+    if(lName>=0&&lCode>=0&&localCh.length){hRow=r;chCols=localCh;cName=lName;cCode=lCode;break;}
   }
-  if(cName<0||cCode<0||cProdCode<0){
-    alert("형식을 인식할 수 없습니다.\n(상품컬러명·상품컬러코드·상품코드 헤더가 필요합니다)");
+  if(cName<0||cCode<0||!chCols.length){
+    alert("형식을 인식할 수 없습니다.\n(홈쇼핑·상품명·상품코드 헤더가 필요합니다)");
     return;
   }
-  if(cCh<0)cCh=0;
   var out=[];
   for(var i=hRow+1;i<rows.length;i++){
     var row=rows[i];if(!row)continue;
-    var colorName=String(row[cName]==null?"":row[cName]).trim();
-    var colorCode=String(row[cCode]==null?"":row[cCode]).trim();
-    var prodCode=String(row[cProdCode]==null?"":row[cProdCode]).trim();
-    if(!colorName||!colorCode||!prodCode)continue; /* 채널정의행/빈행 skip */
-    var chName=String(row[cCh]==null?"":row[cCh]).trim();
-    out.push({
-      channel:chName,
-      normChannel:_hsCodeNormChannel(chName),
-      colorName:colorName,
-      normName:_hsCodeNormName(colorName),
-      colorCode:colorCode,
-      prodCode:prodCode,
-      prodName:cProdName>=0?String(row[cProdName]==null?"":row[cProdName]).trim():"",
-      price:cPrice>=0?(Number(String(row[cPrice]==null?"":row[cPrice]).replace(/,/g,""))||0):0,
-      colorShort:cColorCode>=0?String(row[cColorCode]==null?"":row[cColorCode]).trim():"",
-      colorKr:cColorName>=0?String(row[cColorName]==null?"":row[cColorName]).trim():""
+    var name=String(row[cName]==null?"":row[cName]).trim();
+    var code=String(row[cCode]==null?"":row[cCode]).trim();
+    if(!name||!code)continue;
+    var channels=[],normChannels=[];
+    chCols.forEach(function(cc){
+      var v=String(row[cc]==null?"":row[cc]).trim();
+      if(v){channels.push(v);normChannels.push(_hsCodeNormChannel(v));}
     });
+    out.push({channels:channels,normChannels:normChannels,name:name,model:_hsModelName(name),prodCode:code});
   }
-  if(!out.length){alert("인식된 매칭 데이터가 없습니다.");return;}
+  if(!out.length){alert("인식된 상품 데이터가 없습니다.");return;}
   hsCodeMatchDB=out;
   saveHsCodeMatchDB();
   renderHsCodeMatchStatus();
@@ -6471,9 +6517,9 @@ function renderHsCodeMatchStatus(){
   var el=document.getElementById("hsCodeMatchStatus");
   if(!el)return;
   if(!hsCodeMatchDB.length){
-    el.innerHTML='<span style="color:#94a3b8">등록된 매칭표가 없습니다. 홈쇼핑 주문은 코드가 자동으로 채워지지 않습니다.</span>';
+    el.innerHTML='<span style="color:#94a3b8">등록된 상품리스트가 없습니다. 홈쇼핑 주문은 코드가 자동으로 채워지지 않습니다.</span>';
   }else{
-    el.innerHTML='<span style="color:#16a34a">✅ 매칭표 '+hsCodeMatchDB.length+'건 등록됨</span>';
+    el.innerHTML='<span style="color:#16a34a">✅ 상품리스트 '+hsCodeMatchDB.length+'건 등록됨 — 주문 상품명 끝의 컬러명으로 자동 매칭합니다.</span>';
   }
 }
 function _ccoReapplyMatches(){
