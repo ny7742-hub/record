@@ -804,12 +804,24 @@ label{font-size:14px!important}
         <button class="bg" onclick="ccoDownload()">📥 사입출고양식 다운로드</button>
       </div>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코 온라인 주문 내역을 붙여넣거나 파일로 올리면 <b>쇼핑몰·상품명·수량·결제금액만</b> 표시합니다(수령인·연락처·주소 등 개인정보는 읽지도 저장하지도 않습니다). 결제금액은 칸을 클릭해서 바로 수정할 수 있습니다. 다운로드하면 사입출고양식 형식으로 변환됩니다 — 출고창고코드·매장코드는 그대로(CSTC/COSO), 출고일자는 붙여넣은 출고일 그대로, 바코드는 상품컬러코드, 공급가는 결제금액÷수량입니다.</p>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코·홈쇼핑 온라인 주문 내역을 붙여넣거나 파일로 올리면 <b>쇼핑몰·상품명·수량·결제금액만</b> 표시합니다(수령인·연락처·주소 등 개인정보는 읽지도 저장하지도 않습니다). 결제금액은 칸을 클릭해서 바로 수정할 수 있습니다. 홈쇼핑 주문처럼 상품컬러코드가 비어있는 경우 아래 <b>홈쇼핑 코드매칭표</b>로 자동 매칭하며, 매칭 안되면 코드칸에 직접 입력할 수 있습니다. 다운로드하면 사입출고양식 형식으로 변환됩니다 — 출고창고코드·매장코드는 그대로(CSTC/COSO), 출고일자는 붙여넣은 출고일 그대로, 바코드는 상품컬러코드, 공급가는 결제금액÷수량입니다.</p>
     <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:12px">
       <textarea id="ccoPasteArea" placeholder="엑셀에서 복사한 내용을 여기에 붙여넣으세요 (Ctrl+V)" style="flex:1;min-height:70px;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
       <button class="bs" onclick="ccoPasteRows()" style="white-space:nowrap">📋 붙여넣어 등록</button>
     </div>
     <div id="ccoResultWrap"></div>
+  </div>
+  <div class="card">
+    <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>🏷️ 홈쇼핑 코드매칭표</span>
+      <label class="bs" style="cursor:pointer">📁 파일 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="hsCodeMatchLoadFile(this)"></label>
+    </div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 8px">홈쇼핑 상품리스트+코드매칭표를 붙여넣으면(헤더: 홈쇼핑·상품컬러명·상품컬러코드·상품코드 등) 위 주문 내역에서 상품컬러코드가 비어있는 홈쇼핑 주문의 쇼핑몰·상품명을 매칭해서 자동으로 채워줍니다. 팀 전체가 공유하며, 새로 붙여넣으면 기존 표는 교체됩니다.</p>
+    <div id="hsCodeMatchStatus" style="font-size:12px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <textarea id="hsCodeMatchPasteArea" placeholder="홈쇼핑 상품리스트+코드매칭표를 여기에 붙여넣으세요 (Ctrl+V)" style="flex:1;min-height:60px;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+      <button class="bs" onclick="hsCodeMatchPasteRows()" style="white-space:nowrap">📋 붙여넣어 등록</button>
+    </div>
   </div>
 </div>
 </div><!-- /page-ccorder -->
@@ -1111,7 +1123,8 @@ var FB_PATH={
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults",
-  "popupChecklistDB":"ws/popupChecklist","popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds"
+  "popupChecklistDB":"ws/popupChecklist","popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
+  "hsCodeMatchDB":"ws/hsCodeMatch"
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
 
@@ -1190,6 +1203,14 @@ function wsSetItem(key,value){
   apply("ws/margin","marginDB",
     function(d){if(d&&typeof d==="object")marginDB=d;},
     function(){if(document.getElementById("page-margin")&&document.getElementById("page-margin").style.display!=="none")renderMargin();}
+  );
+  /* 홈쇼핑 코드매칭표 */
+  apply("ws/hsCodeMatch","hsCodeMatchDB",
+    function(d){if(Array.isArray(d))hsCodeMatchDB=d;},
+    function(){
+      renderHsCodeMatchStatus();
+      if(typeof _ccoReapplyMatches==="function")_ccoReapplyMatches();
+    }
   );
   /* 발주서(수기)는 사용자별 개별 작성 — Firebase 동기화 없음(localStorage 전용) */
   /* 매장별 일별매출 (팀 공유) */
@@ -3586,7 +3607,7 @@ function switchTab(tab){
   if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="daily") renderDaily();
   if(tab==="costco") renderCostcoPage();
-  if(tab==="ccorder") renderCcoTable();
+  if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); }
   if(tab==="margin") renderMargin();
   if(tab==="homeshopping") renderHomeshopping();
   if(tab==="sheet") initSheetTab();
@@ -6382,6 +6403,133 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
 /* ── 코스트코 발주 탭 — 온라인 주문 내역을 사입출고양식으로 변환. 개인정보(수령인/연락처/주소 등)는 읽지도 저장하지도 않음.
    세션 메모리에만 두고(새로고침하면 사라짐) 원본 등록은 하지 않음 ── */
 var ccoRows=[];
+/* ── 홈쇼핑 코드매칭표 — 상품컬러코드가 비어있는 홈쇼핑 주문을 (쇼핑몰,상품명) 정규화 매칭으로 자동 보완 ── */
+var hsCodeMatchDB=(function(){
+  try{var d=JSON.parse(localStorage.getItem("hsCodeMatchDB")||"[]");return Array.isArray(d)?d:[];}catch(e){return [];}
+})();
+function saveHsCodeMatchDB(){wsSetItem("hsCodeMatchDB",JSON.stringify(hsCodeMatchDB));}
+function _hsCodeNormName(s){
+  s=String(s||"");
+  s=s.replace(/\[[^\]]*\]/g,"");
+  s=s.replace(/[○◎①②③④⑤⑥⑦⑧⑨⑩★♥]/g,"");
+  s=s.replace(/화이트샌즈/g,"");
+  s=s.replace(/그린라벨/g,"");
+  s=s.replace(/1종/g,"");
+  s=s.replace(/\/\d{6,}\/\d+\/?$/,"");
+  s=s.replace(/\d{4,}_/g,"");
+  s=s.replace(/[\s\-_,]/g,"");
+  return s.toLowerCase().trim();
+}
+function _hsCodeNormChannel(s){
+  s=String(s||"");
+  s=s.replace(/홈쇼핑|shop|쇼핑/gi,"");
+  s=s.replace(/\s/g,"");
+  return s.toLowerCase().trim();
+}
+function _hsFindMatch(shop,prod){
+  if(!hsCodeMatchDB.length)return null;
+  var nProd=_hsCodeNormName(prod),nShop=_hsCodeNormChannel(shop);
+  var exact=null,generic=null;
+  for(var i=0;i<hsCodeMatchDB.length;i++){
+    var e=hsCodeMatchDB[i];
+    if(e.normName!==nProd)continue;
+    if(e.normChannel&&nShop&&e.normChannel===nShop){exact=e;break;}
+    if(!e.normChannel&&!generic)generic=e;
+  }
+  return exact||generic;
+}
+function _hsCodeMatchProcessRows(rows){
+  var hRow=-1,cCh=-1,cName=-1,cCode=-1,cProdCode=-1,cProdName=-1,cPrice=-1,cColorCode=-1,cColorName=-1;
+  for(var r=0;r<Math.min(5,rows.length);r++){
+    var row=rows[r]||[];
+    for(var c=0;c<row.length;c++){
+      var v=String(row[c]==null?"":row[c]).trim();
+      if(v==="홈쇼핑"&&cCh<0)cCh=c;
+      if(v==="상품컬러명"&&cName<0)cName=c;
+      if(v==="상품컬러코드"&&cCode<0)cCode=c;
+      if(v==="상품코드"&&cProdCode<0)cProdCode=c;
+      if(v==="상품명"&&cProdName<0)cProdName=c;
+      if(v==="현재가"&&cPrice<0)cPrice=c;
+      if(v==="칼라코드"&&cColorCode<0)cColorCode=c;
+      if(v==="칼라명"&&cColorName<0)cColorName=c;
+    }
+    if(cName>=0&&cCode>=0&&cProdCode>=0){hRow=r;break;}
+  }
+  if(cName<0||cCode<0||cProdCode<0){
+    alert("형식을 인식할 수 없습니다.\n(상품컬러명·상품컬러코드·상품코드 헤더가 필요합니다)");
+    return;
+  }
+  if(cCh<0)cCh=0;
+  var out=[];
+  for(var i=hRow+1;i<rows.length;i++){
+    var row=rows[i];if(!row)continue;
+    var colorName=String(row[cName]==null?"":row[cName]).trim();
+    var colorCode=String(row[cCode]==null?"":row[cCode]).trim();
+    var prodCode=String(row[cProdCode]==null?"":row[cProdCode]).trim();
+    if(!colorName||!colorCode||!prodCode)continue; /* 채널정의행/빈행 skip */
+    var chName=String(row[cCh]==null?"":row[cCh]).trim();
+    out.push({
+      channel:chName,
+      normChannel:_hsCodeNormChannel(chName),
+      colorName:colorName,
+      normName:_hsCodeNormName(colorName),
+      colorCode:colorCode,
+      prodCode:prodCode,
+      prodName:cProdName>=0?String(row[cProdName]==null?"":row[cProdName]).trim():"",
+      price:cPrice>=0?(Number(String(row[cPrice]==null?"":row[cPrice]).replace(/,/g,""))||0):0,
+      colorShort:cColorCode>=0?String(row[cColorCode]==null?"":row[cColorCode]).trim():"",
+      colorKr:cColorName>=0?String(row[cColorName]==null?"":row[cColorName]).trim():""
+    });
+  }
+  if(!out.length){alert("인식된 매칭 데이터가 없습니다.");return;}
+  hsCodeMatchDB=out;
+  saveHsCodeMatchDB();
+  renderHsCodeMatchStatus();
+  _ccoReapplyMatches();
+}
+function hsCodeMatchPasteRows(){
+  var ta=document.getElementById("hsCodeMatchPasteArea");
+  if(!ta)return;
+  var text=ta.value;
+  if(!text.trim()){alert("붙여넣을 내용이 없습니다.");return;}
+  var rows=text.split(/\r?\n/).filter(function(l){return l.trim()!=="";}).map(function(line){return line.split("\t");});
+  _hsCodeMatchProcessRows(rows);
+  ta.value="";
+}
+function hsCodeMatchLoadFile(input){
+  var file=input.files[0]; if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true});
+      _hsCodeMatchProcessRows(rows);
+    }catch(err){alert("파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+  input.value="";
+}
+function renderHsCodeMatchStatus(){
+  var el=document.getElementById("hsCodeMatchStatus");
+  if(!el)return;
+  if(!hsCodeMatchDB.length){
+    el.innerHTML='<span style="color:#94a3b8">등록된 매칭표가 없습니다. 홈쇼핑 주문은 코드가 자동으로 채워지지 않습니다.</span>';
+  }else{
+    el.innerHTML='<span style="color:#16a34a">✅ 매칭표 '+hsCodeMatchDB.length+'건 등록됨</span>';
+  }
+}
+function _ccoReapplyMatches(){
+  if(!ccoRows.length)return;
+  var changed=false;
+  ccoRows.forEach(function(r){
+    if(!r.colorCode&&hsCodeMatchDB.length){
+      var hm=_hsFindMatch(r.shop,r.prod);
+      if(hm){r.colorCode=hm.colorCode;if(!r.barcode)r.barcode=hm.colorCode;r.matched=true;changed=true;}
+    }
+  });
+  if(changed)renderCcoTable();
+}
 function _ccoParseDate(v){
   var s=String(v||"").trim();
   var m=s.match(/^(\d{1,2})\/(\d{1,2})$/);
@@ -6421,11 +6569,20 @@ function _ccoProcessRows(rows){
     var row=rows[i];if(!row)continue;
     var prodCell=String(row[cProd]==null?"":row[cProd]).trim();
     if(!prodCell)continue;
+    var shopVal=cShop>=0?String(row[cShop]==null?"":row[cShop]).trim():"";
+    var colorCodeVal=cColorCode>=0?String(row[cColorCode]==null?"":row[cColorCode]).trim():"";
+    var barcodeVal=cBarcode>=0?String(row[cBarcode]==null?"":row[cBarcode]).trim():"";
+    var matched=false;
+    if(!colorCodeVal){
+      var hm=_hsFindMatch(shopVal,prodCell);
+      if(hm){colorCodeVal=hm.colorCode;if(!barcodeVal)barcodeVal=hm.colorCode;matched=true;}
+    }
     out.push({
-      shop:cShop>=0?String(row[cShop]==null?"":row[cShop]).trim():"",
+      shop:shopVal,
       prod:prodCell,
-      colorCode:cColorCode>=0?String(row[cColorCode]==null?"":row[cColorCode]).trim():"",
-      barcode:cBarcode>=0?String(row[cBarcode]==null?"":row[cBarcode]).trim():"",
+      colorCode:colorCodeVal,
+      barcode:barcodeVal,
+      matched:matched,
       qty:Number(String(row[cQty]==null?"":row[cQty]).replace(/,/g,""))||0,
       amt:Number(String(row[cAmt]==null?"":row[cAmt]).replace(/,/g,""))||0,
       date:cDate>=0?String(row[cDate]==null?"":row[cDate]).trim():""
@@ -6475,10 +6632,15 @@ function renderCcoTable(){
     +'</tr></thead><tbody>';
   ccoRows.forEach(function(r,i){
     var out=_ccoOutFields(r);
-    h+='<tr>'
+    var noCode=!r.colorCode;
+    h+='<tr'+(noCode?' style="background:#fef2f2"':'')+'>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+_esc(r.shop)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px">'+_esc(r.prod)+'</td>'
-      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.colorCode)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:110px">'
+        +'<input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="ccoEditColorCode(this)" placeholder="코드 직접입력" style="width:100%;box-sizing:border-box;border:1px solid '+(noCode?'#fca5a5':'#d1d5db')+';border-radius:5px;padding:4px 6px;font-size:12px'+(noCode?';color:#dc2626':'')+'">'
+        +(r.matched?'<div style="font-size:10px;color:#16a34a;padding:2px 2px 0">🔎자동매칭</div>':'')
+        +(noCode?'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">❗코드없음</div>':'')
+      +'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+out.ymd+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.barcode)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
@@ -6493,6 +6655,13 @@ function ccoEditAmt(input){
   var i=Number(input.dataset.i);
   if(!ccoRows[i])return;
   ccoRows[i].amt=Math.round(Number(String(input.value).replace(/,/g,""))||0);
+}
+function ccoEditColorCode(input){
+  var i=Number(input.dataset.i);
+  if(!ccoRows[i])return;
+  ccoRows[i].colorCode=String(input.value||"").trim();
+  ccoRows[i].matched=false;
+  renderCcoTable();
 }
 var CCO_OUT_WH="CSTC", CCO_OUT_STORE="COSO";
 function ccoDownload(){
