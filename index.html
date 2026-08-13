@@ -816,8 +816,11 @@ label{font-size:14px!important}
       <span>🏷️ 홈쇼핑 코드매칭표</span>
       <label class="bs" style="cursor:pointer">📁 파일 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="hsCodeMatchLoadFile(this)"></label>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 8px">홈쇼핑 상품리스트+코드매칭표를 붙여넣으면(헤더: 홈쇼핑·상품컬러명·상품컬러코드·상품코드 등) 위 주문 내역에서 상품컬러코드가 비어있는 홈쇼핑 주문의 쇼핑몰·상품명을 매칭해서 자동으로 채워줍니다. 팀 전체가 공유하며, 새로 붙여넣으면 기존 표는 교체됩니다.</p>
-    <div id="hsCodeMatchStatus" style="font-size:12px;margin-bottom:8px"></div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 8px">홈쇼핑 상품리스트+코드매칭표를 붙여넣으면(헤더: 홈쇼핑·상품컬러명·상품컬러코드·상품코드 등) 위 주문 내역에서 상품컬러코드가 비어있는 홈쇼핑 주문의 쇼핑몰·상품명을 매칭해서 자동으로 채워줍니다. 팀 전체가 공유하며, 새 상품이 추가되면 그 부분만 다시 붙여넣어도 기존 매칭표에 자동으로 추가/갱신됩니다(전체가 지워지지 않습니다).</p>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <div id="hsCodeMatchStatus" style="font-size:12px"></div>
+      <span onclick="hsCodeMatchClearAll()" style="font-size:11px;color:#94a3b8;cursor:pointer;text-decoration:underline">전체 삭제</span>
+    </div>
     <div style="display:flex;gap:8px;align-items:flex-start">
       <textarea id="hsCodeMatchPasteArea" placeholder="홈쇼핑 상품리스트+코드매칭표를 여기에 붙여넣으세요 (Ctrl+V)" style="flex:1;min-height:60px;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
       <button class="bs" onclick="hsCodeMatchPasteRows()" style="white-space:nowrap">📋 붙여넣어 등록</button>
@@ -6482,10 +6485,25 @@ function _hsCodeMatchProcessRows(rows){
     });
   }
   if(!out.length){alert("인식된 매칭 데이터가 없습니다.");return;}
-  hsCodeMatchDB=out;
+  var map={};
+  hsCodeMatchDB.forEach(function(e){map[e.colorCode]=e;});
+  var added=0,updated=0;
+  out.forEach(function(e){
+    if(map[e.colorCode])updated++;else added++;
+    map[e.colorCode]=e;
+  });
+  hsCodeMatchDB=Object.keys(map).map(function(k){return map[k];});
   saveHsCodeMatchDB();
   renderHsCodeMatchStatus();
   _ccoReapplyMatches();
+  alert("매칭표 업데이트 완료 (기존 표에 추가/갱신)\n신규 "+added+"건, 갱신 "+updated+"건 → 전체 "+hsCodeMatchDB.length+"건");
+}
+function hsCodeMatchClearAll(){
+  if(!hsCodeMatchDB.length)return;
+  if(!confirm("등록된 매칭표 "+hsCodeMatchDB.length+"건을 전체 삭제할까요?"))return;
+  hsCodeMatchDB=[];
+  saveHsCodeMatchDB();
+  renderHsCodeMatchStatus();
 }
 function hsCodeMatchPasteRows(){
   var ta=document.getElementById("hsCodeMatchPasteArea");
