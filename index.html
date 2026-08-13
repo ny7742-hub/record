@@ -807,7 +807,7 @@ label{font-size:14px!important}
         <button class="bg" onclick="ccoDownload()">📥 사입출고양식 다운로드</button>
       </div>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코·홈쇼핑 온라인 주문 내역을 붙여넣거나 파일로 올리면 <b>쇼핑몰·상품명·수량·결제금액만</b> 표시합니다(수령인·연락처·주소 등 개인정보는 읽지도 저장하지도 않습니다). 결제금액은 칸을 클릭해서 바로 수정할 수 있습니다. 홈쇼핑 주문처럼 상품컬러코드가 비어있는 경우 오른쪽 <b>홈쇼핑 코드매칭표</b>로 자동 매칭하며, 매칭 안되면 코드칸에 직접 입력할 수 있습니다. 다운로드하면 사입출고양식 형식으로 변환됩니다 — 출고창고코드·매장코드는 그대로(CSTC/COSO), 출고일자는 붙여넣은 출고일 그대로, 바코드는 상품컬러코드, 공급가는 결제금액÷수량입니다.</p>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코·홈쇼핑 온라인 주문 내역을 붙여넣거나 파일로 올리면 <b>쇼핑몰·상품명·수량·결제금액만</b> 표시합니다(수령인·연락처·주소 등 개인정보는 읽지도 저장하지도 않습니다). 결제금액은 칸을 클릭해서 바로 수정할 수 있습니다. 홈쇼핑 주문처럼 상품컬러코드가 비어있는 경우 오른쪽 <b>홈쇼핑 코드매칭표</b>로 자동 매칭하며, 매칭 안되면 코드칸에 직접 입력할 수 있습니다. 다운로드하면 사입출고양식 형식으로 변환됩니다 — 출고창고코드·매장코드는 코스트코는 그대로(CSTC/COSO), 홈쇼핑은 NH+쇼핑몰별 코드(현대홈쇼핑 HHOME·롯데홈쇼핑 IMALL·GS홈쇼핑 GSH·신세계홈쇼핑 SSH·K쇼핑 KTA), 출고일자는 붙여넣은 출고일 그대로, 바코드는 상품컬러코드, 공급가는 결제금액÷수량입니다.</p>
     <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:12px">
       <textarea id="ccoPasteArea" placeholder="엑셀에서 복사한 내용을 여기에 붙여넣으세요 (Ctrl+V)" style="flex:1;min-height:70px;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
       <button class="bs" onclick="ccoPasteRows()" style="white-space:nowrap">📋 붙여넣어 등록</button>
@@ -6414,7 +6414,7 @@ function _hsCodeNormName(s){
 }
 function _hsCodeNormChannel(s){
   s=String(s||"");
-  s=s.replace(/홈쇼핑|shop|쇼핑/gi,"");
+  s=s.replace(/홈쇼핑|shop|샵|쇼핑/gi,"");
   s=s.replace(/\s/g,"");
   return s.toLowerCase().trim();
 }
@@ -6745,12 +6745,21 @@ function ccoEditColorCode(input){
   renderCcoTable();
 }
 var CCO_OUT_WH="CSTC", CCO_OUT_STORE="COSO";
+/* 홈쇼핑 주문은 출고창고 NH + 쇼핑몰별 매장코드로 다운로드 (코스트코는 기존 CSTC/COSO 그대로) */
+var HS_CHANNEL_STORE_CODE={"현대":"HHOME","롯데":"IMALL","gs":"GSH","신세계":"SSH","k":"KTA"};
+function _ccoWhStoreCode(shop){
+  var n=(typeof _hsCodeNormChannel==="function")?_hsCodeNormChannel(shop):"";
+  var hsCode=HS_CHANNEL_STORE_CODE[n];
+  if(hsCode)return{wh:"NH",store:hsCode};
+  return{wh:CCO_OUT_WH,store:CCO_OUT_STORE};
+}
 function ccoDownload(){
   if(!ccoRows.length){alert("다운로드할 주문 데이터가 없습니다.");return;}
   var aoa=[["출고창고코드","매장코드","출고일자(8자리 숫자만)","바코드","공급가","출고수량","비고"]];
   ccoRows.forEach(function(r){
     var out=_ccoOutFields(r);
-    aoa.push([CCO_OUT_WH,CCO_OUT_STORE,out.ymd,r.colorCode||"",out.unit,r.qty,""]);
+    var whst=_ccoWhStoreCode(r.shop);
+    aoa.push([whst.wh,whst.store,out.ymd,r.colorCode||"",out.unit,r.qty,""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   var wb=XLSX.utils.book_new();
