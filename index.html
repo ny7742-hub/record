@@ -499,7 +499,6 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-ccpdforder" onclick="switchTab('ccpdforder')">📄 코스트코 PDF발주</button>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
-  <button class="tab-btn" id="tab-sheet" onclick="switchTab('sheet')">📄 공유캘린더</button>
   <button class="tab-btn" id="tab-stock" onclick="switchTab('stock')">🏭 홈쇼핑몰 재고확인</button>
 </div>
 
@@ -934,25 +933,6 @@ label{font-size:14px!important}
 </div>
 </div><!-- /page-homeshopping -->
 
-<div id="page-sheet" style="display:none">
-<div class="main" style="max-width:none;padding:16px 20px">
-  <div class="card" style="margin-bottom:12px;padding:12px 16px">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div class="sec-title" style="margin:0;font-size:13px">📄 공유캘린더 (실시간)</div>
-      <a href="https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/edit?gid=1131579574" target="_blank" rel="noopener" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border-radius:8px;text-decoration:none;white-space:nowrap">✏ 편집하기 (새 탭)</a>
-      <button onclick="reloadSheet()" class="bs" style="padding:5px 12px;font-size:12px">🔄 새로고침</button>
-      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#374151;cursor:pointer">
-        <input type="checkbox" id="sheetAuto" onchange="toggleSheetAuto()" style="width:14px;height:14px"> 자동 새로고침(1분)
-      </label>
-      <span id="sheetMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
-      <span style="margin-left:auto;font-size:11px;color:#94a3b8;white-space:nowrap">편집은 새 탭(구글)에서 → 저장 후 🔄 새로고침</span>
-    </div>
-  </div>
-  <div class="card" style="padding:0;overflow:hidden">
-    <iframe id="sheetFrame" src="" title="구글 시트" style="width:100%;height:calc(100vh - 190px);min-height:520px;border:0;display:block"></iframe>
-  </div>
-</div>
-</div><!-- /page-sheet -->
 
 <div id="page-stock" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
@@ -3533,7 +3513,6 @@ function renderHomeDashboard(){
     {tab:"costco",icon:"cart",acc:"coral",title:"코스트코",desc:"행사·마진·판매 현황 관리",chip:(ccMonthAmt?"이번달 "+ccMonthAmt.toLocaleString()+"원":null)},
     {tab:"margin",icon:"coin",acc:"mustard",title:"마진계산",desc:"코스트코 온라인몰 쿠폰 마진 계산"},
     {tab:"homeshopping",icon:"tv",acc:"rose",title:"홈쇼핑",desc:"방송 매출·재고수량 체크",chip:(hsMonthAmt?"이번달 "+hsMonthAmt.toLocaleString()+"원":null)},
-    {tab:"sheet",icon:"share",acc:"slate",title:"공유캘린더",desc:"팀 구글 시트 캘린더 임베드"},
     {tab:"stock",icon:"stack",acc:"sage",title:"홈쇼핑몰 재고확인",desc:"창고재고 × 상품리스트 교차확인",chip:(lastCheck!=="-"?"최근 확인 "+lastCheck:"미확인")}
   ];
   var sw=document.getElementById("homeShelf");
@@ -3637,7 +3616,6 @@ function switchTab(tab){
   document.getElementById("page-ccpdforder").style.display=tab==="ccpdforder"?"block":"none";
   document.getElementById("page-margin").style.display=tab==="margin"?"block":"none";
   document.getElementById("page-homeshopping").style.display=tab==="homeshopping"?"block":"none";
-  document.getElementById("page-sheet").style.display=tab==="sheet"?"block":"none";
   document.getElementById("page-stock").style.display=tab==="stock"?"block":"none";
   document.getElementById("page-order").style.display=tab==="order"?"block":"none";
   document.getElementById("page-orderconv").style.display=tab==="orderconv"?"block":"none";
@@ -3653,7 +3631,6 @@ function switchTab(tab){
   document.getElementById("tab-ccpdforder").classList.toggle("active",tab==="ccpdforder");
   document.getElementById("tab-margin").classList.toggle("active",tab==="margin");
   document.getElementById("tab-homeshopping").classList.toggle("active",tab==="homeshopping");
-  document.getElementById("tab-sheet").classList.toggle("active",tab==="sheet");
   document.getElementById("tab-stock").classList.toggle("active",tab==="stock");
   document.getElementById("tab-order").classList.toggle("active",tab==="order");
   document.getElementById("tab-orderconv").classList.toggle("active",tab==="orderconv");
@@ -3668,7 +3645,6 @@ function switchTab(tab){
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); }
   if(tab==="margin") renderMargin();
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
-  if(tab==="sheet") initSheetTab();
   if(tab==="stock") initStockTab();
   if(tab==="order") renderOrder();
   if(tab==="orderconv") ocRender();
@@ -3929,26 +3905,6 @@ function lrDownload(){
   a.download="품의서_"+store.replace(/\s/g,"")+"_"+_ord2(new Date().getMonth()+1)+_ord2(new Date().getDate())+".doc";
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(function(){URL.revokeObjectURL(url);},1000);
-}
-
-/* ── 구글 시트 임베드 ── */
-var SHEET_EMBED_URL="https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/pubhtml?gid=1131579574&single=true&widget=true&headers=false";
-var _sheetAutoTimer=null;
-function initSheetTab(){
-  var f=document.getElementById("sheetFrame");
-  if(f&&!f.getAttribute("src")) f.src=SHEET_EMBED_URL;
-}
-function reloadSheet(){
-  var f=document.getElementById("sheetFrame");
-  if(!f)return;
-  f.src=SHEET_EMBED_URL+"&_="+Date.now();
-  var m=document.getElementById("sheetMsg");
-  if(m){m.textContent="🔄 불러오는 중...";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="✅ 갱신됨";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},2000);},1500);}
-}
-function toggleSheetAuto(){
-  var cb=document.getElementById("sheetAuto");
-  if(_sheetAutoTimer){clearInterval(_sheetAutoTimer);_sheetAutoTimer=null;}
-  if(cb&&cb.checked)_sheetAutoTimer=setInterval(reloadSheet,60000);
 }
 
 /* ── 홈쇼핑 재고확인 (창고재고현황 × 홈쇼핑 상품리스트 교차확인) ── */
