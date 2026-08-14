@@ -7213,7 +7213,15 @@ function _ccPdfApplyInvoiceMapToRows(){
   });
   return matched;
 }
-/* 표(rows)에서 헤더 행("주문번호" 포함)과 주문번호 열 위치를 찾음. 헤더가 없으면 A열(0)=주문번호로 간주. */
+/* 주문번호처럼 보이는 값인지(순수 숫자 5자리 이상) 검사 — 코스트코 PurchaseOrderDetail처럼
+   영문 필드명(customerOrder 등) 헤더가 여러 줄이어도 헤더 행을 데이터로 착각하지 않도록 하는 안전장치 */
+function _ccPdfLooksLikeOrderNo(v){
+  return /^\d{5,}$/.test(String(v||"").trim());
+}
+/* 표(rows)에서 헤더 행과 주문번호 열 위치를 찾음.
+   1) "주문번호" 텍스트가 있는 헤더 행을 우선 찾고,
+   2) 없으면(코스트코 PurchaseOrderDetail처럼 영문 필드명 헤더가 1~2줄인 경우) A열 값이
+      순수 숫자(주문번호 형태)인 첫 행을 데이터 시작으로 간주해 헤더 줄 수와 무관하게 건너뜀. */
 function _ccPdfDetectOrderCol(rows){
   var norm=function(s){return String(s||"").replace(/\s/g,"");};
   var hRow=-1;
@@ -7229,11 +7237,18 @@ function _ccPdfDetectOrderCol(rows){
     var ii=H2.findIndex(function(c){return c.indexOf("송장")>=0||c.indexOf("운송장")>=0;});
     if(ii>=0)cInvoice=ii;
     startRow=hRow+1;
+  }else{
+    var ds=-1;
+    for(var r2=0;r2<Math.min(5,rows.length);r2++){
+      if(_ccPdfLooksLikeOrderNo((rows[r2]||[])[cOrder])){ds=r2;break;}
+    }
+    startRow=ds>=0?ds:0;
   }
   return {cOrder:cOrder,cInvoice:cInvoice,startRow:startRow};
 }
 /* 표(rows)에 이미 주문번호+송장번호 쌍이 들어있으면 뽑아서 맵으로 반환(없으면 빈 객체, 에러 아님).
-   헤더에 "송장"/"운송장" 열이 없으면 K열(0-based index 10, J열 택배사코드 다음)을 송장번호로 간주. */
+   헤더에 "송장"/"운송장" 열이 없으면 K열(0-based index 10, J열 택배사코드 다음)을 송장번호로 간주.
+   주문번호 칸이 순수 숫자가 아니면(헤더 텍스트 등) 무시해 헤더 오염을 방지. */
 function _ccPdfHarvestPairs(rows){
   var h=_ccPdfDetectOrderCol(rows);
   var cInvoice=h.cInvoice;
@@ -7246,6 +7261,7 @@ function _ccPdfHarvestPairs(rows){
   for(var r=h.startRow;r<rows.length;r++){
     var row=rows[r];if(!row||!row[h.cOrder])continue;
     var ord=String(row[h.cOrder]).trim();
+    if(!_ccPdfLooksLikeOrderNo(ord))continue;
     var inv=String(row[cInvoice]||"").trim();
     if(ord&&inv)map[ord]=inv;
   }
@@ -7260,7 +7276,9 @@ function _ccPdfFillTargetInvoiceCols(){
   for(var r=t.startRow;r<t.rows.length;r++){
     var row=t.rows[r];
     if(!row||!row[t.orderCol])continue;
-    var inv=ccPdfInvoiceMap[String(row[t.orderCol]).trim()];
+    var ord=String(row[t.orderCol]).trim();
+    if(!_ccPdfLooksLikeOrderNo(ord))continue;
+    var inv=ccPdfInvoiceMap[ord];
     if(inv){
       while(row.length<11)row.push("");
       row[9]="C-CJ";
