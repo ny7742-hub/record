@@ -843,6 +843,10 @@ label{font-size:14px!important}
       </div>
     </div>
     <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코 어드민 '주문관리 &gt; 인쇄'에서 다운로드한 주문서 PDF를 그대로 올리면, 주문(페이지)별로 받는분·연락처·주소·상품명·수량·배송메시지를 자동으로 읽어 '화이트샌즈 CX 통합관리' <b>발주서 양식</b>으로 바로 변환합니다. 상품컬러코드는 사내 상품 데이터로 자동 매칭되며(매칭 안 되면 빨간 칸에 직접 입력), <b>린다우·아다나·메르신 마스크는 2개입 1세트라 수량이 자동으로 2배</b>로 계산됩니다. 개인정보(받는분·연락처·주소)는 발주서 작성 목적으로만 이번 세션에서 읽으며 별도 저장은 하지 않습니다.</p>
+    <div id="ccPdfDropZone" onclick="document.getElementById('ccPdfFileInput2').click()" style="border:2px dashed #cbd5e1;border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:#64748b;font-size:13px;margin-bottom:12px;transition:border-color .15s,background .15s">
+      📂 PDF 파일을 여기로 끌어다 놓거나 클릭해서 여러 개 선택하세요
+      <input type="file" id="ccPdfFileInput2" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)">
+    </div>
     <div id="ccPdfStatus" style="font-size:12px;color:#94a3b8;margin-bottom:8px">업로드된 PDF가 없습니다.</div>
     <div id="ccPdfResultWrap"></div>
   </div>
@@ -3599,7 +3603,7 @@ function switchTab(tab){
   if(tab==="daily") renderDaily();
   if(tab==="costco") renderCostcoPage();
   if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); }
-  if(tab==="ccpdforder") renderCcPdfTable();
+  if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); }
   if(tab==="margin") renderMargin();
   if(tab==="homeshopping") renderHomeshopping();
   if(tab==="sheet") initSheetTab();
@@ -6868,8 +6872,8 @@ function _ccPdfParsePageLines(lines){
     };
   });
 }
-async function ccPdfLoadFiles(input){
-  var files=Array.from(input.files||[]);
+async function _ccPdfProcessFiles(fileList){
+  var files=Array.from(fileList||[]).filter(function(f){return /\.pdf$/i.test(f.name);});
   if(!files.length)return;
   if(typeof pdfjsLib==="undefined"){alert("PDF 라이브러리 로드에 실패했습니다. 새로고침 후 다시 시도해주세요.");return;}
   var statusEl=document.getElementById("ccPdfStatus");
@@ -6892,7 +6896,27 @@ async function ccPdfLoadFiles(input){
   }
   ccPdfRows=ccPdfRows.concat(allRows);
   renderCcPdfTable();
+}
+async function ccPdfLoadFiles(input){
+  await _ccPdfProcessFiles(input.files);
   input.value="";
+}
+function ccPdfDropZoneInit(){
+  var zone=document.getElementById("ccPdfDropZone");
+  if(!zone||zone._wired)return;
+  zone._wired=true;
+  zone.addEventListener("dragover",function(e){
+    e.preventDefault();
+    zone.style.borderColor="#1b6e82";zone.style.background="#eff6ff";
+  });
+  zone.addEventListener("dragleave",function(){
+    zone.style.borderColor="";zone.style.background="";
+  });
+  zone.addEventListener("drop",function(e){
+    e.preventDefault();
+    zone.style.borderColor="";zone.style.background="";
+    _ccPdfProcessFiles(e.dataTransfer.files);
+  });
 }
 function renderCcPdfTable(){
   var statusEl=document.getElementById("ccPdfStatus");
