@@ -5230,6 +5230,24 @@ function hsEdit(i,key,val){
     if(cell)cell.textContent=_hsEff(homeshoppingDB[i]);
   }
 }
+function hsRenameProd(i){
+  if(!homeshoppingDB[i])return;
+  var v=prompt("상품명 수정:",homeshoppingDB[i].name||"");
+  if(v===null)return;
+  homeshoppingDB[i].name=v.trim();
+  saveHomeshopping();renderHomeshopping();
+}
+/* 방송관리 표의 상품명을 클릭하면 사전미팅일정에 그 상품명으로 새 줄을 추가 */
+function hsPreAddFromBroadcast(i){
+  var row=homeshoppingDB[i];if(!row)return;
+  var nm=String(row.name||"").trim();
+  if(!nm){alert("상품명을 먼저 입력해주세요 (칸을 더블클릭하면 입력할 수 있습니다).");return;}
+  hsPreDB.push({name:nm,date:"",time:"",marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
+  saveHsPre();renderHsPre();
+  var w=document.getElementById("hsPreTableWrap");if(w)w.scrollIntoView({behavior:"smooth",block:"end"});
+  var msg=document.getElementById("hsMsg");
+  if(msg){msg.textContent="📋 '"+nm+"' 사전미팅일정에 추가됨";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},2500);}
+}
 function _hsEff(row){
   var t=Number(String(row.target).replace(/,/g,""))||0;
   var s=Number(String(row.sold).replace(/,/g,""))||0;
@@ -5351,6 +5369,8 @@ function renderHomeshopping(){
         h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="date" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value)" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
       }else if(col.type==="time"){
         h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="time" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value)" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
+      }else if(col.key==="name"){
+        h+='<td onclick="hsPreAddFromBroadcast('+i+')" ondblclick="hsRenameProd('+i+')" title="클릭=사전미팅일정에 상품명 추가 · 더블클릭=상품명 수정" style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;cursor:pointer">'+(row.name?_escX(row.name):'<span style="color:#94a3b8">더블클릭하여 상품명 입력</span>')+'</td>';
       }else{
         var align=(col.type==="num")?"text-align:right;":"";
         h+='<td contenteditable="true" onblur="hsEdit('+i+',\''+col.key+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;'+align+'">'+_escX(row[col.key]||"")+'</td>';
@@ -5375,9 +5395,16 @@ var HS_PRE_TASKS=[
 ];
 function saveHsPre(){wsSetItem("hsPreDB",JSON.stringify(hsPreDB));}
 function hsPreAddRow(){
-  hsPreDB.push({date:"",time:"",marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
+  hsPreDB.push({name:"",date:"",time:"",marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
   saveHsPre();renderHsPre();
   var w=document.getElementById("hsPreTableWrap");if(w)w.scrollTop=w.scrollHeight;
+}
+function hsPreRenameRow(i){
+  if(!hsPreDB[i])return;
+  var v=prompt("상품명 수정:",hsPreDB[i].name||"");
+  if(v===null)return;
+  hsPreDB[i].name=v.trim();
+  saveHsPre();renderHsPre();
 }
 function hsPreDelRow(i){
   if(!confirm("이 사전미팅 일정을 삭제할까요?"))return;
@@ -5430,6 +5457,7 @@ function renderHsPre(){
   hsPreDB.forEach(function(row,i){
     h+='<div class="hsPreRow" ondragover="hsPreDragOver('+i+',event)" ondragleave="hsPreDragLeave(event)" ondrop="hsPreDrop('+i+',event)" ondragend="hsPreDragEnd()" style="display:flex;gap:8px;align-items:stretch;padding:10px 12px;border-bottom:1px solid #e1e6ee;flex-wrap:wrap">';
     h+='<div draggable="true" ondragstart="hsPreDragStart('+i+',event)" title="드래그하여 순서 변경" style="display:flex;align-items:center;justify-content:center;width:22px;color:#94a3b8;font-size:13px;cursor:grab;user-select:none">↕</div>';
+    h+='<button onclick="hsPreRenameRow('+i+')" title="클릭하여 상품명 수정" style="flex:1.1;min-width:110px;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px 12px;border-radius:10px;border:1.5px dashed #94a3b8;color:#1b6e82;background:#f1f5f9;font-size:13px;font-weight:700;cursor:pointer">'+(row.name?_esc(row.name):'<span style="color:#94a3b8;font-weight:600">상품명 없음</span>')+'</button>';
     h+='<button onclick="hsPreEditDateTime('+i+')" style="flex:1.3;min-width:150px;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px 14px;border-radius:10px;border:none;color:#fff;font-size:13px;font-weight:700;line-height:1.35;cursor:pointer;background:#1e3a5f">'+_hsPreDateTimeLabel(row)+'</button>';
     HS_PRE_TASKS.forEach(function(t){
       var on=!!row[t.key];
