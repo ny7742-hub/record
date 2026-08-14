@@ -512,7 +512,8 @@ label{font-size:14px!important}
 <div class="modal-overlay" id="uploadModal" onclick="if(event.target===this)closeUpdateModal()">
   <div class="modal">
     <h2>📦 상품 데이터 업데이트</h2>
-    <p>새 상품코드리스트 엑셀 파일을 업로드하면<br>브라우저에 저장되어 다음에도 유지됩니다.</p>
+    <p>새 상품코드리스트 엑셀 파일을 업로드하면<br>팀 전체에 공유되어 다음에도 유지됩니다.</p>
+    <p id="uploadLastDate" style="font-size:12px;color:#64748b;margin:-6px 0 10px"></p>
     <div class="upload-zone" id="uploadZone">
       <div class="uz-icon">📂</div>
       <div class="uz-text">파일을 클릭하거나 여기에 드래그하세요</div>
@@ -1285,18 +1286,25 @@ var STORAGE_DATE_KEY = "ws_product_date";
 /* 상품 데이터 최근 업데이트 표시 + 오래되면(7일+) 경고 배지 */
 function _renderUpdateInfo(){
   var el=document.getElementById("updateInfo");
-  if(!el)return;
+  var modalEl=document.getElementById("uploadLastDate");
+  if(!el&&!modalEl)return;
   var d=localStorage.getItem(STORAGE_DATE_KEY);
   if(d){try{d=JSON.parse(d);}catch(e){}}
-  if(!d){el.innerHTML="기본 데이터 사용 중";return;}
-  var m=d.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
-  var stale=false;
-  if(m){
-    var updated=new Date(+m[1],+m[2]-1,+m[3]);
-    var days=Math.floor((Date.now()-updated.getTime())/86400000);
-    stale=days>=7;
+  var msg;
+  if(!d){
+    msg="기본 데이터 사용 중";
+  }else{
+    var m=d.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+    var stale=false;
+    if(m){
+      var updated=new Date(+m[1],+m[2]-1,+m[3]);
+      var days=Math.floor((Date.now()-updated.getTime())/86400000);
+      stale=days>=7;
+    }
+    msg="마지막 업데이트: "+d+(stale?' <span style="color:#dc2626;font-weight:700">⚠️ 상품데이터 업데이트 필요</span>':"");
   }
-  el.innerHTML="마지막 업데이트: "+d+(stale?' <span style="color:#dc2626;font-weight:700">⚠️ 상품데이터 업데이트 필요</span>':"");
+  if(el)el.innerHTML=msg;
+  if(modalEl)modalEl.innerHTML=msg;
 }
 
 /* 내장 기본 데이터의 칼라명 빈도표 — 업로드된 파일 자체에 정상 분리된 색상 행이 하나도 없어도
@@ -1454,6 +1462,7 @@ function newUid(){return ++uidSeq;}
 function openUpdateModal(){
   document.getElementById("uploadModal").classList.add("show");
   document.getElementById("uploadStatus").textContent="";
+  _renderUpdateInfo();
 }
 function closeUpdateModal(){
   document.getElementById("uploadModal").classList.remove("show");
