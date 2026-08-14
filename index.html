@@ -844,21 +844,26 @@ label{font-size:14px!important}
         <button class="bg" onclick="ccPdfDownload()">📥 엑셀 다운로드</button>
       </div>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코 어드민 '주문관리 &gt; 인쇄'에서 다운로드한 주문서 PDF를 그대로 올리면, 주문(페이지)별로 받는분·연락처·주소·상품명·수량·배송메시지를 자동으로 읽어 '화이트샌즈 CX 통합관리' <b>발주서 양식</b>으로 바로 변환합니다. 상품컬러코드는 사내 상품 데이터로 자동 매칭되며(매칭 안 되면 빨간 칸에 직접 입력), <b>린다우·아다나·메르신 마스크는 2개입 1세트라 수량이 자동으로 2배</b>로 계산됩니다. 개인정보(받는분·연락처·주소)는 발주서 작성 목적으로만 이번 세션에서 읽으며 별도 저장은 하지 않습니다.</p>
-    <div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:12px;background:#f8fafc">
-      <div style="font-size:12px;color:#475569;font-weight:600;margin-bottom:6px">📮 송장번호 붙여넣기 — 주문번호·송장번호가 담긴 엑셀 표(예: PurchaseOrderDetail)를 그대로 복사해서 아래에 붙여넣으면(Ctrl+V) A열 주문번호로 자동 매칭되어 <b>운송장 번호</b>가 채워집니다.</div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 12px"><b>①</b> 코스트코 어드민 '주문관리 &gt; 인쇄'에서 다운로드한 주문서 PDF를 그대로 올리면, 주문(페이지)별로 받는분·연락처·주소·상품명·수량·배송메시지를 자동으로 읽어 '화이트샌즈 CX 통합관리' <b>발주서 양식</b>으로 바로 변환합니다. 상품컬러코드는 사내 상품 데이터로 자동 매칭되며(매칭 안 되면 빨간 칸에 직접 입력), <b>린다우·아다나·메르신 마스크는 2개입 1세트라 수량이 자동으로 2배</b>로 계산됩니다. <b>②</b> 우측 위 "엑셀 다운로드"로 바로 받을 수도 있고, <b>③④</b> 아래에서 송장번호까지 채운 뒤 <b>⑤</b> 다시 "엑셀 다운로드"를 눌러도 됩니다. 개인정보(받는분·연락처·주소)는 발주서 작성 목적으로만 이번 세션에서 읽으며 별도 저장은 하지 않습니다.</p>
+    <div id="ccPdfDropZone" onclick="document.getElementById('ccPdfFileInput2').click()" style="border:2px dashed #cbd5e1;border-radius:10px;min-height:120px;display:flex;align-items:center;justify-content:center;padding:36px;text-align:center;cursor:pointer;color:#64748b;font-size:15px;margin-bottom:12px;transition:border-color .15s,background .15s">
+      📂 ① PDF 파일을 여기로 끌어다 놓거나 클릭해서 여러 개 선택하세요
+      <input type="file" id="ccPdfFileInput2" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)">
+    </div>
+    <div id="ccPdfStatus" style="font-size:12px;color:#94a3b8;margin-bottom:8px">업로드된 PDF가 없습니다.</div>
+    <div id="ccPdfResultWrap"></div>
+    <div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-top:14px;background:#f8fafc">
+      <div style="font-size:12px;color:#475569;font-weight:600;margin-bottom:8px">③④ 송장번호 매칭 — 주문번호(A열)·송장번호가 담긴 엑셀(예: PurchaseOrderDetail)을 <b>업로드/드래그</b>하거나, 표를 복사해 아래에 <b>붙여넣기(Ctrl+V)</b> 하면 위 주문 목록의 주문번호와 자동으로 매칭되어 <b>운송장 번호</b>가 채워집니다. 이후 ⑤ 우측 위 "엑셀 다운로드"를 누르면 완료됩니다.</div>
+      <div id="ccPdfInvoiceDropZone" onclick="document.getElementById('ccPdfInvoiceFileInput').click()" style="border:2px dashed #cbd5e1;border-radius:8px;min-height:56px;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;cursor:pointer;color:#64748b;font-size:12.5px;margin-bottom:8px;transition:border-color .15s,background .15s">
+        📁 송장번호 엑셀 파일을 여기로 끌어다 놓거나 클릭해서 선택하세요
+        <input type="file" id="ccPdfInvoiceFileInput" accept=".xlsx,.xls" style="display:none" onchange="ccPdfLoadInvoiceFile(this)">
+      </div>
+      <div style="text-align:center;font-size:11px;color:#94a3b8;margin:2px 0 8px">— 또는 —</div>
       <textarea id="ccPdfInvoicePaste" placeholder="엑셀에서 표를 선택해 복사(Ctrl+C)한 뒤 여기에 붙여넣기(Ctrl+V) 하세요" style="width:100%;box-sizing:border-box;min-height:60px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical" onpaste="setTimeout(ccPdfApplyInvoicePaste,0)"></textarea>
       <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
         <button class="bs" onclick="ccPdfApplyInvoicePaste()">매칭 적용</button>
         <span id="ccPdfInvoiceStatus" style="font-size:12px;color:#94a3b8"></span>
       </div>
     </div>
-    <div id="ccPdfDropZone" onclick="document.getElementById('ccPdfFileInput2').click()" style="border:2px dashed #cbd5e1;border-radius:10px;min-height:120px;display:flex;align-items:center;justify-content:center;padding:36px;text-align:center;cursor:pointer;color:#64748b;font-size:15px;margin-bottom:12px;transition:border-color .15s,background .15s">
-      📂 PDF 파일을 여기로 끌어다 놓거나 클릭해서 여러 개 선택하세요
-      <input type="file" id="ccPdfFileInput2" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)">
-    </div>
-    <div id="ccPdfStatus" style="font-size:12px;color:#94a3b8;margin-bottom:8px">업로드된 PDF가 없습니다.</div>
-    <div id="ccPdfResultWrap"></div>
   </div>
 </div>
 </div><!-- /page-ccpdforder -->
@@ -3638,7 +3643,7 @@ function switchTab(tab){
   if(tab==="daily") renderDaily();
   if(tab==="costco") renderCostcoPage();
   if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); }
-  if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); }
+  if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); }
   if(tab==="margin") renderMargin();
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="sheet") initSheetTab();
@@ -7156,15 +7161,11 @@ function ccPdfRemoveRow(i){
   ccPdfRows.splice(i,1);
   renderCcPdfTable();
 }
-/* 주문번호(A열 등)·송장번호가 담긴 표(엑셀에서 복사한 텍스트, 탭으로 구분)를 붙여넣으면
-   주문번호로 매칭해 ccPdfRows[].invoiceNo(운송장 번호)를 채움.
-   헤더가 있으면 "주문번호"/"송장번호(운송장)" 열을 찾고, 없으면 A열=주문번호, 마지막 열=송장번호로 간주 */
-function ccPdfApplyInvoicePaste(){
-  var ta=document.getElementById("ccPdfInvoicePaste");
+/* 주문번호(A열 등)·송장번호가 담긴 2차원 표(rows)를 받아 ccPdfRows[].invoiceNo(운송장 번호)를 채움.
+   헤더가 있으면 "주문번호"/"송장번호(운송장)" 열을 찾고, 없으면 A열=주문번호, 마지막 열=송장번호로 간주.
+   업로드 파일 파싱(ccPdfLoadInvoiceFile)과 붙여넣기(ccPdfApplyInvoicePaste)가 공통으로 사용 */
+function _ccPdfMatchInvoiceRows(rows){
   var statusEl=document.getElementById("ccPdfInvoiceStatus");
-  var text=(ta&&ta.value||"").trim();
-  if(!text){if(statusEl)statusEl.textContent="";return;}
-  var rows=text.split(/\r\n|\r|\n/).filter(function(l){return l.trim().length;}).map(function(l){return l.split("\t");});
   var norm=function(s){return String(s||"").replace(/\s/g,"");};
   var hRow=-1;
   for(var r=0;r<Math.min(3,rows.length);r++){
@@ -7193,7 +7194,7 @@ function ccPdfApplyInvoicePaste(){
     if(ord&&inv)map[ord]=inv;
   }
   if(!Object.keys(map).length){
-    alert("붙여넣은 내용에서 주문번호/송장번호를 인식하지 못했습니다.");
+    alert("주문번호/송장번호를 인식하지 못했습니다.");
     if(statusEl)statusEl.textContent="";
     return;
   }
@@ -7204,6 +7205,54 @@ function ccPdfApplyInvoicePaste(){
   });
   renderCcPdfTable();
   if(statusEl)statusEl.innerHTML="✔ 주문 "+Object.keys(map).length+"건 인식 · "+matched+"건 매칭됨"+(ccPdfRows.length>matched?' <span style="color:#dc2626">('+(ccPdfRows.length-matched)+'건 미매칭 — 빨간 칸에 직접 입력)</span>':"");
+}
+function ccPdfApplyInvoicePaste(){
+  var ta=document.getElementById("ccPdfInvoicePaste");
+  var statusEl=document.getElementById("ccPdfInvoiceStatus");
+  var text=(ta&&ta.value||"").trim();
+  if(!text){if(statusEl)statusEl.textContent="";return;}
+  var rows=text.split(/\r\n|\r|\n/).filter(function(l){return l.trim().length;}).map(function(l){return l.split("\t");});
+  _ccPdfMatchInvoiceRows(rows);
+}
+function _ccPdfProcessInvoiceFiles(fileList){
+  var file=fileList&&fileList[0];if(!file)return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 업로드 가능합니다.");return;}
+  var statusEl=document.getElementById("ccPdfInvoiceStatus");
+  if(statusEl)statusEl.textContent="불러오는 중...";
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      _ccPdfMatchInvoiceRows(rows);
+    }catch(err){
+      alert("송장번호 파일 오류: "+err.message);
+      if(statusEl)statusEl.textContent="";
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function ccPdfLoadInvoiceFile(input){
+  _ccPdfProcessInvoiceFiles(input.files);
+  input.value="";
+}
+function ccPdfInvoiceDropZoneInit(){
+  var zone=document.getElementById("ccPdfInvoiceDropZone");
+  if(!zone||zone._wired)return;
+  zone._wired=true;
+  zone.addEventListener("dragover",function(e){
+    e.preventDefault();
+    zone.style.borderColor="#1b6e82";zone.style.background="#eff6ff";
+  });
+  zone.addEventListener("dragleave",function(){
+    zone.style.borderColor="";zone.style.background="";
+  });
+  zone.addEventListener("drop",function(e){
+    e.preventDefault();
+    zone.style.borderColor="";zone.style.background="";
+    _ccPdfProcessInvoiceFiles(e.dataTransfer.files);
+  });
 }
 /* 'CX팀_물류센터' 시트(출고 LIST) 양식과 동일한 컬럼 순서. A/B열은 시트와 동일하게 빈 칸으로 비워둠(그대로 복사-붙여넣기 가능) */
 var CC_PDF_WEEKDAY_KR=["일","월","화","수","목","금","토"];
