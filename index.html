@@ -6806,24 +6806,14 @@ var CC_PDF_CODE_MAP={
   "693953":{base:"GKM115Z9U",name:"[화이트샌즈_그린라벨] 25SS 그린라벨 냉감 UV 쿨링이어마스크 메르신(Mersin)",setQty:2}
 };
 var CC_PDF_COLOR_MAP={LG:"LGY",SK:"SN",WT:"WH",BK:"BK",BE:"BE",WH:"WH",SGN:"SGN"};
-function _ccPdfExtractItems(pageText){
-  var startIdx=pageText.indexOf("수량");
-  var endIdx=pageText.indexOf("코스트코 상품을");
-  var block=(startIdx>=0&&endIdx>startIdx)?pageText.slice(startIdx+2,endIdx):pageText;
-  var re=/(\d{6})-([A-Za-z]{2,4})/g;
-  var starts=[];var m;
-  while((m=re.exec(block))){starts.push({idx:m.index,code:m[1],color:m[2].toUpperCase()});}
+/* 아이템 목록 영역의 각 줄은 "상품명 수량 상품코드-컬러" 형태(코드가 맨 뒤)로 나온다.
+   예: "화이트샌즈 자외선 쿨링 이어 마스크 2개 - 블랙 1 693953-BK" */
+function _ccPdfExtractItems(itemLines){
   var items=[];
-  for(var i=0;i<starts.length;i++){
-    var s=starts[i];
-    var segEnd=(i+1<starts.length)?starts[i+1].idx:block.length;
-    var seg=block.slice(s.idx,segEnd).trim();
-    var afterCode=seg.replace(/^\d{6}-[A-Za-z]{2,4}\s*/,"");
-    var qm=afterCode.match(/(\d{1,4})\s*$/);
-    var qty=qm?parseInt(qm[1],10):0;
-    var name=qm?afterCode.slice(0,qm.index).trim():afterCode.trim();
-    if(name&&qty)items.push({code:s.code,color:s.color,name:name,qty:qty});
-  }
+  (itemLines||[]).forEach(function(l){
+    var m=String(l||"").match(/^(.+?)\s+(\d{1,4})\s+(\d{6})-([A-Za-z]{2,4})\s*$/);
+    if(m)items.push({name:m[1].trim(),qty:parseInt(m[2],10),code:m[3],color:m[4].toUpperCase()});
+  });
   return items;
 }
 function _ccPdfFmtPhone(p){
@@ -6847,18 +6837,34 @@ async function _ccPdfGetPageLines(page){
   if(curParts.length)lines.push(curParts.join(" ").replace(/\s+/g," ").trim());
   return lines.filter(function(l){return l.length>0;});
 }
+/* 페이지 구조(주문내역 다음부터 고정): 주문번호(9자리, 배송메시지 있으면 같은 줄에 이어붙음) →
+   주소(1~2줄, 상세주소 유무에 따라 가변) → 주문일(YYYY/MM/DD) → 받는분 이름 → 연락처 → 우편번호 →
+   "상품명 수량 상품번호" 헤더 → 상품 줄들("상품명 수량 상품코드-컬러") → "코스트코 상품을..."로 종료.
+   주소 줄 수가 가변이라 "주문일" 줄을 동적으로 찾아서 기준점으로 삼는다(고정 오프셋 금지). */
 function _ccPdfParsePageLines(lines){
   var idx=lines.indexOf("주문내역");
   if(idx<0)return[];
-  var phone=lines[idx-1]||"";
-  var name=lines[idx-2]||"";
-  var zipc=lines[idx-3]||"";
-  var address=lines.slice(1,idx-3).join(" ").trim();
   var orderLine=lines[idx+2]||"";
-  var om=orderLine.match(/(\d{9})\s+(\d{4}\/\d{2}\/\d{2})\s*(.*)/);
-  var orderNo=om?om[1]:"",orderDate=om?om[2]:"",msg=om?om[3].trim():"";
-  var itemBlockStart=lines.slice(idx+3).join("\n");
-  var items=_ccPdfExtractItems(itemBlockStart.replace(/\n/g," "));
+  var om=orderLine.match(/^(\d{6,})\s*(.*)$/);
+  var orderNo=om?om[1]:orderLine.trim();
+  var msg=om?om[2].trim():"";
+  var dateIdx=-1;
+  for(var i=idx+3;i<lines.length&&i<idx+10;i++){
+    if(/^\d{4}\/\d{2}\/\d{2}$/.test(lines[i]||"")){dateIdx=i;break;}
+  }
+  if(dateIdx<0)return[];
+  var orderDate=lines[dateIdx];
+  var address=lines.slice(idx+3,dateIdx).join(" ").trim();
+  var name=(lines[dateIdx+1]||"").trim();
+  var phone=(lines[dateIdx+2]||"").trim();
+  var zipc=(lines[dateIdx+3]||"").trim();
+  var hdrIdx=lines.indexOf("상품명 수량 상품번호",dateIdx);
+  var itemStart=hdrIdx>=0?hdrIdx+1:dateIdx+4;
+  var itemEnd=lines.length;
+  for(var j=itemStart;j<lines.length;j++){
+    if(/^코스트코 상품을/.test(lines[j])){itemEnd=j;break;}
+  }
+  var items=_ccPdfExtractItems(lines.slice(itemStart,itemEnd));
   return items.map(function(it){
     var cm=CC_PDF_CODE_MAP[it.code];
     var mappedColor=CC_PDF_COLOR_MAP[it.color]||it.color;
