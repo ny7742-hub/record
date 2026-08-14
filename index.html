@@ -6996,16 +6996,23 @@ function ccPdfRemoveRow(i){
   ccPdfRows.splice(i,1);
   renderCcPdfTable();
 }
+/* 'CX팀_물류센터' 시트(출고 LIST) 양식과 동일한 컬럼 순서. A/B열은 시트와 동일하게 빈 칸으로 비워둠(그대로 복사-붙여넣기 가능) */
+var CC_PDF_WEEKDAY_KR=["일","월","화","수","목","금","토"];
+function _ccPdfRequestDateStr(){
+  var d=new Date();
+  return (d.getMonth()+1)+"/"+d.getDate()+"("+CC_PDF_WEEKDAY_KR[d.getDay()]+")";
+}
 function ccPdfDownload(){
   if(!ccPdfRows.length){alert("다운로드할 주문 데이터가 없습니다.");return;}
-  var aoa=[["구분","받는분","연락처","주소","전산 처리 방법","상품명","상품코드","상품컬러코드","바코드","수량","결제금액","상품번호(주문번호)","비고","희망출고일","배송메세지"]];
+  var reqDate=_ccPdfRequestDateStr();
+  var aoa=[["","","요청일","목적","전산 처리 방법","요청자","수령인","배송수단","운송장 번호","받는분연락처","받는분기타연락처","주소","배송메세지","상품컬러명(플레이엠디)","수량","결제금액","큐텐(한글상품명)","바코드","큐텐바코드","상품코드","쇼핑몰(참고용)","상품컬러코드","상품명(수집)","옵션(수집)","주문자명","비고","주문일시","주문자 전화번호 1","주문자 전화번호 1"]];
   ccPdfRows.forEach(function(r){
-    aoa.push(["코스트코",r.name,r.phone,r.address+" ("+r.zip+")","사입출고등록(기타온라인)",r.prodName,r.prodCode,r.colorCode,r.barcode,r.qty,r.amt,r.orderNo,"CSTC 코스트코 창고출고","",r.msg]);
+    aoa.push(["","",reqDate,"",r.orderNo,"코스트코PDF",r.name,"택배","",r.phone,"",r.address,r.msg,r.prodName,r.qty,r.amt,"",r.barcode,"",r.prodCode,"",r.colorCode,"","","","CSTC 코스트코 창고출고",r.orderDate,"",""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[{wch:10},{wch:10},{wch:16},{wch:45},{wch:22},{wch:55},{wch:12},{wch:18},{wch:16},{wch:7},{wch:12},{wch:14},{wch:20},{wch:12},{wch:20}];
+  ws["!cols"]=[{wch:3},{wch:3},{wch:10},{wch:8},{wch:14},{wch:12},{wch:10},{wch:8},{wch:14},{wch:14},{wch:14},{wch:40},{wch:16},{wch:50},{wch:7},{wch:10},{wch:14},{wch:16},{wch:14},{wch:12},{wch:12},{wch:18},{wch:14},{wch:14},{wch:10},{wch:20},{wch:12},{wch:14},{wch:14}];
   var wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"발주서");
+  XLSX.utils.book_append_sheet(wb,ws,"출고 LIST");
   var now2=new Date();
   var todayStr=now2.getFullYear()+"-"+String(now2.getMonth()+1).padStart(2,"0")+"-"+String(now2.getDate()).padStart(2,"0");
   XLSX.writeFile(wb,"코스트코_발주서_"+todayStr+".xlsx");
