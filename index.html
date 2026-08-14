@@ -7097,8 +7097,12 @@ function _ccPdfCategoryFromFileName(name){
   return "";
 }
 async function _ccPdfProcessFiles(fileList){
-  var files=Array.from(fileList||[]).filter(function(f){return /\.pdf$/i.test(f.name);});
-  if(!files.length)return;
+  var all=Array.from(fileList||[]);
+  var files=all.filter(function(f){return /\.pdf$/i.test(f.name);});
+  if(!files.length){
+    if(all.length)alert("이 영역은 PDF 주문서 전용입니다(.pdf만 인식).\n엑셀(xlsx) 송장번호 파일은 아래 4단계 영역에 올려주세요.");
+    return;
+  }
   if(typeof pdfjsLib==="undefined"){alert("PDF 라이브러리 로드에 실패했습니다. 새로고침 후 다시 시도해주세요.");return;}
   var statusEl=document.getElementById("ccPdfStatus");
   statusEl.textContent="PDF 분석 중... (0/"+files.length+")";
@@ -7337,7 +7341,7 @@ function ccPdfApplyInvoicePaste(){
    현재까지의 맵으로 J/K열을 채운 뒤 "매칭된 엑셀 다운로드" 버튼으로 즉시 내려받을 수 있게 한다. */
 function _ccPdfProcessInvoiceFiles(fileList){
   var file=fileList&&fileList[0];if(!file)return;
-  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 업로드 가능합니다.");return;}
+  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("이 영역은 엑셀(.xlsx/.xls) 전용입니다.\nPDF 주문서는 위 1단계 영역에 올려주세요.");return;}
   var statusEl=document.getElementById("ccPdfInvoiceStatus");
   if(statusEl)statusEl.textContent="불러오는 중...";
   var reader=new FileReader();
