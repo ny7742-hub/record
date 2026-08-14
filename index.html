@@ -6820,6 +6820,23 @@ function _ccPdfFmtPhone(p){
   p=String(p||"").replace(/\D/g,"");
   return p.length===11?(p.slice(0,3)+"-"+p.slice(3,7)+"-"+p.slice(7)):p;
 }
+/* 판매일보 상품데이터(DEFAULT_DATA, 플레이엠디 등록 기준)에서 상품코드+칼라코드로 정식 상품명/칼라명/자사코드/바코드를 조회 */
+function _ccPdfResolveFromDefaultData(baseCode,colorCode){
+  if(!baseCode||typeof DEFAULT_DATA==="undefined")return null;
+  var row=DEFAULT_DATA.find(function(r){return r&&r[1]===baseCode&&r[3]===colorCode;});
+  if(!row)return null;
+  return {prodName:row[2],colorName:row[4],prodCode:row[1],skuCode:row[7],barcode:row[8]};
+}
+/* 코스트코 탭(costcoDB)의 상품 단가 × PDF 원 수량(세트 배수 적용 전)으로 결제금액 계산 */
+function _ccPdfCostcoAmount(cm,origQty){
+  if(!cm||typeof costcoDB==="undefined"||typeof ccMatchProd!=="function")return 0;
+  var pname=ccMatchProd(cm.name);
+  if(!pname)return 0;
+  var p=costcoDB.products.find(function(x){return x.name===pname;});
+  if(!p)return 0;
+  var unit=(p.mgPrice!=null&&p.mgPrice!=="")?p.mgPrice:p.price;
+  return Math.round((unit||0)*origQty);
+}
 /* 페이지 텍스트를 줄 단위(라인)로 분해해서 받는분/연락처/주소/우편번호/주문정보/상품목록을 추출.
    pdf.js는 줄바꿈 정보를 주지 않으므로, item의 y좌표가 바뀌는 지점을 줄바꿈으로 간주해서 재구성한다. */
 async function _ccPdfGetPageLines(page){
@@ -6869,12 +6886,17 @@ function _ccPdfParsePageLines(lines){
     var cm=CC_PDF_CODE_MAP[it.code];
     var mappedColor=CC_PDF_COLOR_MAP[it.color]||it.color;
     var qty=it.qty*((cm&&cm.setQty)||1);
+    var dd=cm?_ccPdfResolveFromDefaultData(cm.base,mappedColor):null;
+    var amt=_ccPdfCostcoAmount(cm,it.qty);
     return{
       name:name,phone:_ccPdfFmtPhone(phone),zip:zipc,address:address,
       orderNo:orderNo,orderDate:orderDate,msg:msg,
-      prodName:cm?cm.name:it.name,
-      colorCode:cm?(cm.base+mappedColor+"X"):"",
-      qty:qty,matched:!!cm
+      prodName:dd?(dd.prodName+" "+dd.colorName):(cm?cm.name:it.name),
+      prodCode:dd?dd.prodCode:(cm?cm.base:""),
+      colorCode:dd?dd.skuCode:(cm?(cm.base+mappedColor+"X"):""),
+      barcode:dd?(dd.barcode||""):"",
+      amt:amt,
+      qty:qty,matched:!!dd
     };
   });
 }
@@ -6938,8 +6960,9 @@ function renderCcPdfTable(){
   var h='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:13px">';
   h+='<thead><tr>'
     +'<th style="'+th+'">받는분</th><th style="'+th+'">연락처</th><th style="'+th+'">주소</th>'
-    +'<th style="'+th+'">상품명</th><th style="'+th+'">상품컬러코드</th><th style="'+th+'">수량</th>'
-    +'<th style="'+th+'">배송메시지</th><th style="'+th+'"></th>'
+    +'<th style="'+th+'">상품명</th><th style="'+th+'">상품코드</th><th style="'+th+'">상품컬러코드</th>'
+    +'<th style="'+th+'">바코드</th><th style="'+th+'">수량</th><th style="'+th+'">결제금액</th>'
+    +'<th style="'+th+'">주문번호</th><th style="'+th+'">배송메시지</th><th style="'+th+'"></th>'
     +'</tr></thead><tbody>';
   ccPdfRows.forEach(function(r,i){
     h+='<tr'+(!r.matched?' style="background:#fef2f2"':'')+'>'
@@ -6947,8 +6970,12 @@ function renderCcPdfTable(){
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+_esc(r.phone)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11.5px;color:#64748b">'+_esc(r.address+" ("+r.zip+")")+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px">'+_esc(r.prodName)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.prodCode||"")+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:130px"><input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="ccPdfEditColorCode(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.matched?'#d1d5db':'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:12px'+(r.matched?'':';color:#dc2626')+'"></td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.barcode||"")+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.amt)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.orderNo)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11.5px;color:#64748b">'+_esc(r.msg)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center"><button onclick="ccPdfRemoveRow('+i+')" style="border:none;background:none;color:#94a3b8;cursor:pointer;font-size:14px">✕</button></td>'
       +'</tr>';
@@ -6969,12 +6996,12 @@ function ccPdfRemoveRow(i){
 }
 function ccPdfDownload(){
   if(!ccPdfRows.length){alert("다운로드할 주문 데이터가 없습니다.");return;}
-  var aoa=[["구분","받는분","연락처","주소","전산 처리 방법","상품명","상품컬러코드","수량","희망출고일","배송메세지"]];
+  var aoa=[["구분","받는분","연락처","주소","전산 처리 방법","상품명","상품코드","상품컬러코드","바코드","수량","결제금액","상품번호(주문번호)","비고","희망출고일","배송메세지"]];
   ccPdfRows.forEach(function(r){
-    aoa.push(["코스트코",r.name,r.phone,r.address+" ("+r.zip+")","사입출고등록(기타온라인)",r.prodName,r.colorCode,r.qty,"",r.msg]);
+    aoa.push(["코스트코",r.name,r.phone,r.address+" ("+r.zip+")","사입출고등록(기타온라인)",r.prodName,r.prodCode,r.colorCode,r.barcode,r.qty,r.amt,r.orderNo,"CSTC 코스트코 창고출고","",r.msg]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[{wch:10},{wch:10},{wch:16},{wch:45},{wch:22},{wch:55},{wch:18},{wch:7},{wch:12},{wch:20}];
+  ws["!cols"]=[{wch:10},{wch:10},{wch:16},{wch:45},{wch:22},{wch:55},{wch:12},{wch:18},{wch:16},{wch:7},{wch:12},{wch:14},{wch:20},{wch:12},{wch:20}];
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"발주서");
   var now2=new Date();
