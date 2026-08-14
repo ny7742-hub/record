@@ -6463,7 +6463,9 @@ function _hsModelName(fullName){
 function _hsOrderWords(base){
   return String(base||"").replace(/화이트샌즈/g," ").split(/[\s._\-()]+/).filter(function(w){return w.length>=2;});
 }
-/* DEFAULT_DATA 상품명 목록(모델명 추출용) — 최초 1회만 계산해 캐시 */
+/* DEFAULT_DATA 상품명 목록(모델명 추출용) — 최초 1회만 계산해 캐시.
+   "스트랩"/"보닛햇"처럼 여러 상품에 공통으로 쓰이는 흔한 단어는 model로 뽑혀도
+   서로 다른 상품끼리 오매칭을 일으키므로 ambiguous로 표시해 매칭에서 제외한다. */
 var _hsDefaultDataModelsCache=null;
 function _hsDefaultDataModels(){
   if(_hsDefaultDataModelsCache)return _hsDefaultDataModelsCache;
@@ -6474,6 +6476,14 @@ function _hsDefaultDataModels(){
     if(seen[key])return;
     seen[key]=true;
     out.push({prodCode:row[1],model:_hsModelName(row[2])});
+  });
+  var modelProdSet={};
+  out.forEach(function(o){
+    if(!o.model)return;
+    (modelProdSet[o.model]=modelProdSet[o.model]||{})[o.prodCode]=true;
+  });
+  out.forEach(function(o){
+    o.ambiguous=o.model?Object.keys(modelProdSet[o.model]).length>1:true;
   });
   _hsDefaultDataModelsCache=out;
   return out;
@@ -6495,8 +6505,11 @@ function _hsFindMatchFromDefaultData(prod){
   var split=_hsSplitOrderProdName(prod);
   var words=_hsOrderWords(split.base);
   var models=_hsDefaultDataModels();
-  var cand=models.find(function(m){return m.model&&m.model.length>=2&&words.indexOf(m.model)>=0;});
-  if(!cand)return null;
+  var cands=models.filter(function(m){return m.model&&m.model.length>=2&&!m.ambiguous&&words.indexOf(m.model)>=0;});
+  if(!cands.length)return null;
+  /* 여러 후보가 매칭되면 더 길고 구체적인 모델명을 우선 채택 */
+  cands.sort(function(a,b){return b.model.length-a.model.length;});
+  var cand=cands[0];
   var colorCode=_hsResolveColorCode(cand.prodCode,split.color);
   if(!colorCode)return null;
   return {colorCode:colorCode,prodCode:cand.prodCode,colorName:split.color};
