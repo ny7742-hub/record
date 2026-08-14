@@ -835,38 +835,57 @@ label{font-size:14px!important}
 </div><!-- /page-ccorder -->
 
 <div id="page-ccpdforder" style="display:none">
-<div class="main" style="max-width:1000px">
+<div class="main" style="max-width:1300px">
   <div class="card">
-    <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <span>📄 코스트코 PDF 주문서 업로드</span>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <label class="bs" style="cursor:pointer">📁 PDF 업로드(여러 개 선택 가능)<input type="file" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)"></label>
-        <button class="bg" onclick="ccPdfDownload()">📥 엑셀 다운로드</button>
-      </div>
-    </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코 어드민 '주문관리 &gt; 인쇄'에서 다운로드한 주문서 PDF를 그대로 올리면, 주문(페이지)별로 받는분·연락처·주소·상품명·수량·배송메시지를 자동으로 읽어 '화이트샌즈 CX 통합관리' <b>발주서 양식</b>으로 바로 변환합니다. 상품컬러코드는 사내 상품 데이터로 자동 매칭되며(매칭 안 되면 빨간 칸에 직접 입력), <b>린다우·아다나·메르신 마스크는 2개입 1세트라 수량이 자동으로 2배</b>로 계산됩니다. 개인정보(받는분·연락처·주소)는 발주서 작성 목적으로만 이번 세션에서 읽으며 별도 저장은 하지 않습니다.</p>
-    <div id="ccPdfDropZone" onclick="document.getElementById('ccPdfFileInput2').click()" style="border:2px dashed #cbd5e1;border-radius:10px;min-height:120px;display:flex;align-items:center;justify-content:center;padding:36px;text-align:center;cursor:pointer;color:#64748b;font-size:15px;margin-bottom:12px;transition:border-color .15s,background .15s">
-      📂 PDF 파일을 여기로 끌어다 놓거나 클릭해서 여러 개 선택하세요
-      <input type="file" id="ccPdfFileInput2" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)">
-    </div>
-    <div id="ccPdfStatus" style="font-size:12px;color:#94a3b8;margin-bottom:8px">업로드된 PDF가 없습니다.</div>
-    <div id="ccPdfResultWrap"></div>
-    <div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-top:14px;background:#f8fafc">
-      <div style="font-size:12px;color:#475569;font-weight:600;margin-bottom:8px">📮 송장번호 매칭 (PDF 업로드와 순서 상관없이 독립적으로 사용 가능) — <b>①</b> 송장번호를 채워 넣을 엑셀 파일(A열=주문번호)을 아래에 업로드/드래그하고, <b>②</b> 주문번호·송장번호 쌍이 담긴 표(예: PurchaseOrderDetail)를 복사해 붙여넣기(Ctrl+V) 하세요. A열 주문번호로 자동 매칭되어 그 파일의 <b>J열에 "C-CJ"</b>, <b>K열에 송장번호</b>가 채워지고, 아래 "매칭된 엑셀 다운로드" 버튼으로 바로 받을 수 있습니다(PDF를 올린 상태라면 위 주문 목록에도 함께 반영됩니다).</div>
-      <div id="ccPdfInvoiceDropZone" onclick="document.getElementById('ccPdfInvoiceFileInput').click()" style="border:2px dashed #cbd5e1;border-radius:8px;min-height:56px;display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;cursor:pointer;color:#64748b;font-size:12.5px;margin-bottom:8px;transition:border-color .15s,background .15s">
-        📁 ① 송장번호를 채울 엑셀 파일을 여기로 끌어다 놓거나 클릭해서 선택하세요
-        <input type="file" id="ccPdfInvoiceFileInput" accept=".xlsx,.xls" style="display:none" onchange="ccPdfLoadInvoiceFile(this)">
-      </div>
-      <div style="text-align:center;font-size:11px;color:#94a3b8;margin:2px 0 8px">— 또는/그리고 —</div>
-      <textarea id="ccPdfInvoicePaste" placeholder="② 주문번호·송장번호 표를 복사(Ctrl+C)한 뒤 여기에 붙여넣기(Ctrl+V) 하세요" style="width:100%;box-sizing:border-box;min-height:60px;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical" onpaste="setTimeout(ccPdfApplyInvoicePaste,0)"></textarea>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
-        <button class="bs" onclick="ccPdfApplyInvoicePaste()">매칭 적용</button>
-        <div id="ccPdfInvoiceTargetDownloadWrap" style="display:none">
-          <button class="bg" onclick="ccPdfDownloadInvoiceTarget()">⬇ 매칭된 엑셀 다운로드</button>
+    <div class="sec-title" style="margin-bottom:2px">📄 코스트코 PDF 주문서 처리</div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 14px">코스트코 어드민 '주문관리 &gt; 인쇄'에서 다운로드한 주문서 PDF를 올리면 받는분·연락처·주소·상품명·수량·배송메시지를 자동으로 읽어 <b>발주서 양식</b>으로 변환합니다(상품컬러코드 자동 매칭, 린다우·아다나·메르신 마스크는 2개입이라 수량 자동 2배). 아래 1~5단계는 좌우 어느 순서로 진행해도 됩니다. 개인정보는 발주서 작성 목적으로만 이번 세션에서 읽고 저장하지 않습니다.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:6px">
+      <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="background:#1b6e82;color:#fff;font-size:12px;font-weight:700;text-align:center;padding:8px 6px;line-height:1.35">1단계<br>PDF 업로드/끌어오기</div>
+        <div style="background:#f8fafc;padding:10px 8px;display:flex;flex-direction:column;gap:6px;flex:1">
+          <label class="bs" style="cursor:pointer;text-align:center;font-size:12px">📁 업로드<input type="file" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)"></label>
+          <div id="ccPdfDropZone" onclick="document.getElementById('ccPdfFileInput2').click()" style="border:2px dashed #cbd5e1;border-radius:8px;flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;cursor:pointer;color:#64748b;font-size:11.5px;transition:border-color .15s,background .15s">
+            📂 끌어다 놓기(여러 개)
+            <input type="file" id="ccPdfFileInput2" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)">
+          </div>
         </div>
-        <span id="ccPdfInvoiceStatus" style="font-size:12px;color:#94a3b8"></span>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="background:#1b6e82;color:#fff;font-size:12px;font-weight:700;text-align:center;padding:8px 6px;line-height:1.35">2단계<br>매칭</div>
+        <div style="background:#f8fafc;padding:10px 8px;display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
+          <div id="ccPdfStatus" style="font-size:11.5px;color:#64748b;text-align:center">업로드된 PDF가 없습니다.</div>
+        </div>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="background:#1b6e82;color:#fff;font-size:12px;font-weight:700;text-align:center;padding:8px 6px;line-height:1.35">3단계<br>엑셀 다운로드</div>
+        <div style="background:#f8fafc;padding:10px 8px;display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
+          <button class="bg" style="width:100%;font-size:12px" onclick="ccPdfDownload()">📥 다운로드</button>
+        </div>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="background:#1b6e82;color:#fff;font-size:12px;font-weight:700;text-align:center;padding:8px 6px;line-height:1.35">4단계<br>송장번호 파일 업로드</div>
+        <div style="background:#f8fafc;padding:10px 8px;display:flex;flex-direction:column;gap:6px;flex:1">
+          <div id="ccPdfInvoiceDropZone" onclick="document.getElementById('ccPdfInvoiceFileInput').click()" style="border:2px dashed #cbd5e1;border-radius:8px;flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;cursor:pointer;color:#64748b;font-size:11.5px;transition:border-color .15s,background .15s">
+            📁 업로드/끌어오기<br>(A열=주문번호)
+            <input type="file" id="ccPdfInvoiceFileInput" accept=".xlsx,.xls" style="display:none" onchange="ccPdfLoadInvoiceFile(this)">
+          </div>
+        </div>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="background:#1b6e82;color:#fff;font-size:12px;font-weight:700;text-align:center;padding:8px 6px;line-height:1.35">5단계<br>붙여넣기+다운로드</div>
+        <div style="background:#f8fafc;padding:10px 8px;display:flex;flex-direction:column;gap:6px;flex:1">
+          <textarea id="ccPdfInvoicePaste" placeholder="주문번호·송장번호 표 붙여넣기(Ctrl+V)" style="width:100%;box-sizing:border-box;min-height:48px;border:1px solid #cbd5e1;border-radius:8px;padding:6px;font-size:11px;font-family:inherit;resize:vertical" onpaste="setTimeout(ccPdfApplyInvoicePaste,0)"></textarea>
+          <button class="bs" style="width:100%;font-size:12px" onclick="ccPdfApplyInvoicePaste()">매칭 적용</button>
+          <div id="ccPdfInvoiceTargetDownloadWrap" style="display:none">
+            <button class="bg" style="width:100%;font-size:12px" onclick="ccPdfDownloadInvoiceTarget()">⬇ 다운로드</button>
+          </div>
+        </div>
       </div>
     </div>
+    <div id="ccPdfInvoiceStatus" style="font-size:12px;color:#94a3b8;min-height:1.2em;margin-bottom:10px"></div>
+    <div id="ccPdfResultWrap"></div>
+    <p style="font-size:11px;color:#94a3b8;margin:10px 0 0">4·5단계: 4단계에서 올린 파일의 <b>J열에 "C-CJ"</b>, <b>K열에 송장번호</b>가 5단계 매칭 결과로 채워집니다. 1~3단계(PDF)를 하지 않아도 4·5단계만으로 동작하며, 1~3단계를 진행한 상태라면 위 주문 목록에도 함께 반영됩니다.</p>
   </div>
 </div>
 </div><!-- /page-ccpdforder -->
