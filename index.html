@@ -839,12 +839,14 @@ label{font-size:14px!important}
   <div class="card">
     <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span>📄 코스트코 PDF 주문서 업로드</span>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <label class="bs" style="cursor:pointer">📁 PDF 업로드(여러 개 선택 가능)<input type="file" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)"></label>
+        <label class="bs" style="cursor:pointer">📮 송장번호 엑셀 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="ccPdfLoadInvoiceFile(this)"></label>
         <button class="bg" onclick="ccPdfDownload()">📥 엑셀 다운로드</button>
       </div>
     </div>
-    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코 어드민 '주문관리 &gt; 인쇄'에서 다운로드한 주문서 PDF를 그대로 올리면, 주문(페이지)별로 받는분·연락처·주소·상품명·수량·배송메시지를 자동으로 읽어 '화이트샌즈 CX 통합관리' <b>발주서 양식</b>으로 바로 변환합니다. 상품컬러코드는 사내 상품 데이터로 자동 매칭되며(매칭 안 되면 빨간 칸에 직접 입력), <b>린다우·아다나·메르신 마스크는 2개입 1세트라 수량이 자동으로 2배</b>로 계산됩니다. 개인정보(받는분·연락처·주소)는 발주서 작성 목적으로만 이번 세션에서 읽으며 별도 저장은 하지 않습니다.</p>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 12px">코스트코 어드민 '주문관리 &gt; 인쇄'에서 다운로드한 주문서 PDF를 그대로 올리면, 주문(페이지)별로 받는분·연락처·주소·상품명·수량·배송메시지를 자동으로 읽어 '화이트샌즈 CX 통합관리' <b>발주서 양식</b>으로 바로 변환합니다. 상품컬러코드는 사내 상품 데이터로 자동 매칭되며(매칭 안 되면 빨간 칸에 직접 입력), <b>린다우·아다나·메르신 마스크는 2개입 1세트라 수량이 자동으로 2배</b>로 계산됩니다. 개인정보(받는분·연락처·주소)는 발주서 작성 목적으로만 이번 세션에서 읽으며 별도 저장은 하지 않습니다.<br>주문번호·송장번호가 담긴 엑셀(예: PurchaseOrderDetail)을 "📮 송장번호 엑셀 업로드"로 올리면 A열의 주문번호로 자동 매칭되어 <b>운송장 번호</b>가 채워집니다(매칭 안 되면 빨간 칸에 직접 입력).</p>
+    <div id="ccPdfInvoiceStatus" style="font-size:12px;color:#94a3b8;margin:-6px 0 12px"></div>
     <div id="ccPdfDropZone" onclick="document.getElementById('ccPdfFileInput2').click()" style="border:2px dashed #cbd5e1;border-radius:10px;min-height:120px;display:flex;align-items:center;justify-content:center;padding:36px;text-align:center;cursor:pointer;color:#64748b;font-size:15px;margin-bottom:12px;transition:border-color .15s,background .15s">
       📂 PDF 파일을 여기로 끌어다 놓거나 클릭해서 여러 개 선택하세요
       <input type="file" id="ccPdfFileInput2" accept=".pdf" multiple style="display:none" onchange="ccPdfLoadFiles(this)">
@@ -7043,7 +7045,7 @@ function _ccPdfParsePageLines(lines){
       colorCode:dd?dd.skuCode:(cm?(cm.base+mappedColor+"X"):""),
       barcode:dd?(dd.barcode||""):"",
       amt:amt,
-      qty:qty,matched:!!dd
+      qty:qty,matched:!!dd,invoiceNo:""
     };
   });
 }
@@ -7109,7 +7111,7 @@ function renderCcPdfTable(){
     +'<th style="'+th+'">받는분</th><th style="'+th+'">연락처</th><th style="'+th+'">주소</th>'
     +'<th style="'+th+'">상품명</th><th style="'+th+'">상품코드</th><th style="'+th+'">상품컬러코드</th>'
     +'<th style="'+th+'">바코드</th><th style="'+th+'">수량</th><th style="'+th+'">결제금액</th>'
-    +'<th style="'+th+'">주문번호</th><th style="'+th+'">배송메시지</th><th style="'+th+'"></th>'
+    +'<th style="'+th+'">주문번호</th><th style="'+th+'">송장번호</th><th style="'+th+'">배송메시지</th><th style="'+th+'"></th>'
     +'</tr></thead><tbody>';
   ccPdfRows.forEach(function(r,i){
     h+='<tr'+(!r.matched?' style="background:#fef2f2"':'')+'>'
@@ -7123,6 +7125,7 @@ function renderCcPdfTable(){
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.amt)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.orderNo)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:120px"><input type="text" value="'+_esc(r.invoiceNo||"")+'" data-i="'+i+'" onchange="ccPdfEditInvoiceNo(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.invoiceNo?'#d1d5db':'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:12px'+(r.invoiceNo?'':';color:#dc2626')+'"></td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11.5px;color:#64748b">'+_esc(r.msg)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center"><button onclick="ccPdfRemoveRow('+i+')" style="border:none;background:none;color:#94a3b8;cursor:pointer;font-size:14px">✕</button></td>'
       +'</tr>';
@@ -7137,9 +7140,75 @@ function ccPdfEditColorCode(input){
   ccPdfRows[i].matched=true;
   renderCcPdfTable();
 }
+function ccPdfEditInvoiceNo(input){
+  var i=Number(input.dataset.i);
+  if(!ccPdfRows[i])return;
+  ccPdfRows[i].invoiceNo=input.value.trim();
+  renderCcPdfTable();
+}
 function ccPdfRemoveRow(i){
   ccPdfRows.splice(i,1);
   renderCcPdfTable();
+}
+/* 주문번호(A열 등)·송장번호가 담긴 엑셀(예: PurchaseOrderDetail_*.xlsx)을 업로드하면
+   주문번호로 매칭해 ccPdfRows[].invoiceNo(운송장 번호)를 채움.
+   헤더가 있으면 "주문번호"/"송장번호(운송장)" 열을 찾고, 없으면 A열=주문번호, 마지막 열=송장번호로 간주 */
+function ccPdfLoadInvoiceFile(input){
+  var file=input.files[0];if(!file)return;
+  var statusEl=document.getElementById("ccPdfInvoiceStatus");
+  if(statusEl)statusEl.textContent="불러오는 중...";
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      var norm=function(s){return String(s||"").replace(/\s/g,"");};
+      var hRow=-1;
+      for(var r=0;r<Math.min(3,rows.length);r++){
+        var H=(rows[r]||[]).map(norm);
+        if(H.some(function(c){return c.indexOf("주문번호")>=0;})){hRow=r;break;}
+      }
+      var cOrder=0,cInvoice=-1,startRow=0;
+      if(hRow>=0){
+        var H2=(rows[hRow]||[]).map(norm);
+        var oi=H2.findIndex(function(c){return c.indexOf("주문번호")>=0;});
+        if(oi>=0)cOrder=oi;
+        var ii=H2.findIndex(function(c){return c.indexOf("송장")>=0||c.indexOf("운송장")>=0;});
+        if(ii>=0)cInvoice=ii;
+        startRow=hRow+1;
+      }
+      if(cInvoice<0){
+        var maxCol=0;
+        rows.forEach(function(rr){if(rr&&rr.length>maxCol)maxCol=rr.length;});
+        cInvoice=maxCol-1;
+      }
+      var map={};
+      for(var r2=startRow;r2<rows.length;r2++){
+        var row=rows[r2];if(!row||!row[cOrder])continue;
+        var ord=String(row[cOrder]).trim();
+        var inv=String(row[cInvoice]||"").trim();
+        if(ord&&inv)map[ord]=inv;
+      }
+      if(!Object.keys(map).length){
+        alert("송장번호 파일에서 주문번호/송장번호를 인식하지 못했습니다.");
+        if(statusEl)statusEl.textContent="";
+        return;
+      }
+      var matched=0;
+      ccPdfRows.forEach(function(rr){
+        var inv=map[String(rr.orderNo||"").trim()];
+        if(inv){rr.invoiceNo=inv;matched++;}
+      });
+      renderCcPdfTable();
+      if(statusEl)statusEl.textContent="✔ 주문 "+Object.keys(map).length+"건 조회 · "+matched+"건 매칭됨"+(ccPdfRows.length>matched?' <span style="color:#dc2626">('+(ccPdfRows.length-matched)+'건 미매칭 — 빨간 칸에 직접 입력)</span>':"");
+    }catch(err){
+      alert("송장번호 파일 오류: "+err.message);
+      if(statusEl)statusEl.textContent="";
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value="";
 }
 /* 'CX팀_물류센터' 시트(출고 LIST) 양식과 동일한 컬럼 순서. A/B열은 시트와 동일하게 빈 칸으로 비워둠(그대로 복사-붙여넣기 가능) */
 var CC_PDF_WEEKDAY_KR=["일","월","화","수","목","금","토"];
@@ -7152,7 +7221,7 @@ function ccPdfDownload(){
   var reqDate=_ccPdfRequestDateStr();
   var aoa=[["","","요청일","목적","전산 처리 방법","요청자","수령인","배송수단","운송장 번호","받는분연락처","받는분기타연락처","주소","배송메세지","상품컬러명(플레이엠디)","수량","결제금액","큐텐(한글상품명)","바코드","큐텐바코드","상품코드","쇼핑몰(참고용)","상품컬러코드","상품명(수집)","옵션(수집)","주문자명","비고","주문일시","주문자 전화번호 1","주문자 전화번호 1"]];
   ccPdfRows.forEach(function(r){
-    aoa.push(["","",reqDate,"",r.orderNo,"코스트코PDF",r.name,"택배","",r.phone,"",r.address,r.msg,r.prodName,r.qty,r.amt,"",r.barcode,"",r.prodCode,"",r.colorCode,"","","","CSTC 코스트코 창고출고",r.orderDate,"",""]);
+    aoa.push(["","",reqDate,"",r.orderNo,"코스트코PDF",r.name,"택배",r.invoiceNo||"",r.phone,"",r.address,r.msg,r.prodName,r.qty,r.amt,"",r.barcode,"",r.prodCode,"",r.colorCode,"","","","CSTC 코스트코 창고출고",r.orderDate,"",""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"]=[{wch:3},{wch:3},{wch:10},{wch:8},{wch:14},{wch:12},{wch:10},{wch:8},{wch:14},{wch:14},{wch:14},{wch:40},{wch:16},{wch:50},{wch:7},{wch:10},{wch:14},{wch:16},{wch:14},{wch:12},{wch:12},{wch:18},{wch:14},{wch:14},{wch:10},{wch:20},{wch:12},{wch:14},{wch:14}];
