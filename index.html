@@ -6223,7 +6223,7 @@ function parseCostcoRows(rows){
   }
   /* ─ 데이터 1차 처리 ─ */
   var weekMap={};
-  var skipDate=0,skipProd=0,skipColor=0,skipReturn=0;
+  var skipDate=0,skipProd=0,skipColor=0,skipReturn=0,skipZero=0;
   var unmatchedRows=[]; /* 미매칭 행 보관 (2차 처리용) */
   var autoAddCandidates={}; /* {단축명: {colors:{}, prices:[]}} */
   var prodCosts={}; /* {상품명: 사전원가(단위)} — 마진계산 자동로드용 */
@@ -6243,7 +6243,11 @@ function parseCostcoRows(rows){
     if(cSaleDiv>=0){
       var sd=String(row[cSaleDiv]||"").trim();
       if(/반품|취소|cancel/i.test(sd)){skipReturn++;continue;}
+      if(/교환|exchange/i.test(sd)){skipZero++;continue;}
     }
+    /* 교환건은 판매금액이 0원으로 들어오므로 매출·판매수량 모두에서 제외
+       (예: 세팔로 2개 19,990원 → 실제 판매 1개 + 교환 1개) */
+    if(cAmt>=0&&!_ccCodeFmt&&(Number(row[cAmt])||0)===0){skipZero++;continue;}
     var dt=_ccCodeFmt?new Date():ccParseDate(cDate>=0?row[cDate]:null);
     if(!dt){skipDate++;continue;}
     if(_ccSimple&&!_ccFileYear){_ccFileYear=dt.getFullYear();_ccFileMonth=dt.getMonth()+1;}
@@ -6329,7 +6333,7 @@ function parseCostcoRows(rows){
   }
 
   /* ─ 파싱 결과 진단 ─ */
-  console.log("[코스트코 업로드] 스킵: 날짜미인식="+skipDate+" 상품미매칭="+skipProd+" 색상미매칭="+skipColor+" 반품제외="+skipReturn);
+  console.log("[코스트코 업로드] 스킵: 날짜미인식="+skipDate+" 상품미매칭="+skipProd+" 색상미매칭="+skipColor+" 반품제외="+skipReturn+" 교환/0원제외="+skipZero);
   console.log("[코스트코 업로드] 생성된 날짜키:", Object.keys(weekMap));
   var _sampleLog=[];
   Object.keys(weekMap).forEach(function(p){Object.keys(weekMap[p]).forEach(function(pr){Object.keys(weekMap[p][pr]).forEach(function(cl){_sampleLog.push(p+"/"+pr+"/"+cl+"="+weekMap[p][pr][cl].qty);});});});
@@ -6360,7 +6364,7 @@ function parseCostcoRows(rows){
     if(p){p.mgPrice=Number(bestUnit);_priceN++;}
   });
   if(_priceN)console.log("[코스트코 업로드] 마진계산 판매가(판매단가 최빈값) 저장:",_priceN+"개 상품");
-  ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn,autoAdded:autoAdded,costN:_costN},_ccSimple?{merge:true,year:_ccFileYear,month:_ccFileMonth}:null);
+  ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn,skipZero:skipZero,autoAdded:autoAdded,costN:_costN},_ccSimple?{merge:true,year:_ccFileYear,month:_ccFileMonth}:null);
 }
 
 function ccMergeWeekMap(weekMap,skipInfo,opt){
@@ -6407,7 +6411,8 @@ function ccMergeWeekMap(weekMap,skipInfo,opt){
     var si=skipInfo||{};
     var skipTxt=(si.skipDate||si.skipProd||si.skipColor)?' (미인식 '+(si.skipProd+si.skipColor)+'행 제외)':'';
     var addTxt=(si.autoAdded&&si.autoAdded.length)?' 🆕 신규상품 추가: '+si.autoAdded.join(', '):'';
-    msg.textContent="✅ "+periods.length+"개 날짜 반영 완료 (마지막: "+_last+")"+skipTxt+addTxt+(monthHint?" → "+monthHint:"");
+    var exTxt=si.skipZero?' · 교환(0원) '+si.skipZero+'건 제외':'';
+    msg.textContent="✅ "+periods.length+"개 날짜 반영 완료 (마지막: "+_last+")"+skipTxt+exTxt+addTxt+(monthHint?" → "+monthHint:"");
     setTimeout(function(){msg.textContent="";},5000);
   }
 }
