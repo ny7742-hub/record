@@ -303,6 +303,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-tbl .cc-color-cell{background:#f9fafb;font-size:14px;min-width:0;padding-left:6px;padding-right:6px}
 .cc-tbl .cc-num-cell{text-align:right;min-width:70px}
 .cc-tbl .cc-amt-cell{text-align:right;min-width:90px}
+.cc-tbl .cc-amt-diff{background:#fef3c7 !important;color:#b45309 !important;font-weight:800;box-shadow:inset 0 0 0 2px #f59e0b}
 .cc-tbl .cc-nodata{background:#c8ccd4}
 .cc-tbl [contenteditable]:focus{outline:2px solid #6366f1;background:#eff6ff!important}
 .cc-tbl .cc-sticky-1{position:sticky;left:0;z-index:3}
@@ -5825,9 +5826,9 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"소니아", code:"672524", price:25990, colors:["베이지","블랙","아이보리"]},
     {name:"케디리", code:"694467", price:25990, colors:["베이지","블랙","화이트"]},
     {name:"일리안", code:"694468", price:25990, colors:["베이지","블랙","세이지그린"]},
-    {name:"아다나", code:"693950", price:15990, colors:["블랙","화이트","라이트그레이","스킨"]},
-    {name:"린다우", code:"693952", price:15990, colors:["블랙","라이트그레이","스킨","화이트"]},
-    {name:"메르신", code:"693953", price:17990, colors:["블랙","라이트그레이","화이트"]},
+    {name:"아다나", code:"693950", price:12990, colors:["블랙","화이트","라이트그레이","스킨"]},
+    {name:"린다우", code:"693952", price:12990, colors:["블랙","라이트그레이","스킨","화이트"]},
+    {name:"메르신", code:"693953", price:15990, colors:["블랙","라이트그레이","화이트"]},
     {name:"아말리", code:"690569", price:27990, colors:["애쉬핑크","블랙","아이보리"]},
     {name:"오비크", code:"690567", price:27990, colors:["블랙","크림","그레이"]},
     {name:"아르고", code:"690568", price:25990, colors:["챠콜","인디핑크","아이보리"]},
@@ -5861,6 +5862,8 @@ var _masterColors={
   "아르고": ["챠콜","인디핑크","아이보리"],
   "헬로나": ["블랙","브라운","카키"]
 };
+/* 세트(2개입) 상품 기준가 — 수량 2개(=1세트) 기준 금액. localStorage 오염/구가격 방어 */
+var _masterPrices={"아다나":12990,"린다우":12990,"메르신":15990};
 costcoDB.products.forEach(function(p){
   var newCode=_codeMap[p.name]||"";
   if(p.code!==newCode){p.code=newCode;_needSave=true;}
@@ -5870,6 +5873,11 @@ costcoDB.products.forEach(function(p){
     var master=_masterColors[p.name];
     var wrong=master.length!==p.colors.length||master.some(function(c){return p.colors.indexOf(c)<0;});
     if(wrong){p.colors=master;_needSave=true;console.log("[색상 교정]",p.name,p.colors,"→",master);}
+  }
+  /* 세트 상품 기준가 교정 */
+  if(_masterPrices[p.name]&&p.price!==_masterPrices[p.name]){
+    console.log("[가격 교정]",p.name,p.price,"→",_masterPrices[p.name]);
+    p.price=_masterPrices[p.name];_needSave=true;
   }
 });
 /* 신규 기본 상품 마이그레이션 */
@@ -7967,7 +7975,12 @@ function renderCostcoPage(){
           var nd=(nodata&&!isSaleProd)?' cc-nodata':'';
           var saleCls=isSaleProd?' cc-sale-td':'';
           h+='<td class="cc-num-cell'+nd+saleCls+' cc-sel-able" data-val="'+(d.qty||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="qty">'+(d.qty?fmtCC(d.qty):'')+'</td>';
-          h+='<td class="cc-amt-cell'+nd+saleCls+' cc-sel-able" data-val="'+(d.amount||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="amount">'+(d.amount?fmtCC(d.amount):'')+'</td>';
+          /* 업로드된 금액이 기준가(세일가 우선) x 수량과 다르면 색으로 표시 */
+          var _expAmt=Math.round((Number(d.qty)||0)*(salePr||prod.price||0));
+          var _diff=(d.amount&&_expAmt)?(Number(d.amount)-_expAmt):0;
+          var _diffCls=(Math.abs(_diff)>10)?' cc-amt-diff':'';
+          var _diffTip=_diffCls?(' title="업로드 금액 '+fmtCC(d.amount)+'원 / 기준 '+fmtCC(_expAmt)+'원 ('+(_diff>0?'+':'')+fmtCC(_diff)+'원)"'):'';
+          h+='<td class="cc-amt-cell'+nd+saleCls+_diffCls+' cc-sel-able"'+_diffTip+' data-val="'+(d.amount||0)+'" data-prod="'+prod.name+'" data-color="'+color+'" data-period="'+k+'" data-type="amount">'+(d.amount?fmtCC(d.amount):'')+'</td>';
           mQty+=Number(d.qty||0); mAmt+=Number(d.amount||0);
         });
         var _mrc='cc-month-row-'+prod.name+'_'+color;
