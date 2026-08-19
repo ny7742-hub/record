@@ -497,7 +497,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">📅 매장별 일별매출</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
   <button class="tab-btn" id="tab-ccorder" onclick="switchTab('ccorder')">🚚 사입출고</button>
-  <button class="tab-btn" id="tab-ccpdforder" onclick="switchTab('ccpdforder')">📄 코스트코 PDF발주</button>
+  <button class="tab-btn" id="tab-ccpdforder" onclick="switchTab('ccpdforder')">📄 코스트코 발주</button>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <button class="tab-btn" id="tab-stock" onclick="switchTab('stock')">🏭 홈쇼핑몰 재고확인</button>
@@ -837,7 +837,10 @@ label{font-size:14px!important}
 <div id="page-ccpdforder" style="display:none">
 <div class="main" style="max-width:1300px">
   <div class="card">
-    <div class="sec-title" style="margin-bottom:2px">📄 코스트코 PDF 주문서 처리</div>
+    <div class="sec-title" style="margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>📄 코스트코 발주</span>
+      <button class="bs" style="font-size:11px;padding:5px 12px" onclick="ccPdfResetAll()" title="업로드한 PDF·송장번호·대상 파일을 모두 지우고 처음 상태로">🗑 초기화</button>
+    </div>
     <p style="font-size:12px;color:#5b6675;margin:0 0 14px">코스트코 어드민 '주문관리 &gt; 인쇄'에서 다운로드한 주문서 PDF를 올리면 받는분·연락처·주소·상품명·수량·배송메시지를 자동으로 읽어 <b>발주서 양식</b>으로 변환합니다(상품컬러코드 자동 매칭, 린다우·아다나·메르신 마스크는 2개입이라 수량 자동 2배). 아래 1~5단계는 좌우 어느 순서로 진행해도 됩니다. 개인정보는 발주서 작성 목적으로만 이번 세션에서 읽고 저장하지 않습니다.</p>
 
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:6px">
@@ -7355,6 +7358,20 @@ function ccPdfDownloadInvoiceTarget(){
   XLSX.utils.book_append_sheet(wb,ws,(ccPdfInvoiceTarget.sheetName||"Sheet1").slice(0,31));
   var base=ccPdfInvoiceTarget.fileName.replace(/\.(xlsx|xls)$/i,"");
   XLSX.writeFile(wb,base+"_송장번호매칭.xlsx");
+}
+/* 초기화 — 업로드한 PDF 주문목록·누적 송장번호·대상 엑셀을 모두 비우고 처음 상태로 되돌림.
+   (PDF 연속 업로드 누적은 그대로 유지되므로, 새 작업을 시작할 때만 사용) */
+function ccPdfResetAll(){
+  var has=ccPdfRows.length||Object.keys(ccPdfInvoiceMap).length||ccPdfInvoiceTarget;
+  if(has&&!confirm("불러온 PDF 주문 "+ccPdfRows.length+"건, 송장번호 "+Object.keys(ccPdfInvoiceMap).length+"건을 모두 지우고 처음 상태로 되돌릴까요?"))return;
+  ccPdfRows=[];
+  ccPdfInvoiceMap={};
+  ccPdfInvoiceTarget=null;
+  var ta=document.getElementById("ccPdfInvoicePaste");if(ta)ta.value="";
+  var f1=document.getElementById("ccPdfFileInput2");if(f1)f1.value="";
+  var f2=document.getElementById("ccPdfInvoiceFileInput");if(f2)f2.value="";
+  renderCcPdfTable();
+  _ccPdfRefreshInvoiceStatus();
 }
 function ccPdfLoadInvoiceFile(input){
   _ccPdfProcessInvoiceFiles(input.files);
