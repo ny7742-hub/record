@@ -7106,16 +7106,30 @@ function ccPdfDropZoneInit(){
     _ccPdfProcessFiles(e.dataTransfer.files);
   });
 }
+/* 2단계 매칭 현황 배지 — 좁은 스텝 카드 안에서도 한눈에 보이도록 색/크기로 구분 */
+function _ccPdfMatchBadge(total,noMatch){
+  if(noMatch){
+    return '<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:8px;padding:8px 6px">'
+      +'<div style="font-size:15px;font-weight:800;color:#dc2626;line-height:1.2">⚠ '+noMatch+'건 미매칭</div>'
+      +'<div style="font-size:10px;color:#b91c1c;margin-top:3px;font-weight:700">총 '+total+'건 중</div>'
+      +'<div style="font-size:9.5px;color:#94a3b8;margin-top:4px;line-height:1.3">상품명 그대로 다운로드되며,<br>아래 표에서 직접 입력 가능</div>'
+      +'</div>';
+  }
+  return '<div style="background:#f0fdf4;border:2px solid #86efac;border-radius:8px;padding:8px 6px">'
+    +'<div style="font-size:15px;font-weight:800;color:#16a34a;line-height:1.2">✅ 매칭완료</div>'
+    +'<div style="font-size:10px;color:#15803d;margin-top:3px;font-weight:700">총 '+total+'건 전체 매칭</div>'
+    +'</div>';
+}
 function renderCcPdfTable(){
   var statusEl=document.getElementById("ccPdfStatus");
   var wrap=document.getElementById("ccPdfResultWrap");
   if(!ccPdfRows.length){
-    statusEl.textContent="업로드된 PDF가 없습니다.";
+    statusEl.innerHTML='<div style="font-size:11px;color:#94a3b8;padding:6px 0">PDF 업로드 대기중</div>';
     wrap.innerHTML="";
     return;
   }
   var noMatch=ccPdfRows.filter(function(r){return !r.matched;}).length;
-  statusEl.innerHTML="총 "+ccPdfRows.length+"건 인식됨"+(noMatch?' <span style="color:#dc2626">('+noMatch+'건 상품코드 미매칭 — 상품명 그대로 다운로드되며, 필요시 발주서에서 직접 코드 입력)</span>':' <span style="color:#16a34a">(전체 상품코드 매칭 완료)</span>');
+  statusEl.innerHTML=_ccPdfMatchBadge(ccPdfRows.length,noMatch);
   var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px;color:#1b6e82;font-size:12px;white-space:nowrap';
   var h='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:13px">';
   h+='<thead><tr>'
