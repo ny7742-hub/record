@@ -7183,7 +7183,23 @@ function _ccPdfParsePageLines(lines){
     };
   });
 }
-/* PDF 파일명에 "모자"/"우산"이 들어있으면 해당 단어를 반환 (다운로드 파일 D열에 기재) */
+/* 상품명으로 품목 분류 — 우양산/우산/양산 → 우산, 마스크 → 마스크, 그 외는 모자 */
+function _ccPdfItemCategory(prodName){
+  var n=String(prodName||"");
+  if(/우양산|우산|양산/.test(n))return "우산";
+  if(/마스크/.test(n))return "마스크";
+  return "모자";
+}
+/* 주문 전체(다운로드 대상) 기준 "목적" 값 — 우산·마스크가 하나라도 있으면 "우산 마스크",
+   모자만 있으면 "모자". 물류센터에서 품목군별로 출고 라인이 달라 구분이 필요함 */
+function _ccPdfPurpose(rows){
+  var has={};
+  (rows||[]).forEach(function(r){has[_ccPdfItemCategory(r.prodName)]=1;});
+  if(has["우산"]||has["마스크"])return "우산 마스크";
+  if(has["모자"])return "모자";
+  return "";
+}
+/* PDF 파일명에 "모자"/"우산"이 들어있으면 해당 단어를 반환 (품목 분류 실패 시 보조용) */
 function _ccPdfCategoryFromFileName(name){
   var n=String(name||"");
   if(n.indexOf("모자")>=0)return "모자";
@@ -7528,9 +7544,10 @@ function _ccPdfRequestDateStr(){
 function ccPdfDownload(){
   if(!ccPdfRows.length){alert("다운로드할 주문 데이터가 없습니다.\n먼저 위에서 코스트코 PDF 주문서를 업로드해주세요."+(Object.keys(ccPdfInvoiceMap).length?"\n(붙여넣은 송장번호는 유지되어 PDF를 올리면 자동으로 매칭됩니다)":""));return;}
   var reqDate=_ccPdfRequestDateStr();
+  var purpose=_ccPdfPurpose(ccPdfRows);
   var aoa=[["","","요청일","목적","전산 처리 방법","요청자","수령인","배송수단","운송장 번호","받는분연락처","받는분기타연락처","주소","배송메세지","상품컬러명(플레이엠디)","수량","결제금액","큐텐(한글상품명)","바코드","큐텐바코드","상품코드","쇼핑몰(참고용)","상품컬러코드","상품명(수집)","옵션(수집)","주문자명","비고","주문일시","주문자 전화번호 1","주문자 전화번호 1"]];
   ccPdfRows.forEach(function(r){
-    aoa.push(["","",reqDate,r.category||"",r.orderNo,"코스트코 온라인",r.name,"택배",r.invoiceNo||"",r.phone,"",r.address,r.msg,r.prodName,r.qty,r.amt,"",r.barcode,"",r.prodCode,"",r.colorCode,"","","","CSTC 코스트코 창고출고",r.orderDate,"",""]);
+    aoa.push(["","",reqDate,purpose||r.category||"",r.orderNo,"코스트코 온라인",r.name,"택배",r.invoiceNo||"",r.phone,"",r.address,r.msg,r.prodName,r.qty,r.amt,"",r.barcode,"",r.prodCode,"",r.colorCode,"","","","CSTC 코스트코 창고출고",r.orderDate,"",""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"]=[{wch:3},{wch:3},{wch:10},{wch:8},{wch:14},{wch:12},{wch:10},{wch:8},{wch:14},{wch:14},{wch:14},{wch:40},{wch:16},{wch:50},{wch:7},{wch:10},{wch:14},{wch:16},{wch:14},{wch:12},{wch:12},{wch:18},{wch:14},{wch:14},{wch:10},{wch:20},{wch:12},{wch:14},{wch:14}];
