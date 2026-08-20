@@ -943,7 +943,7 @@ label{font-size:14px!important}
       <button class="bs" style="font-size:11px;padding:5px 12px" onclick="anResetAll()" title="불러온 발주서를 지우고 처음 상태로">🗑 초기화</button>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px">
       <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
         <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">1단계<br>아난티 발주서 업로드</div>
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">
@@ -975,7 +975,21 @@ label{font-size:14px!important}
         </div>
       </div>
       <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
-        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">4단계<br>거래명세서 발행</div>
+        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">4단계<br>미출고 반영</div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">
+          <div id="anShipDropZone" class="drop-zone" onclick="document.getElementById('anShipFileIn').click()" style="border-radius:8px;flex:1;min-height:56px;padding:8px;font-size:15px;flex-direction:column;gap:2px">
+            <span style="font-size:22px;line-height:1">📦</span><span>업로드/끌어오기</span>
+            <input type="file" id="anShipFileIn" accept=".xlsx,.xls" style="display:none" onchange="anLoadShipFile(this)">
+          </div>
+          <div id="anShipStatus" style="font-size:12.5px;color:#64748b;text-align:center"></div>
+        </div>
+        <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:14px;color:#334155;line-height:1.5">
+          물류에서 회신된<br><b>미출고 제외 발주서</b>를<br>올리면 자동 반영됩니다<br>
+          <span style="color:#64748b">(안 올리면 체크로 직접 조정)</span>
+        </div>
+      </div>
+      <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">5단계<br>거래명세서 발행</div>
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
           <button class="bg" style="width:100%;font-size:15px" onclick="anDownloadInvoiceXlsx()">📥 명세서 엑셀</button>
           <button class="bg" style="width:100%;font-size:15px" onclick="anDownloadInvoicePdf()">📄 명세서 PDF</button>
@@ -3791,7 +3805,7 @@ function switchTab(tab){
   if(tab==="costco"){ renderCostcoPage(); ccDropZoneInit(); }
   if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); }
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); }
-  if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); }
+  if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
   if(tab==="margin") renderMargin();
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock") initStockTab();
@@ -7649,6 +7663,7 @@ var ANANTI_STORES=[
 ];
 var anRows=[];    /* {itemName,short,spec,qty,price,barcode,checked,matched,prodName,colorName,prodCode,skuCode} */
 var anMeta=null;  /* {docNo,rate,buyer,seller,fileName} */
+var anShipInfo=null; /* 물류 회신 반영 결과 {file,kept,dropped,adjusted,rows} */
 
 /* 바코드 → 사내 상품 (내장 기본데이터 + 업로드된 상품리스트가 우선) */
 function _anBarcodeIndex(){
@@ -7813,6 +7828,74 @@ function _anProcessFiles(fileList){
   reader.readAsArrayBuffer(file);
 }
 function anLoadFile(input){_anProcessFiles(input.files);input.value="";}
+/* ── 4단계: 물류 회신(미출고 제외) 발주서 반영 ──
+   도매발주서 양식(27열)을 그대로 되받아, 그 파일에 남아있는 상품만 출고로 체크하고
+   수량이 줄어든 경우 그 수량으로 맞춘다. 파일에 없는 상품은 미출고로 자동 제외. */
+function _anShipKey(v){return String(v==null?"":v).replace(/\s/g,"").toUpperCase();}
+function _anApplyShipRows(rows,fileName){
+  /* 헤더에서 상품컬러코드/상품명/수량 열 찾기 (발주서 양식) */
+  var hRow=-1,cSku=-1,cName=-1,cQty=-1;
+  for(var r=0;r<Math.min(8,rows.length);r++){
+    var H=(rows[r]||[]).map(function(c){return String(c).replace(/\s/g,"");});
+    var i1=H.indexOf("상품컬러코드"),i2=H.indexOf("상품명"),i3=H.indexOf("수량");
+    if(i1>=0||i2>=0){hRow=r;cSku=i1;cName=i2;cQty=i3;break;}
+  }
+  if(hRow<0||(cSku<0&&cName<0)){
+    alert("도매발주서 형식을 인식할 수 없습니다.\n(상품컬러코드 또는 상품명 열이 필요합니다)");
+    return false;
+  }
+  var bySku={},byName={},n=0;
+  for(var i=hRow+1;i<rows.length;i++){
+    var row=rows[i];if(!row)continue;
+    var sku=cSku>=0?_anShipKey(row[cSku]):"";
+    var nm=cName>=0?_anShipKey(row[cName]):"";
+    if(!sku&&!nm)continue;
+    var q=cQty>=0?(Number(String(row[cQty]==null?"":row[cQty]).replace(/,/g,""))||0):0;
+    if(sku)bySku[sku]=(bySku[sku]||0)+q;
+    if(nm)byName[nm]=(byName[nm]||0)+q;
+    n++;
+  }
+  if(!n){alert("회신 파일에서 상품을 찾지 못했습니다.");return false;}
+
+  var kept=0,dropped=0,adjusted=0;
+  anRows.forEach(function(r){
+    var k1=_anShipKey(r.skuCode);
+    var k2=_anShipKey((r.prodName?(r.prodName+" "+r.colorName):r.itemName));
+    var q=null;
+    if(k1&&bySku[k1]!==undefined)q=bySku[k1];
+    else if(k2&&byName[k2]!==undefined)q=byName[k2];
+    if(q===null){r.checked=false;dropped++;return;}
+    r.checked=true;kept++;
+    if(q>0&&q!==r.qty){r.qty=q;adjusted++;}
+  });
+  anShipInfo={file:fileName||"",kept:kept,dropped:dropped,adjusted:adjusted,rows:n};
+  anRenderTable();
+  return true;
+}
+function _anProcessShipFiles(fileList){
+  var file=(fileList||[])[0];if(!file)return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 업로드 가능합니다.");return;}
+  if(!anRows.length){alert("먼저 1단계에서 아난티 발주서를 올려주세요.");return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+      _anApplyShipRows(rows,file.name);
+    }catch(err){alert("파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function anLoadShipFile(input){_anProcessShipFiles(input.files);input.value="";}
+function anShipDropZoneInit(){
+  var zone=document.getElementById("anShipDropZone");
+  if(!zone||zone._wired)return;
+  zone._wired=true;
+  zone.addEventListener("dragover",function(e){e.preventDefault();zone.classList.add("dragover");});
+  zone.addEventListener("dragleave",function(){zone.classList.remove("dragover");});
+  zone.addEventListener("drop",function(e){e.preventDefault();zone.classList.remove("dragover");_anProcessShipFiles(e.dataTransfer.files);});
+}
+
 function anDropZoneInit(){
   var zone=document.getElementById("anDropZone");
   if(!zone||zone._wired)return;
@@ -7823,7 +7906,8 @@ function anDropZoneInit(){
 }
 function anResetAll(){
   if(anRows.length&&!confirm("불러온 발주서 "+anRows.length+"건을 지우고 처음 상태로 되돌릴까요?"))return;
-  anRows=[];anMeta=null;
+  anRows=[];anMeta=null;anShipInfo=null;
+  var sf=document.getElementById("anShipFileIn");if(sf)sf.value="";
   var bar=document.getElementById("anInfoBar");if(bar)bar.style.display="none";
   var f=document.getElementById("anFileIn");if(f)f.value="";
   anRenderTable();
@@ -7844,6 +7928,13 @@ function anRenderTable(){
   var noMatch=anRows.filter(function(r){return !r.matched;}).length;
   if(st)st.innerHTML=(typeof _ccPdfMatchBadge==="function")?_ccPdfMatchBadge(anRows.length,noMatch):("총 "+anRows.length+"건 · 미매칭 "+noMatch+"건");
   var picked=anRows.filter(function(r){return r.checked;});
+  var ship=document.getElementById("anShipStatus");
+  if(ship){
+    ship.innerHTML=anShipInfo
+      ? ('<span style="color:#16a34a;font-weight:700">✔ 반영됨</span><br>출고 '+anShipInfo.kept+'건 · 제외 '+anShipInfo.dropped+'건'
+         +(anShipInfo.adjusted?'<br><span style="color:#b45309">수량조정 '+anShipInfo.adjusted+'건</span>':''))
+      : '<span style="color:#94a3b8">회신 파일 미반영</span>';
+  }
   var sum=document.getElementById("anSummary");
   if(sum)sum.textContent="발주 "+anRows.length+"건 / 출고 "+picked.length+"건 · 수량 "+picked.reduce(function(a,b){return a+b.qty;},0).toLocaleString()+"개";
 
