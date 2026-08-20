@@ -1171,8 +1171,13 @@ var FB_PATH={
 };
 
 /* localStorage + Firebase 동시 저장 */
+/* 로컬(localhost/file) 실행은 개발·테스트 환경이므로 Firebase(팀 공유)에 쓰지 않는다.
+   테스트 중 실수로 팀 전체 데이터가 덮어써지는 사고 방지 — 배포본(github.io)에서만 동기화 */
+var WS_LOCAL_ONLY=(location.protocol==="file:"||/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname));
+if(WS_LOCAL_ONLY)console.warn("[로컬 실행] Firebase 동기화 비활성화 — 변경사항이 팀에 공유되지 않습니다");
 function wsSetItem(key,value){
   localStorage.setItem(key,value);
+  if(WS_LOCAL_ONLY)return;
   if(FB_PATH[key]){
     try{
       fbDB.ref(FB_PATH[key]).set(value);
