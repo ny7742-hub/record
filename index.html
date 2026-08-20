@@ -118,6 +118,15 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .tab-btn{padding:13px 24px;background:none;border:none;border-bottom:3px solid transparent;color:rgba(255,255,255,0.55);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:.2px}
 .tab-btn:hover{color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.06);border-radius:6px 6px 0 0}
 .tab-btn.active{color:#a5b4fc;border-bottom-color:#818cf8;background:rgba(129,140,248,.1);border-radius:6px 6px 0 0}
+/* 발주 관련 탭 묶음 드롭다운 */
+.tab-drop{position:relative;display:inline-block}
+.tab-drop-caret{font-size:10px;opacity:.8;margin-left:2px}
+.tab-drop-menu{display:none;position:absolute;left:0;top:100%;min-width:200px;background:#fff;border:1px solid #cbd5e1;border-radius:0 0 8px 8px;box-shadow:0 8px 24px rgba(0,0,0,.22);padding:6px;z-index:200}
+.tab-drop:hover .tab-drop-menu,.tab-drop.open .tab-drop-menu{display:block}
+.tab-drop-menu .tab-btn{display:block;width:100%;text-align:left;padding:10px 14px;color:#334155;font-size:13px;border-bottom:none;border-radius:6px;white-space:nowrap}
+.tab-drop-menu .tab-btn:hover{background:#eef4f6;color:#0f172a;border-radius:6px}
+.tab-drop-menu .tab-btn.active{background:#1b6e82;color:#fff;border-bottom:none;border-radius:6px}
+.tab-drop.has-active>.tab-drop-btn{color:#a5b4fc;border-bottom-color:#818cf8;background:rgba(129,140,248,.1);border-radius:6px 6px 0 0}
 .meeting-textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#111;background:white;resize:vertical;min-height:90px;font-family:inherit;line-height:1.6;transition:border .15s}
 .meeting-textarea:focus{outline:none;border-color:#6366f1}
 .checklist-item{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid #f3f4f6}
@@ -376,6 +385,10 @@ body{background:#fbf6ec!important;zoom:1.12}
 .tab-btn{padding:11px 22px!important;color:#cfe6e6!important;font-size:13px!important;border-radius:0!important;border-bottom:3px solid transparent!important}
 .tab-btn:hover{background:rgba(255,255,255,.10)!important;color:#fff!important;border-radius:0!important}
 .tab-btn.active{color:#fff!important;background:rgba(232,115,74,.18)!important;border-bottom-color:var(--ws-coral)!important;border-radius:8px 8px 0 0!important;font-weight:700!important}
+.tab-drop-menu .tab-btn{color:#334155!important;background:#fff!important;border-bottom:none!important;border-radius:6px!important}
+.tab-drop-menu .tab-btn:hover{background:#eef4f6!important;color:#0f172a!important}
+.tab-drop-menu .tab-btn.active{background:#154f5e!important;color:#fff!important;border-bottom:none!important}
+.tab-drop.has-active>.tab-drop-btn{color:#fff!important;background:rgba(232,115,74,.18)!important;border-bottom-color:var(--ws-coral)!important;border-radius:8px 8px 0 0!important;font-weight:700!important}
 /* 카드: 매대 카드처럼 둥글고 부드러운 그림자 */
 .card{border-radius:14px!important;border:1px solid var(--ec-line)!important;box-shadow:0 1px 2px rgba(34,48,58,.05),0 6px 16px -10px rgba(34,48,58,.15)!important;padding:16px 18px!important}
 .sec-title{color:#1b6e82!important;letter-spacing:.3px!important;border-bottom:2px solid var(--ec-blue)!important;text-transform:none!important;font-size:13px!important;padding-bottom:7px!important;margin-bottom:13px!important}
@@ -496,8 +509,15 @@ label{font-size:14px!important}
 <div class="tab-nav">
   <button class="tab-btn active" id="tab-home" onclick="switchTab('home')">🛍️ 홈</button>
   <button class="tab-btn" id="tab-sales" onclick="switchTab('sales')">📊 판매일보</button>
-  <button class="tab-btn" id="tab-orderconv" onclick="switchTab('orderconv')">📥 발주서 변환</button>
-  <button class="tab-btn" id="tab-order" onclick="switchTab('order')">📦 발주서(수기)</button>
+  <div class="tab-drop" id="tabDropOrder">
+    <button class="tab-btn tab-drop-btn" onclick="tabDropToggle(event)">📦 발주 <span class="tab-drop-caret">▾</span></button>
+    <div class="tab-drop-menu">
+      <button class="tab-btn" id="tab-orderconv" onclick="switchTab('orderconv')">📥 발주서 변환</button>
+      <button class="tab-btn" id="tab-order" onclick="switchTab('order')">📦 수기발주</button>
+      <button class="tab-btn" id="tab-ccpdforder" onclick="switchTab('ccpdforder')">📄 코스트코 발주</button>
+      <button class="tab-btn" id="tab-ananti" onclick="switchTab('ananti')">🏨 아난티 발주</button>
+    </div>
+  </div>
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
   <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">🏪 팝업</button>
   <button class="tab-btn" id="tab-lossreport" onclick="switchTab('lossreport')">🧾 로스 품의서</button>
@@ -505,8 +525,6 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">📅 매장별 일별매출</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
   <button class="tab-btn" id="tab-ccorder" onclick="switchTab('ccorder')">🚚 사입출고</button>
-  <button class="tab-btn" id="tab-ccpdforder" onclick="switchTab('ccpdforder')">📄 코스트코 발주</button>
-  <button class="tab-btn" id="tab-ananti" onclick="switchTab('ananti')">🏨 아난티 발주</button>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <button class="tab-btn" id="tab-stock" onclick="switchTab('stock')">🏭 홈쇼핑몰 재고확인</button>
@@ -3661,7 +3679,7 @@ function renderHomeDashboard(){
   var cats=[
     {tab:"sales",icon:"bar",acc:"ocean",title:"판매일보",desc:"매장별 오늘 판매 등록·엑셀 다운로드"},
     {tab:"orderconv",icon:"tray",acc:"mustard",title:"발주서 변환",desc:"주문배분현황 → 발주서 자동 변환"},
-    {tab:"order",icon:"box",acc:"coral",title:"발주서(수기)",desc:"매장코드로 수령인·주소 자동입력"},
+    {tab:"order",icon:"box",acc:"coral",title:"수기발주",desc:"매장코드로 수령인·주소 자동입력"},
     {tab:"meeting",icon:"clip",acc:"slate",title:"전략회의",desc:"주간 전략 메모를 팀과 공유"},
     {tab:"popup",icon:"tent",acc:"rose",title:"팝업",desc:"진행중·예정 팝업 일정 관리",chip:(popupOngoing?popupOngoing+"개 진행중":null)},
     {tab:"lossreport",icon:"docCheck",acc:"coral",title:"로스 품의서",desc:"팝업 종료 후 상품 로스 품의서 작성·다운로드"},
@@ -3765,6 +3783,26 @@ function renderQuickLaunch(){
   if(qw)qw.innerHTML='<div class="qc-2col">'+pcTwoCol.map(renderCard).join("")+'</div>'+quick.map(renderCard).join("");
 }
 renderQuickLaunch();
+/* ── 발주 탭 묶음 드롭다운 ── */
+function tabDropToggle(e){
+  if(e){e.preventDefault();e.stopPropagation();}
+  var d=document.getElementById("tabDropOrder");
+  if(d)d.classList.toggle("open");
+}
+/* 하위 탭이 선택되면 상위 "발주" 버튼도 활성 표시 + 메뉴 닫기 */
+function _tabDropSync(){
+  var d=document.getElementById("tabDropOrder");
+  if(!d)return;
+  d.classList.remove("open");
+  var on=!!d.querySelector(".tab-btn.active");
+  d.classList.toggle("has-active",on);
+}
+document.addEventListener("click",function(e){
+  var d=document.getElementById("tabDropOrder");
+  if(!d||!d.classList.contains("open"))return;
+  if(e.target&&typeof e.target.closest==="function"&&e.target.closest("#tabDropOrder"))return;
+  d.classList.remove("open");
+});
 function switchTab(tab){
   document.getElementById("page-home").style.display=tab==="home"?"block":"none";
   document.getElementById("page-sales").style.display=tab==="sales"?"block":"none";
@@ -3806,6 +3844,7 @@ function switchTab(tab){
   if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); }
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); }
   if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
+  _tabDropSync();
   if(tab==="margin") renderMargin();
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock") initStockTab();
