@@ -7034,7 +7034,14 @@ var CC_PDF_CODE_MAP={
   "693952":{base:"GKM117Z9U",name:"[화이트샌즈_그린라벨] 25SS 그린라벨 냉감 UV 쿨링 끈조절 마스크 린다우(Lindau)",setQty:2},
   "693953":{base:"GKM115Z9U",name:"[화이트샌즈_그린라벨] 25SS 그린라벨 냉감 UV 쿨링이어마스크 메르신(Mersin)",setQty:2},
   "694099":{base:"GLM40Z9Z",name:"[화이트샌즈 그린라벨] 26SS 850 우드 핸들 장 UV 우양산 포시타"},
-  "672564":{base:"WHHM1A4S",name:"[화이트샌즈] 22SS 린넨 보닛햇 루시"}
+  "672564":{base:"WHHM1A4S",name:"[화이트샌즈] 22SS 린넨 보닛햇 루시"},
+  "693954":{base:"GLM41Z9Z",name:"[화이트샌즈 그린라벨] 26SS 850 우드 핸들 장 UV 우양산 루시아"},
+  "694100":{base:"GLM42Z9Z",name:"[화이트샌즈 그린라벨] 26SS 850 우드 핸들 장 UV 우양산 세팔로"},
+  "667634":{base:"WHHS9A3K",name:"[화이트샌즈] 22SS 파우더 코튼 언밸런스 플로피햇 크리스티"},
+  "690569":{base:"GKW18T7V",name:"[화이트샌즈 그린라벨] 25FW 퀼팅 패딩 트루퍼 햇 아말리"},
+  "690567":{base:"WKW40T9H",name:"[화이트샌즈] 25FW 울 헤어 이어머프 캡 오비크"},
+  "690568":{base:"WKW21N9S",name:"[화이트샌즈] 25FW 알파카 니트 귀달이퍼 비니 아르고"},
+  "690570":{base:"GKW47K9C",name:"[화이트샌즈 그린라벨] 25FW 경량 패딩 버킷 햇+ 넥워머 SET 헬로나"}
 };
 var CC_PDF_COLOR_MAP={LG:"LGY",SK:"SN",WT:"WH",BK:"BK",BE:"BE",WH:"WH",SGN:"SGN"};
 /* 아이템 목록 영역의 각 줄은 "상품명 수량 상품코드-컬러" 형태(코드가 맨 뒤)로 나온다.
@@ -7052,6 +7059,18 @@ function _ccPdfFmtPhone(p){
   return p.length===11?(p.slice(0,3)+"-"+p.slice(3,7)+"-"+p.slice(7)):p;
 }
 /* 판매일보 상품데이터(DEFAULT_DATA, 플레이엠디 등록 기준)에서 상품코드+칼라코드로 정식 상품명/칼라명/자사코드/바코드를 조회 */
+/* 칼라코드로 못 찾을 때 대비 - PDF 상품명 끝의 칼라명("... - 코튼핑크")으로 DEFAULT_DATA 재조회.
+   코스트코 PDF의 칼라 약어(PK 등)가 사내 칼라코드(CPK 등)와 다른 경우를 자동 보정 */
+function _ccPdfResolveByColorName(baseCode,itemName){
+  if(!baseCode||typeof DEFAULT_DATA==="undefined")return null;
+  var want=String(String(itemName||"").split("-").pop()||"").replace(/\s/g,"").trim();
+  if(!want)return null;
+  var row=DEFAULT_DATA.find(function(r){
+    return r&&r[1]===baseCode&&String(r[4]||"").replace(/\s/g,"")===want;
+  });
+  if(!row)return null;
+  return {prodName:row[2],colorName:row[4],prodCode:row[1],skuCode:row[7],barcode:row[8]};
+}
 function _ccPdfResolveFromDefaultData(baseCode,colorCode){
   if(!baseCode||typeof DEFAULT_DATA==="undefined")return null;
   var row=DEFAULT_DATA.find(function(r){return r&&r[1]===baseCode&&r[3]===colorCode;});
@@ -7119,6 +7138,7 @@ function _ccPdfParsePageLines(lines){
     var mappedColor=CC_PDF_COLOR_MAP[it.color]||it.color;
     var qty=it.qty*((cm&&cm.setQty)||1);
     var dd=cm?_ccPdfResolveFromDefaultData(cm.base,mappedColor):null;
+    if(!dd&&cm)dd=_ccPdfResolveByColorName(cm.base,it.name); /* 칼라코드 불일치 시 칼라명으로 재시도 */
     var amt=_ccPdfCostcoAmount(cm,it.qty);
     return{
       name:name,phone:_ccPdfFmtPhone(phone),zip:zipc,address:address,
