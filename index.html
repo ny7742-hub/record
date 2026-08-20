@@ -1595,6 +1595,25 @@ function processFile(file){
       var fixed=_fixMergedColorRows(newData);
       newData=fixed.rows;
 
+      /* 형식 검증 — 상품별로 칼라를 묶은 요약본(칼라코드 "(CPK DB)", 자사코드 없음)이 올라오면
+         컬러별 검색이 불가능해지므로 저장하지 않고 되돌린다. (잘못된 파일이 팀 전체로 공유되는 사고 방지) */
+      var _noSku=0,_grouped=0;
+      newData.forEach(function(r){
+        if(!String(r[7]||"").trim())_noSku++;
+        var cc=String(r[3]||"").trim();
+        if(/^\(.*\)$/.test(cc)||/\s/.test(cc))_grouped++;
+      });
+      if(newData.length&&(_noSku/newData.length>0.5||_grouped/newData.length>0.5)){
+        status.innerHTML="❌ 컬러별로 분리되지 않은 파일입니다<br>"
+          +'<span style="font-size:11px;font-weight:500">'
+          +"칼라코드가 <b>(CPK DB)</b>처럼 묶여 있거나 자사코드가 비어 있습니다.<br>"
+          +"플레이엠디에서 <b>상품·칼라·사이즈별 1행</b>으로 받은 상품리스트를 올려주세요.<br>"
+          +"(총 "+newData.length+"행 중 자사코드 없음 "+_noSku+"행, 칼라 묶임 "+_grouped+"행)"
+          +'</span>';
+        status.className="upload-status err";
+        return;
+      }
+
       /* 팀 공유(Firebase) + localStorage에 저장 */
       wsSetItem(STORAGE_KEY, JSON.stringify(newData));
       var now=new Date();
