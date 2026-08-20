@@ -4088,10 +4088,10 @@ function renderStockCheckLog(){
   el.textContent="최근 확인: "+stockCheckLog.map(fmt).join(" · ");
 }
 var HS_PRODUCT_LIST_URL="홈쇼핑상품리스트.xlsx";
-var hsProductList=[];       /* {code,name,ch1,ch2} */
+var hsProductList=[];       /* {ch,name,color,sku,note,url} — 컬러별 */
 var stockWarehouseRows=[];  /* {code,color,qty,wh} */
 var stockWarehouseDate="";
-var stockCheckResults=null; /* {code,name,ch1,ch2,qty}[] */
+var stockCheckResults=null; /* {sku,name,color,ch,url,note,qty}[] */
 (function(){
   try{
     var d=JSON.parse(localStorage.getItem("stockCheckResults")||"null");
@@ -4109,13 +4109,39 @@ function loadHsProductList(){
     var wb=XLSX.read(buf,{type:"array"});
     var ws=wb.Sheets[wb.SheetNames[0]];
     var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+    /* 컬러별 상품리스트: 채널 | 상품명 | 칼라명 | 자사코드 | (품절표시) | (상품URL)
+       앞쪽 빈 열이 잘려 열 위치가 밀릴 수 있어, 자사코드 칸을 찾아 상대 위치로 읽는다 */
     var list=[];
-    for(var r=1;r<rows.length;r++){
-      var row=rows[r];if(!row||!row[3])continue;
-      list.push({ch1:String(row[0]||"").trim(),ch2:String(row[1]||"").trim(),name:String(row[2]||"").trim(),code:String(row[3]).trim()});
-    }
+    rows.forEach(function(row){
+      if(!row)return;
+      var si=-1;
+      for(var c=0;c<row.length;c++){
+        if(/^[A-Z][A-Z0-9]{5,}$/.test(String(row[c]==null?"":row[c]).trim())){si=c;break;}
+      }
+      if(si<2)return;                                   /* 자사코드 앞에 채널·상품명·칼라가 있어야 함 */
+      var at=function(i){return (i>=0&&i<row.length)?String(row[i]==null?"":row[i]).trim():"";};
+      list.push({
+        ch:at(si-3), name:at(si-2), color:at(si-1),
+        sku:at(si), note:at(si+1), url:at(si+2)
+      });
+    });
     hsProductList=list;
   }).catch(function(e){console.warn("홈쇼핑 상품리스트 로드 실패",e);});
+}
+/* 자사코드 → {상품코드, 칼라코드} (사내 상품데이터 기준). 없으면 null */
+function _hsSkuParts(sku){
+  var idx=_hsSkuParts._c;
+  if(!idx){
+    idx={};
+    var add=function(code,color,skuCode){
+      skuCode=String(skuCode||"").trim();
+      if(skuCode&&!idx[skuCode])idx[skuCode]={code:String(code||"").trim(),color:String(color||"").trim()};
+    };
+    if(typeof DEFAULT_DATA!=="undefined")DEFAULT_DATA.forEach(function(r){add(r[1],r[3],r[7]);});
+    if(typeof DB!=="undefined")DB.forEach(function(d){add(d["상품코드"],d["칼라코드"],d["자사코드"]);});
+    _hsSkuParts._c=idx;
+  }
+  return idx[String(sku||"").trim()]||null;
 }
 function loadWarehouseStockFile(input){
   var file=input.files[0];if(!file)return;
@@ -4126,11 +4152,14 @@ function loadWarehouseStockFile(input){
       var wb=XLSX.read(e.target.result,{type:"array"});
       var ws=wb.Sheets[wb.SheetNames[0]];
       var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      /* 헤더는 셀 값이 키워드와 "정확히" 같아야 한다.
+         (1행 메타 문구 " 재고일자 : ... 조회구분 : 상품 + 칼라 ... 상품코드 : "가 헤더로 오인되던 문제 방지) */
       var findCol=function(H,keywords){
-        for(var c=0;c<H.length;c++){
-          var cell=String(H[c]||"").replace(/\s/g,"");
-          for(var k=0;k<keywords.length;k++){
-            if(cell.indexOf(keywords[k])>=0)return c;
+        var i,c,k,cell;
+        for(k=0;k<keywords.length;k++){
+          for(c=0;c<(H||[]).length;c++){
+            cell=String(H[c]||"").replace(/\s/g,"");
+            if(cell===keywords[k])return c;
           }
         }
         return -1;
@@ -4141,7 +4170,7 @@ function loadWarehouseStockFile(input){
       }
       if(hRow<0){alert("창고재고현황 형식을 인식할 수 없습니다.\n(상품코드 열이 필요합니다)");if(msg)msg.textContent="";return;}
       var H=rows[hRow];
-      var cCode=findCol(H,["상품코드"]),cColor=findCol(H,["칼라"]),cQty=findCol(H,["재고합계","가용재고","현재고","재고수량","재고"]),cWh=findCol(H,["창고명","창고"]);
+      var cCode=findCol(H,["상품코드"]),cColor=findCol(H,["칼라","칼라코드","칼라명"]),cQty=findCol(H,["재고합계","가용재고","현재고","재고수량","재고"]),cWh=findCol(H,["창고명","창고"]);
       if(cQty<0){alert("창고재고현황에서 재고수량 열을 찾을 수 없습니다.\n(열 이름: "+H.join(", ")+")");if(msg)msg.textContent="";return;}
       var whRows=[];
       for(var r=hRow+1;r<rows.length;r++){
@@ -4171,12 +4200,32 @@ function startStockCheck(){
     },800);
     return;
   }
-  var idx={};
+  /* 창고재고를 상품코드+칼라코드 단위로 집계 (컬러별 확인) */
+  var byPair={},byFlat={},flatKeys=[];
   stockWarehouseRows.forEach(function(r){
-    idx[r.code]=(idx[r.code]||0)+r.qty;
+    var code=String(r.code||"").trim(),color=String(r.color||"").trim();
+    var q=Number(r.qty)||0;
+    byPair[code+"|"+color]=(byPair[code+"|"+color]||0)+q;
+    var flat=code+color;
+    if(byFlat[flat]===undefined)flatKeys.push(flat);
+    byFlat[flat]=(byFlat[flat]||0)+q;
   });
+  flatKeys.sort(function(a,b){return b.length-a.length;});   /* 긴 것부터 = 가장 구체적인 매칭 */
+
   stockCheckResults=hsProductList.map(function(p){
-    return {code:p.code,name:p.name,ch1:p.ch1,ch2:p.ch2,qty:idx[p.code]||0};
+    var qty=null;
+    var parts=_hsSkuParts(p.sku);                       /* 1) 사내 상품데이터로 정확히 해석 */
+    if(parts&&byPair[parts.code+"|"+parts.color]!==undefined)qty=byPair[parts.code+"|"+parts.color];
+    if(qty===null){                                     /* 2) 자사코드 = 상품코드+칼라코드+사이즈 */
+      var cut=p.sku.slice(0,-1);
+      if(byFlat[cut]!==undefined)qty=byFlat[cut];
+    }
+    if(qty===null){                                     /* 3) 접두 일치(가장 긴 것) */
+      for(var i=0;i<flatKeys.length;i++){
+        if(p.sku.indexOf(flatKeys[i])===0){qty=byFlat[flatKeys[i]];break;}
+      }
+    }
+    return {sku:p.sku,name:p.name,color:p.color,ch:p.ch,url:p.url,note:p.note,qty:qty===null?0:qty};
   });
   wsSetItem("stockCheckResults",JSON.stringify({results:stockCheckResults,date:stockWarehouseDate}));
   renderStockCheckResults();
@@ -4190,25 +4239,30 @@ function renderStockCheckResults(){
   var onlyZero=zEl&&zEl.checked;
   var list=stockCheckResults.filter(function(r){
     if(onlyZero&&r.qty>0)return false;
-    if(q&&r.name.indexOf(q)<0&&r.code.indexOf(q)<0)return false;
+    if(q){
+      var hay=(r.name||"")+" "+(r.color||"")+" "+(r.sku||"")+" "+(r.ch||"");
+      if(hay.indexOf(q)<0)return false;
+    }
     return true;
   });
   var soldOut=stockCheckResults.filter(function(r){return r.qty<=0;}).length;
   var sm=document.getElementById("stockResultSummary");
-  if(sm)sm.textContent="전체 "+stockCheckResults.length+"건 · 품절 "+soldOut+"건"+(stockWarehouseDate?" · 창고재고 기준일 "+stockWarehouseDate:"");
+  if(sm)sm.textContent="전체 "+stockCheckResults.length+"건(컬러별) · 품절 "+soldOut+"건"+(stockWarehouseDate?" · 창고재고 기준일 "+stockWarehouseDate:"");
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  [['상품코드',''],['상품명','min-width:280px'],['채널',''],['재고수량',''],['상태','']].forEach(function(c){
+  [['채널',''],['상품명','min-width:260px'],['칼라',''],['자사코드',''],['재고수량',''],['상태','']].forEach(function(c){
     h+='<th style="position:sticky;top:0;background:#e3eeee;border:1px solid #e7dcc4;padding:6px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
   list.forEach(function(r){
     var out=r.qty<=0;
-    var ch=[r.ch1,r.ch2].filter(Boolean).join(" · ");
+    var nm=_escX(r.name);
+    if(r.url)nm='<a href="'+_escX(r.url)+'" target="_blank" rel="noopener" style="color:#0f172a">'+nm+' <span style="font-size:11px;color:#2563eb">↗</span></a>';
     h+='<tr style="'+(out?"background:#fef2f2":"")+'">';
-    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace">'+_escX(r.code)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;white-space:normal">'+_escX(r.name)+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center">'+_escX(ch)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center">'+_escX(r.ch)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;white-space:normal">'+nm+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;font-weight:600">'+_escX(r.color)+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;font-size:12px;color:#475569">'+_escX(r.sku)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;font-weight:700;color:'+(out?"#dc2626":"#15803d")+'">'+r.qty.toLocaleString()+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;font-weight:700;color:'+(out?"#dc2626":"#15803d")+'">'+(out?"품절":"재고있음")+'</td>';
     h+='</tr>';
