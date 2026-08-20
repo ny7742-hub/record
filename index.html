@@ -348,6 +348,8 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-sale-th{background:#be123c!important;color:#fff!important;font-weight:700!important}
 .cc-sale-td{background:#f9a8d4!important;color:#9f1239!important;font-weight:700!important}
 .cc-sel{outline:2px solid #2563eb!important;background:#dbeafe!important;color:#1e40af!important}
+/* 드래그 선택 시 해당 행의 구분·색상·단종 칸도 선으로 표시해 어느 상품/컬러인지 보이게 함 */
+.cc-tbl .cc-rowhead-sel{box-shadow:inset 0 0 0 2px #2563eb;background:#e0ecff!important;color:#1e3a8a!important;font-weight:800}
 #ccSelBar{display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:3000;padding:9px 22px;background:#1e293b;color:#f1f5f9;font-size:14px;font-weight:700;border-radius:12px;gap:18px;align-items:center;user-select:none;box-shadow:0 8px 28px rgba(0,0,0,.35);white-space:nowrap;max-width:94vw;overflow-x:auto}
 #ccSelBar span{color:#93c5fd}
 #dsSelBar{display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:3000;padding:9px 22px;background:#1e293b;color:#f1f5f9;font-size:14px;font-weight:700;border-radius:12px;gap:18px;align-items:center;user-select:none;box-shadow:0 8px 28px rgba(0,0,0,.35);white-space:nowrap;max-width:94vw;overflow-x:auto}
@@ -7571,6 +7573,10 @@ function ccPdfDownload(){
   function getAllCells(){
     return Array.from(document.querySelectorAll('#costcoTableWrap .cc-sel-able'));
   }
+  /* e.target이 Element가 아닐 수 있어(document/텍스트노드) 안전하게 처리 — 드래그 중 크래시 방지 */
+  function selAbleFrom(t){
+    return (t&&typeof t.closest==="function")?t.closest('.cc-sel-able'):null;
+  }
   /* 셀의 행/열 좌표 (엑셀식 사각형 선택용) */
   function selRows(){
     return Array.from(document.querySelectorAll('#costcoTableWrap tr')).filter(function(r){return r.querySelector('.cc-sel-able');});
@@ -7594,7 +7600,25 @@ function ccPdfDownload(){
       });
     });
     _sel=getAllCells().filter(function(td){return td.classList.contains('cc-sel');});
+    markRowHeads(rows,r1,r2);
     updateSelBar();
+  }
+  /* 선택된 행의 구분(상품명)·색상·단종 칸을 함께 강조.
+     구분 칸은 rowspan이라 해당 행에 없으면 위쪽 행에서 찾아 올라간다. */
+  function clearRowHeads(){
+    Array.from(document.querySelectorAll('#costcoTableWrap .cc-rowhead-sel')).forEach(function(el){el.classList.remove('cc-rowhead-sel');});
+  }
+  function markRowHeads(rows,r1,r2){
+    clearRowHeads();
+    for(var ri=r1;ri<=r2;ri++){
+      var tr=rows[ri];if(!tr)continue;
+      ['.cc-color-cell','.cc-disc-cell'].forEach(function(sel){
+        var el=tr.querySelector(sel);if(el)el.classList.add('cc-rowhead-sel');
+      });
+      var p=tr.querySelector('.cc-prod-cell');
+      if(!p){for(var k=ri-1;k>=0;k--){var pp=rows[k]&&rows[k].querySelector('.cc-prod-cell');if(pp){p=pp;break;}}}
+      if(p)p.classList.add('cc-rowhead-sel');
+    }
   }
 
   function updateSelBar(){
@@ -7624,12 +7648,13 @@ function ccPdfDownload(){
 
   window.ccClearSel=function(){
     getAllCells().forEach(function(td){td.classList.remove('cc-sel');});
+    clearRowHeads();
     _sel=[];
     document.getElementById('ccSelBar').style.display='none';
   };
 
   document.addEventListener('mousedown',function(e){
-    var td=e.target.closest('.cc-sel-able');
+    var td=selAbleFrom(e.target);
     if(!td)return;
     e.preventDefault();
     _dragging=true;
@@ -7639,14 +7664,14 @@ function ccPdfDownload(){
   });
   document.addEventListener('mouseover',function(e){
     if(!_dragging)return;
-    var td=e.target.closest('.cc-sel-able');
+    var td=selAbleFrom(e.target);
     if(!td)return;
     applySelection(_startCoord,cellCoord(td));
   });
   document.addEventListener('mouseup',function(e){
     if(!_dragging)return;
     _dragging=false;
-    var td=e.target.closest('.cc-sel-able');
+    var td=selAbleFrom(e.target);
     if(td)applySelection(_startCoord,cellCoord(td));
   });
   // 테이블 재렌더 후 선택 초기화 + 고정 열 오프셋 재계산
@@ -8247,7 +8272,7 @@ function ccDeleteDate(key){
 var CC_MANUAL_EDIT=false;
 document.addEventListener("click",function(e){
   if(!CC_MANUAL_EDIT)return;
-  var td=e.target.closest(".cc-editable");
+  var td=(e.target&&e.target.closest)?e.target.closest(".cc-editable"):null;
   if(!td)return;
   if(td.querySelector("input"))return; /* 이미 편집 중 */
   var cur=td.dataset.val||"";
