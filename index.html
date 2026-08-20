@@ -918,7 +918,7 @@ label{font-size:14px!important}
           </div>
         </div>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:14px;color:#334155;line-height:1.5">
-          1) DSS 접속 &gt; 작업 &gt;<br>발송일괄업로드 &gt; <b>Export</b> &gt;<br><b>Main Attributes</b> 클릭<br>
+          1) DSS 접속 &gt; 작업 &gt;<br>발송일괄업로드 &gt; <b>QUERY</b> &gt;<br><b>Export</b> &gt; <b>Main Attributes</b> 클릭<br>
           2) 다운로드 된 파일<br>4단계에 업로드/끌어오기
         </div>
       </div>
@@ -927,6 +927,7 @@ label{font-size:14px!important}
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">
           <textarea id="ccPdfInvoicePaste" placeholder="주문번호·송장번호 표 붙여넣기(Ctrl+V)" style="width:100%;box-sizing:border-box;min-height:48px;border:1px solid #cbd5e1;border-radius:8px;padding:6px;font-size:16px;font-family:inherit;resize:vertical" onpaste="setTimeout(ccPdfApplyInvoicePaste,0)"></textarea>
           <button class="bs" style="width:100%;font-size:15px" onclick="ccPdfApplyInvoicePaste()">매칭 적용</button>
+          <div id="ccPdfMatchResult" style="font-size:13px;text-align:center"></div>
           <div id="ccPdfInvoiceTargetDownloadWrap" style="display:none">
             <button class="bg" style="width:100%;font-size:15px" onclick="ccPdfDownloadInvoiceTarget()">⬇ 다운로드</button>
           </div>
@@ -7638,6 +7639,38 @@ function _ccPdfRefreshInvoiceStatus(){
     parts.push('<span style="color:#dc2626">4단계에서 송장번호를 채울 엑셀 파일을 올려야 다운로드할 수 있습니다</span>');
   }
   statusEl.innerHTML=parts.length?("✔ "+parts.join(" · ")):"";
+  _ccPdfRenderMatchResult();
+}
+/* 5단계 안에 매칭 결과를 색으로 표시 — 매칭완료 / 매칭불가 */
+function _ccPdfRenderMatchResult(){
+  var el=document.getElementById("ccPdfMatchResult");
+  if(!el)return;
+  var box=function(bg,bd,fg,title,sub){
+    return '<div style="background:'+bg+';border:2px solid '+bd+';border-radius:8px;padding:6px 4px">'
+      +'<div style="font-size:15px;font-weight:800;color:'+fg+';line-height:1.25">'+title+'</div>'
+      +(sub?'<div style="font-size:11.5px;color:'+fg+';margin-top:2px;font-weight:600">'+sub+'</div>':'')
+      +'</div>';
+  };
+  var totalOrders=Object.keys(ccPdfInvoiceMap).length;
+  if(!totalOrders&&!ccPdfInvoiceTarget){el.innerHTML="";return;}
+  if(!ccPdfInvoiceTarget){
+    el.innerHTML=box("#fef2f2","#fca5a5","#dc2626","⚠ 매칭불가","4단계 파일을 올려주세요");
+    return;
+  }
+  if(!totalOrders){
+    el.innerHTML=box("#f1f5f9","#cbd5e1","#64748b","송장번호 대기","표를 붙여넣고 매칭 적용");
+    return;
+  }
+  var t=ccPdfInvoiceTarget;
+  var total=Math.max(0,t.rows.length-t.startRow),done=0;
+  for(var r=t.startRow;r<t.rows.length;r++){if(t.rows[r]&&t.rows[r][10])done++;}
+  if(done===0){
+    el.innerHTML=box("#fef2f2","#fca5a5","#dc2626","⚠ 매칭불가","주문번호가 일치하지 않습니다");
+  }else if(done<total){
+    el.innerHTML=box("#fffbeb","#fbbf24","#b45309","⚠ 일부 매칭",done+"/"+total+"행 · 나머지 확인 필요");
+  }else{
+    el.innerHTML=box("#f0fdf4","#86efac","#16a34a","✅ 매칭완료",total+"행 전체 매칭");
+  }
 }
 /* 붙여넣기(Ctrl+V)로 들어온 주문번호·송장번호 표 처리: ccPdfInvoiceMap에 누적하고
    ccPdfRows(PDF 주문 목록)·ccPdfInvoiceTarget(업로드된 대상 파일) 양쪽에 모두 적용 */
