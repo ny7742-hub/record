@@ -4845,8 +4845,8 @@ var ORDER_STORES=[
   {code:"HDMB",name:"현대백화점 목동점 지하행사",recv:"화이트샌즈", tel:"010-9165-9755", addr:"서울특별시 양천구 목동동로 257 별관 지하2층 화이트샌즈"},
   {code:"LSC", name:"롯데백화점 센텀시티점",    recv:"화이트샌즈", tel:"010-9371-5884", addr:"부산광역시 해운대구 센텀남대로 59 롯데백화점 센텀시티점 1층 화이트샌즈"},
   {code:"LDB", name:"롯데몰 동부산점",          recv:"화이트샌즈", tel:"010-3409-5997", addr:"부산광역시 기장군 기장해안로147, 롯데몰 동부산점 2층 화이트샌즈"},
-  {code:"ANC", name:"아난티 코브(부산)",        recv:"",           tel:"",              addr:"부산광역시 기장군 기장읍 기장해안로 268-32 앳부산하역장(살롱)"},
-  {code:"ANV", name:"빌라쥬 드 아난티(부산)",   recv:"",           tel:"",              addr:"부산 기장군 기장읍 기장해안로 267-7, LPC 하역장"},
+  {code:"ANC", name:"아난티 코브(부산)",        recv:"정선미",     tel:"010-9562-9452", addr:"부산광역시 기장군 기장읍 기장해안로 268-32 앳부산하역장(살롱)"},
+  {code:"ANV", name:"빌라쥬 드 아난티(부산)",   recv:"정선미",     tel:"010-9562-9452", addr:"부산 기장군 기장읍 기장해안로 267-7, LPC 하역장"},
   {code:"ANG", name:"아난티 코드(가평)",        recv:"마지수",     tel:"010-8205-3509", addr:"경기도 가평군 설악면 유명로 1007-90 살롱드이터널저니"},
   {code:"ANT", name:"아난티 남해",              recv:"",           tel:"",              addr:"경상남도 남해군 남면 남서대로 1179번길 40-109 (아난티 남해 구매팀)"},
   {code:"TMG", name:"트래블메이트 김포공항점",  recv:"조미 매니저", tel:"010-9722-3377", addr:"서울 강서구 하늘길 112, 김포공항국내선청사 3층 트래블메이트"},
@@ -7758,6 +7758,18 @@ function _anParse(rows,fileName){
       item:String(_anLabelVal(rows,hRow,"종목",9,40)||"").trim()
     }
   };
+  /* 템플릿 위치 정보 — 거래명세서를 원본 서식 그대로 만들 때 사용 (엑셀 행번호는 1부터) */
+  anMeta.firstRow=hRow+2;
+  var lastItem=hRow+1, totalRow=0;
+  for(var t=hRow+1;t<rows.length;t++){
+    var c0=String((rows[t]||[])[0]==null?"":(rows[t]||[])[0]).replace(/\s/g,"");
+    var c2=String((rows[t]||[])[cItem]==null?"":(rows[t]||[])[cItem]).trim();
+    if(c0==="총합계"){totalRow=t+1;break;}
+    if(c2)lastItem=t;
+  }
+  anMeta.lastRow=totalRow?totalRow-1:lastItem+1;
+  anMeta.totalRow=totalRow||(anMeta.lastRow+1);
+  anMeta.docRow=3; anMeta.docCol="C";
   anRows=list;
   return true;
 }
@@ -7780,6 +7792,7 @@ function _anProcessFiles(fileList){
       var wb=XLSX.read(e.target.result,{type:"array"});
       var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
       if(!_anParse(rows,file.name))return;
+      anMeta.buf=e.target.result;   /* 원본 바이트 — 거래명세서 서식 보존용 템플릿 */
       var bar=document.getElementById("anInfoBar");if(bar)bar.style.display="flex";
       var sel=document.getElementById("anStore");
       if(sel){
@@ -7915,34 +7928,257 @@ function _anInvoiceModel(){
     totAll:picked.reduce(function(a,b){return a+b.tot;},0),
     meta:anMeta||{buyer:{},seller:{}}};
 }
-function anDownloadInvoiceXlsx(){
+
+/* ── xlsx 템플릿 편집 (원본 서식·수식 100% 보존) ──
+   SheetJS로 다시 쓰면 셀 서식이 전부 사라지므로, xlsx(zip) 안의 시트 XML만 직접 고치고
+   나머지 파일(styles/theme/sharedStrings 등)은 원본 바이트를 그대로 복사한다. */
+function _zipCrc32(u8){
+  var t=_zipCrc32._t;
+  if(!t){
+    t=[];
+    for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}
+    _zipCrc32._t=t;
+  }
+  var crc=0xFFFFFFFF;
+  for(var i=0;i<u8.length;i++)crc=(crc>>>8)^t[(crc^u8[i])&0xFF];
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function _u16(b,o){return b[o]|(b[o+1]<<8);}
+function _u32(b,o){return (b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0;}
+/* zip 파싱 — {name, method, crc, csize, usize, flag, time, date, data(압축된 원본 바이트)} */
+function _zipParse(u8){
+  var eocd=-1;
+  for(var i=u8.length-22;i>=0&&i>u8.length-70000;i--){if(_u32(u8,i)===0x06054b50){eocd=i;break;}}
+  if(eocd<0)throw new Error("zip 형식이 아닙니다");
+  var cnt=_u16(u8,eocd+10),off=_u32(u8,eocd+16),p=off,out=[];
+  for(var n=0;n<cnt;n++){
+    if(_u32(u8,p)!==0x02014b50)break;
+    var flag=_u16(u8,p+8),method=_u16(u8,p+10),time=_u16(u8,p+12),date=_u16(u8,p+14);
+    var crc=_u32(u8,p+16),csize=_u32(u8,p+20),usize=_u32(u8,p+24);
+    var fnLen=_u16(u8,p+28),exLen=_u16(u8,p+30),cmLen=_u16(u8,p+32),lho=_u32(u8,p+42);
+    var name=new TextDecoder().decode(u8.subarray(p+46,p+46+fnLen));
+    var lfnLen=_u16(u8,lho+26),lexLen=_u16(u8,lho+28);
+    var ds=lho+30+lfnLen+lexLen;
+    out.push({name:name,method:method,crc:crc,csize:csize,usize:usize,flag:flag,time:time,date:date,
+              data:u8.subarray(ds,ds+csize)});
+    p+=46+fnLen+exLen+cmLen;
+  }
+  return out;
+}
+function _zipBuild(entries){
+  var enc=new TextEncoder(),parts=[],central=[],offset=0;
+  entries.forEach(function(e){
+    var nb=enc.encode(e.name);
+    var lh=new Uint8Array(30+nb.length);var dv=new DataView(lh.buffer);
+    dv.setUint32(0,0x04034b50,true);dv.setUint16(4,20,true);
+    dv.setUint16(6,e.flag&~8,true);dv.setUint16(8,e.method,true);
+    dv.setUint16(10,e.time,true);dv.setUint16(12,e.date,true);
+    dv.setUint32(14,e.crc,true);dv.setUint32(18,e.data.length,true);dv.setUint32(22,e.usize,true);
+    dv.setUint16(26,nb.length,true);dv.setUint16(28,0,true);
+    lh.set(nb,30);
+    parts.push(lh,e.data);
+    var ch=new Uint8Array(46+nb.length);var cv=new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);
+    cv.setUint16(8,e.flag&~8,true);cv.setUint16(10,e.method,true);
+    cv.setUint16(12,e.time,true);cv.setUint16(14,e.date,true);
+    cv.setUint32(16,e.crc,true);cv.setUint32(20,e.data.length,true);cv.setUint32(24,e.usize,true);
+    cv.setUint16(28,nb.length,true);cv.setUint32(42,offset,true);
+    ch.set(nb,46);
+    central.push(ch);
+    offset+=lh.length+e.data.length;
+  });
+  var cSize=central.reduce(function(a,b){return a+b.length;},0);
+  var eo=new Uint8Array(22);var ev=new DataView(eo.buffer);
+  ev.setUint32(0,0x06054b50,true);
+  ev.setUint16(8,entries.length,true);ev.setUint16(10,entries.length,true);
+  ev.setUint32(12,cSize,true);ev.setUint32(16,offset,true);
+  var all=parts.concat(central,[eo]);
+  var total=all.reduce(function(a,b){return a+b.length;},0);
+  var res=new Uint8Array(total),pos=0;
+  all.forEach(function(b){res.set(b,pos);pos+=b.length;});
+  return res;
+}
+async function _inflateRaw(u8){
+  var ds=new DecompressionStream("deflate-raw");
+  var buf=await new Response(new Blob([u8]).stream().pipeThrough(ds)).arrayBuffer();
+  return new Uint8Array(buf);
+}
+async function _deflateRaw(u8){
+  var cs=new CompressionStream("deflate-raw");
+  var buf=await new Response(new Blob([u8]).stream().pipeThrough(cs)).arrayBuffer();
+  return new Uint8Array(buf);
+}
+/* ── 시트 XML 편집 헬퍼 ── */
+function _xmlEsc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+/* 행 XML에서 특정 셀을 값으로 교체(스타일 s= 유지). 없으면 열 순서에 맞게 삽입 */
+function _rowSetCell(rowXml,col,rowNum,value,isNum){
+  var ref=col+rowNum;
+  var re=new RegExp('<c r="'+ref+'"([^>]*?)(\\/>|>[\\s\\S]*?<\\/c>)');
+  var m=rowXml.match(re);
+  var sAttr="";
+  if(m){
+    var sm=m[1].match(/\ss="(\d+)"/);
+    if(sm)sAttr=' s="'+sm[1]+'"';
+  }
+  var body;
+  if(value===null||value===undefined||value===""){
+    body='<c r="'+ref+'"'+sAttr+'/>';
+  }else if(isNum){
+    body='<c r="'+ref+'"'+sAttr+'><v>'+Number(value)+'</v></c>';
+  }else{
+    body='<c r="'+ref+'"'+sAttr+' t="inlineStr"><is><t xml:space="preserve">'+_xmlEsc(value)+'</t></is></c>';
+  }
+  if(m)return rowXml.replace(re,body);
+  /* 없으면 열 순서에 맞춰 삽입 */
+  var colNum=_colNum(col);
+  var cells=rowXml.match(/<c [\s\S]*?(?:\/>|<\/c>)/g)||[];
+  var insertAt=null;
+  for(var i=0;i<cells.length;i++){
+    var cr=(cells[i].match(/r="([A-Z]+)\d+"/)||[])[1];
+    if(cr&&_colNum(cr)>colNum){insertAt=cells[i];break;}
+  }
+  if(insertAt)return rowXml.replace(insertAt,body+insertAt);
+  return rowXml.replace(/<\/row>$/,body+"</row>");
+}
+function _colNum(s){var n=0;for(var i=0;i<s.length;i++)n=n*26+(s.charCodeAt(i)-64);return n;}
+/* 행 번호(및 그 안의 셀 참조)를 통째로 바꾼다 */
+function _rowRenumber(rowXml,from,to){
+  return rowXml
+    .replace(new RegExp('(<row[^>]*\\br=")'+from+'(")'),'$1'+to+'$2')
+    .replace(new RegExp('(r="[A-Z]+)'+from+'(")','g'),'$1'+to+'$2');
+}
+
+/* 업로드한 아난티 발주서를 템플릿으로 거래명세서 xlsx 생성 — 서식·수식 원본 그대로.
+   출고분을 품목행 위쪽부터 채우고, 남는 품목행은 삭제해 총합계가 바로 뒤에 오게 한다. */
+async function _anBuildInvoiceXlsx(){
+  var M=_anInvoiceModel();
+  if(!anMeta||!anMeta.buf)throw new Error("원본 발주서를 찾을 수 없습니다. 파일을 다시 올려주세요.");
+  var entries=_zipParse(new Uint8Array(anMeta.buf));
+  var target=null;
+  entries.forEach(function(e){if(/^xl\/worksheets\/sheet1\.xml$/i.test(e.name))target=e;});
+  if(!target)throw new Error("시트를 찾을 수 없습니다.");
+  var raw=target.method===0?target.data:await _inflateRaw(target.data);
+  var xml=new TextDecoder().decode(raw);
+
+  var FIRST=anMeta.firstRow, LASTSRC=anMeta.lastRow, TOTSRC=anMeta.totalRow;
+  var keep=M.rows.length;
+  var newTotal=FIRST+keep;
+
+  /* sheetData 안의 행들을 분해 */
+  var sdM=xml.match(/<sheetData>([\s\S]*?)<\/sheetData>/);
+  if(!sdM)throw new Error("sheetData를 찾을 수 없습니다.");
+  var rowsXml=sdM[1].match(/<row[^>]*\/>|<row[^>]*>[\s\S]*?<\/row>/g)||[];
+  var byNum={},order=[];
+  rowsXml.forEach(function(rx){
+    var n=parseInt((rx.match(/<row[^>]*\br="(\d+)"/)||[])[1],10);
+    if(!isNaN(n)){byNum[n]=rx;order.push(n);}
+  });
+
+  /* 1) 품목행 채우기 */
+  for(var i=0;i<keep;i++){
+    var rn=FIRST+i, r=M.rows[i];
+    var rx=byNum[rn]||('<row r="'+rn+'">'+(byNum[FIRST]?"":"")+'</row>');
+    if(i===0){
+      rx=_rowSetCell(rx,"B",rn,M.dp.m,true);
+      rx=_rowSetCell(rx,"C",rn,M.dp.d,true);
+    }else{
+      rx=_rowSetCell(rx,"B",rn,"",false);
+      rx=_rowSetCell(rx,"C",rn,"",false);
+    }
+    rx=_rowSetCell(rx,"D",rn,r.name,false);
+    rx=_rowSetCell(rx,"G",rn,r.spec,false);
+    rx=_rowSetCell(rx,"H",rn,"과세",false);
+    rx=_rowSetCell(rx,"I",rn,r.qty,true);
+    rx=_rowSetCell(rx,"L",rn,r.price,true);
+    rx=_rowSetCell(rx,"S",rn,r.barcode,false);
+    byNum[rn]=rx;
+  }
+  /* 2) 남는 품목행 삭제 */
+  var deleted={};
+  for(var d=FIRST+keep;d<=LASTSRC;d++){if(byNum[d]){delete byNum[d];deleted[d]=1;}}
+
+  /* 3) 총합계 행 이동 + SUM 범위 보정 */
+  if(byNum[TOTSRC]){
+    var tot=byNum[TOTSRC];
+    tot=tot.replace(/(<f>)([\s\S]*?)(<\/f>)/g,function(m0,a,f,b){
+      return a+f.replace(new RegExp("([A-Z]+)"+FIRST+":([A-Z]+)"+LASTSRC,"g"),"$1"+FIRST+":$2"+(newTotal-1))+b;
+    });
+    if(TOTSRC!==newTotal)tot=_rowRenumber(tot,TOTSRC,newTotal);
+    delete byNum[TOTSRC];
+    byNum[newTotal]=tot;
+  }
+  /* 4) 문서번호(C3) */
+  var docRow=anMeta.docRow||3;
+  if(byNum[docRow]&&M.docNo!==""){
+    byNum[docRow]=_rowSetCell(byNum[docRow],anMeta.docCol||"C",docRow,M.docNo,/^\d+$/.test(String(M.docNo)));
+  }
+  /* 5) 재조립 */
+  var nums=Object.keys(byNum).map(Number).sort(function(a,b){return a-b;});
+  var newSD="<sheetData>"+nums.map(function(n){return byNum[n];}).join("")+"</sheetData>";
+  xml=xml.replace(/<sheetData>[\s\S]*?<\/sheetData>/,newSD);
+
+  /* 6) 병합셀 보정 — 삭제된 행은 제거, 총합계 행은 이동 */
+  xml=xml.replace(/<mergeCells[^>]*>([\s\S]*?)<\/mergeCells>/,function(m0,inner){
+    var list=inner.match(/<mergeCell ref="[^"]+"\/>/g)||[];
+    var kept=[];
+    list.forEach(function(mc){
+      var ref=(mc.match(/ref="([^"]+)"/)||[])[1]||"";
+      var mm=ref.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+      if(!mm){kept.push(mc);return;}
+      var r1=+mm[2],r2=+mm[4];
+      if(deleted[r1]||deleted[r2])return;                 /* 삭제된 행의 병합 제거 */
+      if(r1===TOTSRC&&r2===TOTSRC&&TOTSRC!==newTotal){
+        kept.push('<mergeCell ref="'+mm[1]+newTotal+":"+mm[3]+newTotal+'"/>');return;
+      }
+      kept.push(mc);
+    });
+    return '<mergeCells count="'+kept.length+'">'+kept.join("")+'</mergeCells>';
+  });
+  /* 7) 공유수식(shared formula) 범위를 새 마지막 품목행으로 보정 */
+  if(newTotal-1!==LASTSRC){
+    xml=xml.replace(/ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"/g,function(m0,c1,r1,c2,r2){
+      if(+r1===FIRST&&+r2===LASTSRC)return 'ref="'+c1+FIRST+':'+c2+(newTotal-1)+'"';
+      return m0;
+    });
+  }
+  /* 8) 총합계 행을 참조하는 수식 보정 (F8=NUMBERSTRING(Q31), P8==Q31, 총합계행 =N31+P31 등) */
+  if(TOTSRC!==newTotal){
+    xml=xml.replace(/<f([^>]*)>([\s\S]*?)<\/f>/g,function(m0,attr,body){
+      return "<f"+attr+">"+body.replace(new RegExp("([A-Z]{1,3})"+TOTSRC+"(?![0-9])","g"),"$1"+newTotal)+"</f>";
+    });
+  }
+  /* 9) dimension 보정 */
+  xml=xml.replace(/(<dimension ref="[A-Z]+\d+:[A-Z]+)(\d+)(")/,function(m0,a,n,b){
+    return a+Math.max(newTotal,1)+b;
+  });
+
+  /* 10) 다시 압축 — calcChain은 삭제(엑셀이 자동 재생성, 남기면 파손 경고) */
+  var outBytes=new TextEncoder().encode(xml);
+  var deflated=await _deflateRaw(outBytes);
+  entries=entries.filter(function(e){return !/^xl\/calcChain\.xml$/i.test(e.name);});
+  entries=entries.map(function(e){
+    if(e!==target)return e;
+    return {name:e.name,method:8,crc:_zipCrc32(outBytes),csize:deflated.length,usize:outBytes.length,
+            flag:e.flag,time:e.time,date:e.date,data:deflated};
+  });
+  return _zipBuild(entries);
+}
+async function anDownloadInvoiceXlsx(){
   var M=_anInvoiceModel();
   if(!M.rows.length){alert("출고할 상품이 없습니다.\n표에서 상품을 체크해주세요.");return;}
-  var b=M.meta.buyer||{},sl=M.meta.seller||{};
-  var W=23,E=function(){var a=[];for(var i=0;i<W;i++)a.push("");return a;};
-  var aoa=[];
-  var r0=E();r0[0]="거   래   명   세   서";r0[19]="공급율";r0[20]=M.rate;r0[21]="(수수료"+Math.round((1-M.rate)*100)+"%)";aoa.push(r0);
-  aoa.push(E());
-  var r2=E();r2[0]="공급받는자";r2[1]=M.docNo;r2[8]="공\r\n급\r\n자";r2[9]="사업자번호";r2[13]=sl.regNo||"";r2[20]="↑ 공급율 확인 바랍니다 ";aoa.push(r2);
-  var r3=E();r3[1]="등록번호";r3[3]=b.regNo||"";r3[9]="상호";r3[12]=sl.company||"";r3[15]="성명";r3[17]=sl.person||"";aoa.push(r3);
-  var r4=E();r4[1]="주소";r4[2]=b.addr||"";r4[9]="주소";r4[12]=sl.addr||"";aoa.push(r4);
-  var r5=E();r5[1]="상호";r5[2]=b.company||"";r5[4]="성명";r5[5]=b.person||"";r5[9]="업태";r5[12]=sl.biz||"";r5[15]="종목";r5[17]=sl.item||"";aoa.push(r5);
-  aoa.push(E());
-  var r7=E();r7[0]="일금:";r7[4]=_anKoMoney(M.totAll);r7[13]="(";r7[14]=M.totAll;r7[16]=")";aoa.push(r7);
-  var r8=E();r8[0]="일자";r8[2]="품목명";r8[5]="규격";r8[6]="면과세";r8[7]="수량";r8[10]="판매가";r8[11]="매입단가";r8[12]="공급가액";r8[14]="세액";r8[15]="합계";r8[17]="비고";aoa.push(r8);
-  M.rows.forEach(function(r,i){
-    var a=E();
-    if(i===0){a[0]=M.dp.m;a[1]=M.dp.d;}
-    a[2]=r.name;a[5]=r.spec;a[6]="과세";a[7]=r.qty;a[10]=r.price;a[11]=r.unit;a[12]=r.sup;a[14]=r.tax;a[15]=r.tot;a[17]=r.barcode;
-    aoa.push(a);
-  });
-  var rt=E();rt[0]="총  합  계";rt[7]=M.totQty;rt[12]=M.totSup;rt[14]=M.totTax;rt[15]=M.totAll;aoa.push(rt);
-  var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[{wch:5},{wch:6},{wch:22},{wch:10},{wch:8},{wch:7},{wch:7},{wch:7},{wch:4},{wch:4},{wch:10},{wch:12},{wch:14},{wch:3},{wch:12},{wch:13},{wch:3},{wch:16},{wch:4},{wch:8},{wch:6},{wch:12},{wch:4}];
-  var wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"위탁");
-  XLSX.writeFile(wb,"리테일 거래명세서_위탁("+_anStoreName()+")_화이트샌즈"+_anFileStamp(M.dp)+".xlsx");
+  try{
+    var bytes=await _anBuildInvoiceXlsx();
+    var blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="리테일 거래명세서_위탁("+_anStoreName()+")_화이트샌즈"+_anFileStamp(M.dp)+".xlsx";
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);
+  }catch(err){
+    alert("거래명세서 생성 오류: "+err.message);
+  }
 }
+
 /* 거래명세서 미리보기(HTML) — PDF는 이 화면을 그대로 이미지로 떠서 만든다 */
 function anRenderInvoicePreview(){
   var wrap=document.getElementById("anInvoiceWrap");
