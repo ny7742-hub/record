@@ -1147,8 +1147,6 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">🚛 CX팀 물류센터 발주양식</div>
-      <span style="font-size:11px;font-weight:600;color:#475569;margin-left:4px">기본 매장</span>
-      <select id="cxStore" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
       <button onclick="cxAddRow()" class="bs" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
       <button onclick="cxDownload()" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ 엑셀 다운로드</button>
       <button onclick="cxClear()" class="bs" style="padding:5px 12px;font-size:12px;color:#dc2626">초기화</button>
@@ -1158,16 +1156,13 @@ label{font-size:14px!important}
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:700;color:#1b6e82">공통값</span>
       <label style="font-size:11px;font-weight:600;color:#475569">요청일 <input type="text" id="cxReqDate" oninput="cxCommonEdit('date',this.value)" style="width:80px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></label>
-      <label style="font-size:11px;font-weight:600;color:#475569">목적 <input type="text" id="cxPurpose" oninput="cxCommonEdit('purpose',this.value)" placeholder="비우면 자동(모자/우산 마스크)" style="width:160px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></label>
-      <label style="font-size:11px;font-weight:600;color:#475569">요청자 <input type="text" id="cxRequester" oninput="cxCommonEdit('requester',this.value)" placeholder="예: 영업2팀" style="width:110px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></label>
       <label style="font-size:11px;font-weight:600;color:#475569">배송수단 <input type="text" id="cxShip" oninput="cxCommonEdit('ship',this.value)" style="width:70px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></label>
-      <label style="font-size:11px;font-weight:600;color:#475569">비고 <input type="text" id="cxNote" oninput="cxCommonEdit('note',this.value)" placeholder="예: CSTC 코스트코 창고출고" style="width:180px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></label>
-      <span style="font-size:11px;color:#94a3b8">모든 행에 동일하게 들어갑니다</span>
+      <span style="font-size:11px;color:#94a3b8">모든 행에 동일하게 들어갑니다 · 목적·전산 처리 방법·요청자·수령인·비고는 공백으로 나갑니다</span>
     </div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:600;color:#475569">상품 검색 추가</span>
       <input type="text" id="cxSearch" oninput="cxSearchInput()" onkeydown="cxSearchKey(event)" placeholder="상품명·칼라 입력 (예: 루시 베이지)" autocomplete="off" style="flex:1;min-width:220px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
-      <span class="ord-hint" style="font-size:11px;color:#94a3b8">검색결과 클릭 또는 표로 드래그 시 기본 매장으로 행 추가</span>
+      <span class="ord-hint" style="font-size:11px;color:#94a3b8">검색결과 클릭 또는 표로 드래그하면 행이 추가됩니다 (매장은 행에서 선택)</span>
     </div>
     <div id="cxSearchResults" style="margin-top:6px"></div>
   </div>
@@ -5276,7 +5271,7 @@ function _cxNewRow(code,o){
   o=o||{};
   var qty=o.qty||"1";
   var price=_cxNum(o.price);
-  return {store:code||"",recv:st.recv||"",tel:st.tel||"",addr:st.addr||"",msg:"",
+  return {store:code||"",tel:st.tel||"",addr:st.addr||"",msg:"",
           name:o.name||"",code:o.code||"",barcode:o.barcode||"",qty:String(qty),
           price:price,amt:price?String(price*_cxNum(qty)):"",amtManual:false};
 }
@@ -5284,19 +5279,14 @@ function cxInitCommon(){
   var q=cxDB.req;
   if(!q.date)q.date=_ccPdfRequestDateStr();
   if(q.ship===undefined||q.ship==="")q.ship="택배";
-  if(q.purpose===undefined)q.purpose="";
-  if(q.requester===undefined)q.requester="";
-  if(q.note===undefined)q.note="";
-  [["cxReqDate","date"],["cxPurpose","purpose"],["cxRequester","requester"],["cxShip","ship"],["cxNote","note"]].forEach(function(p){
+  [["cxReqDate","date"],["cxShip","ship"]].forEach(function(p){
     var e=document.getElementById(p[0]);
     if(e&&document.activeElement!==e)e.value=q[p[1]]||"";
   });
 }
 function cxCommonEdit(key,val){cxDB.req[key]=val;saveCx();}
-function cxFillStoreSelect(){var sel=document.getElementById("cxStore");if(!sel||sel.options.length)return;sel.innerHTML=_ordStoreOptions(ORDER_STORES[0].code);}
 function cxAddRow(){
-  var sel=document.getElementById("cxStore");
-  cxDB.rows.push(_cxNewRow(sel?sel.value:""));
+  cxDB.rows.push(_cxNewRow(""));
   saveCx();renderCxOrder();
   var w=document.getElementById("cxTableWrap");if(w)w.scrollTop=w.scrollHeight;
 }
@@ -5306,7 +5296,7 @@ function cxEdit(i,key,val){
   var r=cxDB.rows[i];if(!r)return;
   if(key==="store"){
     var st=_ordStoreByCode(val)||{};
-    r.store=val;r.recv=st.recv||"";r.tel=st.tel||"";r.addr=st.addr||"";
+    r.store=val;r.tel=st.tel||"";r.addr=st.addr||"";
     saveCx();renderCxOrder();return;
   }
   r[key]=val;
@@ -5319,9 +5309,9 @@ function cxEdit(i,key,val){
   saveCx();
 }
 function renderCxOrder(){
-  cxFillStoreSelect();cxInitCommon();
+  cxInitCommon();
   var wrap=document.getElementById("cxTableWrap");if(!wrap)return;
-  var cols=[["#",""],["매장",""],["수령인",""],["받는분연락처",""],["주소","min-width:260px"],["배송메세지","min-width:110px"],["상품컬러명(상품명)","min-width:300px"],["상품컬러코드","min-width:120px"],["상품코드",""],["수량",""],["결제금액",""],["바코드",""],["삭제",""]];
+  var cols=[["#",""],["매장",""],["받는분연락처",""],["주소","min-width:260px"],["배송메세지","min-width:110px"],["상품컬러명(상품명)","min-width:300px"],["상품컬러코드","min-width:120px"],["상품코드",""],["수량",""],["결제금액",""],["바코드",""],["삭제",""]];
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
   cols.forEach(function(c){
@@ -5338,7 +5328,6 @@ function renderCxOrder(){
     h+='<tr data-i="'+i+'">';
     h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><select onchange="cxEdit('+i+',\'store\',this.value)" style="border:none;outline:none;font-size:13px;background:transparent;color:#1f2937;max-width:200px">'+_ordStoreOptions(r.store)+'</select></td>';
-    h+=ed(i,"recv",r.recv);
     h+=ed(i,"tel",r.tel);
     h+=ed(i,"addr",r.addr,"white-space:normal");
     h+=ed(i,"msg",r.msg);
@@ -5405,8 +5394,7 @@ function cxPickChip(k){
 }
 function cxAddResult(k){
   var d=_cxResults[k];if(!d)return;
-  var sel=document.getElementById("cxStore");
-  cxDB.rows.push(_cxNewRow(sel?sel.value:"",{
+  cxDB.rows.push(_cxNewRow("",{
     name:(d["상품명"]+" "+(d["칼라명"]||"")).trim(),
     code:d["자사코드"]||"",
     barcode:String(d["바코드1"]||"").trim(),
@@ -5454,18 +5442,13 @@ function cxDownload(){
   if(!cxDB.rows.length){alert("발주 상품이 없습니다.\n상품 검색 또는 행 추가로 등록해주세요.");return;}
   var q=cxDB.req;
   var reqDate=(q.date||"").trim()||_ccPdfRequestDateStr();
-  var purpose=(q.purpose||"").trim()||_ccPdfPurpose(cxDB.rows.map(function(r){return {prodName:r.name};}));
-  var requester=(q.requester||"").trim();
   var ship=(q.ship||"").trim()||"택배";
-  var note=(q.note||"").trim();
   var aoa=[CX_HEADERS.slice()];
   cxDB.rows.forEach(function(r){
     var st=_ordStoreByCode(r.store)||{};
     var row=[];for(var c=0;c<CX_HEADERS.length;c++)row.push("");
     row[2]=reqDate;                         /* C 요청일 */
-    row[3]=purpose;                         /* D 목적 */
-    row[5]=requester;                       /* F 요청자 */
-    row[6]=r.recv||"";                      /* G 수령인 */
+    /* D 목적 · E 전산 처리 방법 · F 요청자 · G 수령인 · Z 비고 = 공백 (CX팀에서 직접 기재) */
     row[7]=ship;                            /* H 배송수단 */
     row[9]=r.tel||"";                       /* J 받는분연락처 */
     row[11]=r.addr||"";                     /* L 주소 */
@@ -5477,7 +5460,6 @@ function cxDownload(){
     row[19]=(r.code||"").slice(0,8);        /* T 상품코드 */
     row[20]=st.name||"";                    /* U 쇼핑몰(참고용) = 매장명 */
     row[21]=r.code||"";                     /* V 상품컬러코드 */
-    row[25]=note;                           /* Z 비고 */
     aoa.push(row);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
