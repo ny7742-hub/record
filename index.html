@@ -3729,17 +3729,21 @@ function renderHomeDashboard(){
     ? (function(){var d=new Date(stockCheckLog[0]);return (d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");})()
     : "-";
 
+  /* 이번달 누적 매출 = 매장별 일별매출(EDI) + 코스트코 + 홈쇼핑 */
+  var monthTotal=monthEdi+ccMonthAmt+hsMonthAmt;
+  var breakdown=mk+" 기준 — 매장별 일별매출 "+monthEdi.toLocaleString()+"원 + 코스트코 "+ccMonthAmt.toLocaleString()+"원 + 홈쇼핑 "+hsMonthAmt.toLocaleString()+"원";
+
   var headEl=document.getElementById("homeHeadline");
-  if(headEl)headEl.textContent="이번달 누적 EDI "+monthEdi.toLocaleString()+"원 · 진행중 팝업 "+popupOngoing+"개";
+  if(headEl)headEl.textContent="이번달 누적 매출 "+monthTotal.toLocaleString()+"원 · 진행중 팝업 "+popupOngoing+"개";
 
   var kpis=[
-    {lab:"이번달 누적 EDI",val:monthEdi.toLocaleString(),sub:mk+" 기준"},
+    {lab:"이번달 누적 매출",val:monthTotal.toLocaleString(),sub:"매장·코스트코·홈쇼핑 합산",ttl:breakdown},
     {lab:"진행중 팝업",val:popupOngoing,sub:"매장 기준"},
     {lab:"홈쇼핑 창고재고",val:stockState,sub:"최근 확인 "+lastCheck}
   ];
   var kw=document.getElementById("homeKpis");
   if(kw)kw.innerHTML=kpis.map(function(k){
-    return '<div class="home-kpi"><div class="k-lab">'+k.lab+'</div><div class="k-val">'+k.val+'</div><div class="k-sub">'+k.sub+'</div></div>';
+    return '<div class="home-kpi"'+(k.ttl?' title="'+_escX(k.ttl)+'"':'')+'><div class="k-lab">'+k.lab+'</div><div class="k-val">'+k.val+'</div><div class="k-sub">'+k.sub+'</div></div>';
   }).join("");
 
   var ICONS={
