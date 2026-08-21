@@ -1248,8 +1248,11 @@ label{font-size:14px!important}
           <col style="width:80px">
           <col style="width:60px">
           <col style="width:60px">
-          <col style="width:436px"><!-- 내용: 구분/매장/일자 축소분만큼 확장 -->
-          <col style="width:260px"><!-- 비고 -->
+          <col style="width:300px"><!-- 내용 -->
+          <col style="width:220px"><!-- 주소 -->
+          <col style="width:130px"><!-- 영업시간 -->
+          <col style="width:200px"><!-- 프로모션 -->
+          <col style="width:180px"><!-- 비고 -->
           <col style="width:50px">
         </colgroup>
         <thead>
@@ -1260,6 +1263,9 @@ label{font-size:14px!important}
             <th class="pop-fix" style="left:162px;width:60px;padding:10px 2px;text-align:center;color:#374151;font-weight:700;font-size:14px">시작일</th>
             <th class="pop-fix" style="left:222px;width:60px;padding:10px 2px;text-align:center;color:#374151;font-weight:700;font-size:14px;border-right:2px solid #c7d0e0">종료일</th>
             <th style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:18px">내용</th>
+            <th style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:18px">주소</th>
+            <th style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:18px">영업시간</th>
+            <th style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:18px">프로모션</th>
             <th style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:18px">비고</th>
             <th style="padding:10px 4px;text-align:center;color:#374151;font-weight:700;font-size:18px">삭제</th>
           </tr>
@@ -9731,9 +9737,17 @@ function renderPopupPage(){
     if(!sb)return -1;
     return sa<sb?-1:(sa>sb?1:0);
   };
+  /* 종료된 팝업은 최근 종료순(내림차순) — 가장 최근에 끝난 팝업이 종료 그룹 맨 위 */
+  var _popRecentCmp=function(a,b){
+    var ka=a.row.end||a.row.start||"",kb=b.row.end||b.row.start||"";
+    if(!ka&&!kb)return 0;
+    if(!ka)return 1;
+    if(!kb)return -1;
+    return ka>kb?-1:(ka<kb?1:0);
+  };
   var _all=popupDB.map(function(row,i){return{row:row,i:i};});
   var _display=_all.filter(function(x){return x.row.status!=="종료";}).sort(_popStartCmp)
-                   .concat(_all.filter(function(x){return x.row.status==="종료";}).sort(_popStartCmp));
+                   .concat(_all.filter(function(x){return x.row.status==="종료";}).sort(_popRecentCmp));
   var _prevStatus=null;
   _display.forEach(function(item,di){
     var row=item.row, i=item.i;
@@ -9742,7 +9756,7 @@ function renderPopupPage(){
     var _dim=_isEnd?"opacity:0.6;background:#f9fafb;":"";
     /* 종료↔비종료 경계에 분계선 */
     if(_prevStatus!==null && _isEnd!==(_prevStatus==="종료")){
-      h+='<tr><td colspan="8" style="padding:0;border-top:2px solid #6366f1;background:linear-gradient(90deg,#6366f1,#a5b4fc,#6366f1);height:2px"></td></tr>';
+      h+='<tr><td colspan="11" style="padding:0;border-top:2px solid #6366f1;background:linear-gradient(90deg,#6366f1,#a5b4fc,#6366f1);height:2px"></td></tr>';
     }
     _prevStatus=row.status;
     h+='<tr style="border-bottom:1px solid #e5e7eb;'+_dim+'" id="poprow-'+i+'">';
@@ -9764,6 +9778,13 @@ function renderPopupPage(){
     h+='<td class="pop-fix" style="left:222px;padding:5px 2px;border-right:2px solid #e0e7ff"><input type="date" value="'+(row.end||"")+'" onchange="popupEdit('+i+',\'end\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 1px;font-size:16px;box-sizing:border-box"></td>';
     /* 내용 */
     h+='<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:18px;font-family:inherit;resize:none;overflow:auto;height:42px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
+    /* 주소 · 영업시간 · 프로모션 */
+    var _popCell=function(field,val,ph,color){
+      return '<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\''+field+'\',this.value)" placeholder="'+ph+'" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:16px;font-family:inherit;'+(color?"color:"+color+";":"")+'resize:none;overflow:auto;height:42px;box-sizing:border-box">'+_esc(val||"")+'</textarea></td>';
+    };
+    h+=_popCell("addr",row.addr,"주소","");
+    h+=_popCell("hours",row.hours,"영업시간","");
+    h+=_popCell("promo",row.promo,"프로모션","#b45309");
     /* 비고 */
     h+='<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:18px;font-family:inherit;color:#6366f1;resize:none;overflow:auto;height:42px;box-sizing:border-box">'+_esc(row.note||"")+'</textarea></td>';
     /* 삭제 */
@@ -9771,7 +9792,7 @@ function renderPopupPage(){
     h+='</tr>';
   });
   if(!popupDB.length){
-    h='<tr><td colspan="8" style="padding:32px;text-align:center;color:#5b6675;font-size:13px">+ 행 추가 버튼으로 일정을 등록하세요</td></tr>';
+    h='<tr><td colspan="11" style="padding:32px;text-align:center;color:#5b6675;font-size:13px">+ 행 추가 버튼으로 일정을 등록하세요</td></tr>';
   }
   tbody.innerHTML=h;
   _applyPopColW();
@@ -9780,7 +9801,7 @@ function renderPopupPage(){
 function _esc(s){return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
 
 function addPopupRow(){
-  popupDB.push({status:"진행예정",store:"",start:"",end:"",content:"",note:""});
+  popupDB.push({status:"진행예정",store:"",start:"",end:"",content:"",addr:"",hours:"",promo:"",note:""});
   savePopupDB();
   renderPopupPage();
   /* 마지막 행 매장 input에 포커스 */
