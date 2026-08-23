@@ -1180,7 +1180,7 @@ label{font-size:14px!important}
       <span style="font-size:11px;font-weight:600;color:#475569">파일로 추가</span>
       <label class="bs" style="cursor:pointer;padding:5px 12px;font-size:12px">📁 롯데ON 출고지시 업로드<input type="file" id="ordLotteIn" accept=".xlsx,.xls" style="display:none" onchange="ordLoadLotteFile(this)"></label>
       <div id="ordLotteDrop" class="drop-zone" onclick="document.getElementById('ordLotteIn').click()" style="border-radius:8px;padding:5px 14px;font-size:12px;gap:5px">📂 끌어오기</div>
-      <span style="font-size:11px;color:#94a3b8">롯데ON <b>업체배송 발송처리(출고지시)</b> 엑셀을 올리면 모델번호+색상으로 자사코드를 찾아 행으로 추가합니다 · 하위거래처명으로 매장 자동 · 같은 매장·같은 상품은 합산</span>
+      <span style="font-size:11px;color:#94a3b8">롯데ON <b>업체배송 발송처리(출고지시)</b> 엑셀을 올리면 모델번호+색상으로 자사코드를 찾아 <b>주문 1건 = 1행</b>으로 추가합니다. 온라인 발주라 수취인이 주문마다 다르므로 <b>수령인·연락처·주소는 직접 입력</b>해주세요(주황색 행).</span>
     </div>
     <div id="ordSearchResults" style="margin-top:6px"></div>
   </div>
@@ -5094,24 +5094,48 @@ function _ordAddrBookAoa(){
 }
 function _ordStoreOptions(selCode){return ORDER_STORES.map(function(s){var label=s.code?(s.code+' · '+s.name):s.name;return '<option value="'+s.code+'"'+(s.code===selCode?' selected':'')+'>'+label+'</option>';}).join("");}
 function ordFillStoreSelect(){var sel=document.getElementById("ordStore");if(!sel||sel.options.length)return;sel.innerHTML=_ordStoreOptions(ORDER_STORES[0].code);}
-function ordAddRow(){var sel=document.getElementById("ordStore");var code=sel?sel.value:(ORDER_STORES[0]&&ORDER_STORES[0].code);orderDB.rows.push({store:code||"",name:"",code:"",qty:""});saveOrder();renderOrder();var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;}
+/* 매장 기준 수취인(수령인·연락처·주소)을 채운 값 — 온라인 발주는 이 값을 지우고 고객 정보를 직접 넣는다 */
+function _ordRecvOf(code){var st=_ordStoreByCode(code)||{};return {recv:st.recv||"",tel:st.tel||"",addr:st.addr||""};}
+function ordAddRow(){
+  var sel=document.getElementById("ordStore");
+  var code=sel?sel.value:(ORDER_STORES[0]&&ORDER_STORES[0].code);
+  var rc=_ordRecvOf(code);
+  orderDB.rows.push({store:code||"",name:"",code:"",qty:"",recv:rc.recv,tel:rc.tel,addr:rc.addr,orderNo:""});
+  saveOrder();renderOrder();
+  var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;
+}
 function ordDelRow(i){orderDB.rows.splice(i,1);saveOrder();renderOrder();}
-function ordEdit(i,key,val){if(!orderDB.rows[i])return;orderDB.rows[i][key]=val;saveOrder();if(key==="code"){var c=document.getElementById("ordPcode_"+i);if(c)c.textContent=(val||"").slice(0,8);}}
+function ordEdit(i,key,val){
+  var r=orderDB.rows[i];if(!r)return;
+  r[key]=val;
+  if(key==="store"&&!r.online){          /* 온라인 발주행(고객 배송)은 매장 수취인으로 덮지 않는다 */
+    var rc=_ordRecvOf(val);
+    r.recv=rc.recv;r.tel=rc.tel;r.addr=rc.addr;
+    saveOrder();renderOrder();return;
+  }
+  saveOrder();
+  if(key==="recv"||key==="addr")renderOrder();   /* 미입력 강조 해제 반영 */
+  if(key==="code"){var c=document.getElementById("ordPcode_"+i);if(c)c.textContent=(val||"").slice(0,8);}
+}
 function ordClear(){if(!confirm("발주서 내용을 모두 지울까요?"))return;orderDB.rows=[];saveOrder();renderOrder();}
 function renderOrder(){
   ordFillStoreSelect();
   var wrap=document.getElementById("ordTableWrap");if(!wrap)return;
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량',''],['상품코드',''],['삭제','']].forEach(function(c){
+  [['#',''],['매장',''],['상품명','min-width:300px'],['상품컬러코드','min-width:130px'],['수량',''],['상품코드',''],['수령인','min-width:90px'],['받는분연락처','min-width:120px'],['주소','min-width:260px'],['주문번호','min-width:120px'],['삭제','']].forEach(function(c){
     h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
   if(!orderDB.rows.length){
-    h+='<tr><td colspan="7" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
+    h+='<tr><td colspan="11" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
   }
+  var _ordEd=function(i,key,val,style){
+    return '<td contenteditable="true" onblur="ordEdit('+i+',&quot;'+key+'&quot;,this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;'+(style||"")+'">'+_escX(val||"")+'</td>';
+  };
   orderDB.rows.forEach(function(r,i){
-    h+='<tr data-i="'+i+'">';
+    var _need=(r.online&&(!String(r.recv||"").trim()||!String(r.addr||"").trim()));
+    h+='<tr data-i="'+i+'"'+(_need?' title="온라인 발주 — 수취인명·연락처·주소를 직접 입력하세요" style="background:#fff7ed"':'')+'>';
     h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><select onchange="ordEdit('+i+',\'store\',this.value)" style="border:none;outline:none;font-size:13px;background:transparent;color:#1f2937;max-width:210px">'+_ordStoreOptions(r.store)+'</select></td>';
     h+='<td style="border:1px solid #e1e6ee;padding:0;position:relative">'
@@ -5120,6 +5144,10 @@ function renderOrder(){
     h+='<td contenteditable="true" onblur="ordEdit('+i+',\'code\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;font-family:monospace">'+_escX(r.code||"")+'</td>';
     h+='<td contenteditable="true" onblur="ordEdit('+i+',\'qty\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;text-align:right">'+_escX(r.qty||"")+'</td>';
     h+='<td id="ordPcode_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;color:#6366f1;font-weight:600;font-family:monospace;background:#f8fafc">'+_escX((r.code||"").slice(0,8))+'</td>';
+    h+=_ordEd(i,"recv",r.recv,_need?"background:#fff7ed;color:#b45309":"");
+    h+=_ordEd(i,"tel",r.tel,_need?"background:#fff7ed;color:#b45309":"");
+    h+=_ordEd(i,"addr",r.addr,"white-space:normal"+(_need?";background:#fff7ed;color:#b45309":""));
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-size:11px;color:#94a3b8;font-family:monospace">'+_escX(r.orderNo||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="ordDelRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:3px 8px">✕</button></td>';
     h+='</tr>';
   });
@@ -5253,7 +5281,8 @@ function ordPickChip(k){
 function ordAddResult(k){
   var d=_ordResults[k];if(!d)return;
   var sel=document.getElementById("ordStore");
-  orderDB.rows.push({store:sel?sel.value:"",name:(d["상품명"]+" "+(d["칼라명"]||"")).trim(),code:d["자사코드"]||"",qty:"1"});
+  var _oc=sel?sel.value:"",_orc=_ordRecvOf(_oc);
+  orderDB.rows.push({store:_oc,name:(d["상품명"]+" "+(d["칼라명"]||"")).trim(),code:d["자사코드"]||"",qty:"1",recv:_orc.recv,tel:_orc.tel,addr:_orc.addr,orderNo:""});
   saveOrder();renderOrder();
   var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;
   var m=document.getElementById("ordMsg");if(m){m.textContent="✅ 추가됨";clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},1500);}
@@ -5296,6 +5325,9 @@ function ordSearchKey(e){
 function _ord2(n){n=String(n);return n.length<2?"0"+n:n;}
 function ordDownload(){
   if(!orderDB.rows.length){alert("발주 상품이 없습니다.");return;}
+  /* 온라인 발주처럼 수취인을 직접 넣어야 하는 행이 비어 있으면 먼저 알린다 */
+  var _need=orderDB.rows.filter(function(r){return r.online&&(!String(r.recv||"").trim()||!String(r.addr||"").trim());}).length;
+  if(_need&&!confirm("수령인 또는 주소가 비어있는 행이 "+_need+"건 있습니다."+"\n\n"+"그대로 다운로드할까요?"))return;
   var aoa=[ORDER_HEADERS.slice()];
   orderDB.rows.forEach(function(r){
     /* 매장없음(코드 공백)은 매장 관련 칸을 모두 비움 */
@@ -5303,9 +5335,9 @@ function ordDownload(){
     var row=[];for(var c=0;c<27;c++)row.push("");
     row[2]=r.store||"";              /* C 주문번호(쇼핑몰)=매장코드 */
     row[3]=st.name||"";              /* D 쇼핑몰 */
-    row[4]=st.recv||"";              /* E 수령인 */
-    row[7]=st.tel||"";               /* H 받는분연락처 */
-    row[9]=st.addr||"";              /* J 주소 */
+    row[4]=(r.recv!==undefined)?(r.recv||""):(st.recv||"");   /* E 수령인 */
+    row[7]=(r.tel!==undefined)?(r.tel||""):(st.tel||"");      /* H 받는분연락처 */
+    row[9]=(r.addr!==undefined)?(r.addr||""):(st.addr||"");   /* J 주소 */
     row[11]=r.name||"";              /* L 상품명 */
     row[12]=r.qty||"";               /* M 수량 */
     row[17]=(r.code||"").slice(0,8); /* R 상품코드 */
@@ -5632,13 +5664,13 @@ function _ordAddLotteRows(rows){
     var cModel=_ocCol(row,["모델번호"]),cOpt=_ocCol(row,["단품명"]);
     if(cModel>=0&&cOpt>=0){
       hRow=r;
-      H={model:cModel,opt:cOpt,pname:_ocCol(row,["상품명"]),qty:_ocCol(row,["주문수량","수량"]),dealer:_ocCol(row,["하위거래처명","상위거래처명"])};
+      H={model:cModel,opt:cOpt,pname:_ocCol(row,["상품명"]),qty:_ocCol(row,["주문수량","수량"]),dealer:_ocCol(row,["하위거래처명","상위거래처명"]),ordNo:_ocCol(row,["출점주문번호","주문번호"])};
       break;
     }
   }
   if(hRow<0){alert("롯데ON 출고지시 형식을 인식할 수 없습니다.\n(모델번호·단품명 열이 필요합니다)");return;}
   if(typeof DB==="undefined"||!DB.length){alert("상품리스트가 없어 자사코드를 매칭할 수 없습니다.\n판매일보 > 상품리스트 업데이트를 먼저 해주세요.");return;}
-  var acc={},order=[],src=0,noSku=0;
+  var order=[],src=0,noSku=0;
   for(var i=hRow+1;i<rows.length;i++){
     var row=rows[i];if(!row)continue;
     var model=String(row[H.model]==null?"":row[H.model]).trim();
@@ -5652,19 +5684,24 @@ function _ordAddLotteRows(rows){
     var storeCode=_ocLotteStoreCode(H.dealer>=0?String(row[H.dealer]||""):"");
     var hit=_ocMatchSku(model,colorName);
     if(!hit)noSku++;
-    var key=storeCode+"|"+(hit?hit.sku:("?"+model+"|"+colorName));
-    if(acc[key]){acc[key].q+=qty;continue;}
-    var o={store:storeCode,name:(hit?(hit.name+" "+hit.color):(pname+(colorName?" "+colorName:""))).trim(),code:hit?hit.sku:"",q:qty};
-    acc[key]=o;order.push(o);
+    /* 온라인 발주라 주문마다 수취인이 달라 합치지 않는다 */
+    order.push({
+      store:storeCode,
+      name:(hit?(hit.name+" "+hit.color):(pname+(colorName?" "+colorName:""))).trim(),
+      code:hit?hit.sku:"",
+      qty:String(qty),
+      orderNo:H.ordNo>=0?String(row[H.ordNo]==null?"":row[H.ordNo]).trim():"",
+      recv:"",tel:"",addr:"",online:true
+    });
   }
   if(!order.length){alert("인식된 주문이 없습니다.");return;}
-  order.forEach(function(o){orderDB.rows.push({store:o.store,name:o.name,code:o.code,qty:String(o.q)});});
+  order.forEach(function(o){orderDB.rows.push(o);});
   saveOrder();renderOrder();
   var m=document.getElementById("ordMsg");
   if(m){
-    m.style.color=noSku?"#dc2626":"#059669";
-    m.textContent="✅ "+src+"건 → "+order.length+"줄 추가"+(src>order.length?" (동일상품 "+(src-order.length)+"건 합산)":"")+(noSku?" · ❗자사코드 미매칭 "+noSku+"건":"");
-    clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";m.style.color="#059669";},8000);
+    m.style.color=noSku?"#dc2626":"#b45309";
+    m.textContent="✅ "+order.length+"건 추가 · 수취인명·연락처·주소를 입력하세요"+(noSku?" · ❗자사코드 미매칭 "+noSku+"건":"");
+    clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";m.style.color="#059669";},12000);
   }
 }
 function _ordProcessLotteFile(file){
