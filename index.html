@@ -997,7 +997,8 @@ label{font-size:14px!important}
           1) 발송일괄업로드 &gt; <b>발송업로드</b> 클릭<br>
           2) <b>불러오기</b> &gt; 5단계 파일 열기<br>
           3) 송장번호 입력 확인<br>
-          4) <b>배송중</b> 상태이면 완료
+          4) <b>배송중</b> 상태이면 완료<br>
+          5) 영업1-2팀방 <b>@나경화 이사</b> 태그<br>'코스트코 <b id="ccPdfPostCnt6">0</b>건 업로드하였습니다.' 기재
         </div>
       </div>
     </div>
@@ -8064,8 +8065,11 @@ function renderCcPdfTable(){
   var statusEl=document.getElementById("ccPdfStatus");
   var wrap=document.getElementById("ccPdfResultWrap");
   /* 3단계 안내문구의 "코스트코 발주 N건"을 실제 건수로 자동 표시 */
+  var _ordCnt=_ccPdfOrderCount();
   var _cntEl=document.getElementById("ccPdfPostCnt");
-  if(_cntEl)_cntEl.textContent=ccPdfRows.length;
+  if(_cntEl)_cntEl.textContent=_ordCnt;
+  var _cntEl6=document.getElementById("ccPdfPostCnt6");
+  if(_cntEl6)_cntEl6.textContent=_ordCnt;
   if(!ccPdfRows.length){
     statusEl.innerHTML='<div style="font-size:16px;color:#94a3b8;padding:6px 0">PDF 업로드 대기중</div>';
     wrap.innerHTML="";
@@ -8361,6 +8365,16 @@ var CC_PDF_WEEKDAY_KR=["일","월","화","수","목","금","토"];
 function _ccPdfRequestDateStr(){
   var d=new Date();
   return (d.getMonth()+1)+"/"+d.getDate()+"("+CC_PDF_WEEKDAY_KR[d.getDay()]+")";
+}
+/* 보고 문구용 건수 — 주문번호 기준(한 주문에 상품이 여러 줄이어도 1건) */
+function _ccPdfOrderCount(){
+  var seen={},n=0,noNo=0;
+  ccPdfRows.forEach(function(r){
+    var k=String(r.orderNo||"").trim();
+    if(!k){noNo++;return;}
+    if(!seen[k]){seen[k]=1;n++;}
+  });
+  return n+noNo;
 }
 function ccPdfDownload(){
   if(!ccPdfRows.length){alert("다운로드할 주문 데이터가 없습니다.\n먼저 위에서 코스트코 PDF 주문서를 업로드해주세요."+(Object.keys(ccPdfInvoiceMap).length?"\n(붙여넣은 송장번호는 유지되어 PDF를 올리면 자동으로 매칭됩니다)":""));return;}
