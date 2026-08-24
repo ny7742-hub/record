@@ -5169,8 +5169,14 @@ var ORDER_STORES=[
   {code:"ANT", name:"아난티 남해",              recv:"",           tel:"",              addr:"경상남도 남해군 남면 남서대로 1179번길 40-109 (아난티 남해 구매팀)"},
   {code:"TMG", name:"트래블메이트 김포공항점",  recv:"조미 매니저", tel:"010-9722-3377", addr:"서울 강서구 하늘길 112, 김포공항국내선청사 3층 트래블메이트"},
   {code:"TMI1",name:"트래블메이트인천공항1청사점",recv:"김성겸 매니저",tel:"010-6500-3014",addr:"인천시 중구 공항로 271, 인천공항 1터미널 3층 트래블메이트"},
-  {code:"TMI2",name:"트래블메이트인천공항2청사점",recv:"박진아 매니저",tel:"010-4100-7391",addr:"인천시 중구 제2터미널대로 446, 인천공항 2터미널 3층 트래블메이트"}
+  {code:"TMI2",name:"트래블메이트인천공항2청사점",recv:"박진아 매니저",tel:"010-4100-7391",addr:"인천시 중구 제2터미널대로 446, 인천공항 2터미널 3층 트래블메이트"},
+  {code:"CX",  name:"CX통합관리",                recv:"",           tel:"",              addr:""}
 ];
+/* CX통합관리 = 매장 배송이 아니라 받는분을 행마다 직접 넣는 발주. 다운로드도 CX 발주서 양식으로 나간다. */
+var ORD_CX_CODE="CX";
+function _ordIsCx(r){return !!r&&r.store===ORD_CX_CODE;}
+/* 수취인(수령인·주소)을 직접 입력해야 하는 행 — 온라인 발주 / CX통합관리 */
+function _ordNeedRecv(r){return (r.online||_ordIsCx(r))&&(!String(r.recv||"").trim()||!String(r.addr||"").trim());}
 var ORDER_HEADERS=["출고일","주문번호(사방넷)","주문번호(쇼핑몰)","쇼핑몰","수령인","택배사","운송장번호","받는분연락처","받는분기타연락처","주소","배송메세지","상품명","수량","결제금액","큐텐(한글상품명)","바코드","큐텐바코드","상품코드","쇼핑몰(참고용)","상품컬러코드","상품명(수집)","옵션(수집)","주문자명","구분","주문일시(YYYY-MM-DD HH:MM)","주문자전화번호1","주문자전화번호2"];
 var orderDB=(function(){try{var d=JSON.parse(localStorage.getItem("orderDB")||"null");return (d&&d.rows)?d:{rows:[]};}catch(e){return {rows:[]};}})();
 function saveOrder(){wsSetItem("orderDB",JSON.stringify(orderDB));}
@@ -5178,7 +5184,7 @@ function _ordStoreByCode(code){if(!code)return null;/* 매장없음(공백)은 �
 function _ordAddrBookAoa(){
   var aoa=[ORDER_HEADERS.slice()];
   ORDER_STORES.forEach(function(s){
-    if(!s.code)return;
+    if(!s.code||s.code===ORD_CX_CODE)return;   /* CX통합관리는 고정 주소가 없어 주소록에서 제외 */
     var row=[];for(var c=0;c<27;c++)row.push("");
     row[2]=s.code;row[3]=s.name;row[4]=s.recv||"";row[7]=s.tel||"";row[9]=s.addr||"";
     aoa.push(row);
@@ -5251,8 +5257,8 @@ function renderOrder(){
     return '<td contenteditable="true" onblur="ordEdit('+i+',&quot;'+key+'&quot;,this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;'+(style||"")+'">'+_escX(val||"")+'</td>';
   };
   orderDB.rows.forEach(function(r,i){
-    var _need=(r.online&&(!String(r.recv||"").trim()||!String(r.addr||"").trim()));
-    h+='<tr data-i="'+i+'"'+(_need?' title="온라인 발주 — 수취인명·연락처·주소를 직접 입력하세요" style="background:#fff7ed"':'')+'>';
+    var _need=_ordNeedRecv(r);
+    h+='<tr data-i="'+i+'"'+(_need?' title="'+(_ordIsCx(r)?"CX통합관리":"온라인 발주")+' — 수취인명·연락처·주소를 직접 입력하세요" style="background:#fff7ed"':'')+'>';
     h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><select onchange="ordEdit('+i+',\'store\',this.value)" style="border:none;outline:none;font-size:13px;background:transparent;color:#1f2937;max-width:210px">'+_ordStoreOptions(r.store)+'</select></td>';
     h+='<td style="border:1px solid #e1e6ee;padding:0;position:relative">'
@@ -5444,8 +5450,14 @@ function _ord2(n){n=String(n);return n.length<2?"0"+n:n;}
 function ordDownload(){
   if(!orderDB.rows.length){alert("발주 상품이 없습니다.");return;}
   /* 온라인 발주처럼 수취인을 직접 넣어야 하는 행이 비어 있으면 먼저 알린다 */
-  var _need=orderDB.rows.filter(function(r){return r.online&&(!String(r.recv||"").trim()||!String(r.addr||"").trim());}).length;
+  var _need=orderDB.rows.filter(_ordNeedRecv).length;
   if(_need&&!confirm("수령인 또는 주소가 비어있는 행이 "+_need+"건 있습니다."+"\n\n"+"그대로 다운로드할까요?"))return;
+  /* CX통합관리 행은 도매발주서(27열)가 아니라 CX 발주서 양식(10열)으로 내보낸다 */
+  var cx=orderDB.rows.filter(_ordIsCx);
+  if(cx.length){
+    if(cx.length===orderDB.rows.length)return ordDownloadCx(cx);
+    if(confirm("CX통합관리 행이 "+cx.length+"건 있습니다.\n\n확인 → CX통합관리 행만 CX 발주서 양식으로 다운로드\n취소 → 전체를 기존 도매발주서 양식으로 다운로드"))return ordDownloadCx(cx);
+  }
   var aoa=[ORDER_HEADERS.slice()];
   orderDB.rows.forEach(function(r){
     /* 매장없음(코드 공백)은 매장 관련 칸을 모두 비움 */
@@ -5472,6 +5484,65 @@ function ordDownload(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(_ordAddrBookAoa()),"매장주소록");
   var d=new Date();
   XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 도매발주서.xlsx");
+}
+
+/* ── CX통합관리 발주서 양식 ──
+   'CX 통합관리' 시스템(wscx.pages.dev) 업로드용 10열 양식 + 작성방법 시트.
+   맨 위 '예시' 2행은 양식 그대로 남긴다(업로드 시 자동 제외됨). */
+var ORD_CX_HEADERS=["구분","받는분","연락처","주소","전산 처리 방법","상품명","상품컬러코드","수량","희망출고일","배송메세지"];
+var ORD_CX_COLW=[8,12,16,40,22,52,16,7,13,20];
+var ORD_CX_SAMPLE=[
+  ["예시","홍길동","010-1234-5678","서울 강남구 테헤란로 1, 3층 (06234)","사입출고등록(기타온라인)","[화이트샌즈] 25SS 플로랄 펀칭 코튼 스트링리본 UV 와이드챙 볼캡 로데스","WKS65C3JBKX",2,"2026-08-20","부재 시 문 앞"],
+  ["예시","홍길동","010-1234-5678","서울 강남구 테헤란로 1, 3층 (06234)","창고간이동","[화이트샌즈 그린라벨] 25SS 500 AIR 초경량 UV 우양산 루노아 딥 그린","",1,"2026-08-20",""]
+];
+function _ordCxGuideAoa(){
+  return [
+    ["화이트샌즈 CX 통합관리 · 발주서 작성 방법",""],
+    ["",""],
+    ["1","‘발주서’ 시트의 표에 한 줄에 상품 하나씩 입력하세요."],
+    ["2","맨 위 ‘예시’ 행 2줄은 참고용입니다. 작성 후 그대로 두셔도 됩니다(자동으로 제외됩니다)."],
+    ["3","같은 받는분·주소로 여러 상품을 보내면 자동으로 하나의 발주서(오더)로 묶입니다."],
+    ["",""],
+    ["필수 항목","받는분 · 연락처 · 주소 (물류 배송에 반드시 필요)"],
+    ["전산 처리 방법","사입출고등록(기타온라인) / 창고간이동 / 운송장 출력 / 기타 중 하나. 비우면 ‘사입출고등록(기타온라인)’으로 처리됩니다."],
+    ["상품명","가능한 한 정확히 입력하세요. 시스템이 판매 카탈로그와 자동 대조합니다."],
+    ["상품컬러코드","알고 있으면 입력(예: WKS65C3JBKX). 비워도 상품명으로 매칭됩니다."],
+    ["수량","숫자만 입력 (비우면 1로 처리)"],
+    ["희망출고일","YYYY-MM-DD 형식 (예: 2026-08-20). 선택 항목입니다."],
+    ["배송메세지","배송 요청사항. 선택 항목입니다."],
+    ["",""],
+    ["업로드 방법","wscx.pages.dev 접속 → ‘발주서 등록’ 탭 → 📥 엑셀 업로드 → 부서 선택 → 저장"],
+    ["주의","카톡·전화·구글시트로 발주하지 마시고 반드시 이 시스템으로 등록해 주세요."]
+  ];
+}
+function ordDownloadCx(rows){
+  if(!rows||!rows.length){alert("CX통합관리로 지정된 발주 행이 없습니다.");return;}
+  var aoa=[ORD_CX_HEADERS.slice()];
+  ORD_CX_SAMPLE.forEach(function(r){aoa.push(r.slice());});
+  rows.forEach(function(r){
+    var q=parseInt(String(r.qty||"").replace(/[^0-9]/g,""),10);
+    aoa.push([
+      "",                    /* A 구분 — '예시' 행 표시용이라 실제 발주는 비움 */
+      r.recv||"",            /* B 받는분 */
+      r.tel||"",             /* C 연락처 */
+      r.addr||"",            /* D 주소 */
+      "",                    /* E 전산 처리 방법 — 비우면 사입출고등록(기타온라인) */
+      r.name||"",            /* F 상품명 */
+      r.code||"",            /* G 상품컬러코드 */
+      (q>0?q:""),            /* H 수량 — 비우면 1로 처리 */
+      "",                    /* I 희망출고일 */
+      r.msg||""              /* J 배송메세지 */
+    ]);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=ORD_CX_COLW.map(function(w){return {wch:w};});
+  var gs=XLSX.utils.aoa_to_sheet(_ordCxGuideAoa());
+  gs["!cols"]=[{wch:14},{wch:78}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"발주서");
+  XLSX.utils.book_append_sheet(wb,gs,"작성방법");
+  var d=new Date();
+  XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - CX통합관리 발주서.xlsx");
 }
 
 /* ── CX팀 물류센터 발주양식 ──
