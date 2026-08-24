@@ -440,6 +440,16 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .home-cat .hc-amt em{display:block;font-style:normal;font-size:11px;font-weight:700;color:#8a95a6;margin-bottom:1px}
 .home-cat .hc-amt strong{display:block;font-size:25px;font-weight:800;letter-spacing:-.8px;line-height:1.15}
 .home-cat .hc-amt strong small{font-size:14px;font-weight:800;margin-left:1px}
+/* 매장별 일별매출 — 매장 헤더의 목표/달성/달성률/객단가/부족 (2줄 구성) */
+.ds-meta{font-size:11px;font-weight:600;color:#334155}
+.ds-meta .ds-row{display:flex;flex-wrap:wrap;gap:2px 8px;justify-content:center;align-items:center}
+.ds-meta .ds-row+.ds-row{margin-top:3px}
+/* 달성금액은 가장 중요한 숫자 — 크게, 진하게, 테두리로 강조 */
+.ds-meta .ds-ach{display:inline-flex;align-items:baseline;gap:4px;background:#fff;border:1.5px solid #1b6e82;border-radius:6px;padding:1px 9px;box-shadow:0 1px 2px rgba(27,110,130,.18)}
+.ds-meta .ds-ach em{font-style:normal;font-size:10px;font-weight:800;color:#4a7f8c}
+.ds-meta .ds-ach b{font-size:16px;font-weight:800;color:#0f5c6e;letter-spacing:-.4px;line-height:1.15}
+.ds-meta .ds-rate b{font-size:13px;font-weight:800}
+
 /* 전년 동월 대비 */
 .hc-yoy{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:4px;flex-wrap:wrap}
 .hc-yoy .yy-prev{font-size:11px;font-weight:700;color:#8a95a6}
@@ -3777,21 +3787,22 @@ var PREV_YEAR_SALES={
   "2025-12":{daily:177292400,costco:10674450,hs:155151666}
 };
 
-/* 이번달 매출 vs 전년 동월 비교 줄 HTML.
-   전년 데이터가 없거나(=null), 이번달이 아직 0원이거나, 전년이 0 이하(반품이 더 많은 달)라
-   증감률 계산이 무의미한 경우는 비율을 빼고 금액만 보여준다. */
+/* 이번달 매출 vs 전년 동월 비교 줄 HTML — 둘 다 그 달 1일~말일 전체 기준, 증감은 %로 표시.
+   전년이 마이너스인 달(반품이 판매보다 많았던 달)은 절대값을 분모로 써서
+   부호가 실제 증감 방향과 맞게 한다. 정확한 금액은 배지 툴팁에 있다. */
 function _yoyHtml(cur,prev,prevMk){
   if(prev===null||prev===undefined)return "";
   var ymLab=prevMk.slice(0,4)+"."+prevMk.slice(5,7);
-  var line='<div class="hc-yoy"><span class="yy-prev" title="'+prevMk.slice(0,4)+'년 '+Number(prevMk.slice(5,7))+'월 한 달 전체 매출입니다. 이번달은 아직 진행중이라 남은 일수만큼 차이가 날 수 있습니다.">전년 '+ymLab+' <b>'+Number(prev).toLocaleString()+'원</b></span>';
+  var line='<div class="hc-yoy"><span class="yy-prev" title="'+prevMk.slice(0,4)+'년 '+Number(prevMk.slice(5,7))+'월 1일~말일 전체 매출입니다. 이번달은 아직 진행중이라 남은 일수만큼 차이가 날 수 있습니다.">전년 '+ymLab+' <b>'+Number(prev).toLocaleString()+'원</b></span>';
   cur=Number(cur)||0;
   if(!cur)return line+'<span class="yy-badge yy-flat">미집계</span></div>';
-  var diff=cur-prev;
-  if(prev<=0)return line+'<span class="yy-badge '+(diff>=0?"yy-up":"yy-down")+'">'+(diff>=0?"▲ +":"▼ ")+Math.round(diff/10000).toLocaleString()+'만원</span></div>';
-  var rate=diff/prev*100;
+  var diff=cur-prev, base=Math.abs(prev);
+  var tip=(diff>=0?"+":"")+diff.toLocaleString()+"원 ("+prev.toLocaleString()+"원 → "+cur.toLocaleString()+"원)";
+  if(!base)return line+'<span class="yy-badge yy-up" title="'+tip+'">신규</span></div>';
+  var rate=diff/base*100;
   var cls=rate>0.05?"yy-up":(rate<-0.05?"yy-down":"yy-flat");
   var arrow=rate>0.05?"▲ +":(rate<-0.05?"▼ ":"");
-  return line+'<span class="yy-badge '+cls+'" title="'+(diff>=0?"+":"")+diff.toLocaleString()+'원">'+arrow+rate.toFixed(1)+'%</span></div>';
+  return line+'<span class="yy-badge '+cls+'" title="'+tip+'">'+arrow+rate.toFixed(1)+'%</span></div>';
 }
 function renderHomeDashboard(){
   var now=new Date();
@@ -4930,13 +4941,18 @@ function renderDaily(){
     var _dsUpBtn='<label title="파일 업로드 (판매수량·총매출)" style="cursor:pointer;font-size:12px;line-height:1;user-select:none">📁<input type="file" accept=".xlsx,.xls" style="display:none" onchange="dsLoadStoreFile(event,'+si+')"></label>';
     /* 삭제(✕)는 업로드(📁) 바로 옆이면 잘못 눌러 매장이 지워지므로, 헤더 오른쪽 끝으로 떼어 놓는다 */
     h+='<div style="position:relative;display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px;padding:0 18px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span>'+_dsPopupBanner+_dsUpBtn+'<button onclick="dsDelStore('+si+')" title="매장 삭제" style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0 2px;line-height:1">✕</button></div>';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:3px 8px;justify-content:center;font-size:11px;font-weight:600;color:#334155">';
+    h+='<div class="ds-meta">';
+    /* 1줄: 목표 · 달성금액(강조) · 달성률 */
+    h+='<div class="ds-row">';
     h+='<span>목표 <input value="'+_esc(_dsFmt(_dsN(s.target)))+'" onblur="this.value=dsMeta('+si+',\'target\',this.value)" inputmode="numeric" style="'+mi+'"></span>';
-    h+='<span>달성 <b id="dsAch_'+si+'" style="color:#1b6e82"></b></span>';
-    h+='<span>달성률 <b id="dsRate_'+si+'" style="color:#15803d"></b></span>';
+    h+='<span class="ds-ach"><em>달성</em><b id="dsAch_'+si+'"></b></span>';
+    h+='<span class="ds-rate">달성률 <b id="dsRate_'+si+'" style="color:#15803d"></b></span>';
+    h+='</div>';
+    /* 2줄: 객단가 · 부족금액 */
+    h+='<div class="ds-row">';
     h+='<span>객단가 <b id="dsUnit_'+si+'" style="color:#7c3aed"></b></span>';
     h+='<span>부족 <b id="dsShort_'+si+'" style="color:#dc2626"></b></span>';
-    h+='</div></th>';
+    h+='</div></div></th>';
   });
   if(mobileMode)h+=achTh;
   h+='</tr><tr>';
@@ -4988,7 +5004,21 @@ function renderDaily(){
   h+='</tbody></table>';
   wrap.innerHTML=h;
   dsRecalc();
+  dsSyncHeadOffset();
   initDailyScroll();
+}
+/* 매장 헤더가 2줄이 되어 높이가 달라진다 — 아래 항목행의 sticky top을 실제 높이로 맞춘다.
+   (예전엔 52px 고정이라 스크롤하면 두 헤더가 겹쳐 보였다) */
+function dsSyncHeadOffset(){
+  function apply(){
+    var tbl=document.querySelector("#dailyTableWrap table");if(!tbl)return;
+    var rows=tbl.querySelectorAll("thead tr");if(rows.length<2)return;
+    var top=Math.round(rows[0].getBoundingClientRect().height);
+    if(!top)return;
+    Array.prototype.forEach.call(rows[1].querySelectorAll("th"),function(th){th.style.top=top+"px";});
+  }
+  apply();                                  /* 바로 적용 */
+  requestAnimationFrame(apply);             /* 폰트 로딩 등으로 높이가 바뀌면 한 번 더 */
 }
 /* 화면폭이 모바일↔데스크톱 경계를 넘나들 때 달성금액 열 위치 재계산 */
 (function(){
