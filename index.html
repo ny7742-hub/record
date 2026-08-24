@@ -440,6 +440,14 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .home-cat .hc-amt em{display:block;font-style:normal;font-size:11px;font-weight:700;color:#8a95a6;margin-bottom:1px}
 .home-cat .hc-amt strong{display:block;font-size:25px;font-weight:800;letter-spacing:-.8px;line-height:1.15}
 .home-cat .hc-amt strong small{font-size:14px;font-weight:800;margin-left:1px}
+/* 전년 동월 대비 */
+.hc-yoy{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:4px;flex-wrap:wrap}
+.hc-yoy .yy-prev{font-size:11px;font-weight:700;color:#8a95a6}
+.hc-yoy .yy-prev b{font-weight:800;color:#5b6675}
+.hc-yoy .yy-badge{font-size:11.5px;font-weight:800;padding:1px 7px;border-radius:999px;white-space:nowrap}
+.hc-yoy .yy-up{background:#fde8e8;color:#dc2626}
+.hc-yoy .yy-down{background:#e5edfb;color:#2563eb}
+.hc-yoy .yy-flat{background:#eef1f4;color:#6b7885}
 @media(max-width:1000px){.home-shelf-rev{grid-template-columns:1fr}.home-cat .hc-amt strong{font-size:22px}}
 @media(max-width:1000px){.home-shelf{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.home-shelf{grid-template-columns:1fr}}
@@ -541,7 +549,7 @@ label{font-size:14px!important}
 <div style="background:#fff;border-bottom:1px solid var(--ec-line);padding:10px 20px">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
     <div style="font-size:11px;font-weight:700;color:#8a95a6">⚡ 바로가기</div>
-    <button id="qcLockBtn" onclick="qcToggleLock()" style="border:1px solid #e2e5ea;border-radius:999px;padding:3px 11px;font-size:11px;font-weight:700;cursor:pointer;background:#eef2f7;color:#5b6675">🔒 아이디·비밀번호 보기</button>
+    <button id="qcLockBtn" onclick="qcToggleLock()" style="border:1px solid #e8734a;border-radius:999px;padding:4px 13px;font-size:11.5px;font-weight:800;cursor:pointer;background:#e8734a;color:#fff;box-shadow:0 1px 3px rgba(232,115,74,.35)">🔒 아이디·비밀번호 보기</button>
   </div>
   <div id="homeQuick" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
 </div>
@@ -3751,12 +3759,49 @@ function homeDismissNaverReminder(key){
   wsSetItem("popupNaverDismissed",JSON.stringify(popupNaverDismissed));
   renderHomeDashboard();
 }
+/* ── 전년도(2025) 월별 매출 ──
+   PlayMD 매장판매일보(백화점·코스트코·홈쇼핑) '실판매금액' 합계, 반품은 이미 음수라 그대로 차감된 값.
+   홈 화면 매출카드에서 '전년 동월'과 비교하는 데만 쓴다. */
+var PREV_YEAR_SALES={
+  "2025-01":{daily:102099800,costco:4509354,hs:168913213},
+  "2025-02":{daily:71828880,costco:1432978,hs:54346812},
+  "2025-03":{daily:69339980,costco:4771030,hs:295927881},
+  "2025-04":{daily:88117880,costco:5396720,hs:309914373},
+  "2025-05":{daily:114813530,costco:26336990,hs:243075400},
+  "2025-06":{daily:163022010,costco:154365240,hs:218515749},
+  "2025-07":{daily:189601960,costco:24952250,hs:72508489},
+  "2025-08":{daily:114235670,costco:-42059280,hs:44485502},
+  "2025-09":{daily:59492300,costco:1336640,hs:1848154},
+  "2025-10":{daily:70743360,costco:619800,hs:31164874},
+  "2025-11":{daily:112054790,costco:747720,hs:29663436},
+  "2025-12":{daily:177292400,costco:10674450,hs:155151666}
+};
+
+/* 이번달 매출 vs 전년 동월 비교 줄 HTML.
+   전년 데이터가 없거나(=null), 이번달이 아직 0원이거나, 전년이 0 이하(반품이 더 많은 달)라
+   증감률 계산이 무의미한 경우는 비율을 빼고 금액만 보여준다. */
+function _yoyHtml(cur,prev,prevMk){
+  if(prev===null||prev===undefined)return "";
+  var ymLab=prevMk.slice(0,4)+"."+prevMk.slice(5,7);
+  var line='<div class="hc-yoy"><span class="yy-prev" title="'+prevMk.slice(0,4)+'년 '+Number(prevMk.slice(5,7))+'월 한 달 전체 매출입니다. 이번달은 아직 진행중이라 남은 일수만큼 차이가 날 수 있습니다.">전년 '+ymLab+' <b>'+Number(prev).toLocaleString()+'원</b></span>';
+  cur=Number(cur)||0;
+  if(!cur)return line+'<span class="yy-badge yy-flat">미집계</span></div>';
+  var diff=cur-prev;
+  if(prev<=0)return line+'<span class="yy-badge '+(diff>=0?"yy-up":"yy-down")+'">'+(diff>=0?"▲ +":"▼ ")+Math.round(diff/10000).toLocaleString()+'만원</span></div>';
+  var rate=diff/prev*100;
+  var cls=rate>0.05?"yy-up":(rate<-0.05?"yy-down":"yy-flat");
+  var arrow=rate>0.05?"▲ +":(rate<-0.05?"▼ ":"");
+  return line+'<span class="yy-badge '+cls+'" title="'+(diff>=0?"+":"")+diff.toLocaleString()+'원">'+arrow+rate.toFixed(1)+'%</span></div>';
+}
 function renderHomeDashboard(){
   var now=new Date();
   var todayEl=document.getElementById("homeToday");
   if(todayEl)todayEl.textContent=now.getFullYear()+"년 "+(now.getMonth()+1)+"월 "+now.getDate()+"일 · 영업2팀";
 
   var mk=now.getFullYear()+"-"+(now.getMonth()+1<10?"0"+(now.getMonth()+1):(now.getMonth()+1));
+  /* 전년 동월 키 — 예: 2026-08 → 2025-08 */
+  var prevMk=(now.getFullYear()-1)+"-"+String(now.getMonth()+1).padStart(2,"0");
+  var prevYear=PREV_YEAR_SALES[prevMk]||null;
   var monthEdi=0;
   if(typeof dailySalesDB!=="undefined"&&dailySalesDB.data&&dailySalesDB.data[mk]){
     var md=dailySalesDB.data[mk];
@@ -3865,10 +3910,10 @@ function renderHomeDashboard(){
     {tab:"popup",icon:"tent",acc:"rose",title:"팝업",desc:"진행중·예정 팝업 일정 관리",chip:(popupOngoing?popupOngoing+"개 진행중":null)},
     {tab:"lossreport",icon:"docCheck",acc:"coral",title:"로스 품의서",desc:"팝업 종료 후 상품 로스 품의서 작성·다운로드"},
     {tab:"dept",icon:"building",acc:"ocean",title:"백화점",desc:"매장별 매출·목표·팝업 현황"},
-    {tab:"daily",icon:"calendar",acc:"sage",title:"매장별 일별매출",desc:"백화점 순서와 자동 동기화",rev:true,amt:monthEdi},
-    {tab:"costco",icon:"cart",acc:"coral",title:"코스트코",desc:"행사·마진·판매 현황 관리",rev:true,amt:ccMonthAmt},
+    {tab:"daily",icon:"calendar",acc:"sage",title:"매장별 일별매출",desc:"백화점 순서와 자동 동기화",rev:true,amt:monthEdi,prevKey:"daily"},
+    {tab:"costco",icon:"cart",acc:"coral",title:"코스트코",desc:"행사·마진·판매 현황 관리",rev:true,amt:ccMonthAmt,prevKey:"costco"},
     {tab:"margin",icon:"coin",acc:"mustard",title:"마진계산",desc:"코스트코 온라인몰 쿠폰 마진 계산"},
-    {tab:"homeshopping",icon:"tv",acc:"rose",title:"홈쇼핑",desc:"방송 매출·재고수량 체크",rev:true,amt:hsMonthAmt},
+    {tab:"homeshopping",icon:"tv",acc:"rose",title:"홈쇼핑",desc:"방송 매출·재고수량 체크",rev:true,amt:hsMonthAmt,prevKey:"hs"},
     {tab:"stock",icon:"stack",acc:"sage",title:"홈쇼핑몰 재고확인",desc:"창고재고 × 상품리스트 교차확인",chip:(lastCheck!=="-"?"최근 확인 "+lastCheck:"미확인")}
   ];
   var sw=document.getElementById("homeShelf");
@@ -3898,9 +3943,11 @@ function renderHomeDashboard(){
     /* 매출 현황 카드는 이번달 금액을 카드 안에 크게 표시 */
     var amtHtml="";
     if(c.rev){
-      amtHtml=(c.amt)
-        ? '<div class="hc-amt"><em>이번달 매출</em><strong style="color:'+ACC[c.acc]+'">'+Number(c.amt).toLocaleString()+'<small>원</small></strong></div>'
-        : '<div class="hc-amt"><em>이번달 매출</em><strong style="color:#b6c0c7">–</strong></div>';
+      var _cur=(c.amt)
+        ? '<strong style="color:'+ACC[c.acc]+'">'+Number(c.amt).toLocaleString()+'<small>원</small></strong>'
+        : '<strong style="color:#b6c0c7">–</strong>';
+      var _prev=(prevYear&&c.prevKey&&prevYear[c.prevKey]!==undefined)?prevYear[c.prevKey]:null;
+      amtHtml='<div class="hc-amt"><em>이번달 매출</em>'+_cur+_yoyHtml(c.amt,_prev,prevMk)+'</div>';
     }
     return '<div class="home-cat'+(c.rev?" hc-rev":"")+'" onclick="switchTab(\''+c.tab+'\')" tabindex="0" onkeydown="if(event.key===\'Enter\')switchTab(\''+c.tab+'\')">'
       +chip
@@ -3930,10 +3977,12 @@ function qcToggleLock(){
 }
 function qcSyncLockBtn(){
   var b=document.getElementById("qcLockBtn");if(!b)return;
-  b.textContent=qcUnlocked?"🔓 다시 잠그기":"🔒 아이디·비밀번호 보기";
-  b.style.background=qcUnlocked?"#fef3c7":"#eef2f7";
-  b.style.color=qcUnlocked?"#b45309":"#5b6675";
-  b.style.borderColor=qcUnlocked?"#fcd34d":"#e2e5ea";
+  /* 잠김=주황(눈에 띄게), 열림=진한 빨강(지금 노출중이라는 경고) */
+  b.textContent=qcUnlocked?"🔓 열림 — 다시 잠그기":"🔒 아이디·비밀번호 보기";
+  b.style.background=qcUnlocked?"#c2410c":"#e8734a";
+  b.style.borderColor=qcUnlocked?"#c2410c":"#e8734a";
+  b.style.color="#fff";
+  b.style.boxShadow=qcUnlocked?"0 1px 3px rgba(194,65,12,.4)":"0 1px 3px rgba(232,115,74,.35)";
 }
 function qcSave(label,field,val){
   if(!label)return;
