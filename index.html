@@ -1180,7 +1180,7 @@ label{font-size:14px!important}
       <span style="font-size:11px;font-weight:600;color:#475569">파일로 추가</span>
       <label class="bs" style="cursor:pointer;padding:5px 12px;font-size:12px">📁 롯데ON 출고지시 업로드<input type="file" id="ordLotteIn" accept=".xlsx,.xls" style="display:none" onchange="ordLoadLotteFile(this)"></label>
       <div id="ordLotteDrop" class="drop-zone" onclick="document.getElementById('ordLotteIn').click()" style="border-radius:8px;padding:5px 14px;font-size:12px;gap:5px">📂 끌어오기</div>
-      <span style="font-size:11px;color:#94a3b8">롯데ON <b>업체배송 발송처리(출고지시)</b> 엑셀을 올리면 모델번호+색상으로 자사코드를 찾아 <b>주문 1건 = 1행</b>으로 추가합니다. 온라인 발주라 수취인이 주문마다 다르므로 <b>수령인·연락처·주소는 직접 입력</b>해주세요(주황색 행).</span>
+      <span style="font-size:11px;color:#94a3b8">롯데ON <b>업체배송 발송처리</b> 엑셀(<b>피킹리스트</b> 또는 <b>출고지시</b>)을 올리면 모델번호+색상으로 자사코드를 찾아 <b>주문 1건 = 1행</b>으로 추가합니다. <b>피킹리스트</b>에는 수취인명·연락처·배송지·배송메시지가 들어있어 자동으로 채워집니다. 출고지시 파일은 수취인 정보가 없어 직접 입력해야 하며 그 행은 주황색으로 표시됩니다.</span>
     </div>
     <div id="ordSearchResults" style="margin-top:6px"></div>
   </div>
@@ -5123,12 +5123,12 @@ function renderOrder(){
   var wrap=document.getElementById("ordTableWrap");if(!wrap)return;
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  [['#',''],['매장',''],['상품명','min-width:300px'],['상품컬러코드','min-width:130px'],['수량',''],['상품코드',''],['수령인','min-width:90px'],['받는분연락처','min-width:120px'],['주소','min-width:260px'],['주문번호','min-width:120px'],['삭제','']].forEach(function(c){
+  [['#',''],['매장',''],['상품명','min-width:300px'],['상품컬러코드','min-width:130px'],['수량',''],['상품코드',''],['수령인','min-width:90px'],['받는분연락처','min-width:120px'],['주소','min-width:240px'],['배송메세지','min-width:130px'],['주문번호','min-width:120px'],['삭제','']].forEach(function(c){
     h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
   if(!orderDB.rows.length){
-    h+='<tr><td colspan="11" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
+    h+='<tr><td colspan="12" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
   }
   var _ordEd=function(i,key,val,style){
     return '<td contenteditable="true" onblur="ordEdit('+i+',&quot;'+key+'&quot;,this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;'+(style||"")+'">'+_escX(val||"")+'</td>';
@@ -5147,6 +5147,7 @@ function renderOrder(){
     h+=_ordEd(i,"recv",r.recv,_need?"background:#fff7ed;color:#b45309":"");
     h+=_ordEd(i,"tel",r.tel,_need?"background:#fff7ed;color:#b45309":"");
     h+=_ordEd(i,"addr",r.addr,"white-space:normal"+(_need?";background:#fff7ed;color:#b45309":""));
+    h+=_ordEd(i,"msg",r.msg,"white-space:normal;font-size:12px;color:#475569");
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-size:11px;color:#94a3b8;font-family:monospace">'+_escX(r.orderNo||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="ordDelRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:3px 8px">✕</button></td>';
     h+='</tr>';
@@ -5333,8 +5334,12 @@ function ordDownload(){
     /* 매장없음(코드 공백)은 매장 관련 칸을 모두 비움 */
     var st=(r.store?_ordStoreByCode(r.store):null)||{};
     var row=[];for(var c=0;c<27;c++)row.push("");
-    row[2]=r.store||"";              /* C 주문번호(쇼핑몰)=매장코드 */
-    row[3]=st.name||"";              /* D 쇼핑몰 */
+    /* 온라인 발주(고객 배송)는 C에 쇼핑몰 주문번호, D에 쇼핑몰명 — 매장 발주는 기존대로 매장코드·매장명 */
+    row[2]=(r.online&&r.orderNo)?r.orderNo:(r.store||"");   /* C 주문번호(쇼핑몰) */
+    row[3]=(r.online&&!st.name)?(r.shop||""):(st.name||""); /* D 쇼핑몰 */
+    row[10]=r.msg||"";               /* K 배송메세지 */
+    row[22]=r.buyer||"";             /* W 주문자명 */
+    row[25]=r.buyerTel||"";          /* Z 주문자전화번호1 */
     row[4]=(r.recv!==undefined)?(r.recv||""):(st.recv||"");   /* E 수령인 */
     row[7]=(r.tel!==undefined)?(r.tel||""):(st.tel||"");      /* H 받는분연락처 */
     row[9]=(r.addr!==undefined)?(r.addr||""):(st.addr||"");   /* J 주소 */
@@ -5664,13 +5669,24 @@ function _ordAddLotteRows(rows){
     var cModel=_ocCol(row,["모델번호"]),cOpt=_ocCol(row,["단품명"]);
     if(cModel>=0&&cOpt>=0){
       hRow=r;
-      H={model:cModel,opt:cOpt,pname:_ocCol(row,["상품명"]),qty:_ocCol(row,["주문수량","수량"]),dealer:_ocCol(row,["하위거래처명","상위거래처명"]),ordNo:_ocCol(row,["출점주문번호","주문번호"])};
+      H={model:cModel,opt:cOpt,
+         pname:_ocCol(row,["상품명"]),
+         qty:_ocCol(row,["주문수량","수량"]),
+         dealer:_ocCol(row,["하위거래처명","상위거래처명"]),
+         ordNo:_ocCol(row,["주문번호","출점주문번호"]),
+         /* 피킹리스트에만 있는 수취인·배송 정보 (출고지시 파일에는 없음) */
+         recv:_ocCol(row,["수취인명"]),
+         recvTel:_ocCol(row,["수취인휴대폰번호"]),
+         addr:_ocCol(row,["배송지"]),
+         msg:_ocCol(row,["배송메시지","배송메세지"]),
+         buyer:_ocCol(row,["주문자명"]),
+         buyerTel:_ocCol(row,["휴대폰번호"])};
       break;
     }
   }
   if(hRow<0){alert("롯데ON 출고지시 형식을 인식할 수 없습니다.\n(모델번호·단품명 열이 필요합니다)");return;}
   if(typeof DB==="undefined"||!DB.length){alert("상품리스트가 없어 자사코드를 매칭할 수 없습니다.\n판매일보 > 상품리스트 업데이트를 먼저 해주세요.");return;}
-  var order=[],src=0,noSku=0;
+  var order=[],src=0,noSku=0,withRecv=0;
   for(var i=hRow+1;i<rows.length;i++){
     var row=rows[i];if(!row)continue;
     var model=String(row[H.model]==null?"":row[H.model]).trim();
@@ -5685,13 +5701,18 @@ function _ordAddLotteRows(rows){
     var hit=_ocMatchSku(model,colorName);
     if(!hit)noSku++;
     /* 온라인 발주라 주문마다 수취인이 달라 합치지 않는다 */
+    var g=function(k){return H[k]>=0?String(row[H[k]]==null?"":row[H[k]]).trim():"";};
+    var _recv=g("recv");
+    if(_recv)withRecv++;
     order.push({
       store:storeCode,
       name:(hit?(hit.name+" "+hit.color):(pname+(colorName?" "+colorName:""))).trim(),
       code:hit?hit.sku:"",
       qty:String(qty),
-      orderNo:H.ordNo>=0?String(row[H.ordNo]==null?"":row[H.ordNo]).trim():"",
-      recv:"",tel:"",addr:"",online:true
+      orderNo:g("ordNo"),
+      recv:_recv,tel:g("recvTel"),addr:g("addr"),msg:g("msg"),
+      buyer:g("buyer"),buyerTel:g("buyerTel"),
+      shop:"롯데ON",online:true
     });
   }
   if(!order.length){alert("인식된 주문이 없습니다.");return;}
@@ -5699,8 +5720,12 @@ function _ordAddLotteRows(rows){
   saveOrder();renderOrder();
   var m=document.getElementById("ordMsg");
   if(m){
-    m.style.color=noSku?"#dc2626":"#b45309";
-    m.textContent="✅ "+order.length+"건 추가 · 수취인명·연락처·주소를 입력하세요"+(noSku?" · ❗자사코드 미매칭 "+noSku+"건":"");
+    var _miss=order.length-withRecv;
+    m.style.color=noSku?"#dc2626":(_miss?"#b45309":"#059669");
+    m.textContent="✅ "+order.length+"건 추가"
+      +(withRecv?" · 수취인 자동 "+withRecv+"건":"")
+      +(_miss?" · 수취인 직접입력 필요 "+_miss+"건":"")
+      +(noSku?" · ❗자사코드 미매칭 "+noSku+"건":"");
     clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";m.style.color="#059669";},12000);
   }
 }
