@@ -443,14 +443,7 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 @media(max-width:1000px){.home-shelf-rev{grid-template-columns:1fr}.home-cat .hc-amt strong{font-size:22px}}
 @media(max-width:1000px){.home-shelf{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:480px){.home-shelf{grid-template-columns:1fr}}
-@media(max-width:600px){
-  #homeQuick{display:grid!important;grid-template-columns:repeat(2,1fr)!important;gap:6px}
-  .qc-card{min-width:0;max-width:none;width:100%;flex:none;gap:4px;box-sizing:border-box}
-  .qc-2col{grid-column:1/-1;gap:6px;grid-template-columns:repeat(2,1fr)}
-  .home-quick{font-size:11px;padding:6px 10px 6px 8px;gap:6px;white-space:normal;line-height:1.25}
-  .home-quick .hq-dot{width:18px;height:18px}
-  .home-quick .hq-dot svg{width:10px;height:10px}
-}
+/* 바로가기는 모바일에서도 PC와 완전히 같은 모양(글자 크기·알약 버튼·줄바꿈 방식)으로 둔다 */
 
 /* ===== 공통 폰트 최소 14px · 색상/채움 통일 ===== */
 .hint{color:#475569!important;font-size:14px!important}
@@ -546,7 +539,10 @@ label{font-size:14px!important}
 </div>
 
 <div style="background:#fff;border-bottom:1px solid var(--ec-line);padding:10px 20px">
-  <div style="font-size:11px;font-weight:700;color:#8a95a6;margin-bottom:6px">⚡ 바로가기</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+    <div style="font-size:11px;font-weight:700;color:#8a95a6">⚡ 바로가기</div>
+    <button id="qcLockBtn" onclick="qcToggleLock()" style="border:1px solid #e2e5ea;border-radius:999px;padding:3px 11px;font-size:11px;font-weight:700;cursor:pointer;background:#eef2f7;color:#5b6675">🔒 아이디·비밀번호 보기</button>
+  </div>
   <div id="homeQuick" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
 </div>
 
@@ -3920,6 +3916,25 @@ function renderHomeDashboard(){
 var quickCreds=(function(){
   try{var d=JSON.parse(localStorage.getItem("quickCreds")||"{}");return (d&&typeof d==="object")?d:{};}catch(e){return {};}
 })();
+/* ── 바로가기 아이디·비밀번호 잠금 ──
+   기본은 가려져 있고(●●●●●●), 잠금해제 비밀번호를 넣으면 전체가 한 번에 열린다.
+   새로고침하면 다시 잠긴다. 화면을 훔쳐보거나 화면공유할 때 노출되는 것을 막는 용도. */
+var QC_LOCK_PW="ws2team";
+var qcUnlocked=false;
+function qcToggleLock(){
+  if(qcUnlocked){qcUnlocked=false;renderQuickLaunch();return;}
+  var v=prompt("바로가기의 아이디·비밀번호를 모두 보려면\n잠금해제 비밀번호를 입력하세요.");
+  if(v===null)return;                                   /* 취소 */
+  if(String(v).trim()!==QC_LOCK_PW){alert("비밀번호가 맞지 않습니다.");return;}
+  qcUnlocked=true;renderQuickLaunch();
+}
+function qcSyncLockBtn(){
+  var b=document.getElementById("qcLockBtn");if(!b)return;
+  b.textContent=qcUnlocked?"🔓 다시 잠그기":"🔒 아이디·비밀번호 보기";
+  b.style.background=qcUnlocked?"#fef3c7":"#eef2f7";
+  b.style.color=qcUnlocked?"#b45309":"#5b6675";
+  b.style.borderColor=qcUnlocked?"#fcd34d":"#e2e5ea";
+}
 function qcSave(label,field,val){
   if(!label)return;
   if(!quickCreds[label])quickCreds[label]={id:"",pw:""};
@@ -3960,16 +3975,20 @@ function renderQuickLaunch(){
       +'<span class="hq-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">'+q.icon+'</svg></span>'
       +q.label+'</'+closeTag+'>';
     var credInputStyle="width:100%;border:1px solid #e2e5ea;border-radius:6px;padding:4px 7px;font-size:11px;box-sizing:border-box;color:#374151";
+    function credInput(field,ph,val,type){
+      return '<input type="'+(type||"text")+'" placeholder="'+ph+'" data-label="'+_esc(q.label)+'" data-field="'+field+'" value="'+_esc(val||"")+'" onchange="qcSave(this.dataset.label,this.dataset.field,this.value)" style="'+credInputStyle+'">';
+    }
     function credRow(idField,pwField){
       return '<div style="display:flex;gap:5px">'
-        +'<input type="text" placeholder="아이디" data-label="'+_esc(q.label)+'" data-field="'+idField+'" value="'+_esc(cred[idField]||"")+'" onchange="qcSave(this.dataset.label,this.dataset.field,this.value)" style="'+credInputStyle+'">'
-        +'<input type="text" placeholder="비밀번호" data-label="'+_esc(q.label)+'" data-field="'+pwField+'" value="'+_esc(cred[pwField]||"")+'" onchange="qcSave(this.dataset.label,this.dataset.field,this.value)" style="'+credInputStyle+'">'
+        +credInput(idField,"아이디",cred[idField])
+        +credInput(pwField,"비밀번호",cred[pwField])
         +'</div>';
     }
-    var credHtml=q.noCred?"":(
+    /* 잠겨 있으면 입력칸 자체를 만들지 않는다 — 값이 HTML에 전혀 남지 않고, 바로가기 버튼만 깔끔하게 보인다 */
+    var credHtml=(q.noCred||!qcUnlocked)?"":(
       credRow("id","pw")
       +(q.dualCred?credRow("id2","pw2"):"")
-      +(q.defaultEmail!==undefined?'<input type="email" placeholder="이메일주소" data-label="'+_esc(q.label)+'" value="'+_esc(cred.email!==undefined?cred.email:q.defaultEmail)+'" onchange="qcSave(this.dataset.label,\'email\',this.value)" style="'+credInputStyle+'">':"")
+      +(q.defaultEmail!==undefined?credInput("email","이메일주소",(cred.email!==undefined?cred.email:q.defaultEmail),"email"):"")
     );
     return '<div class="qc-card">'
       +linkHtml
@@ -3977,6 +3996,7 @@ function renderQuickLaunch(){
       +'</div>';
   }
   if(qw)qw.innerHTML='<div class="qc-2col">'+pcTwoCol.map(renderCard).join("")+'</div>'+quick.map(renderCard).join("");
+  qcSyncLockBtn();
 }
 renderQuickLaunch();
 /* ── 발주 탭 묶음 드롭다운 ── */
