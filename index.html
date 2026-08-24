@@ -1051,6 +1051,10 @@ label{font-size:14px!important}
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">
           <textarea id="ccPdfInvoicePaste" placeholder="주문번호·송장번호 표 붙여넣기(Ctrl+V)" style="width:100%;box-sizing:border-box;min-height:48px;border:1px solid #cbd5e1;border-radius:8px;padding:6px;font-size:16px;font-family:inherit;resize:vertical" onpaste="setTimeout(ccPdfApplyInvoicePaste,0)"></textarea>
           <button class="bs" style="width:100%;font-size:15px" onclick="ccPdfApplyInvoicePaste()">매칭 적용</button>
+          <div id="ccPdfPairDropZone" onclick="document.getElementById('ccPdfPairFileInput').click()" class="drop-zone" style="border-radius:8px;min-height:44px;padding:6px;font-size:14px;flex-direction:column;gap:1px">
+            <span style="font-size:18px;line-height:1">📄</span><span>CX발주리스트 파일</span><span style="font-size:12px;font-weight:500">업로드/끌어오기</span>
+            <input type="file" id="ccPdfPairFileInput" accept=".xlsx,.xls" style="display:none" onchange="ccPdfLoadPairFile(this)">
+          </div>
           <div id="ccPdfMatchResult" style="font-size:13px;text-align:center"></div>
           <div id="ccPdfInvoiceTargetDownloadWrap" style="display:none">
             <button class="bg" style="width:100%;font-size:15px" onclick="ccPdfDownloadInvoiceTarget()">⬇ 다운로드</button>
@@ -1061,6 +1065,7 @@ label{font-size:14px!important}
           2) 붙여넣기<br>
           3) 매칭 적용<br>
           4) 다운로드
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">복사 대신 <b>CX발주리스트 엑셀 파일</b>을 그대로 올려도 됩니다<br>(송장번호가 채워진 파일)</div>
         </div>
       </div>
       <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
@@ -4043,7 +4048,7 @@ function switchTab(tab){
   if(tab==="costco"){ renderCostcoPage(); ccDropZoneInit(); }
   if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); ccoDropZoneInit(); }
   if(tab==="onlinesale"){ osRenderResult(); osDropInit(); }
-  if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); }
+  if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); ccPdfPairDropZoneInit(); }
   if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
   _tabDropSync();
   if(tab==="margin") renderMargin();
@@ -8253,16 +8258,28 @@ function _ccPdfLooksLikeOrderNo(v){
       순수 숫자(주문번호 형태)인 첫 행을 데이터 시작으로 간주해 헤더 줄 수와 무관하게 건너뜀. */
 function _ccPdfDetectOrderCol(rows){
   var norm=function(s){return String(s||"").replace(/\s/g,"");};
+  var isOrdCol=function(c){return c.indexOf("주문번호")>=0||c.indexOf("전산처리방법")>=0;};
   var hRow=-1;
   for(var r=0;r<Math.min(3,rows.length);r++){
     var H=(rows[r]||[]).map(norm);
-    if(H.some(function(c){return c.indexOf("주문번호")>=0;})){hRow=r;break;}
+    if(H.some(isOrdCol)){hRow=r;break;}
   }
   var cOrder=0,cInvoice=-1,startRow=0;
   if(hRow>=0){
     var H2=(rows[hRow]||[]).map(norm);
-    var oi=H2.findIndex(function(c){return c.indexOf("주문번호")>=0;});
-    if(oi>=0)cOrder=oi;
+    /* '주문번호(사방넷)'·'주문번호(쇼핑몰)'처럼 후보가 여럿이면
+       실제로 주문번호 형태의 값이 가장 많이 든 열을 고른다 */
+    var cands=[];
+    H2.forEach(function(c,i){if(isOrdCol(c))cands.push(i);});
+    var best=-1,bestN=-1;
+    cands.forEach(function(i){
+      var n=0;
+      for(var r2=hRow+1;r2<Math.min(hRow+300,rows.length);r2++){
+        if(_ccPdfLooksLikeOrderNo((rows[r2]||[])[i]))n++;
+      }
+      if(n>bestN){bestN=n;best=i;}
+    });
+    if(best>=0)cOrder=best;
     var ii=H2.findIndex(function(c){return c.indexOf("송장")>=0||c.indexOf("운송장")>=0;});
     if(ii>=0)cInvoice=ii;
     startRow=hRow+1;
@@ -8375,6 +8392,47 @@ function _ccPdfRenderMatchResult(){
 }
 /* 붙여넣기(Ctrl+V)로 들어온 주문번호·송장번호 표 처리: ccPdfInvoiceMap에 누적하고
    ccPdfRows(PDF 주문 목록)·ccPdfInvoiceTarget(업로드된 대상 파일) 양쪽에 모두 적용 */
+/* 5단계: CX발주리스트 파일에서 주문번호+송장번호 쌍만 뽑아 맵에 흡수한다.
+   4단계 대상 파일(ccPdfInvoiceTarget)은 건드리지 않는다 — 붙여넣기와 완전히 같은 역할. */
+function _ccPdfProcessPairFiles(fileList){
+  var file=fileList&&fileList[0];if(!file)return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
+  var statusEl=document.getElementById("ccPdfInvoiceStatus");
+  if(statusEl)statusEl.textContent="불러오는 중...";
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      var pairs=_ccPdfHarvestPairs(rows);
+      var n=Object.keys(pairs).length;
+      if(!n){
+        alert("이 파일에서 주문번호+송장번호 쌍을 찾지 못했습니다."+String.fromCharCode(10)+"송장번호가 채워진 CX발주리스트인지 확인해주세요.");
+        if(statusEl)statusEl.textContent="";
+        return;
+      }
+      Object.keys(pairs).forEach(function(k){ccPdfInvoiceMap[k]=pairs[k];});
+      _ccPdfApplyInvoiceMapToRows();
+      _ccPdfFillTargetInvoiceCols();
+      renderCcPdfTable();
+      _ccPdfRefreshInvoiceStatus();
+    }catch(err){
+      alert("파일 오류: "+err.message);
+      if(statusEl)statusEl.textContent="";
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function ccPdfLoadPairFile(input){_ccPdfProcessPairFiles(input.files);input.value="";}
+function ccPdfPairDropZoneInit(){
+  var zone=document.getElementById("ccPdfPairDropZone");
+  if(!zone||zone._wired)return;
+  zone._wired=true;
+  zone.addEventListener("dragover",function(e){e.preventDefault();zone.classList.add("dragover");});
+  zone.addEventListener("dragleave",function(){zone.classList.remove("dragover");});
+  zone.addEventListener("drop",function(e){e.preventDefault();zone.classList.remove("dragover");_ccPdfProcessPairFiles(e.dataTransfer.files);});
+}
 function ccPdfApplyInvoicePaste(){
   var ta=document.getElementById("ccPdfInvoicePaste");
   var statusEl=document.getElementById("ccPdfInvoiceStatus");
@@ -8444,6 +8502,7 @@ function ccPdfResetAll(){
   var ta=document.getElementById("ccPdfInvoicePaste");if(ta)ta.value="";
   var f1=document.getElementById("ccPdfFileInput2");if(f1)f1.value="";
   var f2=document.getElementById("ccPdfInvoiceFileInput");if(f2)f2.value="";
+  var f3=document.getElementById("ccPdfPairFileInput");if(f3)f3.value="";
   renderCcPdfTable();
   _ccPdfRefreshInvoiceStatus();
 }
