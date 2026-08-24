@@ -534,6 +534,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">📅 매장별 일별매출</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
   <button class="tab-btn" id="tab-ccorder" onclick="switchTab('ccorder')">🚚 사입출고등록</button>
+  <button class="tab-btn" id="tab-onlinesale" onclick="switchTab('onlinesale')">🧾 온라인 판매등록</button>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <button class="tab-btn" id="tab-stock" onclick="switchTab('stock')">🏭 홈쇼핑몰 재고확인</button>
@@ -919,6 +920,72 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-ccorder -->
+
+<div id="page-onlinesale" style="display:none">
+<div class="main" style="max-width:none">
+  <div class="card">
+    <div class="sec-title" style="margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>🧾 온라인 판매등록</span>
+      <button class="bs" style="font-size:11px;padding:5px 12px" onclick="osResetAll()" title="불러온 파일을 모두 지우고 처음 상태로">🗑 초기화</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
+      <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">1단계<br>주문통합조회 업로드</div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">
+          <div id="osOqDrop" class="drop-zone" onclick="document.getElementById('osOqIn').click()" style="border-radius:8px;flex:1;min-height:56px;padding:8px;font-size:15px;flex-direction:column;gap:2px">
+            <span style="font-size:22px;line-height:1">📂</span><span>업로드/끌어오기</span>
+            <input type="file" id="osOqIn" accept=".xlsx,.xls" style="display:none" onchange="osLoadOq(this)">
+          </div>
+          <div id="osOqStatus" style="font-size:13px;color:#64748b;text-align:center">대기중</div>
+        </div>
+        <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5">
+          롯데ON <b>주문통합조회(일반주문)</b><br>엑셀을 올리세요
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">주문번호와 단품명(색상)을 읽어옵니다</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">2단계<br>ExcelExport 업로드</div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">
+          <div id="osExDrop" class="drop-zone" onclick="document.getElementById('osExIn').click()" style="border-radius:8px;flex:1;min-height:56px;padding:8px;font-size:15px;flex-direction:column;gap:2px">
+            <span style="font-size:22px;line-height:1">📄</span><span>업로드/끌어오기</span>
+            <input type="file" id="osExIn" accept=".xlsx,.xls" style="display:none" onchange="osLoadEx(this)">
+          </div>
+          <div id="osExStatus" style="font-size:13px;color:#64748b;text-align:center">대기중</div>
+        </div>
+        <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5">
+          색상을 채워 넣을<br><b>ExcelExport</b> 파일을 올리세요
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">A열 번호로 매칭 · 순서 상관없음</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">3단계<br>주문번호 매칭</div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
+          <div id="osMatchStatus" style="font-size:15px;color:#64748b;text-align:center">파일 업로드 대기중</div>
+        </div>
+        <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5">
+          주문번호가 일치하는 건의<br><b>채널상품명 옆에 색상</b>을<br>붙입니다
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#b45309">못 찾은 건은 원래대로 둡니다</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">4단계<br>엑셀 다운로드</div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
+          <button class="bg" style="width:100%;font-size:14px" onclick="osDownload()">📥 다운로드</button>
+        </div>
+        <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5">
+          업로드한 <b>ExcelExport 양식 그대로</b>,<br>상품명 칸만 바뀐 파일을<br>받습니다
+        </div>
+      </div>
+    </div>
+
+    <div id="osResultWrap"></div>
+  </div>
+</div>
+</div><!-- /page-onlinesale -->
 
 <div id="page-ccpdforder" style="display:none">
 <div class="main" style="max-width:none">
@@ -3927,6 +3994,7 @@ function switchTab(tab){
   document.getElementById("page-daily").style.display=tab==="daily"?"block":"none";
   document.getElementById("page-costco").style.display=tab==="costco"?"block":"none";
   document.getElementById("page-ccorder").style.display=tab==="ccorder"?"block":"none";
+  document.getElementById("page-onlinesale").style.display=tab==="onlinesale"?"block":"none";
   document.getElementById("page-ccpdforder").style.display=tab==="ccpdforder"?"block":"none";
   document.getElementById("page-ananti").style.display=tab==="ananti"?"block":"none";
   document.getElementById("page-margin").style.display=tab==="margin"?"block":"none";
@@ -3944,6 +4012,7 @@ function switchTab(tab){
   document.getElementById("tab-daily").classList.toggle("active",tab==="daily");
   document.getElementById("tab-costco").classList.toggle("active",tab==="costco");
   document.getElementById("tab-ccorder").classList.toggle("active",tab==="ccorder");
+  document.getElementById("tab-onlinesale").classList.toggle("active",tab==="onlinesale");
   document.getElementById("tab-ccpdforder").classList.toggle("active",tab==="ccpdforder");
   document.getElementById("tab-ananti").classList.toggle("active",tab==="ananti");
   document.getElementById("tab-margin").classList.toggle("active",tab==="margin");
@@ -3960,6 +4029,7 @@ function switchTab(tab){
   if(tab==="daily") renderDaily();
   if(tab==="costco"){ renderCostcoPage(); ccDropZoneInit(); }
   if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); ccoDropZoneInit(); }
+  if(tab==="onlinesale"){ osRenderResult(); osDropInit(); }
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); }
   if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
   _tabDropSync();
@@ -8419,6 +8489,227 @@ function ccPdfDownload(){
 }
 
 
+
+/* ── 온라인 판매등록 ──
+   롯데ON 주문통합조회에서 주문번호별 색상을 읽어, ExcelExport의 채널상품명 옆에 색상을 붙인다.
+   주문통합조회 C열은 하이픈이 있고 ExcelExport A열은 숫자만이라 숫자만 뽑아 비교한다.
+   주문통합조회에 없는 건은 원래 상품명 그대로 둔다. */
+var osColorMap={};      /* {주문번호(숫자만): {color, model, name}} */
+var osOqInfo=null;      /* {file, rows} */
+var osExBuf=null;       /* 업로드한 ExcelExport 원본 (양식 보존용) */
+var osExInfo=null;      /* {file, sheet, cName, rowsMeta:[{r, no, style, name}]} */
+
+function _osDigits(v){return String(v==null?"":v).replace(/[^0-9]/g,"");}
+function _osColorOf(optName){
+  var m=String(optName||"").match(/색상\s*[:：]\s*([^,]+)/);
+  return m?m[1].trim():"";
+}
+/* 헤더 2줄짜리 파일 — 두 줄을 훑어 원하는 열을 찾는다 */
+function _osFindCol(rows,maxRow,names){
+  for(var r=0;r<Math.min(maxRow,rows.length);r++){
+    var row=rows[r]||[];
+    for(var c=0;c<row.length;c++){
+      var v=String(row[c]==null?"":row[c]).replace(/\s/g,"");
+      for(var n=0;n<names.length;n++)if(v===names[n])return c;
+    }
+  }
+  return -1;
+}
+function _osParseOq(rows,fileName){
+  var cNo=_osFindCol(rows,4,["주문번호"]);
+  var cOpt=_osFindCol(rows,4,["단품명"]);
+  if(cNo<0||cOpt<0){
+    alert("주문통합조회 형식을 인식할 수 없습니다.\n(주문번호·단품명 열이 필요합니다)");
+    return false;
+  }
+  var cName=_osFindCol(rows,4,["상품명"]),cModel=_osFindCol(rows,4,["모델번호"]);
+  var map={},n=0;
+  for(var i=0;i<rows.length;i++){
+    var row=rows[i];if(!row)continue;
+    var no=_osDigits(row[cNo]);
+    if(no.length<10)continue;                       /* 헤더·빈 줄 건너뜀 */
+    var color=_osColorOf(row[cOpt]);
+    if(!color)continue;
+    if(!map[no]){
+      map[no]={color:color,
+        model:cModel>=0?String(row[cModel]||"").trim():"",
+        name:cName>=0?String(row[cName]||"").trim():""};
+      n++;
+    }
+  }
+  if(!n){alert("주문통합조회에서 주문번호·색상을 찾지 못했습니다.");return false;}
+  osColorMap=map;
+  osOqInfo={file:fileName||"",rows:n};
+  return true;
+}
+function _osParseEx(rows,fileName,buf){
+  var cNo=_osFindCol(rows,3,["채널주문","번호"]);
+  var cName=_osFindCol(rows,3,["채널상품명"]);
+  if(cNo<0)cNo=0;
+  if(cName<0){
+    alert("ExcelExport 형식을 인식할 수 없습니다.\n(채널상품명 열이 필요합니다)");
+    return false;
+  }
+  var meta=[];
+  for(var i=0;i<rows.length;i++){
+    var row=rows[i];if(!row)continue;
+    var no=_osDigits(row[cNo]);
+    if(no.length<10)continue;
+    meta.push({r:i+1,no:no,                          /* r = 시트 실제 행번호(1부터) */
+      style:String(row[4]==null?"":row[4]).trim(),
+      name:String(row[cName]==null?"":row[cName]).trim()});
+  }
+  if(!meta.length){alert("ExcelExport에서 주문번호 행을 찾지 못했습니다.");return false;}
+  osExBuf=buf;
+  osExInfo={file:fileName||"",cName:cName,rows:meta};
+  return true;
+}
+/* 상품명 + 색상 (이미 색상이 들어있으면 그대로) */
+function _osNewName(name,color){
+  if(!color)return name;
+  if(String(name||"").indexOf(color)>=0)return name;
+  return (String(name||"").trim()+" "+color).trim();
+}
+function _osApplied(){
+  if(!osExInfo)return [];
+  return osExInfo.rows.map(function(m){
+    var hit=osColorMap[m.no]||null;
+    return {r:m.r,no:m.no,style:m.style,name:m.name,
+      color:hit?hit.color:"",
+      newName:hit?_osNewName(m.name,hit.color):m.name,
+      matched:!!hit};
+  });
+}
+function osRenderResult(){
+  var st1=document.getElementById("osOqStatus");
+  if(st1)st1.innerHTML=osOqInfo
+    ? '<span style="color:#047857;font-weight:700">✅ 주문 '+osOqInfo.rows+'건</span>'
+    : '대기중';
+  var st2=document.getElementById("osExStatus");
+  if(st2)st2.innerHTML=osExInfo
+    ? '<span style="color:#047857;font-weight:700">✅ '+osExInfo.rows.length+'행</span>'
+    : '대기중';
+
+  var list=_osApplied();
+  var ms=document.getElementById("osMatchStatus");
+  if(ms){
+    if(!osExInfo||!osOqInfo){
+      ms.innerHTML='<span style="color:#94a3b8">'+(!osOqInfo&&!osExInfo?"파일 업로드 대기중":(!osOqInfo?"1단계 주문통합조회 대기중":"2단계 ExcelExport 대기중"))+'</span>';
+    }else{
+      var ok=list.filter(function(x){return x.matched;}).length;
+      var miss=list.length-ok;
+      var badge=function(bg,bd,fg,txt){return '<div style="background:'+bg+';border:1px solid '+bd+';color:'+fg+';border-radius:8px;padding:6px 8px;font-weight:800;line-height:1.4">'+txt+'</div>';};
+      ms.innerHTML=(miss
+        ? badge("#fffbeb","#fbbf24","#b45309","⚠ 색상 미확인 "+miss+"건")
+        : badge("#ecfdf5","#6ee7b7","#047857","✅ 전체 매칭"))
+        +'<div style="margin-top:6px;font-size:13px;color:#475569;font-weight:600">'+list.length+'행 중 '+ok+'건 색상 적용</div>';
+    }
+  }
+
+  var wrap=document.getElementById("osResultWrap");if(!wrap)return;
+  if(!list.length){wrap.innerHTML="";return;}
+  var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px 8px;color:#1b6e82;font-size:13px;white-space:nowrap';
+  var h='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:13px">';
+  h+='<thead><tr><th style="'+th+'">#</th><th style="'+th+'">주문번호</th><th style="'+th+'">스타일</th>'
+    +'<th style="'+th+'">색상</th><th style="'+th+'">채널상품명 (다운로드 값)</th><th style="'+th+'">상태</th></tr></thead><tbody>';
+  list.forEach(function(x,i){
+    var bg=x.matched?"":"background:#fffbeb";
+    h+='<tr style="'+bg+'">'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center;color:#475569;background:#f8fafc">'+(i+1)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-family:monospace;font-size:12px">'+_escX(x.no)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-family:monospace;font-size:12px;color:#475569">'+_escX(x.style)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-weight:700;color:'+(x.matched?"#0891b2":"#b45309")+'">'+_escX(x.color||"-")+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:normal">'+_escX(x.newName)+'</td>'
+      +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center;font-weight:700;color:'+(x.matched?"#15803d":"#b45309")+'">'+(x.matched?"색상 추가":"원본 유지")+'</td>'
+      +'</tr>';
+  });
+  h+='</tbody></table></div>';
+  wrap.innerHTML=h;
+}
+function _osReadFile(file,kind){
+  if(!file)return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 업로드 가능합니다.");return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var buf=e.target.result;
+      var wb=XLSX.read(buf,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
+      var ok=(kind==="oq")?_osParseOq(rows,file.name):_osParseEx(rows,file.name,buf);
+      if(ok)osRenderResult();
+    }catch(err){alert("파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function osLoadOq(input){_osReadFile(input.files[0],"oq");input.value="";}
+function osLoadEx(input){_osReadFile(input.files[0],"ex");input.value="";}
+function osDropInit(){
+  [["osOqDrop","oq"],["osExDrop","ex"]].forEach(function(p){
+    var zone=document.getElementById(p[0]);
+    if(!zone||zone._wired)return;
+    zone._wired=true;
+    zone.addEventListener("dragover",function(e){e.preventDefault();zone.classList.add("dragover");});
+    zone.addEventListener("dragleave",function(){zone.classList.remove("dragover");});
+    zone.addEventListener("drop",function(e){e.preventDefault();zone.classList.remove("dragover");_osReadFile((e.dataTransfer.files||[])[0],p[1]);});
+  });
+}
+function osResetAll(){
+  if((osOqInfo||osExInfo)&&!confirm("불러온 파일을 모두 지우고 처음 상태로 되돌릴까요?"))return;
+  osColorMap={};osOqInfo=null;osExBuf=null;osExInfo=null;
+  var a=document.getElementById("osOqIn");if(a)a.value="";
+  var b=document.getElementById("osExIn");if(b)b.value="";
+  osRenderResult();
+}
+/* 업로드한 ExcelExport를 그대로 두고 채널상품명 셀만 고쳐 다시 압축한다 (서식·수식 보존) */
+async function _osBuildXlsx(){
+  var entries=_zipParse(new Uint8Array(osExBuf));
+  var target=null;
+  entries.forEach(function(e){if(/^xl\/worksheets\/sheet1\.xml$/i.test(e.name))target=e;});
+  if(!target)throw new Error("시트를 찾을 수 없습니다.");
+  var raw=target.method===0?target.data:await _inflateRaw(target.data);
+  var xml=new TextDecoder().decode(raw);
+  var col=_colLetter(osExInfo.cName+1);
+  var sdM=xml.match(/<sheetData>([\s\S]*?)<\/sheetData>/);
+  if(!sdM)throw new Error("sheetData를 찾을 수 없습니다.");
+  var rowsXml=sdM[1].match(/<row[^>]*\/>|<row[^>]*>[\s\S]*?<\/row>/g)||[];
+  var byNum={},order=[];
+  rowsXml.forEach(function(rx){
+    var n=parseInt((rx.match(/<row[^>]*\br="(\d+)"/)||[])[1],10);
+    if(!isNaN(n)){byNum[n]=rx;order.push(n);}
+  });
+  var changed=0;
+  _osApplied().forEach(function(x){
+    if(!x.matched||x.newName===x.name)return;
+    if(!byNum[x.r])return;
+    byNum[x.r]=_rowSetCell(byNum[x.r],col,x.r,x.newName,false);
+    changed++;
+  });
+  var newSD="<sheetData>"+order.map(function(n){return byNum[n];}).join("")+"</sheetData>";
+  xml=xml.replace(/<sheetData>[\s\S]*?<\/sheetData>/,newSD);
+  var outBytes=new TextEncoder().encode(xml);
+  var deflated=await _deflateRaw(outBytes);
+  entries=entries.map(function(e){
+    if(e!==target)return e;
+    return {name:e.name,method:8,crc:_zipCrc32(outBytes),csize:deflated.length,usize:outBytes.length,
+            flag:e.flag,time:e.time,date:e.date,data:deflated};
+  });
+  return {bytes:_zipBuild(entries),changed:changed};
+}
+async function osDownload(){
+  if(!osExInfo||!osExBuf){alert("2단계에서 ExcelExport 파일을 먼저 올려주세요.");return;}
+  if(!osOqInfo&&!confirm("주문통합조회를 올리지 않아 색상이 채워지지 않습니다.\n그대로 다운로드할까요?"))return;
+  try{
+    var out=await _osBuildXlsx();
+    var blob=new Blob([out.bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=String(osExInfo.file||"ExcelExport.xlsx").replace(/\.xlsx?$/i,"")+"_색상.xlsx";
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);
+  }catch(err){alert("파일 생성 오류: "+err.message);}
+}
+
 /* ── 아난티 발주 — 아난티에서 받은 거래명세서(발주)를 상품매칭해 도매발주서·거래명세서(엑셀/PDF)로 변환.
    바코드로 사내 상품을 매칭하며, 품절 상품은 체크 해제로 제외한다. ── */
 var ANANTI_STORES=[
@@ -8898,6 +9189,7 @@ function _rowSetCell(rowXml,col,rowNum,value,isNum){
   return rowXml.replace(/<\/row>$/,body+"</row>");
 }
 function _colNum(s){var n=0;for(var i=0;i<s.length;i++)n=n*26+(s.charCodeAt(i)-64);return n;}
+function _colLetter(n){var s="";while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
 /* 행 번호(및 그 안의 셀 참조)를 통째로 바꾼다 */
 function _rowRenumber(rowXml,from,to){
   return rowXml
