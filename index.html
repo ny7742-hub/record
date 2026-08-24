@@ -1263,6 +1263,7 @@ label{font-size:14px!important}
       <button onclick="ordApplyStoreAll()" class="bs" style="padding:5px 12px;font-size:12px" title="이미 등록된 행까지 포함해 전체 행의 매장을 위에서 고른 매장으로 바꿉니다">↧ 전체 적용</button>
       <button onclick="ordAddRow()" class="bs" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
       <button onclick="ordDownload()" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ 엑셀 다운로드</button>
+      <button onclick="ordDownloadCxAll()" title="매장과 상관없이 표의 모든 행을 CX통합관리(wscx.pages.dev) 업로드용 양식으로 받습니다" style="padding:6px 14px;font-size:12px;font-weight:700;background:#1b6e82;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ CX통합관리 양식</button>
       <button onclick="ordClear()" class="bs" style="padding:5px 12px;font-size:12px;color:#dc2626">초기화</button>
       <span id="ordMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
     </div>
@@ -5614,17 +5615,38 @@ function _ordCxGuideAoa(){
     ["주의","카톡·전화·구글시트로 발주하지 마시고 반드시 이 시스템으로 등록해 주세요."]
   ];
 }
+/* 받는분·연락처·주소 — 행에 직접 입력한 값이 있으면 그걸 쓰고,
+   매장 발주 행이면 매장 주소록 값으로 채운다(도매발주서 다운로드와 같은 규칙). */
+function _ordCxRecvOf(r){
+  var st=(r.store?_ordStoreByCode(r.store):null)||{};
+  return {
+    recv:(r.recv!==undefined)?(r.recv||""):(st.recv||""),
+    tel :(r.tel !==undefined)?(r.tel ||""):(st.tel ||""),
+    addr:(r.addr!==undefined)?(r.addr||""):(st.addr||"")
+  };
+}
+/* 매장과 상관없이 표의 모든 행을 CX통합관리 양식으로 내보낸다 (기존 다운로드와 별개 버튼) */
+function ordDownloadCxAll(){
+  if(!orderDB.rows.length){alert("발주 상품이 없습니다.");return;}
+  var need=orderDB.rows.filter(function(r){
+    var v=_ordCxRecvOf(r);
+    return !String(v.recv).trim()||!String(v.addr).trim();
+  }).length;
+  if(need&&!confirm("받는분 또는 주소가 비어있는 행이 "+need+"건 있습니다.\n\nCX통합관리는 받는분·연락처·주소가 필수입니다.\n그대로 다운로드할까요?"))return;
+  ordDownloadCx(orderDB.rows);
+}
 function ordDownloadCx(rows){
   if(!rows||!rows.length){alert("CX통합관리로 지정된 발주 행이 없습니다.");return;}
   var aoa=[ORD_CX_HEADERS.slice()];
   ORD_CX_SAMPLE.forEach(function(r){aoa.push(r.slice());});
   rows.forEach(function(r){
     var q=parseInt(String(r.qty||"").replace(/[^0-9]/g,""),10);
+    var v=_ordCxRecvOf(r);
     aoa.push([
       "",                    /* A 구분 — '예시' 행 표시용이라 실제 발주는 비움 */
-      r.recv||"",            /* B 받는분 */
-      r.tel||"",             /* C 연락처 */
-      r.addr||"",            /* D 주소 */
+      v.recv,                /* B 받는분 */
+      v.tel,                 /* C 연락처 */
+      v.addr,                /* D 주소 */
       "",                    /* E 전산 처리 방법 — 비우면 사입출고등록(기타온라인) */
       r.name||"",            /* F 상품명 */
       r.code||"",            /* G 상품컬러코드 */
