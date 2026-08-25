@@ -7835,11 +7835,24 @@ function _hsrNorm(v){return String(v==null?"":v).replace(/\s/g,"").trim();}
 /* 공급가 = 홈쇼핑 코드매칭표의 매칭가(현재가).
    상품명으로 매칭표를 못 찾고 상품데이터로 컬러코드만 나온 경우에도
    그 컬러코드로 매칭표를 한 번 더 뒤져 공급가를 채운다. */
+/* 매칭표에 아직 등록되지 않은 상품의 공급가 — 기본 상품코드(컬러 제외) 기준이라 전 컬러에 적용된다.
+   매칭표에 올라오면 매칭표 값이 우선하므로, 상품리스트가 갱신되면 자동으로 대체된다. */
+var HSR_PRICE_FALLBACK={
+  "GLM49V9Z":29000,   /* 26SS UV 프로텍션 심리스 바이저 루아나 */
+  "WLM45Z0Z":79000,   /* 26SS 라피아 투톤 로프 버킷햇 엘라니 */
+  "GLA81Z9Z":6300     /* 26SS 웨이브 숏 스트랩 레브르 */
+};
 function _hsrPriceByCode(code){
   code=String(code||"").trim();
-  if(!code||typeof hsCodeMatchDB==="undefined")return "";
-  for(var i=0;i<hsCodeMatchDB.length;i++){
-    if(hsCodeMatchDB[i].colorCode===code&&hsCodeMatchDB[i].price)return hsCodeMatchDB[i].price;
+  if(!code)return "";
+  if(typeof hsCodeMatchDB!=="undefined"){
+    for(var i=0;i<hsCodeMatchDB.length;i++){
+      if(hsCodeMatchDB[i].colorCode===code&&hsCodeMatchDB[i].price)return hsCodeMatchDB[i].price;
+    }
+  }
+  var keys=Object.keys(HSR_PRICE_FALLBACK);
+  for(var k=0;k<keys.length;k++){
+    if(code.indexOf(keys[k])===0)return HSR_PRICE_FALLBACK[keys[k]];
   }
   return "";
 }
