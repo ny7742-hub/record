@@ -7816,6 +7816,10 @@ function _hsrYmd(d){
 function _hsrRowDate(r){return r["in"]||null;}
 /* 다운로드 대상 = 해체일이 기재된 행만 */
 function _hsrReady(r){return !!r.open;}
+/* 공급가가 채워졌는지 — 0원(증정상품)도 '채워짐'으로 본다. 빈칸만 미입력으로 취급 */
+function _hsrHasPrice(r){
+  return r.price!==""&&r.price!==null&&r.price!==undefined&&!isNaN(Number(r.price));
+}
 function _hsrNorm(v){return String(v==null?"":v).replace(/\s/g,"").trim();}
 /* 공급가 = 홈쇼핑 코드매칭표의 매칭가(현재가).
    상품명으로 매칭표를 못 찾고 상품데이터로 컬러코드만 나온 경우에도
@@ -7825,7 +7829,7 @@ function _hsrNorm(v){return String(v==null?"":v).replace(/\s/g,"").trim();}
 var HSR_PRICE_FALLBACK={
   "GLM49V9Z":29000,   /* 26SS UV 프로텍션 심리스 바이저 루아나 */
   "WLM45Z0Z":79000,   /* 26SS 라피아 투톤 로프 버킷햇 엘라니 */
-  "GLA81Z9Z":6300     /* 26SS 웨이브 숏 스트랩 레브르 */
+  "GLA81Z9Z":0        /* 26SS 웨이브 숏 스트랩 레브르 — 증정상품이라 공급가 0원 */
 };
 function _hsrPriceByCode(code){
   code=String(code||"").trim();
@@ -7893,7 +7897,7 @@ function _hsrReapplyMatches(){
     }
     if(r.price===""&&r.colorCode){
       var pr=_hsrPriceByCode(r.colorCode);
-      if(pr){r.price=pr;changed=true;}
+      if(pr!==""){r.price=pr;changed=true;}       /* 0원도 반영 */
     }
   });
   if(changed)renderHsrTable();
@@ -7933,7 +7937,7 @@ function renderHsrTable(){
   var ready=hsrRows.filter(_hsrReady);
   var notReady=hsrRows.length-ready.length;
   var noMatch=ready.filter(function(r){return !r.colorCode;}).length;
-  var noPrice=ready.filter(function(r){return r.price===""||!Number(r.price);}).length;
+  var noPrice=ready.filter(function(r){return !_hsrHasPrice(r);}).length;
   var unknownShop=ready.filter(function(r){return _ccoWhStoreCode(r.shop).unknown;}).length;
   if(st){
     st.innerHTML=(!ready.length
@@ -7958,7 +7962,7 @@ function renderHsrTable(){
   hsrRows.forEach(function(r,i){
     var w=_ccoWhStoreCode(r.shop);
     var ready=_hsrReady(r);
-    var bg=!ready?"#f1f5f9":((!r.colorCode||!Number(r.price))?"#fef2f2":"");
+    var bg=!ready?"#f1f5f9":((!r.colorCode||!_hsrHasPrice(r))?"#fef2f2":"");
     h+='<tr'+(bg?' style="background:'+bg+'"':'')+'>'
       +'<td style="'+td+';white-space:nowrap">'+_esc(r.shop)+'</td>'
       +'<td style="'+td+';white-space:nowrap;color:#64748b">'+md(r["in"])+'</td>'
@@ -7966,7 +7970,7 @@ function renderHsrTable(){
       +'<td style="'+td+';white-space:nowrap;color:#64748b;font-size:12px">'+_esc(r.orderNo)+'</td>'
       +'<td style="'+td+'">'+_esc(r.prod)+'</td>'
       +'<td style="'+td+';padding:2px;min-width:130px"><input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="hsrEditColorCode(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.colorCode?"#d1d5db":"#fca5a5")+';border-radius:5px;padding:3px 6px;font-size:13px'+(r.colorCode?"":";color:#dc2626")+'"></td>'
-      +'<td style="'+td+';padding:2px;min-width:80px"><input type="text" inputmode="numeric" placeholder="직접 입력" value="'+_esc(r.price===""?"":String(r.price))+'" data-i="'+i+'" onchange="hsrEditPrice(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(Number(r.price)?"#d1d5db":"#fca5a5")+';border-radius:5px;padding:3px 6px;font-size:13px;text-align:right"></td>'
+      +'<td style="'+td+';padding:2px;min-width:80px"><input type="text" inputmode="numeric" placeholder="직접 입력" value="'+_esc(r.price===""?"":String(r.price))+'" data-i="'+i+'" onchange="hsrEditPrice(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(_hsrHasPrice(r)?"#d1d5db":"#fca5a5")+';border-radius:5px;padding:3px 6px;font-size:13px;text-align:right"></td>'
       +'<td style="'+td+';padding:2px;min-width:60px"><input type="text" inputmode="numeric" value="'+r.qty+'" data-i="'+i+'" onchange="hsrEditQty(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:3px 6px;font-size:13px;text-align:right"></td>'
       +'<td style="'+td+';white-space:nowrap;font-weight:700;'+(w.unknown?"color:#dc2626":"color:#1b6e82")+'">'+(w.unknown?"미등록":_esc(w.store))+'</td>'
       +'<td style="'+td+';white-space:nowrap;color:#1b6e82;font-weight:700">'+_esc(w.wh)+'</td>'
@@ -7983,7 +7987,7 @@ function hsrDownload(){
   var rows=hsrRows.filter(_hsrReady);
   if(!rows.length){alert("해체일이 기재된 행이 없습니다.\n해체일이 채워진 행만 다운로드됩니다.");return;}
   /* 공급가가 비어 있으면 다운로드하지 않는다 — 채워 넣은 뒤 다시 눌러야 한다 */
-  var noPrice=rows.filter(function(r){return r.price===""||!Number(r.price);});
+  var noPrice=rows.filter(function(r){return !_hsrHasPrice(r);});
   if(noPrice.length){
     alert("공급가가 비어있는 행이 "+noPrice.length+"건 있습니다.\n\n표에서 공급가를 채운 뒤 다시 다운로드해주세요.\n\n· "+noPrice.slice(0,5).map(function(r){return r.prod.slice(0,30);}).join(String.fromCharCode(10)+"· ")+(noPrice.length>5?(String.fromCharCode(10)+"… 외 "+(noPrice.length-5)+"건"):""));
     return;
