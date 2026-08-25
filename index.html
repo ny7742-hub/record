@@ -1621,6 +1621,7 @@ function wsSetItem(key,value){
     function(){
       renderHsCodeMatchStatus();
       if(typeof _ccoReapplyMatches==="function")_ccoReapplyMatches();
+      if(typeof _hsrReapplyMatches==="function")_hsrReapplyMatches();
     }
   );
   /* 상품 데이터(상품리스트) — 팀 공유 */
@@ -4194,7 +4195,7 @@ function switchTab(tab){
   if(tab==="costco"){ renderCostcoPage(); ccDropZoneInit(); }
   if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); ccoDropZoneInit(); }
   if(tab==="onlinesale"){ osRenderResult(); osDropInit(); }
-  if(tab==="hsreturn"){ renderHsrTable(); hsrDropZoneInit(); }
+  if(tab==="hsreturn"){ _hsrReapplyMatches(); renderHsrTable(); hsrDropZoneInit(); }
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); ccPdfPairDropZoneInit(); }
   if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
   _tabDropSync();
@@ -7882,6 +7883,24 @@ function _hsrProcessRows(rows){
   if(!added){alert("인식된 반품 내역이 없습니다.\n상품명·수량 열이 있는지 확인해주세요.");return;}
   renderHsrTable();
 }
+/* 홈쇼핑 코드매칭표는 Firebase에서 뒤늦게 도착할 수 있다.
+   표를 먼저 붙여넣었더라도 매칭표가 들어오면 빈 바코드·공급가를 다시 채운다.
+   (사입출고등록의 _ccoReapplyMatches와 같은 역할) */
+function _hsrReapplyMatches(){
+  if(!hsrRows.length)return;
+  var changed=false;
+  hsrRows.forEach(function(r){
+    if(!r.colorCode){
+      var hm=(typeof _hsFindMatch==="function")?_hsFindMatch(r.shop,r.prod):null;
+      if(hm&&hm.colorCode){r.colorCode=hm.colorCode;r.matched=true;changed=true;}
+    }
+    if(r.price===""&&r.colorCode){
+      var pr=_hsrPriceByCode(r.colorCode);
+      if(pr){r.price=pr;changed=true;}
+    }
+  });
+  if(changed)renderHsrTable();
+}
 function hsrPasteRows(){
   var ta=document.getElementById("hsrPasteArea");if(!ta)return;
   var text=ta.value;
@@ -7937,11 +7956,13 @@ function renderHsrTable(){
     return;
   }
   var noMatch=hsrRows.filter(function(r){return !r.colorCode;}).length;
+  var noPrice=hsrRows.filter(function(r){return r.price===""||!Number(r.price);}).length;
   var unknownShop=hsrRows.filter(function(r){return _ccoWhStoreCode(r.shop).unknown;}).length;
   if(st){
     st.innerHTML=(noMatch
       ? '<div style="font-size:20px;font-weight:800;color:#dc2626">⚠ '+noMatch+'건 미매칭</div><div style="font-size:14px;color:#b91c1c;font-weight:700;margin-top:2px">총 '+hsrRows.length+'건 중</div>'
       : '<div style="font-size:20px;font-weight:800;color:#16a34a">✅ 매칭완료</div><div style="font-size:14px;color:#15803d;font-weight:700;margin-top:2px">총 '+hsrRows.length+'건 전체 매칭</div>')
+      +(noPrice?'<div style="font-size:12.5px;color:#b45309;margin-top:5px;font-weight:700">⚠ 공급가 없음 '+noPrice+'건<br><span style="font-weight:600;color:#94a3b8">매칭표에 없는 상품 — 직접 입력하거나<br>홈쇼핑 코드매칭표를 갱신하세요</span></div>':"")
       +(unknownShop?'<div style="font-size:12.5px;color:#b45309;margin-top:5px;font-weight:700">⚠ 매장코드 미등록 '+unknownShop+'건</div>':"");
   }
   var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px;color:#1b6e82;font-size:13px;white-space:nowrap';
@@ -7956,7 +7977,7 @@ function renderHsrTable(){
   var md=function(d){return d?((d.getMonth()+1)+"/"+d.getDate()):"";};
   hsrRows.forEach(function(r,i){
     var w=_ccoWhStoreCode(r.shop);
-    h+='<tr'+(!r.colorCode?' style="background:#fef2f2"':'')+'>'
+    h+='<tr'+((!r.colorCode||!Number(r.price))?' style="background:#fef2f2"':'')+'>'
       +'<td style="'+td+';white-space:nowrap">'+_esc(r.shop)+'</td>'
       +'<td style="'+td+';white-space:nowrap;color:#64748b">'+md(r["in"])+'</td>'
       +'<td style="'+td+';white-space:nowrap;color:#64748b">'+md(r.proc)+'</td>'
@@ -7964,7 +7985,7 @@ function renderHsrTable(){
       +'<td style="'+td+';white-space:nowrap;color:#64748b;font-size:12px">'+_esc(r.orderNo)+'</td>'
       +'<td style="'+td+'">'+_esc(r.prod)+'</td>'
       +'<td style="'+td+';padding:2px;min-width:130px"><input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="hsrEditColorCode(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.colorCode?"#d1d5db":"#fca5a5")+';border-radius:5px;padding:3px 6px;font-size:13px'+(r.colorCode?"":";color:#dc2626")+'"></td>'
-      +'<td style="'+td+';padding:2px;min-width:80px"><input type="text" inputmode="numeric" value="'+_esc(r.price===""?"":String(r.price))+'" data-i="'+i+'" onchange="hsrEditPrice(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:3px 6px;font-size:13px;text-align:right"></td>'
+      +'<td style="'+td+';padding:2px;min-width:80px"><input type="text" inputmode="numeric" placeholder="직접 입력" value="'+_esc(r.price===""?"":String(r.price))+'" data-i="'+i+'" onchange="hsrEditPrice(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(Number(r.price)?"#d1d5db":"#fca5a5")+';border-radius:5px;padding:3px 6px;font-size:13px;text-align:right"></td>'
       +'<td style="'+td+';padding:2px;min-width:60px"><input type="text" inputmode="numeric" value="'+r.qty+'" data-i="'+i+'" onchange="hsrEditQty(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:3px 6px;font-size:13px;text-align:right"></td>'
       +'<td style="'+td+';white-space:nowrap;font-weight:700;'+(w.unknown?"color:#dc2626":"color:#1b6e82")+'">'+(w.unknown?"미등록":_esc(w.store))+'</td>'
       +'<td style="'+td+';white-space:nowrap;color:#1b6e82;font-weight:700">'+_esc(w.wh)+'</td>'
@@ -8196,6 +8217,7 @@ function _hsCodeMatchProcessRows(rows){
   saveHsCodeMatchDB();
   renderHsCodeMatchStatus();
   _ccoReapplyMatches();
+  if(typeof _hsrReapplyMatches==="function")_hsrReapplyMatches();
   alert("매칭표 업데이트 완료 (기존 표에 추가/갱신)\n신규 "+added+"건, 갱신 "+updated+"건 → 전체 "+hsCodeMatchDB.length+"건");
 }
 function hsCodeMatchClearAll(){
