@@ -3853,6 +3853,19 @@ var PREV_YEAR_SALES={
   "2025-12":{daily:177292400,costco:10674450,hs:155151666}
 };
 
+/* ── 올해 홈쇼핑 실적(판매일보 기준) ──
+   홈쇼핑 탭에는 방송별로 입력된 달만 있어서, 입력이 없는 달은 이 값으로 채운다.
+   같은 달에 둘 다 있으면 판매일보 값을 쓴다 — 전년(2025)도 판매일보 기준이라 비교가 일관된다. */
+var HS_ACTUAL={
+  "2026-01":43588937,
+  "2026-02":16478369,
+  "2026-03":32001758,
+  "2026-04":57855366,
+  "2026-05":83472536,
+  "2026-06":179755028,
+  "2026-07":369357264
+};
+
 /* 이번달 매출 vs 전년 동월 비교 줄 HTML — 둘 다 그 달 1일~말일 전체 기준, 증감은 %로 표시.
    전년이 마이너스인 달(반품이 판매보다 많았던 달)은 절대값을 분모로 써서
    부호가 실제 증감 방향과 맞게 한다. 정확한 금액은 배지 툴팁에 있다. */
@@ -3903,17 +3916,23 @@ function _homeYtdThisYear(now){
       if(amt)has.costco[new Date(ms).getMonth()+1]=1;
     });
   }
-  /* 홈쇼핑 — 판매가×판매수량 */
+  /* 홈쇼핑 — 판매일보 실적이 있는 달은 그 값, 없는 달은 홈쇼핑 탭 입력값(판매가×판매수량) */
+  var hsApp={};
   if(typeof homeshoppingDB!=="undefined"&&Array.isArray(homeshoppingDB)){
     homeshoppingDB.forEach(function(row){
       if(!row.date)return;
       var p=String(row.date).slice(0,7).split("-");
-      if(Number(p[0])!==Y||Number(p[1])>M)return;
+      if(Number(p[0])!==Y)return;
       var price=Number(String(row.price||0).replace(/,/g,""))||0;
       var sold=Number(String(row.sold||0).replace(/,/g,""))||0;
-      hs+=price*sold;
-      if(price*sold)has.hs[Number(p[1])]=1;
+      hsApp[Number(p[1])]=(hsApp[Number(p[1])]||0)+price*sold;
     });
+  }
+  for(var hm=1;hm<=M;hm++){
+    var hk=Y+"-"+String(hm).padStart(2,"0");
+    var hv=(typeof HS_ACTUAL!=="undefined"&&HS_ACTUAL[hk]!==undefined)?HS_ACTUAL[hk]:(hsApp[hm]||0);
+    hs+=hv;
+    if(hv)has.hs[hm]=1;
   }
   return {daily:daily,costco:costco,hs:hs,total:daily+costco+hs,has:has,M:M};
 }
@@ -3984,7 +4003,7 @@ function renderHomeYtd(now){
     +'</tr></tbody></table>'
     +(warn.length?'<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;margin-top:8px;line-height:1.5;font-weight:700">⚠ 올해 실적이 입력되지 않은 달이 있습니다 — '+_esc(warn.join(" / "))+'<br><span style="font-weight:600;color:#94a3b8">해당 채널의 전년대비 수치는 실제 감소가 아니라 미입력 때문일 수 있습니다.</span></div>':"")
     +'<div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.5">'
-    +Y+'년은 앱에 입력된 실적, '+(Y-1)+'년은 PlayMD 매장판매일보(실판매금액) 기준입니다. '
+    +'매장별 일별매출·코스트코는 앱 입력 실적, 홈쇼핑과 '+(Y-1)+'년은 PlayMD 매장판매일보(실판매금액) 기준입니다. '
     +M+'월은 아직 진행중이라 남은 일수만큼 차이가 날 수 있습니다.</div>';
   wrap.innerHTML=h;
 }
