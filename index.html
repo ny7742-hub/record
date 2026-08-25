@@ -1044,6 +1044,7 @@ label{font-size:14px!important}
         <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">3단계<br>엑셀 다운로드</div>
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
           <button class="bg" style="width:100%;font-size:15px" onclick="ccPdfDownload()">📥 다운로드</button>
+          <button onclick="ccPdfDownloadCx()" title="같은 주문 내역을 CX통합관리(wscx.pages.dev) 업로드용 발주서 양식으로 받습니다" style="width:100%;font-size:14px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ CX통합관리 양식</button>
         </div>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:14px;color:#334155;line-height:1.5">1) 다운로드 파일 열기<br>
           2) <b>CX팀 물류센터</b> &gt; <b>출고 LIST</b>에<br>복사해서 붙여넣기 하세요<br>
@@ -5635,24 +5636,24 @@ function ordDownloadCxAll(){
   if(need&&!confirm("받는분 또는 주소가 비어있는 행이 "+need+"건 있습니다.\n\nCX통합관리는 받는분·연락처·주소가 필수입니다.\n그대로 다운로드할까요?"))return;
   ordDownloadCx(orderDB.rows);
 }
-function ordDownloadCx(rows){
-  if(!rows||!rows.length){alert("CX통합관리로 지정된 발주 행이 없습니다.");return;}
+/* CX통합관리 양식 워크북 만들기 — 수기발주·코스트코 발주가 같은 파일을 내도록 공용으로 쓴다.
+   items: {recv,tel,addr,proc,name,code,qty,ship,msg} 배열 */
+function _cxBuildWorkbook(items){
   var aoa=[ORD_CX_HEADERS.slice()];
   ORD_CX_SAMPLE.forEach(function(r){aoa.push(r.slice());});
-  rows.forEach(function(r){
-    var q=parseInt(String(r.qty||"").replace(/[^0-9]/g,""),10);
-    var v=_ordCxRecvOf(r);
+  (items||[]).forEach(function(it){
+    var q=parseInt(String(it.qty==null?"":it.qty).replace(/[^0-9]/g,""),10);
     aoa.push([
       "",                    /* A 구분 — '예시' 행 표시용이라 실제 발주는 비움 */
-      v.recv,                /* B 받는분 */
-      v.tel,                 /* C 연락처 */
-      v.addr,                /* D 주소 */
-      "",                    /* E 전산 처리 방법 — 비우면 사입출고등록(기타온라인) */
-      r.name||"",            /* F 상품명 */
-      r.code||"",            /* G 상품컬러코드 */
+      it.recv||"",           /* B 받는분 */
+      it.tel||"",            /* C 연락처 */
+      it.addr||"",           /* D 주소 */
+      it.proc||"",           /* E 전산 처리 방법 — 비우면 사입출고등록(기타온라인) */
+      it.name||"",           /* F 상품명 */
+      it.code||"",           /* G 상품컬러코드 */
       (q>0?q:""),            /* H 수량 — 비우면 1로 처리 */
-      "",                    /* I 희망출고일 */
-      r.msg||""              /* J 배송메세지 */
+      it.ship||"",           /* I 희망출고일 */
+      it.msg||""             /* J 배송메세지 */
     ]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -5662,8 +5663,19 @@ function ordDownloadCx(rows){
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"발주서");
   XLSX.utils.book_append_sheet(wb,gs,"작성방법");
+  return wb;
+}
+function _cxFileName(){
   var d=new Date();
-  XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - CX통합관리 발주서.xlsx");
+  return "화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - CX통합관리 발주서.xlsx";
+}
+function ordDownloadCx(rows){
+  if(!rows||!rows.length){alert("CX통합관리로 지정된 발주 행이 없습니다.");return;}
+  var items=rows.map(function(r){
+    var v=_ordCxRecvOf(r);
+    return {recv:v.recv,tel:v.tel,addr:v.addr,proc:"",name:r.name,code:r.code,qty:r.qty,ship:"",msg:r.msg};
+  });
+  XLSX.writeFile(_cxBuildWorkbook(items),_cxFileName());
 }
 
 /* ── CX팀 물류센터 발주양식 ──
@@ -8753,6 +8765,29 @@ function ccPdfDownload(){
   var now2=new Date();
   var todayStr=now2.getFullYear()+"-"+String(now2.getMonth()+1).padStart(2,"0")+"-"+String(now2.getDate()).padStart(2,"0");
   XLSX.writeFile(wb,"코스트코_발주서_"+todayStr+".xlsx");
+}
+/* 같은 주문 내역을 CX통합관리(wscx.pages.dev) 업로드용 발주서 양식으로 내보낸다.
+   기존 '출고 LIST'(29열) 다운로드와 별개 버튼 — 수기발주의 CX 양식과 같은 파일이 나온다. */
+function ccPdfDownloadCx(){
+  if(!ccPdfRows.length){alert("다운로드할 주문 데이터가 없습니다.\n먼저 위에서 코스트코 PDF 주문서를 업로드해주세요.");return;}
+  var need=ccPdfRows.filter(function(r){
+    return !String(r.name||"").trim()||!String(r.address||"").trim();
+  }).length;
+  if(need&&!confirm("받는분 또는 주소가 비어있는 행이 "+need+"건 있습니다.\n\nCX통합관리는 받는분·연락처·주소가 필수입니다.\n그대로 다운로드할까요?"))return;
+  var items=ccPdfRows.map(function(r){
+    return {
+      recv:r.name,           /* 수령인 */
+      tel:r.phone,
+      addr:r.address,
+      proc:"",               /* 전산 처리 방법 — 비우면 사입출고등록(기타온라인) */
+      name:r.prodName,
+      code:r.colorCode,
+      qty:r.qty,
+      ship:"",               /* 희망출고일 — 요청일은 '8/25(월)' 형식이라 CX가 요구하는 YYYY-MM-DD와 달라 비움 */
+      msg:r.msg
+    };
+  });
+  XLSX.writeFile(_cxBuildWorkbook(items),_cxFileName());
 }
 
 
