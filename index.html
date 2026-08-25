@@ -549,6 +549,7 @@ label{font-size:14px!important}
     <div class="tab-drop-menu">
       <button class="tab-btn" id="tab-ccorder" onclick="switchTab('ccorder')">🚚 사입출고등록</button>
       <button class="tab-btn" id="tab-onlinesale" onclick="switchTab('onlinesale')">🧾 온라인 판매등록</button>
+      <button class="tab-btn" id="tab-hsreturn" onclick="switchTab('hsreturn')">↩ 홈쇼핑 반품등록</button>
     </div>
   </div>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
@@ -861,6 +862,65 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-costco -->
+
+<div id="page-hsreturn" style="display:none">
+<div class="main" style="max-width:none">
+  <div class="card">
+    <div class="sec-title" style="margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>↩ 홈쇼핑 반품등록</span>
+      <button class="bs" style="font-size:11px;padding:5px 12px" onclick="hsrResetAll()" title="등록된 반품 내역을 모두 지우고 처음 상태로">🗑 초기화</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+      <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">1단계<br>반품내역 붙여넣기</div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1">
+          <textarea id="hsrPasteArea" placeholder="반품 표를 복사해서 붙여넣기 (Ctrl+V)" style="width:100%;box-sizing:border-box;min-height:56px;border:1px solid #cbd5e1;border-radius:8px;padding:6px;font-size:12px;font-family:inherit;resize:vertical"></textarea>
+          <button class="bs" onclick="hsrPasteRows()" style="width:100%;font-size:13px">📋 붙여넣어 등록</button>
+          <div id="hsrDropZone" class="drop-zone" onclick="document.getElementById('hsrFileIn').click()" style="border-radius:8px;min-height:52px;padding:8px;font-size:14px;flex-direction:column;gap:2px">
+            <span style="font-size:20px;line-height:1">📁</span><span>업로드/끌어오기</span>
+            <input type="file" id="hsrFileIn" accept=".xlsx,.xls" style="display:none" onchange="hsrLoadFile(this)">
+          </div>
+        </div>
+        <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5">
+          입고일·처리일·해체일·쇼핑몰·<br>주문번호·상품명·수량 순서의<br>반품 표를 그대로 붙여넣으세요
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">쇼핑몰·날짜·상품명·수량만 읽습니다<br>(수취인·연락처·주소는 저장하지 않음)</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">2단계<br>코드 매칭</div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
+          <div id="hsrMatchStatus" style="font-size:15px;color:#64748b;text-align:center">등록된 반품이 없습니다.</div>
+        </div>
+        <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5">
+          상품명으로 <b>홈쇼핑 코드매칭표</b>를<br>찾아 바코드·공급가를<br>자동으로 채웁니다<br>
+          <span style="color:#b45309">매칭 안되면 표에서 직접 입력</span>
+        </div>
+      </div>
+
+      <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
+        <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">3단계<br>사입반품양식 다운로드</div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
+          <label style="font-size:12px;font-weight:700;color:#475569;display:flex;align-items:center;gap:5px;justify-content:center">반품일자
+            <select id="hsrDateBasis" onchange="renderHsrTable()" style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">
+              <option value="proc">처리일</option>
+              <option value="in">입고일</option>
+              <option value="open">해체일</option>
+            </select>
+          </label>
+          <button class="bg" style="width:100%;font-size:14px" onclick="hsrDownload()">📥 다운로드</button>
+        </div>
+        <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5">
+          <b>사입반품양식</b>으로 받습니다<br>
+          반품매장코드·반품창고코드·<br>반품일자·바코드·공급가·<br>반품수량 7열
+        </div>
+      </div>
+    </div>
+    <div id="hsrTableWrap" style="overflow:auto;max-height:calc(100vh - 330px)"></div>
+  </div>
+</div>
+</div><!-- /page-hsreturn -->
 
 <div id="page-ccorder" style="display:none">
 <div class="main" style="max-width:none">
@@ -4097,6 +4157,7 @@ function switchTab(tab){
   document.getElementById("page-costco").style.display=tab==="costco"?"block":"none";
   document.getElementById("page-ccorder").style.display=tab==="ccorder"?"block":"none";
   document.getElementById("page-onlinesale").style.display=tab==="onlinesale"?"block":"none";
+  document.getElementById("page-hsreturn").style.display=tab==="hsreturn"?"block":"none";
   document.getElementById("page-ccpdforder").style.display=tab==="ccpdforder"?"block":"none";
   document.getElementById("page-ananti").style.display=tab==="ananti"?"block":"none";
   document.getElementById("page-margin").style.display=tab==="margin"?"block":"none";
@@ -4115,6 +4176,7 @@ function switchTab(tab){
   document.getElementById("tab-costco").classList.toggle("active",tab==="costco");
   document.getElementById("tab-ccorder").classList.toggle("active",tab==="ccorder");
   document.getElementById("tab-onlinesale").classList.toggle("active",tab==="onlinesale");
+  document.getElementById("tab-hsreturn").classList.toggle("active",tab==="hsreturn");
   document.getElementById("tab-ccpdforder").classList.toggle("active",tab==="ccpdforder");
   document.getElementById("tab-ananti").classList.toggle("active",tab==="ananti");
   document.getElementById("tab-margin").classList.toggle("active",tab==="margin");
@@ -4132,6 +4194,7 @@ function switchTab(tab){
   if(tab==="costco"){ renderCostcoPage(); ccDropZoneInit(); }
   if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); ccoDropZoneInit(); }
   if(tab==="onlinesale"){ osRenderResult(); osDropInit(); }
+  if(tab==="hsreturn"){ renderHsrTable(); hsrDropZoneInit(); }
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); ccPdfPairDropZoneInit(); }
   if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
   _tabDropSync();
@@ -7725,6 +7788,214 @@ function ccPeriodTotal(period){
   return {qty:qty,amount:amt};
 }
 function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocaleString():"";}
+
+/* ── 홈쇼핑 반품등록 ──
+   반품 표(입고일·처리일·해체일·쇼핑몰·주문번호·상품명·수량)를 붙여넣거나 엑셀로 올리면
+   상품명으로 홈쇼핑 코드매칭표를 찾아 바코드(상품컬러코드)·공급가(매칭가)를 채우고
+   '사입반품양식'으로 내려받는다.
+   반품매장코드는 채널별 코드(롯데 IMALL·GS GSH·현대 HHOME·홈앤 HNSH), 창고코드는 NH,
+   비고는 '홈쇼핑 반품' 고정.
+   수취인·연락처·주소는 읽지도 저장하지도 않는다(사입출고등록과 동일한 원칙). */
+var hsrRows=[];
+var HSR_MEMO="홈쇼핑 반품";
+/* "8/7(금)" · "2026-08-07" · 엑셀 날짜 직렬값을 모두 Date로 */
+function _hsrParseDate(v){
+  if(v instanceof Date&&!isNaN(v))return v;
+  var s=String(v==null?"":v).trim();
+  if(!s)return null;
+  var m=s.match(/^(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})/);
+  if(m)return new Date(+m[1],+m[2]-1,+m[3]);
+  m=s.match(/^(\d{1,2})\s*[\/.-]\s*(\d{1,2})/);      /* 8/7(금) */
+  if(m){
+    var now=new Date(),y=now.getFullYear();
+    var d=new Date(y,+m[1]-1,+m[2]);
+    /* 연말·연초 경계: 오늘보다 6개월 이상 미래면 작년 날짜로 본다 */
+    if(d-now>183*86400000)d=new Date(y-1,+m[1]-1,+m[2]);
+    return d;
+  }
+  var n=Number(s);                                    /* 엑셀 직렬값 */
+  if(n>20000&&n<80000)return new Date(Date.UTC(1899,11,30+n));
+  return null;
+}
+function _hsrYmd(d){
+  return d?(d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")):"";
+}
+function _hsrDateBasis(){
+  var el=document.getElementById("hsrDateBasis");
+  return (el&&el.value)||"proc";
+}
+/* 선택한 기준(처리일/입고일/해체일) 날짜 — 비어 있으면 나머지 날짜로 대체 */
+function _hsrRowDate(r){
+  var order={proc:["proc","in","open"],"in":["in","proc","open"],open:["open","proc","in"]}[_hsrDateBasis()];
+  for(var i=0;i<order.length;i++){if(r[order[i]])return r[order[i]];}
+  return null;
+}
+function _hsrNorm(v){return String(v==null?"":v).replace(/\s/g,"").trim();}
+/* 공급가 = 홈쇼핑 코드매칭표의 매칭가(현재가).
+   상품명으로 매칭표를 못 찾고 상품데이터로 컬러코드만 나온 경우에도
+   그 컬러코드로 매칭표를 한 번 더 뒤져 공급가를 채운다. */
+function _hsrPriceByCode(code){
+  code=String(code||"").trim();
+  if(!code||typeof hsCodeMatchDB==="undefined")return "";
+  for(var i=0;i<hsCodeMatchDB.length;i++){
+    if(hsCodeMatchDB[i].colorCode===code&&hsCodeMatchDB[i].price)return hsCodeMatchDB[i].price;
+  }
+  return "";
+}
+function _hsrProcessRows(rows){
+  var FIELDS=[["입고일","in"],["처리일","proc"],["해체일","open"],["쇼핑몰","shop"],
+              ["주문번호(사방넷)","orderNo"],["상품명","prod"],["수량","qty"]];
+  var col={},hRow=-1;
+  for(var r=0;r<Math.min(6,rows.length);r++){
+    var row=rows[r]||[],found={};
+    for(var c=0;c<row.length;c++){
+      var v=_hsrNorm(row[c]);
+      FIELDS.forEach(function(f){if(v===_hsrNorm(f[0])&&found[f[1]]===undefined)found[f[1]]=c;});
+    }
+    if(found.prod!==undefined&&found.qty!==undefined){col=found;hRow=r;break;}
+  }
+  /* 헤더 없이 데이터만 붙여넣은 경우 — 표 순서가 고정이라 열 위치로 읽는다 */
+  if(hRow<0)col={"in":0,proc:1,open:2,shop:3,orderNo:5,prod:11,qty:12};
+  var added=0;
+  for(var i=hRow+1;i<rows.length;i++){
+    var row2=rows[i];if(!row2)continue;
+    var prod=String(row2[col.prod]==null?"":row2[col.prod]).trim();
+    if(!prod)continue;
+    if(_hsrNorm(prod)===_hsrNorm("상품명"))continue;   /* 헤더가 중간에 또 있는 경우 */
+    var shop=col.shop!==undefined?String(row2[col.shop]==null?"":row2[col.shop]).trim():"";
+    var qty=parseInt(String(row2[col.qty]==null?"":row2[col.qty]).replace(/[^0-9-]/g,""),10);
+    var rec={
+      "in":_hsrParseDate(row2[col["in"]]),
+      proc:_hsrParseDate(row2[col.proc]),
+      open:_hsrParseDate(row2[col.open]),
+      shop:shop,
+      orderNo:col.orderNo!==undefined?String(row2[col.orderNo]==null?"":row2[col.orderNo]).trim():"",
+      prod:prod,
+      qty:(qty>0?qty:1),
+      colorCode:"",price:"",matched:false
+    };
+    /* 사입출고등록과 같은 매칭 경로 — 바코드=상품컬러코드, 공급가=매칭가(현재가) */
+    var hm=(typeof _hsFindMatch==="function")?_hsFindMatch(shop,prod):null;
+    if(hm&&hm.colorCode){rec.colorCode=hm.colorCode;rec.matched=true;rec.price=hm.price||_hsrPriceByCode(hm.colorCode);}
+    hsrRows.push(rec);added++;
+  }
+  if(!added){alert("인식된 반품 내역이 없습니다.\n상품명·수량 열이 있는지 확인해주세요.");return;}
+  renderHsrTable();
+}
+function hsrPasteRows(){
+  var ta=document.getElementById("hsrPasteArea");if(!ta)return;
+  var text=ta.value;
+  if(!text.trim()){alert("붙여넣을 내용이 없습니다.");return;}
+  var rows=text.split(/\r?\n/).filter(function(l){return l.trim()!=="";}).map(function(l){return l.split("\t");});
+  _hsrProcessRows(rows);
+  ta.value="";
+}
+function _hsrProcessFiles(fileList){
+  var file=(fileList||[])[0];if(!file)return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      _hsrProcessRows(XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true}));
+    }catch(err){alert("파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function hsrLoadFile(input){_hsrProcessFiles(input.files);input.value="";}
+function hsrDropZoneInit(){
+  var zone=document.getElementById("hsrDropZone");
+  if(!zone||zone._wired)return;
+  zone._wired=true;
+  zone.addEventListener("dragover",function(e){e.preventDefault();zone.classList.add("dragover");});
+  zone.addEventListener("dragleave",function(){zone.classList.remove("dragover");});
+  zone.addEventListener("drop",function(e){e.preventDefault();zone.classList.remove("dragover");_hsrProcessFiles(e.dataTransfer.files);});
+}
+function hsrEditColorCode(el){
+  var i=+el.dataset.i;if(!hsrRows[i])return;
+  hsrRows[i].colorCode=el.value.trim();
+  hsrRows[i].matched=!!hsrRows[i].colorCode;
+  if(hsrRows[i].price==="")hsrRows[i].price=_hsrPriceByCode(hsrRows[i].colorCode);
+  renderHsrTable();
+}
+function hsrEditPrice(el){var i=+el.dataset.i;if(!hsrRows[i])return;hsrRows[i].price=el.value.replace(/[^0-9]/g,"");renderHsrTable();}
+function hsrEditQty(el){var i=+el.dataset.i;if(!hsrRows[i])return;var q=parseInt(el.value.replace(/[^0-9]/g,""),10);hsrRows[i].qty=(q>0?q:1);renderHsrTable();}
+function hsrDelRow(i){hsrRows.splice(i,1);renderHsrTable();}
+function hsrResetAll(){
+  if(hsrRows.length&&!confirm("등록된 반품 "+hsrRows.length+"건을 모두 지울까요?"))return;
+  hsrRows=[];
+  var ta=document.getElementById("hsrPasteArea");if(ta)ta.value="";
+  renderHsrTable();
+}
+function renderHsrTable(){
+  var st=document.getElementById("hsrMatchStatus"),wrap=document.getElementById("hsrTableWrap");
+  if(!wrap)return;
+  if(!hsrRows.length){
+    if(st)st.textContent="등록된 반품이 없습니다.";
+    wrap.innerHTML="";
+    return;
+  }
+  var noMatch=hsrRows.filter(function(r){return !r.colorCode;}).length;
+  var unknownShop=hsrRows.filter(function(r){return _ccoWhStoreCode(r.shop).unknown;}).length;
+  if(st){
+    st.innerHTML=(noMatch
+      ? '<div style="font-size:20px;font-weight:800;color:#dc2626">⚠ '+noMatch+'건 미매칭</div><div style="font-size:14px;color:#b91c1c;font-weight:700;margin-top:2px">총 '+hsrRows.length+'건 중</div>'
+      : '<div style="font-size:20px;font-weight:800;color:#16a34a">✅ 매칭완료</div><div style="font-size:14px;color:#15803d;font-weight:700;margin-top:2px">총 '+hsrRows.length+'건 전체 매칭</div>')
+      +(unknownShop?'<div style="font-size:12.5px;color:#b45309;margin-top:5px;font-weight:700">⚠ 매장코드 미등록 '+unknownShop+'건</div>':"");
+  }
+  var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px;color:#1b6e82;font-size:13px;white-space:nowrap';
+  var td='border:1px solid #e2e8f0;padding:4px 8px;font-size:13px';
+  var h='<table style="border-collapse:collapse;width:100%">';
+  h+='<thead><tr>'
+    +'<th style="'+th+'">쇼핑몰</th><th style="'+th+'">입고일</th><th style="'+th+'">처리일</th><th style="'+th+'">해체일</th>'
+    +'<th style="'+th+'">주문번호</th><th style="'+th+'">상품명</th><th style="'+th+'">바코드(상품컬러코드)</th>'
+    +'<th style="'+th+'">공급가</th><th style="'+th+'">반품수량</th>'
+    +'<th style="'+th+'">반품매장</th><th style="'+th+'">반품창고</th><th style="'+th+'">반품일자</th><th style="'+th+'"></th>'
+    +'</tr></thead><tbody>';
+  var md=function(d){return d?((d.getMonth()+1)+"/"+d.getDate()):"";};
+  hsrRows.forEach(function(r,i){
+    var w=_ccoWhStoreCode(r.shop);
+    h+='<tr'+(!r.colorCode?' style="background:#fef2f2"':'')+'>'
+      +'<td style="'+td+';white-space:nowrap">'+_esc(r.shop)+'</td>'
+      +'<td style="'+td+';white-space:nowrap;color:#64748b">'+md(r["in"])+'</td>'
+      +'<td style="'+td+';white-space:nowrap;color:#64748b">'+md(r.proc)+'</td>'
+      +'<td style="'+td+';white-space:nowrap;color:#64748b">'+md(r.open)+'</td>'
+      +'<td style="'+td+';white-space:nowrap;color:#64748b;font-size:12px">'+_esc(r.orderNo)+'</td>'
+      +'<td style="'+td+'">'+_esc(r.prod)+'</td>'
+      +'<td style="'+td+';padding:2px;min-width:130px"><input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="hsrEditColorCode(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.colorCode?"#d1d5db":"#fca5a5")+';border-radius:5px;padding:3px 6px;font-size:13px'+(r.colorCode?"":";color:#dc2626")+'"></td>'
+      +'<td style="'+td+';padding:2px;min-width:80px"><input type="text" inputmode="numeric" value="'+_esc(r.price===""?"":String(r.price))+'" data-i="'+i+'" onchange="hsrEditPrice(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:3px 6px;font-size:13px;text-align:right"></td>'
+      +'<td style="'+td+';padding:2px;min-width:60px"><input type="text" inputmode="numeric" value="'+r.qty+'" data-i="'+i+'" onchange="hsrEditQty(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:3px 6px;font-size:13px;text-align:right"></td>'
+      +'<td style="'+td+';white-space:nowrap;font-weight:700;'+(w.unknown?"color:#dc2626":"color:#1b6e82")+'">'+(w.unknown?"미등록":_esc(w.store))+'</td>'
+      +'<td style="'+td+';white-space:nowrap;color:#1b6e82;font-weight:700">'+_esc(w.wh)+'</td>'
+      +'<td style="'+td+';white-space:nowrap;color:#64748b">'+_hsrYmd(_hsrRowDate(r))+'</td>'
+      +'<td style="'+td+';text-align:center"><span onclick="hsrDelRow('+i+')" style="cursor:pointer;color:#dc2626;font-weight:700">✕</span></td>'
+      +'</tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+}
+function hsrDownload(){
+  if(!hsrRows.length){alert("다운로드할 반품 내역이 없습니다.");return;}
+  var unk={};
+  hsrRows.forEach(function(r){var w=_ccoWhStoreCode(r.shop);if(w.unknown)unk[w.shop||"(쇼핑몰 없음)"]=1;});
+  var uk=Object.keys(unk);
+  if(uk.length&&!confirm("다음 쇼핑몰의 반품매장코드가 등록되어 있지 않습니다.\n\n  "+uk.join(", ")+"\n\n해당 행은 매장코드·창고코드가 빈 칸으로 나갑니다.\n그대로 다운로드할까요?"))return;
+  var noCode=hsrRows.filter(function(r){return !r.colorCode;}).length;
+  if(noCode&&!confirm("바코드(상품컬러코드)가 비어있는 행이 "+noCode+"건 있습니다.\n\n그대로 다운로드할까요?"))return;
+  var aoa=[["반품매장코드","반품창고코드","반품일자(8자리 숫자만)","바코드","공급가","반품수량","비고"]];
+  hsrRows.forEach(function(r){
+    var w=_ccoWhStoreCode(r.shop);
+    aoa.push([w.store||"",w.wh||"",_hsrYmd(_hsrRowDate(r)),r.colorCode||"",(r.price===""?"":Number(r.price)||0),r.qty,HSR_MEMO]);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=[14,14,14,14,14,14,14].map(function(w){return {wch:w};});
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"사입반품양식");
+  var d=new Date();
+  var ymd=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  XLSX.writeFile(wb,"사입반품양식_"+ymd+".xlsx");
+}
 
 /* ── 코스트코 발주 탭 — 온라인 주문 내역을 사입출고양식으로 변환. 개인정보(수령인/연락처/주소 등)는 읽지도 저장하지도 않음.
    세션 메모리에만 두고(새로고침하면 사라짐) 원본 등록은 하지 않음 ── */
