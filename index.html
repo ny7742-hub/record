@@ -3863,7 +3863,8 @@ var HS_ACTUAL={
   "2026-04":57855366,
   "2026-05":83472536,
   "2026-06":179755028,
-  "2026-07":369357264
+  "2026-07":369357264,
+  "2026-08":19812011   /* 8/24까지 — 월말에 다시 받으면 갱신 */
 };
 
 /* 이번달 매출 vs 전년 동월 비교 줄 HTML — 둘 다 그 달 1일~말일 전체 기준, 증감은 %로 표시.
@@ -4043,10 +4044,13 @@ function renderHomeDashboard(){
     });
   }
 
-  /* 홈쇼핑 이번달 합산 금액 (판매가×판매수량) */
+  /* 홈쇼핑 이번달 합산 금액 — 판매일보 실적이 있으면 그 값(연 누적표·전년 비교와 같은 기준),
+     없으면 홈쇼핑 탭 입력값(판매가×판매수량) */
   var hsMonthAmt=0;
-  if(typeof homeshoppingDB!=="undefined"&&Array.isArray(homeshoppingDB)){
-    var curYm=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+  var curYm=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+  if(typeof HS_ACTUAL!=="undefined"&&HS_ACTUAL[curYm]!==undefined){
+    hsMonthAmt=HS_ACTUAL[curYm];
+  }else if(typeof homeshoppingDB!=="undefined"&&Array.isArray(homeshoppingDB)){
     homeshoppingDB.forEach(function(row){
       if(row.date&&row.date.slice(0,7)===curYm){
         var price=Number(String(row.price||0).replace(/,/g,""))||0;
