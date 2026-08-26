@@ -616,9 +616,10 @@ label{font-size:14px!important}
       <input type="checkbox" id="smIsPopup" onchange="toggleSmPopup(this)"/>
       <span>🎪 팝업 매장</span>
     </label>
-    <div id="smPopupWrap" style="display:none" class="fg">
-      <label>팝업 기간</label>
-      <input type="text" id="smPopupPeriod" placeholder="예) 5월15일~5월31일" onkeydown="if(event.key==='Enter')confirmStoreModal()"/>
+    <div id="smPopupWrap" class="fg">
+      <label id="smPeriodLabel">운영 기간 <span style="font-weight:500;color:#94a3b8;font-size:11px">(선택 · 비워두면 계속 운영)</span></label>
+      <input type="text" id="smPopupPeriod" placeholder="예) 3월1일~12월31일" onkeydown="if(event.key==='Enter')confirmStoreModal()"/>
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.5">종료일이 지나면 매장에 <b>🚪 퇴점</b>(팝업은 <b>🏁 팝업종료</b>)으로 표시됩니다. 해를 넘기면 <b>2026년3월1일~2027년2월28일</b>처럼 연도를 함께 적어주세요.</div>
     </div>
     <div class="store-modal-btns">
       <button class="cancel" onclick="closeStoreModal()">취소</button>
@@ -2634,22 +2635,34 @@ function isForceOnlineStore(name){
   return false;
 }
 
-// 팝업 기간 종료 여부 판정
-function parseKoreanDate(s){
-  var m=s.match(/(\d+)월\s*(\d+)일/); // "5월15일"
-  if(!m)m=s.match(/(\d+)\/(\d+)/);    // "5/15"
+// 매장 운영/팝업 기간 종료 여부 판정
+function parseKoreanDate(s,baseYear){
+  s=String(s||"").trim();
+  // 연도가 있는 형태: "2026년3월1일", "2026-03-01", "2026.3.1", "2026/3/1"
+  var m=s.match(/(\d{4})\s*[-.\/년]\s*(\d{1,2})\s*[-.\/월]\s*(\d{1,2})/);
+  if(m)return new Date(parseInt(m[1]),parseInt(m[2])-1,parseInt(m[3]));
+  m=s.match(/(\d{1,2})\s*월\s*(\d{1,2})/);   // "5월15일"
+  if(!m)m=s.match(/(\d{1,2})\s*\/\s*(\d{1,2})/); // "5/15"
   if(!m)return null;
-  var today=new Date();
-  return new Date(today.getFullYear(),parseInt(m[1])-1,parseInt(m[2]));
+  return new Date(baseYear||new Date().getFullYear(),parseInt(m[1])-1,parseInt(m[2]));
+}
+/* "3월1일~12월31일" → {start,end}. 연도를 안 적으면 올해로 보되,
+   종료가 시작보다 앞서면(연말~연초) 종료만 다음 해로 넘긴다. */
+function parseStorePeriod(period){
+  if(!period)return null;
+  var parts=String(period).split(/[~〜–—]/);
+  if(parts.length<2)return null;
+  var y=new Date().getFullYear();
+  var st=parseKoreanDate(parts[0],y),en=parseKoreanDate(parts[1],y);
+  if(!en)return null;
+  if(st&&en<st)en=parseKoreanDate(parts[1],y+1);
+  return {start:st,end:en};
 }
 function isPopupEnded(period){
-  if(!period)return false;
-  var parts=period.split("~");
-  if(parts.length<2)return false;
-  var endDate=parseKoreanDate(parts[1].trim());
-  if(!endDate)return false;
+  var r=parseStorePeriod(period);
+  if(!r||!r.end)return false;
   var today=new Date();today.setHours(0,0,0,0);
-  return today>endDate;
+  return today>r.end;
 }
 var curDeptKey="";
 var DAYS_KO=["일","월","화","수","목","금","토"];
@@ -2848,8 +2861,8 @@ function addDeptStore(){
   document.getElementById("storeModalConfirmBtn").textContent="추가";
   document.getElementById("smName").value="";
   document.getElementById("smIsPopup").checked=false;
-  document.getElementById("smPopupWrap").style.display="none";
   document.getElementById("smPopupPeriod").value="";
+  _smSyncPeriodLabel(false);
   document.getElementById("storeModal").classList.add("show");
   setTimeout(function(){document.getElementById("smName").focus();},80);
 }
@@ -2858,9 +2871,17 @@ function closeStoreModal(){
   document.getElementById("storeModal").classList.remove("show");
 }
 
+/* 팝업이든 정규매장이든 기간을 적을 수 있다 — 체크에 따라 라벨만 바꾼다 */
+function _smSyncPeriodLabel(isPopup){
+  var lb=document.getElementById("smPeriodLabel"),ip=document.getElementById("smPopupPeriod");
+  if(!lb||!ip)return;
+  lb.innerHTML=(isPopup?"팝업 기간":"운영 기간")
+    +' <span style="font-weight:500;color:#94a3b8;font-size:11px">(선택 · 비워두면 계속 운영)</span>';
+  ip.placeholder=isPopup?"예) 5월15일~5월31일":"예) 3월1일~12월31일";
+}
 function toggleSmPopup(cb){
-  document.getElementById("smPopupWrap").style.display=cb.checked?"block":"none";
-  if(cb.checked)setTimeout(function(){document.getElementById("smPopupPeriod").focus();},60);
+  _smSyncPeriodLabel(cb.checked);
+  setTimeout(function(){document.getElementById("smPopupPeriod").focus();},60);
 }
 
 function confirmStoreModal(){
@@ -2888,8 +2909,9 @@ function confirmStoreModal(){
     }
   }
 
-  if(isPopup){
-    deptStoresMeta[name]={popup:true,popupPeriod:period};
+  /* 정규매장도 기간을 적으면 meta를 남긴다 (종료일이 지나면 퇴점 표시) */
+  if(isPopup||period){
+    deptStoresMeta[name]={popup:isPopup,popupPeriod:period};
   } else {
     delete deptStoresMeta[name];
   }
@@ -2926,8 +2948,8 @@ function editDeptStore(si){
   document.getElementById("storeModalConfirmBtn").textContent="저장";
   document.getElementById("smName").value=name;
   document.getElementById("smIsPopup").checked=!!meta.popup;
-  document.getElementById("smPopupWrap").style.display=meta.popup?"block":"none";
   document.getElementById("smPopupPeriod").value=meta.popupPeriod||"";
+  _smSyncPeriodLabel(!!meta.popup);
   document.getElementById("storeModal").classList.add("show");
   setTimeout(function(){document.getElementById("smName").focus();},80);
 }
@@ -3049,8 +3071,14 @@ function renderDeptAllStores(){
     var _meta=deptStoresMeta[store]||{};
     var _popupBadge="";
     var _popupInline="";
-    if(_meta.popup){
-      if(_meta.popupPeriod&&isPopupEnded(_meta.popupPeriod)){
+    var _ended=!!(_meta.popupPeriod&&isPopupEnded(_meta.popupPeriod));
+    if(!_meta.popup&&_meta.popupPeriod){
+      /* 정규매장: 기간이 끝나면 퇴점, 아니면 운영기간을 조용히 표시 */
+      _popupInline=_ended
+        ? '<span style="font-size:15px;color:#b91c1c;font-weight:700;white-space:nowrap;flex-shrink:0;margin-left:5px;cursor:pointer" onclick="editDeptStore('+si+')" title="클릭하여 운영기간 수정">🚪 퇴점 '+_meta.popupPeriod+'</span>'
+        : '<span style="font-size:13px;color:#94a3b8;font-weight:600;white-space:nowrap;flex-shrink:0;margin-left:5px;cursor:pointer" onclick="editDeptStore('+si+')" title="클릭하여 운영기간 수정">📅 '+_meta.popupPeriod+'</span>';
+    } else if(_meta.popup){
+      if(_ended){
         _popupInline='<span style="font-size:15px;color:#94a3b8;font-weight:700;white-space:nowrap;flex-shrink:0;margin-left:5px;cursor:pointer" onclick="editDeptStore('+si+')" title="클릭하여 팝업기간 수정">🏁 팝업종료 '+_meta.popupPeriod+'</span>';
       } else if(_meta.popupPeriod){
         _popupInline='<span style="font-size:17px;color:#ea580c;font-weight:700;white-space:nowrap;flex-shrink:0;margin-left:5px;cursor:pointer" onclick="editDeptStore('+si+')" title="클릭하여 팝업기간 수정">🎪'+_meta.popupPeriod+'</span>';
@@ -3061,7 +3089,8 @@ function renderDeptAllStores(){
     h+='<div class="dept-col-hd" style="flex-direction:column;align-items:stretch;gap:4px">';
     h+='<div style="display:flex;align-items:center;justify-content:space-between">';
     h+='<div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;cursor:grab;user-select:none">';
-    h+='<span class="store-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1;min-width:0">&#8942; 🏪 '+store+'</span>';
+    h+='<span class="store-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1;min-width:0'
+      +(_ended?';color:#94a3b8':'')+'">&#8942; '+(_ended?'🚪':'🏪')+' '+store+'</span>';
     h+='</div>';
     if(_popupInline)h+=_popupInline;
     h+='<div style="display:flex;gap:3px;flex-shrink:0;margin-left:4px">';
