@@ -7362,8 +7362,7 @@ var CC_PRODUCT_URLS={
   "세팔로":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/694100",
   "루시아":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/693954",
   "듀리에":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/Whitesands-Hat-Dewlieh/p/687979",
-  "바르셀":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/White-Sands-Wool-Hat/p/691716",
-  "바르셀 직매입":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/White-Sands-Wool-Hat/p/691716"
+  "바르셀":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/White-Sands-Wool-Hat/p/691716"
 };
 function ccApplyDataFixes(db){
   var ch=false;
@@ -7387,6 +7386,8 @@ function ccApplyDataFixes(db){
   }
   /* 상품 페이지 URL 시딩: url 속성이 아직 없을 때만 (사용자가 비우거나 수정하면 유지) */
   db.products.forEach(function(p){
+    /* 직매입 행은 코스트코 판매 페이지가 없으므로 바로가기를 두지 않는다 */
+    if(/직매입$/.test(p.name)){if(p.url){p.url="";ch=true;}return;}
     if(p.url===undefined&&CC_PRODUCT_URLS[p.name]){p.url=CC_PRODUCT_URLS[p.name];ch=true;}
   });
   /* 듀리에: 실제 판매는 베이지/블랙 2컬러, 판매가 21990원 — 다르면 강제 보정 */
@@ -7600,7 +7601,7 @@ function ccDropZoneInit(){
 
 function parseCostcoRows(rows){
   /* ─ 헤더 행 탐색 & 컬럼 매핑 ─ */
-  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1,cSaleDiv=-1,cCost=-1,cUnit=-1;
+  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1,cSaleDiv=-1,cCost=-1,cUnit=-1,cStore=-1;
   for(var r=0;r<Math.min(20,rows.length);r++){
     var row=rows[r]; var found=false;
     for(var c=0;c<row.length;c++){
@@ -7621,6 +7622,8 @@ function parseCostcoRows(rows){
       /* 판매금액: 정확 매치 우선 */
       if(v==="판매금액"&&cAmt<0)cAmt=c;
       else if(/금액|amount/i.test(vl)&&!/할인|부가|에누리|즉시|tag|예정|원가/i.test(vl)&&cAmt<0)cAmt=c;
+      /* 매장명 — '코스트코 직매입' 행을 직매입 상품으로 보내는 데 쓴다 */
+      if(v==="매장명"&&cStore<0)cStore=c;
       /* 판매구분 (반품 필터) */
       if(v==="판매구분"&&cSaleDiv<0)cSaleDiv=c;
       /* 사전원가 (마진계산용, 단위원가) — '사전원가합' 등 합계열 제외 */
@@ -7711,6 +7714,8 @@ function parseCostcoRows(rows){
     var period=(dt.getMonth()+1)+"/"+dt.getDate();
     var prodCell=String(row[cProd]||"").trim();
     var prodName=ccMatchProd(prodCell);
+    /* 코스트코 직매입 매장 행은 온라인몰과 따로 집계한다 */
+    if(prodName&&cStore>=0&&/직매입/.test(String(row[cStore]||"")))prodName=_ccDirectBuyName(prodName);
     if(!prodName){
       /* 미매칭 → 보관 + 자동추가 후보 수집 */
       var colorCell2=cColor>=0?String(row[cColor]||"").trim():"";
@@ -7975,7 +7980,25 @@ function ccAliasName(v){
   for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].test.test(v))return CC_NAME_ALIAS[i].name;}
   return null;
 }
+/* '코스트코 직매입' 매장 행 → 같은 상품의 직매입 행 이름. 직매입 행이 없으면 원래 이름 그대로 */
+function _ccDirectBuyName(prodName){
+  if(!prodName||/직매입$/.test(prodName))return prodName;
+  var d=prodName+" 직매입";
+  return costcoDB.products.some(function(p){return p.name===d;})?d:prodName;
+}
+/* 판매일보에 영문 등 다른 표기로 들어오는 상품명 → 앱 상품명 */
+var CC_RAW_NAME_MAP=[
+  {test:/850\s*UV\s*Protection\s*Parasol/i, name:"장우산 850 직매입"}
+];
 function ccMatchProd(v){
+  var _raw=String(v||"");
+  for(var _i=0;_i<CC_RAW_NAME_MAP.length;_i++){
+    if(CC_RAW_NAME_MAP[_i].test.test(_raw)&&costcoDB.products.some(function(p){return p.name===CC_RAW_NAME_MAP[_i].name;}))
+      return CC_RAW_NAME_MAP[_i].name;
+  }
+  return _ccMatchProdBase(v);
+}
+function _ccMatchProdBase(v){
   v=String(v||"").trim();
   /* 가장 긴 상품명 우선 매칭 — "루시아"가 "루시"로 잘못 매칭되는 것 방지 */
   var best=null;
