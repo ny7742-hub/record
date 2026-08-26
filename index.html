@@ -1335,6 +1335,9 @@ label{font-size:14px!important}
       <div id="tfBwDrop" class="drop-zone" onclick="document.getElementById('tfBwIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 기간별BestWorst판매현황</div>
       <input type="file" id="tfBwIn" accept=".xlsx,.xls" style="display:none" onchange="tfLoadBw(this)"/>
       <span id="tfBwMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+      <div id="tfSsDrop" class="drop-zone" onclick="document.getElementById('tfSsIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px;border-color:#c7d2fe;background:#eef2ff;color:#4338ca">📂 매장별 판매현황 <span style="font-weight:600;opacity:.75">(선택)</span></div>
+      <input type="file" id="tfSsIn" accept=".xlsx,.xls" style="display:none" onchange="tfLoadSs(this)"/>
+      <span id="tfSsMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
     </div>
     <div id="tfWhChips" style="margin-top:8px"></div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed #e2e8f0">
@@ -1346,8 +1349,9 @@ label{font-size:14px!important}
       <button onclick="tfExport()" class="bs" style="padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">📥 엑셀 다운로드</button>
     </div>
     <div style="margin-top:8px;font-size:11px;color:#94a3b8;line-height:1.6">
-      PlayMD <b>출고관리 → 현황 → 창고재고현황</b>(창고 필터 <b>전체</b>)과 <b>기간별BestWorst판매현황</b>을 받아 올린 뒤 분석 시작을 누르세요.<br>
-      SKU별 <b>주간 판매속도(기간판매÷조회주수)</b>와 <b>재고소진주수(재고÷주간판매속도)</b>를 계산해, 소진주수가 짧은 매장으로 재고를 보냅니다. 창고 재고가 있으면 매장 간 이관보다 <b>창고 보충을 우선</b> 추천하고, 최소 이관수량 미만은 제외해 불필요한 이관을 막습니다.
+      PlayMD <b>출고관리 → 현황 → 창고재고현황</b>(창고 필터 <b>전체</b>)과 <b>기간별BestWorst판매현황</b>(전체)을 받아 올린 뒤 분석 시작을 누르세요.<br>
+      SKU별 <b>주간 판매속도(기간판매÷조회주수)</b>와 <b>재고소진주수(재고÷주간판매속도)</b>를 계산해, 소진주수가 짧은 매장으로 재고를 보냅니다. 창고 재고가 있으면 매장 간 이관보다 <b>창고 보충을 우선</b> 추천하고, 최소 이관수량 미만은 제외해 불필요한 이관을 막습니다.<br>
+      <b style="color:#4338ca">매장별 판매현황(선택)</b> — 매장 × 상품코드 × 판매수량이 들어있는 PlayMD 파일을 같이 올리면 <b>매장별 실제 판매속도</b>로 계산합니다. 올리지 않으면 전사 판매속도를 일별매출의 매장 매출 비중으로 안분한 <b>추정치</b>를 씁니다.
     </div>
   </div>
   <div id="tfSummary"></div>
@@ -7277,10 +7281,7 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"포시타", code:"694099", price:19990, colors:["블랙","세이지그린"]},
     {name:"세팔로", code:"694100", price:19990, colors:["블랙","그레이"]},
     {name:"루시아", code:"693954", price:19990, colors:["딥블루","코튼핑크"]},
-    {name:"듀리에", code:"687979", price:21990, colors:["베이지","블랙"]},
-    {name:"바르셀", code:"691716", price:25990, colors:["베이지","블랙","그레이"]},
-    {name:"바르셀 직매입", code:"691716", price:20656, colors:["베이지","블랙","그레이"]},
-    {name:"장우산 850 직매입", code:"696151", price:14608, colors:["딥그린","블랙"]}
+    {name:"듀리에", code:"687979", price:21990, colors:["베이지","블랙"]}
   ],
   salePeriods:[],
   cumul:{},
@@ -7334,12 +7335,7 @@ var _defaultNewProds=[
   {name:"포시타",code:"694099",price:19990,colors:["블랙","세이지그린"]},
   {name:"세팔로",code:"694100",price:19990,colors:["블랙","그레이"]},
   {name:"루시아",code:"693954",price:19990,colors:["딥블루","코튼핑크"]},
-  {name:"듀리에",code:"687979",price:21990,colors:["베이지","블랙"]},
-  /* 바르셀 — 온라인몰 판매(판매가)와 직매입(매입가)을 따로 집계한다 */
-  {name:"바르셀",code:"691716",price:25990,colors:["베이지","블랙","그레이"]},
-  {name:"바르셀 직매입",code:"691716",price:20656,colors:["베이지","블랙","그레이"]},
-  /* 장우산 850 — 매입가만 확인되어 직매입으로만 등록 */
-  {name:"장우산 850 직매입",code:"696151",price:14608,colors:["딥그린","블랙"]}
+  {name:"듀리에",code:"687979",price:21990,colors:["베이지","블랙"]}
 ];
 _defaultNewProds.forEach(function(np){
   if(!costcoDB.products.find(function(p){return p.name===np.name;})){
@@ -7361,33 +7357,14 @@ var CC_PRODUCT_URLS={
   "포시타":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/694099",
   "세팔로":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/694100",
   "루시아":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/693954",
-  "듀리에":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/Whitesands-Hat-Dewlieh/p/687979",
-  "바르셀":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/White-Sands-Wool-Hat/p/691716"
+  "듀리에":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/Whitesands-Hat-Dewlieh/p/687979"
 };
 function ccApplyDataFixes(db){
   var ch=false;
   if(!db||!db.products)return false;
   if(!db.salePeriods)db.salePeriods=[];
-  /* 신규 기본 상품 재적용 — Firebase 데이터로 통째 교체된 뒤에도 유실되지 않게 여기서 다시 넣는다
-     (예전엔 최초 로드 때 한 번만 넣어서, 원격 데이터가 더 최신이면 새 상품이 사라졌다) */
-  if(typeof _defaultNewProds!=="undefined"){
-    _defaultNewProds.forEach(function(np){
-      var ex=db.products.find(function(p){return p.name===np.name;});
-      if(!ex){
-        db.products.push({name:np.name,code:np.code,price:np.price,colors:np.colors.slice()});
-        ch=true;return;
-      }
-      /* 상품번호는 위쪽 _codeMap 보정에서 매 로드마다 지워지므로 여기서 되살린다 */
-      if(!ex.code&&np.code){ex.code=np.code;ch=true;}
-      /* 가격이 비어 있으면(0) 기준가로 채운다 — 사용자가 넣은 값은 건드리지 않는다 */
-      if(!Number(ex.price)&&np.price){ex.price=np.price;ch=true;}
-      if(!ex.colors||!ex.colors.length){ex.colors=np.colors.slice();ch=true;}
-    });
-  }
   /* 상품 페이지 URL 시딩: url 속성이 아직 없을 때만 (사용자가 비우거나 수정하면 유지) */
   db.products.forEach(function(p){
-    /* 직매입 행은 코스트코 판매 페이지가 없으므로 바로가기를 두지 않는다 */
-    if(/직매입$/.test(p.name)){if(p.url){p.url="";ch=true;}return;}
     if(p.url===undefined&&CC_PRODUCT_URLS[p.name]){p.url=CC_PRODUCT_URLS[p.name];ch=true;}
   });
   /* 듀리에: 실제 판매는 베이지/블랙 2컬러, 판매가 21990원 — 다르면 강제 보정 */
@@ -7601,7 +7578,7 @@ function ccDropZoneInit(){
 
 function parseCostcoRows(rows){
   /* ─ 헤더 행 탐색 & 컬럼 매핑 ─ */
-  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1,cSaleDiv=-1,cCost=-1,cUnit=-1,cStore=-1;
+  var hRow=-1,cDate=-1,cProd=-1,cColor=-1,cQty=-1,cAmt=-1,cSaleDiv=-1,cCost=-1,cUnit=-1;
   for(var r=0;r<Math.min(20,rows.length);r++){
     var row=rows[r]; var found=false;
     for(var c=0;c<row.length;c++){
@@ -7622,8 +7599,6 @@ function parseCostcoRows(rows){
       /* 판매금액: 정확 매치 우선 */
       if(v==="판매금액"&&cAmt<0)cAmt=c;
       else if(/금액|amount/i.test(vl)&&!/할인|부가|에누리|즉시|tag|예정|원가/i.test(vl)&&cAmt<0)cAmt=c;
-      /* 매장명 — '코스트코 직매입' 행을 직매입 상품으로 보내는 데 쓴다 */
-      if(v==="매장명"&&cStore<0)cStore=c;
       /* 판매구분 (반품 필터) */
       if(v==="판매구분"&&cSaleDiv<0)cSaleDiv=c;
       /* 사전원가 (마진계산용, 단위원가) — '사전원가합' 등 합계열 제외 */
@@ -7714,8 +7689,6 @@ function parseCostcoRows(rows){
     var period=(dt.getMonth()+1)+"/"+dt.getDate();
     var prodCell=String(row[cProd]||"").trim();
     var prodName=ccMatchProd(prodCell);
-    /* 코스트코 직매입 매장 행은 온라인몰과 따로 집계한다 */
-    if(prodName&&cStore>=0&&/직매입/.test(String(row[cStore]||"")))prodName=_ccDirectBuyName(prodName);
     if(!prodName){
       /* 미매칭 → 보관 + 자동추가 후보 수집 */
       var colorCell2=cColor>=0?String(row[cColor]||"").trim():"";
@@ -7980,25 +7953,7 @@ function ccAliasName(v){
   for(var i=0;i<CC_NAME_ALIAS.length;i++){if(CC_NAME_ALIAS[i].test.test(v))return CC_NAME_ALIAS[i].name;}
   return null;
 }
-/* '코스트코 직매입' 매장 행 → 같은 상품의 직매입 행 이름. 직매입 행이 없으면 원래 이름 그대로 */
-function _ccDirectBuyName(prodName){
-  if(!prodName||/직매입$/.test(prodName))return prodName;
-  var d=prodName+" 직매입";
-  return costcoDB.products.some(function(p){return p.name===d;})?d:prodName;
-}
-/* 판매일보에 영문 등 다른 표기로 들어오는 상품명 → 앱 상품명 */
-var CC_RAW_NAME_MAP=[
-  {test:/850\s*UV\s*Protection\s*Parasol/i, name:"장우산 850 직매입"}
-];
 function ccMatchProd(v){
-  var _raw=String(v||"");
-  for(var _i=0;_i<CC_RAW_NAME_MAP.length;_i++){
-    if(CC_RAW_NAME_MAP[_i].test.test(_raw)&&costcoDB.products.some(function(p){return p.name===CC_RAW_NAME_MAP[_i].name;}))
-      return CC_RAW_NAME_MAP[_i].name;
-  }
-  return _ccMatchProdBase(v);
-}
-function _ccMatchProdBase(v){
   v=String(v||"").trim();
   /* 가장 긴 상품명 우선 매칭 — "루시아"가 "루시"로 잘못 매칭되는 것 방지 */
   var best=null;
@@ -10841,23 +10796,6 @@ function renderCcSaleSummary(){
   el.innerHTML=h;
 }
 
-/* 앱에 기본 등록된 상품인지 (업로드 중 자동 추가된 이름과 구분) */
-function _ccIsDefaultProd(name){
-  return typeof _defaultNewProds!=="undefined"&&_defaultNewProds.some(function(p){return p.name===name;});
-}
-/* 어느 기간에든 판매데이터가 한 줄이라도 있는 상품인지 */
-function _ccProdHasAnySales(prod){
-  var keys=Object.keys(costcoDB.sales||{});
-  for(var i=0;i<keys.length;i++){
-    var pd=(costcoDB.sales[keys[i]]||{})[prod.name];
-    if(!pd)continue;
-    for(var c=0;c<prod.colors.length;c++){
-      var d=pd[prod.colors[c]]||{};
-      if(d.qty||d.amount)return true;
-    }
-  }
-  return false;
-}
 function renderCostcoPage(){
   var _yEl=document.getElementById("ccYear"),_mEl=document.getElementById("ccMonth");
   var _year=_yEl?parseInt(_yEl.value):new Date().getFullYear();
@@ -10937,18 +10875,12 @@ function renderCostcoPage(){
   var _hidden=costcoDB.hiddenProds||{};
   var visibleProds=(monthKeys.length?prods.filter(function(prod){
     if(ccGetSalePriceForMonth(prod.name))return true; /* 세일 등록 상품은 매출 없어도 표시 (신규 행사 준비용) */
-    var inMonth=prod.colors.some(function(color){
+    return prod.colors.some(function(color){
       return monthKeys.some(function(k){
         var d=((costcoDB.sales[k]||{})[prod.name]||{})[color]||{};
         return !!(d.qty||d.amount);
       });
     });
-    if(inMonth)return true;
-    /* 앱에 기본 등록된 상품 중 아직 판매데이터가 한 번도 없는 것(직매입 등)은
-       수기 입력할 수 있게 표시한다. 값이 한 번이라도 들어가면 그 뒤로는
-       위의 '해당 월 데이터' 규칙만 적용된다.
-       (업로드 중 자동 추가된 이름들까지 다 뜨면 표가 지저분해지므로 기본 상품으로 한정) */
-    return _ccIsDefaultProd(prod.name)&&!_ccProdHasAnySales(prod);
   }):prods).filter(function(prod){return !_hidden[prod.name];});
   visibleProds.forEach(function(prod){
     /* 색상은 전체 표시 (수기 입력 가능하도록) — 상품 단위로만 숨김 처리 */
@@ -11543,9 +11475,37 @@ function _tfProcBw(file){
   });
 }
 
+/* ── 매장별 판매현황 (선택) ──
+   매장 × 상품코드 × 판매수량이 들어있으면 어떤 PlayMD 리포트든 받는다.
+   이 파일이 있으면 매장별 판매속도를 실측으로 쓰고, 없으면 매출 비중 안분 추정으로 떨어진다. */
+var tfSsRows=[];        /* {store,code,color,qty} */
+function tfLoadSs(input){_tfProcSs((input.files||[])[0]);input.value="";}
+function _tfProcSs(file){
+  _tfRead(file,function(rows){
+    var hr=_tfHeaderRow(rows,["상품코드"]);
+    if(hr<0){_tfMsg("tfSsMsg","형식 인식 실패 (상품코드 열 없음)",1);return;}
+    var H=rows[hr];
+    var cCode=_tfCol(H,["상품코드"]),
+        cColor=_tfCol(H,["칼라","칼라코드"]),
+        cStore=_tfCol(H,["매장명","매장","점포명","점포","거래처명","거래처","창고명","창고"]),
+        cQty=_tfCol(H,["판매수량","[판매]수량","[기간판매]수량","매출수량","수량"]);
+    if(cStore<0){_tfMsg("tfSsMsg","매장 열을 찾을 수 없음 (매장명/점포/거래처)",1);return;}
+    if(cQty<0){_tfMsg("tfSsMsg","판매수량 열을 찾을 수 없음",1);return;}
+    var out=[],stores={};
+    for(var r=hr+1;r<rows.length;r++){
+      var row=rows[r];if(!row||_tfIsTotalRow(_tfStr(row[cCode])))continue;
+      var st=_tfStr(row[cStore]);if(!st||/합계|소계|총계/.test(st))continue;
+      out.push({store:st,code:_tfStr(row[cCode]),color:cColor>=0?_tfStr(row[cColor]):"",qty:_tfNum(row[cQty])});
+      stores[st]=1;
+    }
+    tfSsRows=out;
+    _tfMsg("tfSsMsg","✔ "+out.length+"행 · 매장 "+Object.keys(stores).length+"곳 (실측 모드)");
+  });
+}
+
 /* ── 끌어오기 배선 ── */
 function tfDropInit(){
-  [["tfWhDrop",_tfProcWh],["tfBwDrop",_tfProcBw]].forEach(function(p){
+  [["tfWhDrop",_tfProcWh],["tfBwDrop",_tfProcBw],["tfSsDrop",_tfProcSs]].forEach(function(p){
     var zone=document.getElementById(p[0]);
     if(!zone||zone._wired)return;
     zone._wired=true;
@@ -11673,14 +11633,49 @@ function tfAnalyze(){
       : "";
   });
 
-  /* 2) 이관 추천 */
+  /* 2) 매장별 판매현황이 있으면 실측, 없으면 매출 비중 안분 */
+  var ssByKey={},ssByCode={},precise=false;
+  if(perStoreMode&&tfSsRows.length){
+    var norm={};stores.forEach(function(st){norm[_tfNormStore(st)]=st;});
+    var matched={};
+    tfSsRows.forEach(function(r){
+      var k=_tfNormStore(r.store),target=norm[k];
+      if(!target)Object.keys(norm).forEach(function(n){
+        if(!target&&n&&k&&(n.indexOf(k)>=0||k.indexOf(n)>=0))target=norm[n];
+      });
+      if(!target)return;
+      matched[target]=1;
+      var kk=_tfKey(r.code,r.color);
+      (ssByKey[kk]=ssByKey[kk]||{})[target]=(ssByKey[kk][target]||0)+r.qty;
+      (ssByCode[r.code]=ssByCode[r.code]||{})[target]=(ssByCode[r.code][target]||0)+r.qty;
+    });
+    precise=Object.keys(matched).length>=2;       /* 매장이 1곳만 매칭되면 이관 판단에 못 쓴다 */
+  }
+  /* 판매현황에 칼라 열이 없으면 상품코드 단위 판매를 칼라별 기간판매 비중으로 안분한다 */
+  var codeTot={};
+  skus.forEach(function(s){codeTot[s.code]=(codeTot[s.code]||0)+s.periodQty;});
+
+  /* 3) 이관 추천 */
   var moves=[],weights=perStoreMode?tfStoreWeights(stores):null;
   skus.forEach(function(s){
     if(s.wk<=0)return;                            /* 안 팔리는 SKU는 이관 대상이 아니다 (지침 4항) */
+    var ss=null;
+    if(precise){
+      ss=ssByKey[_tfKey(s.code,s.color)];
+      if(!ss&&ssByCode[s.code]&&codeTot[s.code]>0){
+        var share=s.periodQty/codeTot[s.code],src=ssByCode[s.code];
+        ss={};Object.keys(src).forEach(function(st){ss[st]=src[st]*share;});
+      }
+    }
     var need=[],give=[];
     if(perStoreMode){
       stores.forEach(function(st){
-        var q=s.inv[st]||0,wkS=s.wk*(weights[st]||0);
+        var q=s.inv[st]||0,wkS;
+        if(ss){
+          wkS=(ss[st]||0)/weeks;
+          /* 재고가 없어서 못 판 매장은 판매 0으로 찍힌다 — 안분 추정의 절반으로 보수적으로 본다 */
+          if(wkS<=0&&q<=0)wkS=s.wk*(weights[st]||0)*0.5;
+        }else wkS=s.wk*(weights[st]||0);
         if(wkS<=0)return;
         var wosS=q/wkS;
         if(wosS<keep)need.push({store:st,qty:q,wos:wosS,want:Math.round(target*wkS-q)});
@@ -11733,13 +11728,14 @@ function tfAnalyze(){
     return b.qty-a.qty;
   });
 
-  /* 3) 장기·저회전 — 판매현황에 있는 SKU만 (판매미상은 근거 없이 장기로 몰리면 안 된다) */
+  /* 4) 장기·저회전 — 판매현황에 있는 SKU만 (판매미상은 근거 없이 장기로 몰리면 안 된다) */
   var slow=skus.filter(function(s){return s.hasSale&&s.totInv>0&&(s.wk<=0||s.wos>26);})
     .sort(function(a,b){return b.totInv*(b.tag||0)-a.totInv*(a.tag||0);});
 
-  /* 4) 요약 */
+  /* 5) 요약 */
   var over=skus.filter(function(s){return s.grade==="과다"||s.grade==="장기";});
-  var stat={mode:perStoreMode?"매장별":"총재고",stores:stores,depots:depots,
+  var stat={mode:perStoreMode?"매장별":"총재고",saleMode:precise?"실측":"안분추정",
+    stores:stores,depots:depots,
     sku:skus.length,
     unknown:skus.filter(function(s){return !s.hasSale;}).length,
     inv:skus.reduce(function(a,s){return a+s.totInv;},0),
@@ -11789,10 +11785,17 @@ function tfRender(){
     +card("장기·저회전",_tfC(st.slow)+" SKU","TAG "+_tfC(Math.round(st.slowAmt/1e4))+"만원","#7c3aed")
     +'</div>'
     +'<div style="font-size:11px;color:#64748b;margin-bottom:10px">'
-    +'분석모드 <b>'+st.mode+'</b> · 매장 '+(st.stores.length||0)+'곳'+(st.depots.length?' · 창고 '+st.depots.length+'곳':'')
+    +'분석모드 <b>'+st.mode+'</b>'+(st.mode==="매장별"?' · 매장 판매속도 <b style="color:'+(st.saleMode==="실측"?"#16a34a":"#b45309")+'">'+st.saleMode+'</b>':'')
+    +' · 매장 '+(st.stores.length||0)+'곳'+(st.depots.length?' · 창고 '+st.depots.length+'곳':'')
     +' · 판매기간 '+cfg.weeks+'주 · 목표 '+cfg.target+'주 · 보유 '+cfg.keep+'주 · 최소이관 '+cfg.minMove+'개'
     +(tfResult.bwPeriod?' · 조회기간 '+tfResult.bwPeriod:'')+(tfResult.whDate?' · 재고일자 '+tfResult.whDate:'')
     +'</div>'
+    +(st.mode==="매장별"&&st.saleMode!=="실측"
+      ?'<div style="font-size:11px;color:#b45309;font-weight:600;margin:-4px 0 10px;line-height:1.5">'
+      +'⚠ 매장별 판매속도가 <b>추정치</b>입니다 — 전사 판매속도를 일별매출의 매장 매출 비중으로 안분했습니다. '
+      +'일별매출에는 어떤 상품이 팔렸는지가 없어 SKU별 매장 판매를 알 수 없습니다. '
+      +'PlayMD에서 <b>매장 × 상품코드 × 판매수량</b>이 들어있는 파일을 받아 <b>매장별 판매현황</b> 칸에 올리면 실측으로 계산합니다.</div>'
+      :'')
     +(st.unknown?'<div style="font-size:11px;color:#b45309;font-weight:600;margin:-4px 0 10px;line-height:1.5">'
       +'⚠ 재고는 있는데 판매현황 파일에 없는 SKU가 '+_tfC(st.unknown)+'개입니다 (등급 <b>판매미상</b>). '
       +'기간별BestWorst판매현황을 <b>상위 N건 제한 없이 전체</b>로 받으면 이 SKU들도 이관·장기재고 판정에 포함됩니다.</div>':'');
@@ -11939,6 +11942,7 @@ function tfExport(){
   var s4=[["재고이관 분석 요약"],[],
     ["분석일시",new Date().toLocaleString("ko-KR")],
     ["분석모드",st.mode],
+    ["매장 판매속도",st.mode==="매장별"?st.saleMode:"-"],
     ["매장",st.stores.join(", ")||"-"],
     ["창고",st.depots.join(", ")||"-"],
     ["판매 조회기간",tfResult.bwPeriod||"-"],
@@ -11958,7 +11962,8 @@ function tfExport(){
     ["과다","WOS 12~26주"],["장기","WOS 26주 초과 또는 기간 무판매"],[],
     ["※ 창고 재고가 있으면 매장 간 이관보다 창고 보충을 우선 추천합니다 (물류비·업무 부담 최소화)"],
     ["※ 최소 이관수량 미만은 추천에서 제외합니다 (불필요한 잦은 이관 방지)"],
-    ["※ 매장별 주간판매속도는 SKU별 매장 판매 데이터가 없어 일별매출의 매장 매출 비중으로 안분한 추정치입니다"],
+    ["※ 매장 판매속도 '실측' = 매장별 판매현황 파일 기준. '안분추정' = 전사 판매속도를 일별매출의 매장 매출 비중으로 안분(일별매출에는 SKU 정보가 없음)"],
+    ["※ 실측 모드에서 판매 0 + 재고 0인 매장은 품절로 못 판 것으로 보고 안분 추정치의 50%로 잡습니다"],
     ["※ 판매미상 = 재고는 있으나 판매현황 파일에 없는 SKU. 이관·장기재고 판정에서 제외됩니다"],
     ["※ PlayMD 재고의 음수(미처리 출고)는 0으로 처리했습니다"]];
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s4),"요약");
