@@ -440,6 +440,8 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .home-cat .hc-amt em{display:block;font-style:normal;font-size:11px;font-weight:700;color:#8a95a6;margin-bottom:1px}
 .home-cat .hc-amt strong{display:block;font-size:25px;font-weight:800;letter-spacing:-.8px;line-height:1.15}
 .home-cat .hc-amt strong small{font-size:14px;font-weight:800;margin-left:1px}
+/* 매장 헤더에 파일을 끌어올 때 강조 */
+.ds-head-drop{outline:3px solid #1b6e82;outline-offset:-3px;background:#cfe6ea!important}
 /* 매장별 일별매출 — 매장 헤더의 목표/달성/달성률/객단가/부족 (2줄 구성) */
 .ds-meta{font-size:11px;font-weight:600;color:#334155}
 .ds-meta .ds-row{display:flex;flex-wrap:wrap;gap:2px 8px;justify-content:center;align-items:center}
@@ -5036,9 +5038,33 @@ function dsEnsureStore(mk,storeName){
   if(!list.some(function(s){return s.name===storeName;}))list.push({name:storeName,target:"",prevYear:"",period:""});
 }
 function dsLoadStoreFile(ev,si){
-  var file=ev.target.files&&ev.target.files[0];if(!file)return;
-  var st=dsStores()[si];var storeName=st&&st.name;
+  var file=ev.target.files&&ev.target.files[0];
   ev.target.value="";
+  _dsProcessStoreFile(file,si);
+}
+/* 매장 헤더에 파일을 끌어다 놓으면 그 매장으로 업로드된다 (📁 버튼과 같은 동작) */
+function _dsHasFiles(e){
+  var t=(e.dataTransfer&&e.dataTransfer.types)||[];
+  return Array.prototype.indexOf.call(t,"Files")>=0;
+}
+function dsHeadDragOver(e,th){
+  if(!_dsHasFiles(e))return;
+  e.preventDefault();
+  th.classList.add("ds-head-drop");
+}
+function dsHeadDragLeave(e,th){th.classList.remove("ds-head-drop");}
+function dsHeadDrop(e,th){
+  if(!_dsHasFiles(e))return;
+  e.preventDefault();
+  th.classList.remove("ds-head-drop");
+  var f=((e.dataTransfer&&e.dataTransfer.files)||[])[0];
+  if(!f)return;
+  if(!/\.(xlsx|xls)$/i.test(f.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
+  _dsProcessStoreFile(f,Number(th.dataset.dssi));
+}
+function _dsProcessStoreFile(file,si){
+  if(!file)return;
+  var st=dsStores()[si];var storeName=st&&st.name;
   if(!storeName){alert("매장을 찾을 수 없습니다.");return;}
   var reader=new FileReader();
   reader.onload=function(e){
@@ -5166,9 +5192,9 @@ function renderDaily(){
   if(!mobileMode)h+=achTh;
   stores.forEach(function(s,si){
     var mi='width:78px;border:1px solid #cbd5e1;border-radius:4px;font-size:11px;text-align:right;padding:2px 4px;outline:none';
-    h+='<th colspan="'+_dsFldsOf(s.name,mk).length+'" style="'+thb+';padding:5px 6px;vertical-align:top;border-left:3px solid #1b6e82">';
+    h+='<th colspan="'+_dsFldsOf(s.name,mk).length+'" data-dssi="'+si+'" ondragover="dsHeadDragOver(event,this)" ondragleave="dsHeadDragLeave(event,this)" ondrop="dsHeadDrop(event,this)" style="'+thb+';padding:5px 6px;vertical-align:top;border-left:3px solid #1b6e82">';
     var _dsPopupBanner=s.period?'<span style="font-size:12px;color:#ea580c;font-weight:700;white-space:nowrap;cursor:pointer" onclick="var el=document.getElementById(\'dsPeriod_'+si+'\');if(el){el.focus();el.select();}" title="클릭하여 팝업기간 수정">🎪'+_esc(s.period)+'</span>':'';
-    var _dsUpBtn='<label title="파일 업로드 (판매수량·총매출)" style="cursor:pointer;font-size:12px;line-height:1;user-select:none">📁<input type="file" accept=".xlsx,.xls" style="display:none" onchange="dsLoadStoreFile(event,'+si+')"></label>';
+    var _dsUpBtn='<label title="파일 업로드 (판매수량·총매출) — 매장 이름칸에 파일을 끌어다 놓아도 됩니다" style="cursor:pointer;font-size:12px;line-height:1;user-select:none">📁<input type="file" accept=".xlsx,.xls" style="display:none" onchange="dsLoadStoreFile(event,'+si+')"></label>';
     /* 삭제(✕)는 업로드(📁) 바로 옆이면 잘못 눌러 매장이 지워지므로, 헤더 오른쪽 끝으로 떼어 놓는다 */
     h+='<div style="position:relative;display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px;padding:0 18px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span>'+_dsPopupBanner+_dsUpBtn+'<button onclick="dsDelStore('+si+')" title="매장 삭제" style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0 2px;line-height:1">✕</button></div>';
     h+='<div class="ds-meta">';
