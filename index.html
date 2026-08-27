@@ -1358,6 +1358,14 @@ label{font-size:14px!important}
   <div id="tfSummary"></div>
   <div class="card" style="padding:12px 16px">
     <div id="tfViewNav" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div id="tfMoveTools" style="display:none;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <select id="tfMoveType" data-all="전체 구분" onchange="tfRender()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px"><option value="">전체 구분</option></select>
+      <select id="tfMoveFrom" data-all="출발 전체" onchange="tfRender()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px"><option value="">출발 전체</option></select>
+      <span style="color:#94a3b8;font-size:12px">→</span>
+      <select id="tfMoveTo" data-all="도착 전체" onchange="tfRender()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px"><option value="">도착 전체</option></select>
+      <button class="bs" onclick="tfMoveFilterReset()" style="padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">초기화</button>
+      <span id="tfMoveCount" style="font-size:12px;color:#1b6e82;font-weight:700;margin-left:auto"></span>
+    </div>
     <div id="tfSkuTools" style="display:none;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <input id="tfSearch" type="text" placeholder="상품명/상품코드/칼라 검색" oninput="tfRender()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;width:220px">
       <select id="tfGradeFilter" onchange="tfRender()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
@@ -11428,6 +11436,7 @@ renderHomeDashboard();
 
 
 
+
 /* ══════════════════════════════════════════════════════════════
    재고이관 분석 — 온·오프라인 판매/재고 분석 및 재고 이관 운영 지침
    입력(PlayMD): 매장재고현황 · 창고재고현황 · 매장판매일보
@@ -11439,18 +11448,51 @@ var tfSsRows=[];        /* 매장판매일보 {store,code,color,colorName,name,q
 var tfSiDate="",tfWhDate="",tfSsPeriod="",tfSsWeeks=0;
 var tfResult=null;
 var tfView="move";
-/* 종료(팝업 철수 등) 매장 — 재고를 받지 않고 회수 대상이 된다. 상단 칩을 눌러 토글한다.
-   기본값은 2026-08 시점 종료 매장. 매장명은 PlayMD 표기 그대로 써야 매칭된다. */
-var TF_CLOSED_DEFAULT=["현대백화점 천호점","현대백화점 목동점","커넥트현대 청주점"];
-var tfClosed=(function(){
-  try{var d=JSON.parse(localStorage.getItem("transferClosedStores")||"null");
+/* 운영 매장은 백화점 탭이 정본이다 — 거기서 기간이 끝나 퇴점된 매장, 그리고 백화점 탭에
+   아예 없는 매장은 종료로 본다. 종료 매장은 재고를 받지 않고 회수 대상이 된다.
+   PlayMD와 백화점 탭은 매장명 표기가 달라("롯데백화점 잠실점" vs "롯데 잠실점") 정규화해 맞춘다. */
+function _tfNormStore(n){
+  var s=String(n||"").replace(/[\s()·]/g,"");
+  s=s.replace(/커넥트현대/g,"현대");
+  s=s.replace(/백화점|아울렛|프리미엄|팩토리|아웃렛/g,"");
+  return s.replace(/점$/,"");
+}
+/* PlayMD 매장명 → 백화점 탭 매장명. 정확히 맞는 것 우선, 없으면 가장 길게 겹치는 것 */
+function tfMatchDept(name){
+  if(typeof deptStores==="undefined"||!deptStores.length)return null;
+  var k=_tfNormStore(name),best=null,bestLen=0;
+  for(var i=0;i<deptStores.length;i++){
+    var d=deptStores[i],dk=_tfNormStore(d);
+    if(!dk)continue;
+    if(dk===k)return d;
+    if((k.indexOf(dk)===0||dk.indexOf(k)===0)&&dk.length>bestLen){best=d;bestLen=dk.length;}
+  }
+  return best;
+}
+/* 백화점 탭 기준 종료 여부. 매칭 실패(=백화점 탭에 없는 매장)도 종료로 본다 */
+function tfDeptClosed(name){
+  var d=tfMatchDept(name);
+  if(!d)return true;
+  var meta=(typeof deptStoresMeta!=="undefined"&&deptStoresMeta[d])||{};
+  return !!(meta.popupPeriod&&typeof isPopupEnded==="function"&&isPopupEnded(meta.popupPeriod));
+}
+/* 자동 판정을 덮어쓰는 수동 예외 — 칩을 누르면 기록된다 {매장:"open"|"closed"} */
+var tfOverride=(function(){
+  try{var d=JSON.parse(localStorage.getItem("transferStoreOverride")||"null");
       if(d&&typeof d==="object"&&!Array.isArray(d))return d;}catch(e){}
-  var o={};TF_CLOSED_DEFAULT.forEach(function(n){o[n]=1;});return o;
+  return {};
 })();
-function tfIsClosed(n){return !!tfClosed[n];}
+function tfIsClosed(n){
+  var o=tfOverride[n];
+  if(o==="open")return false;
+  if(o==="closed")return true;
+  return tfDeptClosed(n);
+}
 function tfToggleStore(n){
-  if(tfClosed[n])delete tfClosed[n];else tfClosed[n]=1;
-  try{localStorage.setItem("transferClosedStores",JSON.stringify(tfClosed));}catch(e){}
+  var auto=tfDeptClosed(n),now=tfIsClosed(n),want=!now;
+  if(want===auto)delete tfOverride[n];            /* 자동값과 같아지면 예외를 지운다 */
+  else tfOverride[n]=want?"closed":"open";
+  try{localStorage.setItem("transferStoreOverride",JSON.stringify(tfOverride));}catch(e){}
   tfRenderChips();
   if(tfSsRows.length&&(tfSiRows.length||tfWhRows.length))tfAnalyze();
 }
@@ -11640,16 +11682,26 @@ function tfRenderChips(){
   if(!stores.length&&!depots.length){el.innerHTML="";return;}
   var chip=function(n,depot){
     if(depot)return '<span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:999px;font-size:11px;font-weight:700;background:#e0e7ff;color:#3730a3">🏭 '+_tfEsc(n)+'</span>';
-    var cl=tfIsClosed(n);
+    var cl=tfIsClosed(n),d=tfMatchDept(n),ov=!!tfOverride[n];
+    var why=d?("백화점 탭 「"+d+"」"+(tfDeptClosed(n)?" 퇴점":" 운영중")):"백화점 탭에 없는 매장";
     /* 매장명에 따옴표가 섞여도 안전하도록 data 속성으로 넘긴다 */
     return '<span onclick="tfToggleStore(this.getAttribute(\'data-n\'))" data-n="'+_tfEsc(n)+'"'
-      +' title="클릭하면 '+(cl?"운영중":"종료")+'으로 바꿉니다"'
+      +' title="'+_tfEsc(why)+(ov?" · 수동 지정됨":"")+' — 클릭하면 '+(cl?"운영중":"종료")+'으로 바꿉니다"'
       +' style="display:inline-block;padding:2px 8px;margin:2px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;user-select:none;'
-      +(cl?'background:#f1f5f9;color:#94a3b8;text-decoration:line-through':'background:#dcfce7;color:#166534')+'">'
-      +(cl?'⛔ ':'🏬 ')+_tfEsc(n)+'</span>';
+      +(cl?'background:#f1f5f9;color:#94a3b8;text-decoration:line-through':'background:#dcfce7;color:#166534')
+      +(ov?';box-shadow:0 0 0 1.5px #f59e0b':'')+'">'
+      +(cl?'⛔ ':'🏬 ')+_tfEsc(n)+(ov?' ✏':'')+'</span>';
   };
   var html=depots.map(function(n){return chip(n,1);}).join("")+stores.map(function(n){return chip(n,0);}).join("");
-  if(stores.length)html+='<div style="margin-top:5px;font-size:11px;color:#94a3b8">매장 칩을 누르면 <b>운영중 ⇄ 종료</b>가 바뀝니다. 종료 매장은 재고를 받지 않고 <b>회수 대상</b>이 됩니다.</div>';
+  if(stores.length){
+    var noMatch=stores.filter(function(n){return !tfMatchDept(n);});
+    html+='<div style="margin-top:5px;font-size:11px;color:#94a3b8;line-height:1.5">'
+      +'운영 매장은 <b>백화점 탭</b>을 따릅니다 — 거기서 기간이 끝나 <b>퇴점</b>된 매장은 재고를 받지 않고 <b>회수 대상</b>이 됩니다. '
+      +'칩을 누르면 이 탭에서만 예외로 바꿀 수 있습니다(<span style="color:#b45309">✏ 표시</span>).</div>';
+    if(noMatch.length)html+='<div style="margin-top:4px;font-size:11px;color:#b45309;font-weight:600;line-height:1.5">'
+      +'⚠ 백화점 탭에 없어 종료로 처리한 매장: '+noMatch.map(_tfEsc).join(", ")
+      +' — 운영 중이면 백화점 탭에 추가하거나 칩을 눌러 예외 처리하세요.</div>';
+  }
   var warn=[];
   if(!tfSiRows.length)warn.push("<b>매장재고현황</b>이 없어 매장 간 이관을 계산할 수 없습니다 (창고→매장 보충만 산출)");
   if(!tfSsRows.length)warn.push("<b>매장판매일보</b>가 없으면 판매속도를 계산할 수 없습니다");
@@ -11834,7 +11886,7 @@ function tfAnalyze(){
         if(g.spare<minMove)continue;
         var q=Math.min(g.spare,n.want);
         if(q<minMove)continue;
-        moves.push({type:"매장이관",code:s.code,color:s.color,colorName:s.colorName,name:s.name,
+        moves.push({type:"재고이동",code:s.code,color:s.color,colorName:s.colorName,name:s.name,
           from:g.store,to:n.store,qty:q,
           fromInv:g.qty,toInv:n.qty,toWos:n.wos,wk:s.wk,tag:s.tag,
           why:g.store+" "+g.wos.toFixed(1)+"주 → "+n.store+" "+n.wos.toFixed(1)+"주"});
@@ -11996,7 +12048,8 @@ function tfRender(){
 
   var th=function(t){return '<th style="padding:7px 8px;background:#f1f5f9;border-bottom:2px solid #e2e8f0;font-size:11px;color:#374151;font-weight:700;white-space:nowrap;position:sticky;top:0;z-index:1">'+t+'</th>';};
   var td=function(t,align,style){return '<td style="padding:5px 8px;border-bottom:1px solid #eef1f6;font-size:12px;text-align:'+(align||"left")+';'+(style||"")+'">'+(t==null?"":t)+'</td>';};
-  var nm=function(s){return '<span title="'+_tfEsc(s)+'">'+_tfEsc(String(s).slice(0,34))+'</span>';};
+  /* 상품명은 자르지 않는다 — 길면 줄바꿈해서 끝까지 보이게 한다 */
+  var nm=function(s){return '<span style="white-space:normal;word-break:break-all;line-height:1.35">'+_tfEsc(s)+'</span>';};
   var h="";
 
   if(tfView==="move"){
@@ -12004,18 +12057,34 @@ function tfRender(){
       h='<div style="padding:40px;text-align:center;color:#16a34a;font-size:13px;font-weight:600">✔ 이번 주 이관이 필요한 SKU가 없습니다.<br>'
         +'<span style="color:#94a3b8;font-weight:400;font-size:12px">모든 매장 재고가 적정 범위이거나, 이동량이 최소 이관수량('+cfg.minMove+'개) 미만입니다.</span></div>';
     }else{
+      tfFillMoveFilters();
+      var fType=(document.getElementById("tfMoveType")||{}).value||"",
+          fFrom=(document.getElementById("tfMoveFrom")||{}).value||"",
+          fTo=(document.getElementById("tfMoveTo")||{}).value||"";
+      var mlist=tfResult.moves.filter(function(m){
+        return (!fType||m.type===fType)&&(!fFrom||m.from===fFrom)&&(!fTo||m.to===fTo);
+      });
+      var mQty=mlist.reduce(function(a,m){return a+m.qty;},0);
+      var lab=document.getElementById("tfMoveCount");
+      if(lab)lab.textContent=_tfC(mlist.length)+"건 · "+_tfC(mQty)+"개";
+      if(!mlist.length){
+        wrap.innerHTML='<div style="padding:40px;text-align:center;color:#94a3b8;font-size:13px">조건에 맞는 이동이 없습니다.</div>';
+        if(tools)tools.style.display="none";
+        var mt0=document.getElementById("tfMoveTools");if(mt0)mt0.style.display="flex";
+        return;
+      }
       h='<table style="border-collapse:collapse;width:100%"><thead><tr>'
-        +th("구분")+th("상품코드")+th("칼라")+th("상품명")+th("출발")+th("도착")+th("이관수량")
+        +th("구분")+th("상품코드")+th("상품명")+th("칼라")+th("출발")+th("도착")+th("이동수량")
         +th("출발재고")+th("도착재고")+th("도착 소진주수")+th("주간판매")+th("사유")
         +'</tr></thead><tbody>';
-      tfResult.moves.forEach(function(m){
+      mlist.forEach(function(m){
         var sty=m.type==="창고보충"?'#e0e7ff;color:#3730a3'
                :m.type==="종료매장 회수"?'#ffe4e6;color:#be123c':'#fef3c7;color:#92400e';
         h+='<tr>'
           +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;background:'+sty+'">'+m.type+'</span>')
-          +td(_tfEsc(m.code),"left","font-family:monospace;font-size:11px")
-          +td(_tfEsc(m.color+(m.colorName?" "+m.colorName:"")))
-          +td(nm(m.name))
+          +td(_tfEsc(m.code),"left","font-family:monospace;font-size:11px;white-space:nowrap")
+          +td(nm(m.name),"left","min-width:260px")
+          +td(_tfEsc(m.color+(m.colorName?" "+m.colorName:"")),"left","white-space:nowrap")
           +td(_tfEsc(m.from),"center","font-weight:600")
           +td("→ "+_tfEsc(m.to),"center","font-weight:700;color:#1b6e82")
           +td("<b>"+_tfC(m.qty)+"</b>","right","color:#dc2626;font-size:13px")
@@ -12038,16 +12107,16 @@ function tfRender(){
     }).sort(function(a,b){return b.totInv-a.totInv;});
     var cols=tfResult.mode==="store"?st.stores:[];
     h='<table style="border-collapse:collapse;width:100%"><thead><tr>'
-      +th("등급")+th("상품코드")+th("칼라")+th("상품명")+th("행사")
+      +th("등급")+th("상품코드")+th("상품명")+th("칼라")+th("행사")
       +th("기간판매")+th("주간판매")+th("매장재고")+th("창고재고")+th("총재고")+th("소진주수")
       +cols.map(function(c){return th(_tfEsc(c)+'<br><span style="font-weight:500;color:#94a3b8">재고/판매</span>');}).join("")
       +'</tr></thead><tbody>';
     list.slice(0,600).forEach(function(s){
       h+='<tr>'
         +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;color:white;background:'+(TF_GRADE_COLOR[s.grade]||"#64748b")+'">'+s.grade+'</span>')
-        +td(_tfEsc(s.code),"left","font-family:monospace;font-size:11px")
-        +td(_tfEsc(s.color+(s.colorName?" "+s.colorName:"")))
-        +td(nm(s.name))
+        +td(_tfEsc(s.code),"left","font-family:monospace;font-size:11px;white-space:nowrap")
+        +td(nm(s.name),"left","min-width:260px")
+        +td(_tfEsc(s.color+(s.colorName?" "+s.colorName:"")),"left","white-space:nowrap")
         +td(_tfEsc(s.gubun),"center","font-size:11px;color:#64748b")
         +td(_tfC(s.periodQty),"right")
         +td(_tfN(s.wk,1),"right")
@@ -12069,7 +12138,7 @@ function tfRender(){
       h='<div style="padding:40px;text-align:center;color:#16a34a;font-size:13px;font-weight:600">✔ 무판매·저회전 SKU가 없습니다.</div>';
     }else{
       h='<table style="border-collapse:collapse;width:100%"><thead><tr>'
-        +th("등급")+th("상품코드")+th("칼라")+th("상품명")+th("행사")+th("매장재고")+th("창고재고")+th("총재고")+th("TAG금액")
+        +th("등급")+th("상품코드")+th("상품명")+th("칼라")+th("행사")+th("매장재고")+th("창고재고")+th("총재고")+th("TAG금액")
         +th("기간판매")+th("소진주수")+th("조치 제안")
         +'</tr></thead><tbody>';
       tfResult.slow.forEach(function(s){
@@ -12077,9 +12146,9 @@ function tfRender(){
                        :"저회전 — 판매되는 매장으로 집중 또는 소진 검토";
         h+='<tr>'
           +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;color:white;background:'+(TF_GRADE_COLOR[s.grade]||"#64748b")+'">'+s.grade+'</span>')
-          +td(_tfEsc(s.code),"left","font-family:monospace;font-size:11px")
-          +td(_tfEsc(s.color+(s.colorName?" "+s.colorName:"")))
-          +td(nm(s.name))
+          +td(_tfEsc(s.code),"left","font-family:monospace;font-size:11px;white-space:nowrap")
+          +td(nm(s.name),"left","min-width:260px")
+          +td(_tfEsc(s.color+(s.colorName?" "+s.colorName:"")),"left","white-space:nowrap")
           +td(_tfEsc(s.gubun),"center","font-size:11px;color:#64748b")
           +td(_tfC(s.storeInv),"right")
           +td(_tfC(s.whInv),"right")
@@ -12140,13 +12209,13 @@ function tfRender(){
       h+='<div style="padding:30px;text-align:center;color:#16a34a;font-size:13px;font-weight:600">✔ 사장재고가 없습니다.</div>';
     }else{
       h+='<table style="border-collapse:collapse;width:100%"><thead><tr>'
-        +th("상품코드")+th("칼라")+th("상품명")+th("행사")+th("창고재고")+th("운영매장 재고")+th("합계")+th("TAG금액")+th("보유처")
+        +th("상품코드")+th("상품명")+th("칼라")+th("행사")+th("창고재고")+th("운영매장 재고")+th("합계")+th("TAG금액")+th("보유처")
         +'</tr></thead><tbody>';
       tfResult.dead.slice(0,400).forEach(function(s){
         h+='<tr>'
-          +td(_tfEsc(s.code),"left","font-family:monospace;font-size:11px")
-          +td(_tfEsc(s.color+(s.colorName?" "+s.colorName:"")))
-          +td(nm(s.name))
+          +td(_tfEsc(s.code),"left","font-family:monospace;font-size:11px;white-space:nowrap")
+          +td(nm(s.name),"left","min-width:260px")
+          +td(_tfEsc(s.color+(s.colorName?" "+s.colorName:"")),"left","white-space:nowrap")
           +td(_tfEsc(s.gubun),"center","font-size:11px;color:#64748b")
           +td(_tfC(s.whInv),"right")
           +td(_tfC(s.liveInv-s.whInv),"right")
@@ -12160,7 +12229,38 @@ function tfRender(){
     }
   }
   if(tools)tools.style.display=(tfView==="sku")?"flex":"none";
+  var mt=document.getElementById("tfMoveTools");
+  if(mt)mt.style.display=(tfView==="move"&&tfResult.moves.length)?"flex":"none";
   wrap.innerHTML=h;
+}
+
+function tfMoveFilterReset(){
+  ["tfMoveType","tfMoveFrom","tfMoveTo"].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.value="";
+  });
+  tfRender();
+}
+/* 이관 추천 필터 옵션 채우기 — 결과에 실제로 등장하는 구분·매장만 넣는다 */
+function tfFillMoveFilters(){
+  if(!tfResult)return;
+  var fill=function(id,vals){
+    var el=document.getElementById(id);if(!el)return;
+    var cur=el.value;
+    var sig=vals.join("");
+    if(el._sig===sig){el.value=(vals.indexOf(cur)>=0)?cur:"";return;}
+    el._sig=sig;
+    el.innerHTML='<option value="">'+el.getAttribute("data-all")+'</option>'
+      +vals.map(function(v){return '<option value="'+_tfEsc(v)+'">'+_tfEsc(v)+'</option>';}).join("");
+    el.value=(vals.indexOf(cur)>=0)?cur:"";
+  };
+  var uniq=function(key){
+    var seen={},out=[];
+    tfResult.moves.forEach(function(m){var v=m[key];if(v&&!seen[v]){seen[v]=1;out.push(v);}});
+    return out.sort();
+  };
+  fill("tfMoveType",uniq("type"));
+  fill("tfMoveFrom",uniq("from"));
+  fill("tfMoveTo",uniq("to"));
 }
 
 /* ── 엑셀 ── */
@@ -12169,20 +12269,20 @@ function tfExport(){
   var cfg=tfResult.cfg,st=tfResult.stat;
   var wb=XLSX.utils.book_new();
 
-  var s1=[["구분","상품코드","칼라","칼라명","상품명","출발","도착","이관수량","출발재고","도착재고","도착 소진주수","주간판매","사유"]];
+  var s1=[["구분","상품코드","상품명","칼라","칼라명","출발","도착","이동수량","출발재고","도착재고","도착 소진주수","주간판매","사유"]];
   tfResult.moves.forEach(function(m){
-    s1.push([m.type,m.code,m.color,m.colorName,m.name,m.from,m.to,m.qty,m.fromInv,m.toInv,
+    s1.push([m.type,m.code,m.name,m.color,m.colorName,m.from,m.to,m.qty,m.fromInv,m.toInv,
       Number(Number(m.toWos||0).toFixed(1)),Number(Number(m.wk||0).toFixed(1)),m.why]);
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),"이관추천");
 
   var cols=tfResult.mode==="store"?st.stores:[];
-  var h2=["등급","상품코드","칼라","칼라명","상품명","행사구분","TAG가","기간판매","주간판매","매장재고","창고재고","총재고","소진주수(WOS)","재고 TAG금액"];
+  var h2=["등급","상품코드","상품명","칼라","칼라명","행사구분","TAG가","기간판매","주간판매","매장재고","창고재고","총재고","소진주수(WOS)","재고 TAG금액"];
   cols.forEach(function(c){h2.push(c+" 재고");});
   cols.forEach(function(c){h2.push(c+" 판매");});
   var s2=[h2];
   tfResult.skus.slice().sort(function(a,b){return b.totInv-a.totInv;}).forEach(function(s){
-    var row=[s.grade,s.code,s.color,s.colorName,s.name,s.gubun,s.tag,s.periodQty,
+    var row=[s.grade,s.code,s.name,s.color,s.colorName,s.gubun,s.tag,s.periodQty,
       Number(s.wk.toFixed(2)),s.storeInv,s.whInv,s.totInv,s.wos>=999?"":Number(s.wos.toFixed(1)),s.amt];
     cols.forEach(function(c){row.push((s.inv||{})[c]||0);});
     cols.forEach(function(c){row.push((s.sale||{})[c]||0);});
@@ -12190,18 +12290,18 @@ function tfExport(){
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s2),"SKU분석");
 
-  var s3=[["등급","상품코드","칼라","칼라명","상품명","행사구분","매장재고","창고재고","총재고","TAG금액","기간판매","소진주수"]];
+  var s3=[["등급","상품코드","상품명","칼라","칼라명","행사구분","매장재고","창고재고","총재고","TAG금액","기간판매","소진주수"]];
   tfResult.slow.forEach(function(s){
-    s3.push([s.grade,s.code,s.color,s.colorName,s.name,s.gubun,s.storeInv,s.whInv,s.totInv,s.amt,
+    s3.push([s.grade,s.code,s.name,s.color,s.colorName,s.gubun,s.storeInv,s.whInv,s.totInv,s.amt,
       s.periodQty,s.wos>=999?"":Number(s.wos.toFixed(1))]);
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s3),"무판매저회전");
 
   var s6=[["사장재고 — 조회기간 내 판매 0 + 재고 보유 (종료 매장 재고는 제외)"],
     ["※ 판매일보를 받을 수 있는 가장 긴 기간으로 올릴수록 정확해집니다"],[],
-    ["상품코드","칼라","칼라명","상품명","행사구분","창고재고","운영매장 재고","합계","TAG금액","보유처"]];
+    ["상품코드","상품명","칼라","칼라명","행사구분","창고재고","운영매장 재고","합계","TAG금액","보유처"]];
   tfResult.dead.forEach(function(s){
-    s6.push([s.code,s.color,s.colorName,s.name,s.gubun,s.whInv,s.liveInv-s.whInv,s.liveInv,s.deadAmt,s.at||""]);
+    s6.push([s.code,s.name,s.color,s.colorName,s.gubun,s.whInv,s.liveInv-s.whInv,s.liveInv,s.deadAmt,s.at||""]);
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s6),"사장재고");
 
@@ -12211,11 +12311,11 @@ function tfExport(){
       ["종료 매장","보유 SKU","재고수량","재고 TAG금액"]];
     st.closedInv.forEach(function(r){s7.push([r.store,r.sku,r.inv,r.amt]);});
     s7.push([]);
-    s7.push(["상품코드","칼라","칼라명","상품명","행사구분","종료매장","재고수량","TAG금액"]);
+    s7.push(["상품코드","상품명","칼라","칼라명","행사구분","종료매장","재고수량","TAG금액"]);
     var cs={};st.closedStores.forEach(function(n){cs[n]=1;});
     tfResult.skus.forEach(function(s){
       Object.keys(s.inv||{}).forEach(function(w){
-        if(cs[w]&&s.inv[w]>0)s7.push([s.code,s.color,s.colorName,s.name,s.gubun,w,s.inv[w],s.inv[w]*(s.tag||0)]);
+        if(cs[w]&&s.inv[w]>0)s7.push([s.code,s.name,s.color,s.colorName,s.gubun,w,s.inv[w],s.inv[w]*(s.tag||0)]);
       });
     });
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s7),"종료매장재고");
