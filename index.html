@@ -1347,6 +1347,7 @@ label{font-size:14px!important}
       <label style="font-size:11px;color:#5b6675;font-weight:600" title="재고소진주수가 이보다 짧으면 부족으로 봅니다. 재고를 내주는 매장은 이만큼은 남깁니다">공급매장 보유주수 <input id="tfKeep" type="number" min="1" max="52" value="4" style="width:52px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right">주</label>
       <label style="font-size:11px;color:#5b6675;font-weight:600" title="이보다 적게 움직이는 건은 추천하지 않습니다 (물류비·업무 부담 대비 실익이 없음)">최소 이관수량 <input id="tfMin" type="number" min="1" max="999" value="3" style="width:52px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right">개</label>
       <label style="font-size:11px;color:#9a3412;font-weight:600" title="백화점 탭 종료일까지 남은 기간이 이보다 짧은 매장은 이관·보충하지 않습니다. 0을 넣으면 이 제외를 끕니다">마감 임박 제외 <input id="tfSoon" type="number" min="0" max="52" step="0.5" value="2" style="width:52px;padding:4px 6px;border:1px solid #fdba74;border-radius:6px;font-size:12px;text-align:right">주</label>
+      <label style="font-size:11px;color:#5b6675;font-weight:600" title="주희물류 재고가 이보다 적으면 창고보충을 추천하지 않습니다. 0을 넣으면 이 제한이 꺼집니다">창고보충 최소재고 <input id="tfWhMin" type="number" min="0" max="9999" value="20" style="width:56px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right">개</label>
       <button onclick="tfAnalyze()" style="padding:6px 16px;background:#1b6e82;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">▶ 분석 시작</button>
       <button onclick="tfExport()" class="bs" style="padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">📥 엑셀 다운로드</button>
     </div>
@@ -1357,6 +1358,7 @@ label{font-size:14px!important}
         <div><b style="color:#1e293b">목표 재고주수</b> — 부족한 매장을 <b>몇 주치까지 채울지</b>.<br><span style="color:#94a3b8">주 10개 팔리는 매장에 8주면 → 80개가 되도록 채웁니다. 반대로 이 주수를 넘게 쌓인 매장은 재고를 내주는 쪽이 됩니다.</span></div>
         <div><b style="color:#1e293b">공급매장 보유주수</b> — <b>부족 판정선</b>이자 <b>내주는 매장이 남길 양</b>입니다.<br><span style="color:#94a3b8">4주면 → 재고가 4주 안에 소진될 매장은 '부족', 재고를 내줄 때도 4주치는 남기고 초과분만 보냅니다.</span></div>
         <div><b style="color:#1e293b">최소 이관수량</b> — 이보다 적게 움직이는 건은 <b>추천하지 않습니다</b>.<br><span style="color:#94a3b8">1~2개 보내자고 택배를 띄우면 물류비·업무가 더 듭니다. 지침의 "불필요한 잦은 이관 지양".</span></div>
+        <div><b style="color:#1e293b">창고보충 최소재고</b> — 주희물류 재고가 이보다 적으면 <b>창고보충을 추천하지 않습니다</b>.<br><span style="color:#94a3b8">몇 개 남은 걸 쪼개 보내봐야 매장마다 한두 개뿐입니다. <b>0</b>이면 제한이 꺼집니다. (매장 간 재고이동에는 적용되지 않습니다)</span></div>
         <div><b style="color:#9a3412">마감 임박 제외</b> — 종료일까지 남은 기간이 이보다 짧은 매장엔 <b>보내지 않습니다</b>.<br><span style="color:#94a3b8">백화점 탭 기간 기준. 보내도 팔 시간이 없어서입니다. <b>0</b>을 넣으면 이 제외가 꺼집니다.</span></div>
       </div>
     </div>
@@ -11453,6 +11455,8 @@ renderHomeDashboard();
 
 
 
+
+
 /* ══════════════════════════════════════════════════════════════
    재고이관 분석 — 온·오프라인 판매/재고 분석 및 재고 이관 운영 지침
    입력(PlayMD): 매장재고현황 · 창고재고현황 · 매장판매일보
@@ -11462,6 +11466,10 @@ var tfSiRows=[];        /* 매장재고현황 {store,code,color,colorName,name,q
 var tfWhRows=[];        /* 창고재고현황 {wh,code,color,colorName,name,qty,tag} */
 var tfSsRows=[];        /* 매장판매일보 {store,code,color,colorName,name,qty} */
 var tfSiDate="",tfWhDate="",tfSsPeriod="",tfSsWeeks=0;
+var tfBuja={};    /* 창고재고현황 품목=부자재 인 상품코드 — 분석에서 제외 */
+/* 창고재고현황에 없는(창고 재고 0) 부자재는 품목을 읽을 수 없어 이름으로 보조 판별한다.
+   포장재로만 한정 — 판매 상품에는 쓰이지 않는 단어들이다 */
+function tfIsBujaName(nm){return /쇼핑백|지퍼백|선물박스|더스트백|논우븐/.test(String(nm||""));}
 var tfResult=null;
 var tfView="move";
 /* 운영 매장은 백화점 탭이 정본이다 — 거기서 기간이 끝나 퇴점된 매장, 그리고 백화점 탭에
@@ -11624,19 +11632,26 @@ function _tfProcWh(file){
         cCode=_tfCol(H,["상품코드"]),cColor=_tfCol(H,["칼라","칼라코드"]),cCName=_tfCol(H,["칼라명"]),
         cName=_tfCol(H,["상품명","상품코드명"]),
         cQty=_tfCol(H,["재고합계","가용재고","현재고","재고수량","재고"]),
-        cTag=_tfCol(H,["TAG가"]);
+        cTag=_tfCol(H,["TAG가"]),cItem=_tfCol(H,["품목"]);
     if(cQty<0){_tfMsg("tfWhMsg","재고수량 열을 찾을 수 없음",1);return;}
-    var out=[],seen={};
+    var out=[],seen={},buja={},bujaN=0;
     for(var r=hr+1;r<rows.length;r++){
       var row=rows[r];if(!row||_tfIsTotalRow(_tfStr(row[cCode])))continue;
       var wh=cWh>=0?_tfStr(row[cWh]):"물류창고";if(_tfIsTotalName(wh))continue;
-      out.push({wh:wh,code:_tfStr(row[cCode]),color:_tfStr(row[cColor]),
+      var code=_tfStr(row[cCode]);
+      /* 부자재(지퍼백·쇼핑백·선물박스 등)는 판매 상품이 아니라 이관 대상이 아니다 */
+      var pname=cName>=0?_tfStr(row[cName]):"";
+      if((cItem>=0&&/부자재/.test(_tfStr(row[cItem])))||tfIsBujaName(pname)){
+        if(!buja[code]){buja[code]=1;bujaN++;}continue;
+      }
+      out.push({wh:wh,code:code,color:_tfStr(row[cColor]),
         colorName:cCName>=0?_tfStr(row[cCName]):"",name:cName>=0?_tfStr(row[cName]):"",
         qty:_tfNum(row[cQty]),tag:cTag>=0?_tfNum(row[cTag]):0});
       seen[wh]=1;
     }
-    tfWhRows=out;tfWhDate=_tfMetaDate(rows);
-    _tfMsg("tfWhMsg","✔ "+out.length+"행 · 창고 "+Object.keys(seen).length+"곳"+(tfWhDate?" ("+tfWhDate+")":""));
+    tfWhRows=out;tfWhDate=_tfMetaDate(rows);tfBuja=buja;
+    _tfMsg("tfWhMsg","✔ "+out.length+"행 · 창고 "+Object.keys(seen).length+"곳"
+      +(bujaN?" · 부자재 "+bujaN+"품목 제외":"")+(tfWhDate?" ("+tfWhDate+")":""));
     tfRenderChips();
   });
 }
@@ -11786,11 +11801,15 @@ function tfAnalyze(){
   if(!tfSsRows.length){alert("매장판매일보를 올려주세요.\n(판매 데이터가 없으면 판매속도를 계산할 수 없습니다)");return;}
   if(!tfSiRows.length&&!tfWhRows.length){alert("매장재고현황 또는 창고재고현황을 올려주세요.");return;}
   var weeks=_tfV("tfWeeks",tfSsWeeks||4),target=_tfV("tfTarget",8),keep=_tfV("tfKeep",4),minMove=_tfV("tfMin",3);
-  var soon=_tfV0("tfSoon",2);
+  var soon=_tfV0("tfSoon",2),whMin=_tfV0("tfWhMin",20);
   if(keep>=target){alert("공급매장 보유주수는 목표 재고주수보다 작아야 합니다.");return;}
-  var cfg={weeks:weeks,target:target,keep:keep,minMove:minMove,soon:soon};
+  var cfg={weeks:weeks,target:target,keep:keep,minMove:minMove,soon:soon,whMin:whMin};
 
-  var skus=[],idx={};
+  var skus=[],idx={},bujaSkip={};
+  var isBuja=function(code,name){
+    if(tfBuja[code]||tfIsBujaName(name)){bujaSkip[code]=1;return true;}
+    return false;
+  };
   var get=function(code,color,src){
     var k=_tfKey(code,color),s=idx[k];
     if(!s){
@@ -11833,7 +11852,7 @@ function tfAnalyze(){
   /* 2) 판매 (매장판매일보 실측) — 퇴점 매장 실적은 앞으로의 수요가 아니므로 뺀다 */
   var ssTotal={};
   tfSsRows.forEach(function(r){
-    if(!isStore[r.store])return;
+    if(!isStore[r.store]||isBuja(r.code,r.name))return;
     var s=get(r.code,r.color,r);
     s.sale[r.store]=(s.sale[r.store]||0)+r.qty;
     s.periodQty+=r.qty;
@@ -11842,6 +11861,7 @@ function tfAnalyze(){
   /* 3) 재고 — 퇴점 매장 재고는 판매 가능 재고가 아니라 따로 집계만 해 둔다 */
   var closedSku={};
   tfSiRows.forEach(function(r){
+    if(isBuja(r.code,r.name))return;
     if(isStore[r.store]){var s=get(r.code,r.color,r);s.inv[r.store]=(s.inv[r.store]||0)+r.qty;return;}
     if(!tfIsClosed(r.store)||r.qty<=0)return;
     var k=_tfKey(r.code,r.color);
@@ -11916,6 +11936,7 @@ function tfAnalyze(){
     depots.forEach(function(d){var q=s.inv[d]||0;if(q>depotLeft){depotLeft=q;depotName=d;}});
     if(!depots.length){depotLeft=s.whInv;depotName="물류창고";}
     /* 창고 재고가 모든 부족분을 못 채우면 한 매장이 독식하지 않도록 필요량에 비례 배분한다 */
+    if(depotLeft<whMin)depotLeft=0;               /* 창고에 얼마 없으면 보충해봐야 의미가 없다 */
     var depotCap=depotLeft,totalWant=0;
     need.forEach(function(n){if(n.want>0)totalWant+=n.want;});
     need.forEach(function(n){
@@ -12008,6 +12029,7 @@ function tfAnalyze(){
   var over=skus.filter(function(s){return s.grade==="과다"||s.grade==="과잉재고";});
   var stat={mode:perStoreMode?"매장별":"총재고",stores:stores,depots:depots,dropped:dropped,
     openStores:stores,moveStores:moveStores,eventStores:eventStores,
+    buja:Object.keys(bujaSkip).length,
     soonStores:soonStores,soonDays:soonDays,
     closedStores:closedStores,closedInv:closedInv,
     closedQty:closedInv.reduce(function(a,r){return a+r.inv;},0),
@@ -12077,6 +12099,8 @@ function tfRender(){
     +((st.closedStores&&st.closedStores.length)?' · <b style="color:#94a3b8">퇴점 '+st.closedStores.length+'곳 제외</b>':'')
     +(st.depots.length?' · 창고 '+st.depots.length+'곳':'')
     +' · 판매기간 '+cfg.weeks+'주 · 목표 '+cfg.target+'주 · 보유 '+cfg.keep+'주 · 최소이관 '+cfg.minMove+'개'
+    +' · 창고보충 최소재고 '+cfg.whMin+'개'
+    +(st.buja?' · <b>부자재 '+st.buja+'품목 제외</b>':'')
     +(tfResult.ssPeriod?' · 판매 '+tfResult.ssPeriod:'')+(tfResult.siDate?' · 재고 '+tfResult.siDate:'')
     +'</div>';
 
@@ -12389,7 +12413,8 @@ function tfExport(){
     ["매장재고 기준일",tfResult.siDate||"-"],
     ["창고재고 기준일",tfResult.whDate||"-"],[],
     ["[기준값]"],
-    ["판매기간(주)",cfg.weeks],["목표 재고주수",cfg.target],["공급매장 보유주수",cfg.keep],["최소 이관수량",cfg.minMove],["마감 임박 제외(주)",cfg.soon],[],
+    ["판매기간(주)",cfg.weeks],["목표 재고주수",cfg.target],["공급매장 보유주수",cfg.keep],["최소 이관수량",cfg.minMove],["마감 임박 제외(주)",cfg.soon],
+    ["창고보충 최소재고",cfg.whMin],["부자재 제외(품목)",st.buja||0],[],
     ["[결과]"],
     ["분석 SKU",st.sku],
     ["매장재고(개)",st.storeInv],["창고재고(개)",st.whInv],["총재고 TAG금액",Math.round(st.invAmt)],
@@ -12412,6 +12437,8 @@ function tfExport(){
     ["※ 매장 주간판매속도는 매장별 실제 영업 주수로 나눕니다 (팝업은 조회기간 일부만 영업)"],
     ["※ 창고 재고가 있으면 매장 간 이관보다 창고 보충을 우선 추천합니다 (물류비·업무 부담 최소화)"],
     ["※ 최소 이관수량 미만은 추천에서 제외합니다 (불필요한 잦은 이관 방지)"],
+    ["※ 창고재고가 '창고보충 최소재고'보다 적으면 창고보충을 추천하지 않습니다 (매장 간 재고이동에는 적용 안 함)"],
+    ["※ 창고재고현황의 품목이 '부자재'인 상품(지퍼백·쇼핑백·선물박스 등)은 분석에서 제외합니다"],
     ["※ 매장판매일보의 반품은 음수로 들어와 순판매로 상계됩니다"],
     ["※ 재고가 0인데 판매도 0인 매장은 품절로 못 판 것으로 보고 매장 판매비중 추정의 50%로 잡습니다"],
     ["※ PlayMD 재고의 음수(미처리 출고)는 0으로 처리했습니다"]];
