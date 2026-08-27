@@ -11437,6 +11437,7 @@ renderHomeDashboard();
 
 
 
+
 /* ══════════════════════════════════════════════════════════════
    재고이관 분석 — 온·오프라인 판매/재고 분석 및 재고 이관 운영 지침
    입력(PlayMD): 매장재고현황 · 창고재고현황 · 매장판매일보
@@ -11727,6 +11728,16 @@ function tfGrade(wos,inv,wk){
 var TF_GRADE_COLOR={"품절":"#b91c1c","품절임박":"#dc2626","부족":"#ea580c","적정":"#16a34a",
   "과다":"#2563eb","과잉재고":"#2563eb","저회전":"#7c3aed","무판매":"#64748b","재고없음":"#94a3b8"};
 
+/* SKU가 지금 어디에 얼마나 있는지 — 창고 먼저, 그다음 재고 많은 순 */
+function _tfAt(s){
+  var out=[];
+  Object.keys(s.inv||{}).forEach(function(w){if(s.inv[w]>0)out.push({w:w,q:s.inv[w]});});
+  out.sort(function(a,b){
+    var ad=tfDepotNames().indexOf(a.w)>=0?0:1,bd=tfDepotNames().indexOf(b.w)>=0?0:1;
+    return (ad-bd)||(b.q-a.q);
+  });
+  return out.map(function(x){return x.w+" "+x.q;}).join(" · ");
+}
 function _tfV(id,def){var el=document.getElementById(id);var n=Number(el&&el.value);return isFinite(n)&&n>0?n:def;}
 
 /* ── 분석 ── */
@@ -11854,6 +11865,7 @@ function tfAnalyze(){
         moves.push({type:"종료매장 회수",code:s.code,color:s.color,colorName:s.colorName,name:s.name,
           from:from,to:n.store,qty:q,
           fromInv:s.inv[from]||0,toInv:n.qty,toWos:n.wos,wk:s.wk,tag:s.tag,
+          totInv:s.totInv,storeInv:s.storeInv,whInv:s.whInv,at:_tfAt(s),
           why:from+" 종료 · "+n.store+" 재고소진 "+n.wos.toFixed(1)+"주"});
         cl[from]-=q;n.want-=q;
       });
@@ -11874,6 +11886,7 @@ function tfAnalyze(){
       moves.push({type:"창고보충",code:s.code,color:s.color,colorName:s.colorName,name:s.name,
         from:depotName||"물류창고",to:n.store,qty:q,
         fromInv:depotLeft,toInv:n.qty,toWos:n.wos,wk:s.wk,tag:s.tag,
+        totInv:s.totInv,storeInv:s.storeInv,whInv:s.whInv,at:_tfAt(s),
         why:"재고소진 "+n.wos.toFixed(1)+"주 · 목표 "+target+"주"});
       depotLeft-=q;n.want-=q;
     });
@@ -11889,6 +11902,7 @@ function tfAnalyze(){
         moves.push({type:"재고이동",code:s.code,color:s.color,colorName:s.colorName,name:s.name,
           from:g.store,to:n.store,qty:q,
           fromInv:g.qty,toInv:n.qty,toWos:n.wos,wk:s.wk,tag:s.tag,
+          totInv:s.totInv,storeInv:s.storeInv,whInv:s.whInv,at:_tfAt(s),
           why:g.store+" "+g.wos.toFixed(1)+"주 → "+n.store+" "+n.wos.toFixed(1)+"주"});
         g.spare-=q;n.want-=q;
       }
@@ -11907,6 +11921,7 @@ function tfAnalyze(){
       moves.push({type:"종료매장 회수",code:s.code,color:s.color,colorName:s.colorName,name:s.name,
         from:from,to:backTo,qty:q,
         fromInv:s.inv[from]||0,toInv:s.inv[backTo]||0,toWos:"",wk:s.wk,tag:s.tag,
+        totInv:s.totInv,storeInv:s.storeInv,whInv:s.whInv,at:_tfAt(s),
         why:from+" 종료 · 보낼 매장이 없어 창고 회수"});
       cl[from]=0;
     });
@@ -12075,7 +12090,8 @@ function tfRender(){
       }
       h='<table style="border-collapse:collapse;width:100%"><thead><tr>'
         +th("구분")+th("상품코드")+th("상품명")+th("칼라")+th("출발")+th("도착")+th("이동수량")
-        +th("출발재고")+th("도착재고")+th("도착 소진주수")+th("주간판매")+th("사유")
+        +th("출발재고")+th("도착재고")+th("도착 소진주수")+th("주간판매")
+        +th("총재고")+th("매장")+th("창고")+th("보유 현황")+th("사유")
         +'</tr></thead><tbody>';
       mlist.forEach(function(m){
         var sty=m.type==="창고보충"?'#e0e7ff;color:#3730a3'
@@ -12092,6 +12108,10 @@ function tfRender(){
           +td(_tfC(m.toInv),"right")
           +td(m.toWos===""?"—":_tfN(m.toWos,1)+"주","right","color:#dc2626;font-weight:600")
           +td(_tfN(m.wk,1),"right")
+          +td("<b>"+_tfC(m.totInv)+"</b>","right")
+          +td(_tfC(m.storeInv),"right","color:#64748b")
+          +td(_tfC(m.whInv),"right","color:#64748b")
+          +td('<span style="font-size:11px;color:#475569;white-space:normal;word-break:keep-all;line-height:1.4">'+_tfEsc(m.at||"")+'</span>',"left","min-width:220px")
           +td('<span style="font-size:11px;color:#64748b">'+_tfEsc(m.why)+'</span>')
           +'</tr>';
       });
@@ -12269,10 +12289,12 @@ function tfExport(){
   var cfg=tfResult.cfg,st=tfResult.stat;
   var wb=XLSX.utils.book_new();
 
-  var s1=[["구분","상품코드","상품명","칼라","칼라명","출발","도착","이동수량","출발재고","도착재고","도착 소진주수","주간판매","사유"]];
+  var s1=[["구분","상품코드","상품명","칼라","칼라명","출발","도착","이동수량","출발재고","도착재고",
+    "도착 소진주수","주간판매","총재고","매장재고","창고재고","보유 현황","사유"]];
   tfResult.moves.forEach(function(m){
     s1.push([m.type,m.code,m.name,m.color,m.colorName,m.from,m.to,m.qty,m.fromInv,m.toInv,
-      Number(Number(m.toWos||0).toFixed(1)),Number(Number(m.wk||0).toFixed(1)),m.why]);
+      m.toWos===""?"":Number(Number(m.toWos||0).toFixed(1)),Number(Number(m.wk||0).toFixed(1)),
+      m.totInv,m.storeInv,m.whInv,m.at||"",m.why]);
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s1),"이관추천");
 
