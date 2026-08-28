@@ -8371,6 +8371,7 @@ function saveHsCodeMatchDB(){wsSetItem("hsCodeMatchDB",JSON.stringify(hsCodeMatc
 function _hsCodeNormName(s){
   s=String(s||"");
   s=s.replace(/\[[^\]]*\]/g,"");
+  s=s.replace(/\([^)]*\)/g,"");   /* (최초공개)·(단독)처럼 괄호로 붙는 홍보 문구 제거 */
   s=s.replace(/[○◎①②③④⑤⑥⑦⑧⑨⑩★♥？]/g,"");
   s=s.replace(/화이트샌즈_?그린라벨/g,"");
   s=s.replace(/화이트샌즈/g,"");
@@ -8469,7 +8470,8 @@ function _hsResolveColorCode(baseProdCode,colorName){
   if(!candidates.length)return "";
   var exact=candidates.find(function(row){return String(row[4]||"").replace(/\s/g,"")===nColor;});
   if(exact)return exact[7]||"";
-  if(!nColor)return candidates[0][7]||"";
+  /* 색을 못 읽었을 때 후보가 여럿이면 비워 둔다 — 첫 색을 임의로 고르면 엉뚱한 코드가 나간다 */
+  if(!nColor&&candidates.length===1)return candidates[0][7]||"";
   return "";
 }
 /* 판매일보 상품데이터에서 모델명(단어 단위 매칭)+컬러명으로 폴백 매칭 */
@@ -8595,8 +8597,38 @@ function _ccoReapplyMatches(){
       var hm=_hsFindMatch(r.shop,r.prod);
       if(hm){r.colorCode=hm.colorCode;if(!r.barcode)r.barcode=hm.colorCode;r.matched=true;changed=true;}
     }
+    if(!r.amt){
+      var up=_ccoUnitPrice(r.shop,r.prod,r.colorCode);
+      if(up.price>0){r.amt=up.price*(r.qty||1);r.amtAuto=true;r.amtSrc=up.src;changed=true;}
+    }
   });
   if(changed)renderCcoTable();
+}
+/* 주문서에 결제금액이 비어 있을 때 쓸 판매단가.
+   ① 홈쇼핑 매칭표의 현재가 → ② 상품데이터(자사코드)의 현재가/TAG가 순으로 찾는다. */
+function _ccoUnitPrice(shop,prod,colorCode){
+  var hm=(typeof _hsFindMatch==="function")?_hsFindMatch(shop,prod):null;
+  if(hm&&Number(hm.price)>0)return {price:Number(hm.price),src:"매칭표"};
+  var code=colorCode||(hm&&hm.colorCode)||"";
+  if(code){
+    var num=function(v){return Number(String(v==null?"":v).replace(/,/g,""))||0;};
+    if(typeof DB!=="undefined"&&DB.length){
+      for(var i=0;i<DB.length;i++){
+        if(String(DB[i]["자사코드"]||"").trim()!==code)continue;
+        var p=num(DB[i]["현재가"])||num(DB[i]["TAG가"]);
+        if(p>0)return {price:p,src:"상품데이터"};
+      }
+    }
+    if(typeof DEFAULT_DATA!=="undefined"){
+      for(var j=0;j<DEFAULT_DATA.length;j++){
+        var row=DEFAULT_DATA[j];
+        if(!row||String(row[7]||"").trim()!==code)continue;
+        var q=num(row[11])||num(row[10]);
+        if(q>0)return {price:q,src:"상품데이터"};
+      }
+    }
+  }
+  return {price:0,src:""};
 }
 function _ccoParseDate(v){
   var s=String(v||"").trim();
@@ -8636,10 +8668,10 @@ function _ccoExtractRows(rows){
       if(v==="바코드"&&cBarcode<0)cBarcode=c;
       if((v==="출고일"||v==="출고일자"||/일자|날짜/.test(v))&&cDate<0)cDate=c;
     }
-    if(cProd>=0&&cQty>=0&&cAmt>=0){hRow=r;break;}
+    if(cProd>=0&&cQty>=0){hRow=r;break;}
   }
-  if(cProd<0||cQty<0||cAmt<0){
-    alert("형식을 인식할 수 없습니다.\n(쇼핑몰·상품명·수량·결제금액 헤더가 필요합니다)");
+  if(cProd<0||cQty<0){
+    alert("형식을 인식할 수 없습니다.\n(상품명·수량 헤더가 필요합니다)");
     return null;
   }
   var out=[];
@@ -8655,14 +8687,24 @@ function _ccoExtractRows(rows){
       var hm=_hsFindMatch(shopVal,prodCell);
       if(hm){colorCodeVal=hm.colorCode;if(!barcodeVal)barcodeVal=hm.colorCode;matched=true;}
     }
+    var qtyVal=Number(String(row[cQty]==null?"":row[cQty]).replace(/,/g,""))||0;
+    var amtVal=cAmt>=0?(Number(String(row[cAmt]==null?"":row[cAmt]).replace(/,/g,""))||0):0;
+    /* 홈쇼핑 주문서는 결제금액이 비어 오는 경우가 많다 — 판매단가로 채워 준다 */
+    var amtAuto=false,amtSrc="";
+    if(!amtVal){
+      var up=_ccoUnitPrice(shopVal,prodCell,colorCodeVal);
+      if(up.price>0){amtVal=up.price*(qtyVal||1);amtAuto=true;amtSrc=up.src;}
+    }
     out.push({
       shop:shopVal,
       prod:prodCell,
       colorCode:colorCodeVal,
       barcode:barcodeVal,
       matched:matched,
-      qty:Number(String(row[cQty]==null?"":row[cQty]).replace(/,/g,""))||0,
-      amt:Number(String(row[cAmt]==null?"":row[cAmt]).replace(/,/g,""))||0,
+      qty:qtyVal,
+      amt:amtVal,
+      amtAuto:amtAuto,
+      amtSrc:amtSrc,
       date:cDate>=0?String(row[cDate]==null?"":row[cDate]).trim():""
     });
   }
@@ -8737,7 +8779,23 @@ function renderCcoTable(){
   var _unk={};
   ccoRows.forEach(function(r){var w=_ccoWhStoreCode(r.shop);if(w.unknown)_unk[w.shop||"(쇼핑몰 없음)"]=1;});
   var _unkList=Object.keys(_unk);
+  var _tQty=0,_tAmt=0,_tAuto=0,_tNoAmt=0;
+  ccoRows.forEach(function(r){
+    _tQty+=r.qty||0;_tAmt+=r.amt||0;
+    if(r.amtAuto)_tAuto++;
+    if(!r.amt)_tNoAmt++;
+  });
   var h='<div style="font-size:12px;color:#475569;margin-bottom:8px">등록 '+ccoRows.length+'건 (개인정보 미저장)</div>';
+  h+='<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:9px">'
+    +'<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:9px;padding:7px 13px">'
+      +'<span style="font-size:11px;color:#0369a1;font-weight:600">총 수량</span> '
+      +'<b style="font-size:15px;color:#0c4a6e">'+fmtCC(_tQty)+'</b></div>'
+    +'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:9px;padding:7px 13px">'
+      +'<span style="font-size:11px;color:#15803d;font-weight:600">총 판매금액</span> '
+      +'<b style="font-size:15px;color:#14532d">'+fmtCC(_tAmt)+'원</b></div>'
+    +(_tAuto?'<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:7px 13px;font-size:11px;color:#92400e;font-weight:600">💡 '+_tAuto+'건은 결제금액이 비어 있어 <b>판매단가로 자동 계산</b>했습니다</div>':'')
+    +(_tNoAmt?'<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:9px;padding:7px 13px;font-size:11px;color:#b91c1c;font-weight:600">❗ '+_tNoAmt+'건은 단가를 못 찾아 0원입니다 — 매칭표를 등록하거나 직접 입력하세요</div>':'')
+    +'</div>';
   if(_unkList.length)h+='<div style="font-size:12.5px;color:#b45309;background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-weight:700">⚠ 매장코드 미등록 쇼핑몰: '+_esc(_unkList.join(", "))+' — 출고창고코드·매장코드가 빈 칸으로 나갑니다</div>';
   h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:13px">';
   h+='<thead><tr>'
@@ -8759,7 +8817,11 @@ function renderCcoTable(){
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+out.ymd+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.barcode)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
-      +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:90px"><input type="text" value="'+r.amt+'" data-i="'+i+'" onchange="ccoEditAmt(this)" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:5px;padding:4px 6px;text-align:right;font-size:13px"></td>'
+      +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:90px">'
+        +'<input type="text" value="'+r.amt+'" data-i="'+i+'" onchange="ccoEditAmt(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(!r.amt?'#fca5a5':(r.amtAuto?'#fcd34d':'#d1d5db'))+';border-radius:5px;padding:4px 6px;text-align:right;font-size:13px">'
+        +(r.amtAuto?'<div style="font-size:10px;color:#b45309;padding:2px 2px 0">💡'+_esc(r.amtSrc||"자동")+' 단가</div>':'')
+        +(!r.amt?'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">❗단가없음</div>':'')
+      +'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right;color:#64748b;white-space:nowrap">'+fmtCC(out.unit)+'</td>'
       +'</tr>';
   });
@@ -8770,6 +8832,8 @@ function ccoEditAmt(input){
   var i=Number(input.dataset.i);
   if(!ccoRows[i])return;
   ccoRows[i].amt=Math.round(Number(String(input.value).replace(/,/g,""))||0);
+  ccoRows[i].amtAuto=false;ccoRows[i].amtSrc="";
+  renderCcoTable();
 }
 function ccoEditColorCode(input){
   var i=Number(input.dataset.i);
