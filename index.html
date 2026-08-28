@@ -11547,6 +11547,7 @@ renderHomeDashboard();
 
 
 
+
 /* ══════════════════════════════════════════════════════════════
    재고이관 분석 — 온·오프라인 판매/재고 분석 및 재고 이관 운영 지침
    입력(PlayMD): 매장재고현황 · 창고재고현황 · 매장판매일보
@@ -12252,6 +12253,12 @@ function tfRender(){
   var th=function(t){return '<th style="padding:7px 8px;background:#f1f5f9;border-bottom:2px solid #e2e8f0;font-size:11px;color:#374151;font-weight:700;white-space:nowrap;position:sticky;top:0;z-index:1">'+t+'</th>';};
   var td=function(t,align,style){return '<td style="padding:5px 8px;border-bottom:1px solid #eef1f6;font-size:12px;text-align:'+(align||"left")+';'+(style||"")+'">'+(t==null?"":t)+'</td>';};
   /* 상품명은 자르지 않는다 — 길면 줄바꿈해서 끝까지 보이게 한다 */
+  /* 매장명 아래에 그 매장의 현재 재고를 함께 보여준다 */
+  var placeCell=function(name,inv,arrow){
+    return '<div style="font-weight:'+(arrow?"700":"600")+';'+(arrow?"color:#1b6e82;":"")+'">'
+      +(arrow?"→ ":"")+_tfEsc(name)+'</div>'
+      +'<div style="font-size:11px;color:#94a3b8;margin-top:1px">재고 <b style="color:#475569">'+_tfC(inv)+'</b></div>';
+  };
   /* 간단히 보기에서 상품명·코드·칼라를 한 칸에 묶는다 */
   var prodCell=function(o){
     return '<div style="font-weight:600;color:#1e293b;line-height:1.35">'+_tfEsc(o.name||"")+'</div>'
@@ -12284,16 +12291,17 @@ function tfRender(){
       }
       if(tfSimple){
         h='<table style="border-collapse:collapse;width:100%"><thead><tr>'
-          +th("구분")+th("상품")+th("출발")+th("도착")+th("수량")+th("도착 소진")
+          +th("구분")+th("상품")+th("출발")+th("도착")+th("수량")+th("전체재고")+th("도착 소진")
           +'</tr></thead><tbody>';
         mlist.forEach(function(m){
           var isWh=m.type==="창고보충";
           h+='<tr>'
             +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;background:'+(isWh?'#e0e7ff;color:#3730a3':'#fef3c7;color:#92400e')+'">'+m.type+'</span>')
             +td(prodCell(m),"left","min-width:280px")
-            +td(_tfEsc(m.from),"center","font-weight:600;white-space:nowrap")
-            +td("→ "+_tfEsc(m.to),"center","font-weight:700;color:#1b6e82;white-space:nowrap")
+            +td(placeCell(m.from,m.fromInv,false),"center","white-space:nowrap")
+            +td(placeCell(m.to,m.toInv,true),"center","white-space:nowrap")
             +td("<b>"+_tfC(m.qty)+"</b>","right","color:#dc2626;font-size:15px")
+            +td("<b>"+_tfC(m.totInv)+"</b>","right","white-space:nowrap")
             +td(m.toWos===""?"—":_tfN(m.toWos,1)+"주","right","color:#dc2626;font-weight:600;white-space:nowrap")
             +'</tr>';
         });
@@ -12439,7 +12447,7 @@ function tfRender(){
             h+='<tr>'
               +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;background:'+(isWh?'#e0e7ff;color:#3730a3':'#fef3c7;color:#92400e')+'">'+m2.type+'</span>')
               +td(prodCell(m2),"left","min-width:280px")
-              +td(_tfEsc(m2.from),"center","font-weight:600;white-space:nowrap")
+              +td(placeCell(m2.from,m2.fromInv,false),"center","white-space:nowrap")
               +td("<b>"+_tfC(m2.qty)+"</b>","right","color:#1d4ed8;font-size:15px")
               +td(_tfC(m2.toInv),"right")
               +(tfSimple?"":
@@ -12462,7 +12470,7 @@ function tfRender(){
           outg2.forEach(function(m2){
             h+='<tr>'
               +td(prodCell(m2),"left","min-width:280px")
-              +td("→ "+_tfEsc(m2.to),"center","font-weight:700;color:#1b6e82;white-space:nowrap")
+              +td(placeCell(m2.to,m2.toInv,true),"center","white-space:nowrap")
               +td("<b>"+_tfC(m2.qty)+"</b>","right","color:#9a3412;font-size:15px")
               +td(_tfC(m2.fromInv),"right")
               +(tfSimple?"":
@@ -12479,8 +12487,8 @@ function tfRender(){
         if(!shortList.length)h+='<div style="padding:14px;color:#16a34a;font-size:12px;font-weight:600">✔ 부족한 상품이 없습니다.</div>';
         else{
           h+='<table style="border-collapse:collapse;width:100%"><thead><tr>'
-            +th("상태")+th("상품")+th("현재고")+th("필요")+th("못채움")+th("못 채운 이유")
-            +(tfSimple?"":th("칼라")+th("소진주수")+th("주간판매")+th("창고재고")+th("보유 현황"))
+            +th("상태")+th("상품")+th("현재고")+th("창고재고")+th("필요")+th("못채움")+th("못 채운 이유")
+            +(tfSimple?"":th("칼라")+th("소진주수")+th("주간판매")+th("보유 현황"))
             +'</tr></thead><tbody>';
           shortList.forEach(function(r){
             var ok=r.left<=0;
@@ -12489,6 +12497,7 @@ function tfRender(){
                   +(ok?'#dcfce7;color:#166534">채움':'#fee2e2;color:#b91c1c">미충족')+'</span>')
               +td(prodCell(r),"left","min-width:280px")
               +td(_tfC(r.qty),"right")
+              +td(_tfC(r.whInv),"right","color:#64748b")
               +td(_tfC(r.want),"right")
               +td(ok?"—":"<b>"+_tfC(r.left)+"</b>","right",ok?"color:#94a3b8":"color:#b91c1c")
               +td('<span style="font-size:11px;color:#92400e">'+_tfEsc(r.why||"")+'</span>',"left","min-width:170px")
@@ -12496,7 +12505,6 @@ function tfRender(){
                  td(_tfEsc(r.color+(r.colorName?" "+r.colorName:"")),"left","white-space:nowrap")
                 +td(_tfN(r.wos,1)+"주","right","color:#dc2626;font-weight:700")
                 +td(_tfN(r.wk,1),"right")
-                +td(_tfC(r.whInv),"right","color:#64748b")
                 +td('<span style="font-size:11px;color:#475569;white-space:normal;line-height:1.4">'+_tfEsc(r.at||"")+'</span>',"left","min-width:200px"))
               +'</tr>';
           });
