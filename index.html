@@ -4539,7 +4539,7 @@ function switchTab(tab){
   if(tab==="margin") renderMargin();
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock"){ initStockTab(); stockWhDropInit(); }
-  if(tab==="onstock"){ renderOnlineStock(); onsDropInit(); }
+  if(tab==="onstock"){ _onsRefreshMatch(); renderOnlineStock(); onsDropInit(); }
   if(tab==="transfer") initTransferTab();
   if(tab==="order"){ renderOrder(); ordLotteDropInit(); }
   if(tab==="cxorder") renderCxOrder();
@@ -5037,20 +5037,39 @@ function _onsNorm(s){return String(s==null?"":s).replace(/\s/g,"").trim();}
 function _onsBaseCode(style){return String(style||"").trim().split("_")[0];}
 /* 옵션 "그레이/free" → "그레이" */
 function _onsColor(opt){return String(opt||"").split("/")[0].trim();}
+/* 플레이엠디 칼라명 앞의 괄호는 색 계열을 덧붙인 수식어라 색 이름 자체가 아니다 —
+   `(핑크&크림)베이지`는 베이지, `(인디)핑크&베리`는 핑크&베리, `(X)내츄럴/그레이`는 내츄럴/그레이.
+   괄호를 떼고 구분기호(/ & ·)를 지운 '핵심 색명'으로 비교하면 온라인 표기와 그대로 맞는다:
+   `내츄럴그레이` ↔ `(X)내츄럴/그레이`, `핑크` ↔ `(인디)핑크&베리`.
+   덤으로 `핑크`가 `(핑크&크림)베이지`(핵심은 베이지)에 걸리던 모호함도 사라진다. */
+function _onsColorCore(s){
+  return _onsNorm(s).replace(/^\([^)]*\)/,"").replace(/[\/&·,]/g,"");
+}
 /* 상품코드+칼라명으로 상품데이터에서 자사코드·바코드 조회.
-   정확일치 → 부분일치("베이지" ↔ "(핑크&크림)베이지") 순서로 찾되,
-   부분일치 후보가 둘 이상이면("핑크" → 핑크&크림베이지 / 인디핑크&베리) 비워 둔다 — 엉뚱한 코드가 나가지 않게. */
+   원문 정확일치 → 핵심 색명 정확일치 → 핵심 색명 부분일치 순서로 찾고,
+   어느 단계든 후보가 둘 이상이면 비워 둔다 — 엉뚱한 코드가 나가지 않게. */
 function _onsResolve(code,colorName){
   var cands=_wsProductRows().filter(function(r){return r&&r[1]===code;});
   if(!cands.length)return null;
-  var want=_onsNorm(colorName);
-  var hit=cands.filter(function(r){return _onsNorm(r[4])===want;});
-  if(hit.length!==1&&want){
-    var part=cands.filter(function(r){return _onsNorm(r[4]).indexOf(want)>=0;});
-    hit=(part.length===1)?part:[];
-  }
-  if(hit.length!==1)return {prodName:cands[0][2],sku:"",barcode:"",colorCode:""};
-  return {prodName:hit[0][2],sku:hit[0][7]||"",barcode:hit[0][8]||"",colorCode:hit[0][3]||""};
+  var want=_onsNorm(colorName),core=_onsColorCore(colorName);
+  var only=function(list){return list.length===1?list[0]:null;};
+  var row=only(cands.filter(function(r){return _onsNorm(r[4])===want;}));
+  if(!row&&core)row=only(cands.filter(function(r){return _onsColorCore(r[4])===core;}));
+  if(!row&&core)row=only(cands.filter(function(r){return _onsColorCore(r[4]).indexOf(core)>=0;}));
+  if(!row)return {prodName:cands[0][2],sku:"",barcode:"",colorCode:""};
+  return {prodName:row[2],sku:row[7]||"",barcode:row[8]||"",colorCode:row[3]||""};
+}
+/* 저장해 둔 행 중 자사코드가 비어 있는 것만 다시 맞춰 본다 —
+   상품데이터를 새로 올렸거나 매칭 규칙이 바뀌었을 때, 파일을 다시 올리지 않아도 채워지게. */
+function _onsRefreshMatch(){
+  var rows=(onlineStockDB&&onlineStockDB.rows)||[],ch=0;
+  rows.forEach(function(r){
+    if(r.sku)return;
+    var dd=_onsResolve(r.code,r.color);
+    if(dd&&dd.sku){r.sku=dd.sku;r.barcode=dd.barcode;r.colorCode=dd.colorCode;ch++;}
+  });
+  if(ch)onsSave();
+  return ch;
 }
 /* 파일명 ExcelExport_20260831153401.xlsx → "2026-08-31 15:34" */
 function _onsDateFromName(name){
