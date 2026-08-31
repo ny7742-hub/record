@@ -5302,10 +5302,6 @@ function _onsStatBox(label,val,sub,color,bg,bd){
     +(sub?'<div style="font-size:10px;color:#94a3b8;margin-top:1px">'+sub+'</div>':'')
     +'</div>';
 }
-function _onsChip(text,color,bg,bd){
-  return '<span style="display:inline-block;background:'+bg+';border:1px solid '+bd+';color:'+color
-    +';border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700;white-space:nowrap">'+text+'</span>';
-}
 function renderOnlineStock(){
   var wrap=document.getElementById("onsWrap");if(!wrap)return;
   var sumEl=document.getElementById("onsSummary"),cntEl=document.getElementById("onsCount");
@@ -5353,50 +5349,49 @@ function renderOnlineStock(){
   var groups=_onsGroups(list);
   if(cntEl)cntEl.textContent=groups.length.toLocaleString()+"개 상품 · "+list.length.toLocaleString()+"색 표시";
   if(!groups.length){wrap.innerHTML='<div style="padding:24px;text-align:center;color:#94a3b8;font-size:12px">조건에 맞는 상품이 없습니다.</div>';return;}
-  /* 같은 상품끼리 한 박스 — 상품명이 박스 머리글이고 안에 색상별 재고가 들어간다 */
-  var h='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:10px">';
+  /* 한 표에 다 담되 같은 상품명은 셀을 합쳐(rowspan) 한 덩어리로 보이게 한다 */
+  var cols=[["상품명","text-align:left","width:34%;min-width:220px"],["컬러","text-align:left","width:17%"],["상태","text-align:left","width:14%"]];
+  if(onlineStockDB.whApplied)cols.push(["창고재고","text-align:left","width:16%"],["보충여부","text-align:left","width:19%"]);
+  var h='<table style="border-collapse:collapse;font-size:13px;width:100%;table-layout:fixed"><thead><tr>';
+  cols.forEach(function(c){
+    h+='<th style="position:sticky;top:0;z-index:1;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 10px;color:#1b6e82;font-weight:700;white-space:nowrap;'+c[1]+';'+c[2]+'">'+c[0]+'</th>';
+  });
+  h+='</tr></thead><tbody>';
   groups.forEach(function(g){
-    var bd=g.fill?"#86efac":(g.out?"#fca5a5":"#e1e6ee");
-    var hb=g.fill?"#f0fdf4":(g.out?"#fef2f2":"#f8fafc");
-    h+='<div style="border:1px solid '+bd+';border-radius:10px;overflow:hidden;background:#fff">';
-    h+='<div style="background:'+hb+';border-bottom:1px solid '+bd+';padding:8px 11px">';
-    h+='<div style="font-size:13px;font-weight:700;color:#0f172a;line-height:1.35">'+_escX(g.name)+'</div>';
-    h+='<div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">';
-    h+=_onsChip(g.rows.length+"색 · 재고 "+g.qty.toLocaleString()+"개","#5b6675","#fff","#e1e6ee");
-    if(g.out)h+=_onsChip("품절 "+g.out,"#dc2626","#fff","#fca5a5");
-    if(g.fill)h+=_onsChip("♻ 보충가능 "+g.fill,"#15803d","#fff","#86efac");
-    h+='</div></div>';
-    h+='<table style="border-collapse:collapse;font-size:12.5px;width:100%"><thead><tr>';
-    var cols=[["색상","text-align:left"],["백화점몰재고","text-align:right"],["상태","text-align:center"]];
-    if(onlineStockDB.whApplied)cols.push(["창고재고","text-align:right"],["보충","text-align:center"]);
-    cols.forEach(function(c){
-      h+='<th style="background:#e3eeee;border-bottom:1px solid #e7dcc4;padding:5px 9px;color:#1b6e82;font-weight:700;font-size:11px;white-space:nowrap;'+c[1]+'">'+c[0]+'</th>';
-    });
-    h+='</tr></thead><tbody>';
-    g.rows.forEach(function(r){
+    var nameBg=g.fill?"#f0fdf4":(g.out?"#fef2f2":"#f4f6f8");
+    var nameBd=g.fill?"#86efac":(g.out?"#fca5a5":"#dbe2ea");
+    g.rows.forEach(function(r,i){
       var out=_onsIsOut(r),lowly=!out&&r.qty<=low,fill=_onsCanFill(r);
-      var bg=fill?"background:#f0fdf4":(out?"background:#fef2f2":(lowly?"background:#fffbeb":""));
+      var bg=fill?"#f7fdf9":(out?"#fdf5f5":(lowly?"#fffcf2":(i%2?"#fafbfc":"#fff")));
       var st=out?["품절","#dc2626"]:(lowly?["부족","#b45309"]:["판매중","#15803d"]);
-      h+='<tr style="'+bg+'">';
-      h+='<td style="border-bottom:1px solid #eef2f6;padding:5px 9px;font-weight:600;color:#0f172a">'+_escX(r.color||"—")+'</td>';
-      h+='<td style="border-bottom:1px solid #eef2f6;padding:5px 9px;text-align:right;font-weight:800;color:'+st[1]+'">'+(r.qty||0).toLocaleString()+'</td>';
-      h+='<td style="border-bottom:1px solid #eef2f6;padding:5px 9px;text-align:center;font-weight:700;color:'+st[1]+'">'+st[0]+'</td>';
+      /* 그룹의 첫 줄에만 상품명 셀을 두고 색상 수만큼 세로로 합친다 */
+      var top=i===0?"border-top:2px solid #94a3b8;":"";
+      h+='<tr style="background:'+bg+'">';
+      if(i===0){
+        h+='<td rowspan="'+g.rows.length+'" style="border:1px solid '+nameBd+';border-top:2px solid #94a3b8;background:'+nameBg
+          +';padding:7px 10px;font-weight:700;color:#0f172a;vertical-align:top;line-height:1.4;word-break:keep-all">'+_escX(g.name)
+          +'<div style="margin-top:4px;font-weight:600;font-size:11px;color:#5b6675;white-space:nowrap">'
+          +g.rows.length+'색'+(g.out?' · <span style="color:#dc2626">품절 '+g.out+'</span>':'')
+          +(g.fill?' · <span style="color:#15803d">보충가능 '+g.fill+'</span>':'')
+          +'</div></td>';
+      }
+      h+='<td style="border:1px solid #e1e6ee;'+top+'padding:7px 10px;font-weight:700;color:#0f172a;white-space:nowrap">'+_escX(r.color||"—")+'</td>';
+      h+='<td title="백화점몰 재고 '+(r.qty||0)+'개" style="border:1px solid #e1e6ee;'+top+'padding:7px 10px;font-weight:700;color:'+st[1]+';white-space:nowrap">'+st[0]+'</td>';
       if(onlineStockDB.whApplied){
-        h+='<td style="border-bottom:1px solid #eef2f6;padding:5px 9px;text-align:right;color:'+(r.wh===null?"#cbd5e1":"#0f172a")+'">'+(r.wh===null?"—":r.wh.toLocaleString())+'</td>';
-        h+='<td style="border-bottom:1px solid #eef2f6;padding:5px 9px;text-align:center;font-weight:700;color:'+(fill?"#15803d":"#cbd5e1")+'">'+(fill?"♻ 보충가능":"—")+'</td>';
+        h+='<td style="border:1px solid #e1e6ee;'+top+'padding:7px 10px;color:'+(r.wh===null?"#cbd5e1":"#0f172a")+';white-space:nowrap">'+(r.wh===null?"—":r.wh.toLocaleString())+'</td>';
+        h+='<td style="border:1px solid #e1e6ee;'+top+'padding:7px 10px;font-weight:700;color:'+(fill?"#15803d":"#cbd5e1")+';white-space:nowrap">'+(fill?"보충가능":"—")+'</td>';
       }
       h+='</tr>';
     });
-    h+='</tbody></table></div>';
   });
-  h+='</div>';
+  h+='</tbody></table>';
   wrap.innerHTML=h;
 }
 function onsExport(){
   var all=onlineStockDB.rows||[];
   if(!all.length){alert("다운로드할 데이터가 없습니다.\n먼저 백화점몰 재고 파일을 올려주세요.");return;}
   var low=_onsLowLimit();
-  var head=["상품명","색상","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","보충가능","판매상태","현재가","채널","점포","채널상품코드","스타일코드"];
+  var head=["상품명","컬러","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","보충여부","판매상태","현재가","채널","점포","채널상품코드","스타일코드"];
   var aoa=[head];
   var flat=[];
   _onsGroups(all).forEach(function(g){flat=flat.concat(g.rows);});   /* 같은 상품끼리 붙여서 내려받는다 */
