@@ -7203,18 +7203,11 @@ function hsEdit(i,key,val){
     if(cell)cell.textContent=_hsEff(homeshoppingDB[i]);
   }
 }
-function hsRenameProd(i){
-  if(!homeshoppingDB[i])return;
-  var v=prompt("상품명 수정:",homeshoppingDB[i].name||"");
-  if(v===null)return;
-  homeshoppingDB[i].name=v.trim();
-  saveHomeshopping();renderHomeshopping();
-}
-/* 방송관리 표의 상품명을 클릭하면 사전미팅일정에 그 상품명으로 새 줄을 추가 */
+/* 방송관리 표의 📋 버튼 → 사전미팅일정에 그 상품명으로 새 줄을 추가 */
 function hsPreAddFromBroadcast(i){
   var row=homeshoppingDB[i];if(!row)return;
   var nm=String(row.name||"").trim();
-  if(!nm){alert("상품명을 먼저 입력해주세요 (칸을 더블클릭하면 입력할 수 있습니다).");return;}
+  if(!nm){alert("상품명을 먼저 입력해주세요.\n왼쪽 상품명 칸을 클릭하고 바로 입력하면 됩니다.");return;}
   hsPreDB.push({name:nm,date:"",time:"",marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
   saveHsPre();renderHsPre();
   var w=document.getElementById("hsPreTableWrap");if(w)w.scrollIntoView({behavior:"smooth",block:"end"});
@@ -7310,7 +7303,9 @@ function hsDragEnd(){hsDragIdx=null;var o=document.querySelectorAll("#hsTableWra
 function renderHomeshopping(){
   var wrap=document.getElementById("hsTableWrap");if(!wrap)return;
   hsSelImgIdx=null;
-  var h='<style>#hsTableWrap td.hsImgSel{outline:2px solid #2563eb;outline-offset:-2px}#hsTableWrap tr.hsDropOver td{border-top:2px solid #2563eb !important}#hsTableWrap tr.hsDropOver td:first-child{box-shadow:inset 0 2px 0 #2563eb}</style>';
+  var h='<style>#hsTableWrap td.hsImgSel{outline:2px solid #2563eb;outline-offset:-2px}#hsTableWrap tr.hsDropOver td{border-top:2px solid #2563eb !important}#hsTableWrap tr.hsDropOver td:first-child{box-shadow:inset 0 2px 0 #2563eb}'
+    +'#hsTableWrap .hsNameIn:empty:before{content:attr(data-ph);color:#94a3b8}'
+    +'#hsTableWrap .hsNameIn:focus{background:#f1f5f9}</style>';
   h+='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
   h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 6px;color:#1b6e82;font-weight:700;width:30px">#</th>';
@@ -7343,7 +7338,19 @@ function renderHomeshopping(){
       }else if(col.type==="time"){
         h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="time" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value)" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
       }else if(col.key==="name"){
-        h+='<td onclick="hsPreAddFromBroadcast('+i+')" ondblclick="hsRenameProd('+i+')" title="클릭=사전미팅일정에 상품명 추가 · 더블클릭=상품명 수정" style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;cursor:pointer">'+(row.name?_escX(row.name):'<span style="color:#94a3b8">더블클릭하여 상품명 입력</span>')+'</td>';
+        /* 다른 칸처럼 바로 타이핑해서 입력한다.
+           예전엔 클릭=사전미팅추가 / 더블클릭=입력이었는데, 빈 칸을 더블클릭하면
+           첫 클릭의 "상품명을 먼저 입력해주세요" alert이 두 번째 클릭을 먹어버려서
+           입력창이 아예 뜨지 않았다. 사전미팅 추가는 📋 버튼으로 분리. */
+        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px;color:#1f2937">'
+          +'<div style="display:flex;align-items:center;gap:4px">'
+          +'<div class="hsNameIn" contenteditable="true" data-ph="상품명 입력"'
+          +' onblur="hsEdit('+i+',\'name\',this.textContent.trim())"'
+          +' onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}"'
+          +' style="flex:1;min-width:90px;outline:none;padding:3px 4px;border-radius:4px">'+_escX(row.name||"")+'</div>'
+          +'<button onclick="hsPreAddFromBroadcast('+i+')" title="이 상품명으로 사전미팅일정에 줄 추가"'
+          +' style="flex:none;border:1px solid #cfe0e5;background:#eef4f6;color:#1b6e82;border-radius:5px;font-size:12px;cursor:pointer;padding:3px 6px">📋</button>'
+          +'</div></td>';
       }else{
         var align=(col.type==="num")?"text-align:right;":"";
         h+='<td contenteditable="true" onblur="hsEdit('+i+',\''+col.key+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;'+align+'">'+_escX(row[col.key]||"")+'</td>';
