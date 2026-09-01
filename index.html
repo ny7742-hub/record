@@ -1284,7 +1284,7 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">💰 코스트코 온라인몰 행사 마진 계산서</div>
-      <label style="font-size:12px;color:#1b6e82;font-weight:600">행사기간 <input type="text" id="mgPeriod" placeholder="예: 6/8~6/21" onchange="marginDB.period=this.value;saveMargin()" style="width:130px;font-size:12px;padding:4px 8px"></label>
+      <label style="font-size:12px;color:#1b6e82;font-weight:600">행사기간 <input type="text" id="mgPeriod" placeholder="예: 6/8~6/21" onchange="mgSetPeriod(this.value)" style="width:130px;font-size:12px;padding:4px 8px"></label>
       <label style="font-size:12px;color:#1b6e82;font-weight:600">수수료율(%) <input type="number" id="mgFee" step="0.1" onchange="marginDB.fee=(parseFloat(this.value)||0)/100;saveMargin()" style="width:70px;font-size:12px;padding:4px 8px;text-align:right"></label>
       <label style="font-size:12px;color:#1b6e82;font-weight:600">택배비(원) <input type="number" id="mgDeliv" onchange="marginDB.deliv=parseInt(this.value)||0;saveMargin()" style="width:80px;font-size:12px;padding:4px 8px;text-align:right"></label>
       <button onclick="mgAddRow()" class="bs" style="padding:6px 14px;font-size:12px">+ 행 추가</button>
@@ -1298,10 +1298,10 @@ label{font-size:14px!important}
 
   <div class="card" style="margin-top:12px;padding:0;overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid #e1e6ee">
-      <div class="sec-title" style="margin:0;font-size:13px">📄 코스트코 행사약정서</div>
+      <div class="sec-title" style="margin:0;font-size:13px">📄 코스트코 행사 공문</div>
       <button onclick="mgCtToggle()" class="bs" style="padding:5px 12px;font-size:12px"><span id="mgCtToggleTxt">▾ 입력값 펼치기</span></button>
-      <button onclick="mgCtDownloadPdf()" class="bg" style="padding:6px 16px;font-size:12px">📄 약정서 PDF 다운로드</button>
-      <span style="font-size:11px;color:#5b6675">공문 + KO COUPON CONTRACT 2장 · 금액은 마진계산 표에서 <b>VAT 제외</b>로 자동 계산됩니다</span>
+      <button onclick="mgCtDownloadPdf()" class="bg" style="padding:6px 16px;font-size:12px">📄 공문 PDF 다운로드</button>
+      <span style="font-size:11px;color:#5b6675">금액은 마진계산 표에서 <b>VAT 제외</b>로, 기간은 맨 위 <b>행사기간</b> 칸에서 자동으로 들어갑니다</span>
       <span id="mgCtMsg" style="font-size:11px;color:#15803d;font-weight:600"></span>
     </div>
     <div id="mgCtForm" style="display:none;padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e1e6ee"></div>
@@ -7623,43 +7623,65 @@ function renderMargin(){
   if(_ctf&&_ctf.style.display!=="none")mgRenderContractForm();
   mgRenderContractPreview();
 }
-/* ── 코스트코 행사약정서 (공문 1장 + KO COUPON CONTRACT 1장) ──
-   마진계산 표의 판매가·쿠폰적용가·코스트코부담으로 약정서 금액을 VAT 제외로 산출한다.
-     Sell Value   = 판매가 ÷ 1.1
-     Coupon Value = (판매가 - 쿠폰적용가) ÷ 1.1
-     Vendor Fund  = 당사부담금 ÷ 1.1        (당사부담 = 쿠폰액 - 코스트코부담)
-     Costco Fund  = 코스트코부담 ÷ 1.1
-   Contract #·Coupon #·Buyer 등 코스트코가 발번하는 값만 따로 입력받는다. */
+/* ── 코스트코 행사 공문 ──
+   마진계산 표의 판매가·쿠폰적용가·코스트코부담으로 공문 금액을 VAT 제외로 산출한다.
+     쿠폰        = (판매가 - 쿠폰적용가) ÷ 1.1
+     Vendor fund = 당사부담금 ÷ 1.1        (당사부담 = 쿠폰액 - 코스트코부담)
+     Costco Fund = 코스트코부담 ÷ 1.1
+   행사기간은 마진계산서 상단 '행사기간' 칸을 그대로 쓴다(따로 입력받지 않음). */
 var MG_CT_CO={
   name:"㈜엔에이치그룹",
   addr:"서울 금천구 가산디지털1로 100 에이스 골드타워 215호",
-  ceo:"나경화",
-  regNo:"634-87-01986",
-  sigAddr:"서울특별시 금천구 가산디지털1로 100",
-  biz:"제 조 업", item:"모자제조"
+  ceo:"나경화"
 };
-var MG_CT_DESCS=["IRC","Wallet","Passport","MVM","Card","Other"];
-/* 창고 코드 목록 — 원본 양식과 같은 2열 배치 */
-var MG_CT_WH_L=["850","851","852","853","854","855","856"];
-var MG_CT_WH_R=["050","051","052","053","056","057","058","059","060","061","062","063","064"];
+var MG_CT_TOS=["코스트코 상품본부(D31)","코스트코 상품본부(D26)"];
+var MG_CT_CHANNELS=["코스트코 인라인","코스트코 온라인"];
 
+/* 행사기간을 바꾸면 공문 기간·미리보기도 같이 갱신 */
+function mgSetPeriod(v){
+  marginDB.period=v;saveMargin();
+  mgRenderContractPreview();
+  var f=document.getElementById("mgCtForm");
+  if(f&&f.style.display!=="none")mgRenderContractForm();
+}
 function _mgCtYmd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-function _mgCtNewItem(){return {row:"",contractNo:"",couponNo:"",itemDesc:"",ecom:"제외",online:false};}
+function _mgCtNewItem(){return {row:"",docName:""};}
 function _mgCtDefault(){
-  return {docNo:"",sendDate:_mgCtYmd(new Date()),to:"코스트코 상품본부(D31)",
-    brand:"화이트샌즈",channel:"코스트코 인라인",titleEn:"",
-    start:"",end:"",dept:"31B",buyer:"",vendorNo:"58342",vendorName:"엔에이치그룹(주)",
-    desc:"IRC",payDFP:true,items:[_mgCtNewItem()]};
+  return {docNo:"",sendDate:_mgCtYmd(new Date()),to:MG_CT_TOS[0],
+    brand:"화이트샌즈",channel:MG_CT_CHANNELS[0],titleEn:"",items:[_mgCtNewItem()]};
 }
 function mgCt(){
   if(!marginDB.contract||typeof marginDB.contract!=="object")marginDB.contract=_mgCtDefault();
-  var c=marginDB.contract;
-  var d=_mgCtDefault();
+  var c=marginDB.contract,d=_mgCtDefault();
   Object.keys(d).forEach(function(k){if(c[k]===undefined)c[k]=d[k];});
+  if(MG_CT_TOS.indexOf(c.to)<0)c.to=MG_CT_TOS[0];
+  if(MG_CT_CHANNELS.indexOf(c.channel)<0)c.channel=MG_CT_CHANNELS[0];
   if(!Array.isArray(c.items)||!c.items.length)c.items=[_mgCtNewItem()];
   c.items.forEach(function(it){var n=_mgCtNewItem();Object.keys(n).forEach(function(k){if(it[k]===undefined)it[k]=n[k];});});
   return c;
 }
+/* 행사기간 파서 — "6/8~6/21", "9/14 ~ 9/27", "2026.09.14~2026.09.27", "2026-09-14 - 2026-09-27" 지원.
+   연도를 안 적었으면 올해로 보고, 종료가 시작보다 앞서면(연말~연초) 종료만 다음 해로 넘긴다. */
+function _mgCtPeriod(){
+  var s=String(marginDB.period||"").trim();
+  if(!s)return null;
+  var parts=s.split(/[~〜～]|\s+-\s+/);
+  if(parts.length<2)return null;
+  function one(t,defY){
+    var m=String(t||"").trim().match(/(?:(\d{4})\s*[.\-\/년]\s*)?(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/);
+    return m?{y:m[1]?+m[1]:defY,mo:+m[2],d:+m[3]}:null;
+  }
+  var a=one(parts[0],new Date().getFullYear());
+  if(!a)return null;
+  var b=one(parts[1],a.y);
+  if(!b)return null;
+  if(b.y===a.y&&(b.mo<a.mo||(b.mo===a.mo&&b.d<a.d)))b.y=a.y+1;
+  function fmt(x){return x.y+"-"+String(x.mo).padStart(2,"0")+"-"+String(x.d).padStart(2,"0");}
+  return {start:fmt(a),end:fmt(b)};
+}
+/* 판매처가 공문 제목의 '인라인/온라인 상품'을 정한다 */
+function _mgCtChannelWord(c){return /온라인/.test(String(c.channel||""))?"온라인":"인라인";}
+
 /* 직인 이미지 — 용량이 크고 개인 도장이라 팀 공유(Firebase)에 올리지 않고 이 브라우저에만 둔다 */
 function mgCtSeal(){try{return localStorage.getItem("mgSealImg")||"";}catch(e){return "";}}
 function mgCtSetSeal(dataUrl){
@@ -7682,7 +7704,7 @@ function mgCtClearSeal(){if(confirm("등록된 직인 이미지를 지울까요?
 
 function mgCtSet(k,v){var c=mgCt();c[k]=v;saveMargin();mgRenderContractPreview();}
 function mgCtSetItem(i,k,v){var c=mgCt();if(!c.items[i])return;c.items[i][k]=v;saveMargin();mgRenderContractPreview();}
-function mgCtAddItem(){var c=mgCt();if(c.items.length>=3){alert("약정서 양식은 Item 3개까지입니다.");return;}c.items.push(_mgCtNewItem());saveMargin();mgRenderContractForm();mgRenderContractPreview();}
+function mgCtAddItem(){var c=mgCt();c.items.push(_mgCtNewItem());saveMargin();mgRenderContractForm();mgRenderContractPreview();}
 function mgCtDelItem(i){var c=mgCt();if(c.items.length<=1)return;c.items.splice(i,1);saveMargin();mgRenderContractForm();mgRenderContractPreview();}
 function mgCtToggle(){
   var f=document.getElementById("mgCtForm"),t=document.getElementById("mgCtToggleTxt");
@@ -7699,44 +7721,37 @@ function _mgCtDocNo(c){
   return m?("NH-"+m[2]+m[3]+"-01"):"";
 }
 function _mgCtExVat(v){return Math.round((Number(v)||0)/1.1);}
-function _mgCtWon(v){return "₩"+(Number(v)||0).toLocaleString();}
-/* 약정서 Item 한 건 — 마진계산 행에서 금액을 뽑아 VAT 제외로 환산 */
+/* 공문 Item 한 건 — 마진계산 행에서 금액을 뽑아 VAT 제외로 환산 */
 function _mgCtItemVals(it){
   var idx=parseInt(it.row,10);
   var r=(!isNaN(idx)&&marginDB.rows)?marginDB.rows[idx]:null;
   if(!r)return null;
   var price=_mgNum(r.price), sale=_mgNum(r.sale);
-  var coupon=price-sale;
-  var costcoBear=_mgNum(r.costcoBear);
-  var ourBear=coupon-costcoBear;
+  var coupon=price-sale, costcoBear=_mgNum(r.costcoBear);
   return {
     itemNo:String(r.code||"").trim(),
     name:String(r.name||"").trim(),
-    itemDesc:String(it.itemDesc||"").trim(),
-    contractNo:String(it.contractNo||"").trim(),
-    couponNo:String(it.couponNo||"").trim(),
-    ecom:it.ecom||"제외", online:!!it.online,
-    sell:_mgCtExVat(price), coupon:_mgCtExVat(coupon),
-    vendorFund:_mgCtExVat(ourBear), costcoFund:_mgCtExVat(costcoBear),
-    rawPrice:price, rawSale:sale
+    docName:String(it.docName||"").trim(),
+    coupon:_mgCtExVat(coupon),
+    vendorFund:_mgCtExVat(coupon-costcoBear),
+    costcoFund:_mgCtExVat(costcoBear)
   };
 }
 function _mgCtItems(){
-  var c=mgCt(),out=[];
-  c.items.forEach(function(it){var v=_mgCtItemVals(it);if(v)out.push(v);});
+  var out=[];
+  mgCt().items.forEach(function(it){var v=_mgCtItemVals(it);if(v)out.push(v);});
   return out;
 }
-/* 2026-09-14 → 공문용 "2026.09.14" / 계약서용 "2026. 9. 14" */
-function _mgCtDotDate(s,pad){
+/* 2026-09-14 → "2026.09.14" */
+function _mgCtDotDate(s){
   var m=String(s||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(!m)return String(s||"");
-  return pad?(m[1]+"."+m[2]+"."+m[3]):(m[1]+". "+(+m[2])+". "+(+m[3]));
+  return m?(m[1]+"."+m[2]+"."+m[3]):String(s||"");
 }
 
 /* ── 입력 폼 ── */
 function mgRenderContractForm(){
   var el=document.getElementById("mgCtForm");if(!el)return;
-  var c=mgCt();
+  var c=mgCt(),pd=_mgCtPeriod();
   var lab='font-size:11px;color:#1b6e82;font-weight:700;display:block;margin-bottom:3px';
   var inp='width:100%;box-sizing:border-box;font-size:12px;padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px';
   function fld(label,key,ph,type){
@@ -7744,60 +7759,52 @@ function mgRenderContractForm(){
       +'<input type="'+(type||"text")+'" value="'+_escX(String(c[key]==null?"":c[key]))+'" placeholder="'+(ph||"")+'"'
       +' onchange="mgCtSet(\''+key+'\',this.value)" style="'+inp+'"></div>';
   }
-  var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-bottom:12px">';
+  function sel(label,key,opts){
+    return '<div><label style="'+lab+'">'+label+'</label><select onchange="mgCtSet(\''+key+'\',this.value)" style="'+inp+'">'
+      +opts.map(function(o){return '<option'+(c[key]===o?' selected':'')+'>'+_escX(o)+'</option>';}).join("")+'</select></div>';
+  }
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:9px;margin-bottom:12px">';
   h+=fld("문서번호","docNo","비우면 NH-MMDD-01 자동");
   h+=fld("발송일자","sendDate","","date");
-  h+=fld("수신","to","코스트코 상품본부(D31)");
-  h+=fld("영문 상품명(제목)","titleEn","WHITESANDS WOOL HAT");
-  h+=fld("행사 시작일","start","","date");
-  h+=fld("행사 종료일","end","","date");
+  h+=sel("수신","to",MG_CT_TOS);
+  h+=sel("판매처","channel",MG_CT_CHANNELS);
   h+=fld("브랜드","brand","화이트샌즈");
-  h+=fld("판매처","channel","코스트코 인라인");
-  h+=fld("Dept","dept","31B");
-  h+=fld("Buyer","buyer","Hyukjong Kwon");
-  h+=fld("Vendor #","vendorNo","58342");
-  h+=fld("Vendor Name","vendorName","엔에이치그룹(주)");
-  h+='<div><label style="'+lab+'">제1조 Contract Description</label><select onchange="mgCtSet(\'desc\',this.value)" style="'+inp+'">'
-    +MG_CT_DESCS.map(function(d){return '<option'+(c.desc===d?' selected':'')+'>'+d+'</option>';}).join("")+'</select></div>';
-  h+='<div><label style="'+lab+'">제3조 Payment</label><label style="font-size:12px;color:#334155;display:flex;align-items:center;gap:5px;padding:5px 0">'
-    +'<input type="checkbox" '+(c.payDFP?"checked":"")+' onchange="mgCtSet(\'payDFP\',this.checked)"> DFP</label></div>';
+  h+=fld("영문 상품명(제목·내용)","titleEn","WHITESANDS WOOL HAT");
+  h+='<div><label style="'+lab+'">행사기간</label>'
+    +'<div style="font-size:12px;padding:5px 7px;border:1px dashed #cbd5e1;border-radius:6px;background:#fff;'
+    +(pd?'color:#1f2937':'color:#dc2626')+'">'
+    +(pd?(_mgCtDotDate(pd.start)+" ~ "+_mgCtDotDate(pd.end)):"위 행사기간 칸을 읽지 못했습니다")+'</div>'
+    +'<div style="font-size:10px;color:#94a3b8;margin-top:2px">맨 위 <b>행사기간</b> 칸을 그대로 씁니다</div></div>';
   h+='</div>';
 
-  /* Item별 입력 */
-  h+='<div style="font-size:11px;color:#1b6e82;font-weight:700;margin-bottom:5px">Item별 입력 — 금액은 선택한 마진계산 행에서 자동 계산됩니다 (최대 3개)</div>';
+  h+='<div style="font-size:11px;color:#1b6e82;font-weight:700;margin-bottom:5px">공문에 넣을 상품 — 금액은 선택한 마진계산 행에서 자동 계산됩니다</div>';
   h+='<table style="border-collapse:collapse;font-size:12px;width:100%;background:#fff">';
   h+='<thead><tr>'
-    +['#','마진계산 행','Contract #','Coupon #','Item Description','Sell Value','Coupon','Vendor Fund','Costco Fund','E-com','']
+    +['#','마진계산 행','공문 표기명','쿠폰','Vendor fund','Costco Fund','']
       .map(function(t){return '<th style="border:1px solid #e1e6ee;background:#e3eeee;color:#1b6e82;padding:5px 7px;font-weight:700;white-space:nowrap">'+t+'</th>';}).join("")
     +'</tr></thead><tbody>';
   c.items.forEach(function(it,i){
-    var v=_mgCtItemVals(it);
-    var td='border:1px solid #e1e6ee;padding:3px 5px';
+    var v=_mgCtItemVals(it),td='border:1px solid #e1e6ee;padding:3px 5px';
+    var money='text-align:right;white-space:nowrap;color:#1f2937;font-weight:600';
     h+='<tr>';
     h+='<td style="'+td+';text-align:center;font-weight:700;color:#475569">'+(i+1)+'</td>';
-    h+='<td style="'+td+'"><select onchange="mgCtSetItem('+i+',\'row\',this.value)" style="'+inp+';min-width:150px">'
+    h+='<td style="'+td+'"><select onchange="mgCtSetItem('+i+',\'row\',this.value)" style="'+inp+';min-width:170px">'
       +'<option value="">— 선택 —</option>'
       +(marginDB.rows||[]).map(function(r,ri){
           var nm=String(r.name||"").trim()||("(이름없음 "+(ri+1)+"행)");
           return '<option value="'+ri+'"'+(String(it.row)===String(ri)?' selected':'')+'>'+_escX((ri+1)+". "+nm)+'</option>';
         }).join("")
       +'</select></td>';
-    h+='<td style="'+td+'"><input value="'+_escX(it.contractNo||"")+'" placeholder="60474-00" onchange="mgCtSetItem('+i+',\'contractNo\',this.value)" style="'+inp+';min-width:90px"></td>';
-    h+='<td style="'+td+'"><input value="'+_escX(it.couponNo||"")+'" placeholder="26675" onchange="mgCtSetItem('+i+',\'couponNo\',this.value)" style="'+inp+';min-width:80px"></td>';
-    h+='<td style="'+td+'"><input value="'+_escX(it.itemDesc||"")+'" placeholder="WHITESANDS LADY HAT" onchange="mgCtSetItem('+i+',\'itemDesc\',this.value)" style="'+inp+';min-width:170px"></td>';
-    var money='text-align:right;white-space:nowrap;color:#1f2937;font-weight:600';
-    h+='<td style="'+td+';'+money+'">'+(v?_mgCtWon(v.sell):"-")+'</td>';
-    h+='<td style="'+td+';'+money+'">'+(v?_mgCtWon(v.coupon):"-")+'</td>';
-    h+='<td style="'+td+';'+money+'">'+(v?_mgCtWon(v.vendorFund):"-")+'</td>';
-    h+='<td style="'+td+';'+money+'">'+(v?_mgCtWon(v.costcoFund):"-")+'</td>';
-    h+='<td style="'+td+'"><select onchange="mgCtSetItem('+i+',\'ecom\',this.value)" style="'+inp+';min-width:70px">'
-      +['제외','포함'].map(function(o){return '<option'+(it.ecom===o?' selected':'')+'>'+o+'</option>';}).join("")+'</select></td>';
+    h+='<td style="'+td+'"><input value="'+_escX(it.docName||"")+'" placeholder="비우면 위 영문 상품명" onchange="mgCtSetItem('+i+',\'docName\',this.value)" style="'+inp+';min-width:200px"></td>';
+    h+='<td style="'+td+';'+money+'">'+(v?v.coupon.toLocaleString()+"원":"-")+'</td>';
+    h+='<td style="'+td+';'+money+'">'+(v?v.vendorFund.toLocaleString()+"원":"-")+'</td>';
+    h+='<td style="'+td+';'+money+'">'+(v?v.costcoFund.toLocaleString()+"원":"-")+'</td>';
     h+='<td style="'+td+';text-align:center">'+(c.items.length>1?'<button onclick="mgCtDelItem('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;padding:3px 7px">✕</button>':'')+'</td>';
     h+='</tr>';
   });
   h+='</tbody></table>';
   h+='<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
-  h+='<button onclick="mgCtAddItem()" class="bs" style="padding:5px 12px;font-size:12px">+ Item 추가</button>';
+  h+='<button onclick="mgCtAddItem()" class="bs" style="padding:5px 12px;font-size:12px">+ 상품 추가</button>';
   var seal=mgCtSeal();
   h+='<span style="font-size:11px;color:#5b6675;margin-left:6px">직인</span>';
   if(seal){
@@ -7814,15 +7821,11 @@ function mgRenderContractForm(){
 }
 
 /* ── 미리보기(=PDF로 나갈 실제 지면) ── */
-function _mgCtPageStyle(){
-  return 'width:210mm;min-height:297mm;box-sizing:border-box;background:#fff;margin:0 auto 14px;'
-    +'box-shadow:0 2px 10px rgba(0,0,0,.12);color:#000';
-}
-/* 1장: 공문 */
 function _mgCtDocHtml(){
-  var c=mgCt(),items=_mgCtItems(),seal=mgCtSeal();
+  var c=mgCt(),items=_mgCtItems(),seal=mgCtSeal(),pd=_mgCtPeriod();
   var f='font-family:\'Batang\',\'바탕\',\'BatangChe\',serif';
-  var h='<div id="mgCtPage1" style="'+_mgCtPageStyle()+';padding:18mm 20mm;'+f+'">';
+  var h='<div id="mgCtPage1" style="width:210mm;min-height:297mm;box-sizing:border-box;background:#fff;'
+    +'margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,.12);color:#000;padding:18mm 20mm;'+f+'">';
   h+='<div style="text-align:center;font-size:30px;font-weight:800;letter-spacing:1px;margin-bottom:16px">'+_escX(MG_CT_CO.name)+'</div>';
   h+='<div style="font-size:13.5px;margin-bottom:14px">'+_escX(MG_CT_CO.addr)+'</div>';
   h+='<div style="border-top:2.5px solid #000;margin-bottom:9px"></div>';
@@ -7831,7 +7834,7 @@ function _mgCtDocHtml(){
     ["발 송 일 자",String(c.sendDate||"")],
     ["수　　　　신",String(c.to||"")],
     ["발　　　　신",MG_CT_CO.name],
-    ["제　　　　목","인라인 상품 "+String(c.titleEn||"")+" 행사 진행건"]
+    ["제　　　　목",_mgCtChannelWord(c)+" 상품 "+String(c.titleEn||"")+" 행사 진행건"]
   ];
   h+='<table style="border-collapse:collapse;font-size:14px;line-height:1.85">';
   rowsTop.forEach(function(r){
@@ -7849,22 +7852,19 @@ function _mgCtDocHtml(){
   h+='<div style="margin-bottom:14px">2. 판매처 : '+_escX(c.channel||"")+'</div>';
   h+='<div style="margin-bottom:14px">3. 내용 : ';
   if(!items.length){
-    h+='<span style="color:#b45309">(Item에서 마진계산 행을 선택하세요)</span>';
+    h+='<span style="color:#b45309">(아래 표에서 마진계산 행을 선택하세요)</span>';
   }else{
     items.forEach(function(v,i){
       if(i)h+='<div style="height:6px"></div><div style="padding-left:56px">';
-      /* 공문 내용의 상품명은 제목과 같은 영문명(titleEn)을 쓴다 —
-         계약서 Item Description은 코스트코 등록명이라 다를 수 있다(WOOL HAT vs LADY HAT).
-         Item이 여러 건이면 한 이름으로 부를 수 없으니 그때만 Item Description을 쓴다. */
-      var _dn=(items.length===1)?(c.titleEn||v.itemDesc||v.name):(v.itemDesc||v.name||c.titleEn);
-      h+=_escX(v.itemNo)+' “'+_escX(_dn||"")+'”';
+      h+=_escX(v.itemNo)+' “'+_escX(v.docName||c.titleEn||v.name||"")+'”';
       h+='<div style="padding-left:14px">[ 쿠폰 '+v.coupon.toLocaleString()+'원 적용 (-vat), Vendor fund '
         +v.vendorFund.toLocaleString()+'원 (-vat), Costco Fund '+v.costcoFund.toLocaleString()+'원 (-vat) ]</div>';
       if(i)h+='</div>';
     });
   }
   h+='</div>';
-  h+='<div style="margin-bottom:14px">4. 기간 : '+_escX(_mgCtDotDate(c.start,true))+' ~'+_escX(_mgCtDotDate(c.end,true))+'</div>';
+  h+='<div style="margin-bottom:14px">4. 기간 : '
+    +(pd?(_escX(_mgCtDotDate(pd.start))+' ~'+_escX(_mgCtDotDate(pd.end))):'<span style="color:#b45309">(맨 위 행사기간 칸을 채워주세요)</span>')+'</div>';
   h+='<div>5. 기타 사항은 오프라인 영업 담당자에게 문의하여 주시기 바랍니다.</div>';
   h+='</div>';
   h+='<div style="margin-top:60px;text-align:right;position:relative">';
@@ -7875,175 +7875,37 @@ function _mgCtDocHtml(){
   h+='</div>';
   return h;
 }
-/* 창고 체크박스 칸 (원본과 동일하게 전부 빈 칸 — 필요한 곳만 손으로 표시) */
-function _mgCtBox(checked){
-  return '<span style="display:inline-block;width:11px;height:11px;border:1.2px solid #333;border-radius:2px;'
-    +'vertical-align:-1px;margin-right:5px;text-align:center;line-height:10px;font-size:10px;font-weight:900;color:#000">'
-    +(checked?'✓':'')+'</span>';
-}
-/* 2장: KO COUPON CONTRACT */
-function _mgCtContractHtml(){
-  var c=mgCt(),items=_mgCtItems(),seal=mgCtSeal();
-  var cols=3;
-  var bd='border:1px solid #333';
-  var th=bd+';background:#fdf6e3;text-align:center;font-weight:700;padding:3px 5px';
-  var td=bd+';padding:3px 6px;text-align:center';
-  var lb=bd+';padding:3px 6px;text-align:center;background:#fff';
-  var h='<div id="mgCtPage2" style="'+_mgCtPageStyle()+';padding:10mm 11mm;font-family:\'Malgun Gothic\',\'맑은 고딕\',sans-serif;font-size:10.5px">';
-  /* 헤더 */
-  h+='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">';
-  h+='<div style="font-size:20px;font-weight:900;font-style:italic;color:#111;letter-spacing:-.5px">KO COUPON CONTRACT</div>';
-  h+='<div style="font-size:17px;font-weight:900;color:#e31837;font-style:italic;letter-spacing:-.5px">COSTCO<span style="display:block;font-size:8px;color:#0060a9;letter-spacing:2px;text-align:right">WHOLESALE</span></div>';
-  h+='</div>';
-  /* Dept / Vendor */
-  h+='<div style="display:flex;gap:20px;font-size:11.5px;font-weight:700;margin-bottom:9px">';
-  h+='<div style="flex:1">Dept / Buyer : <span style="display:inline-block;min-width:200px;border-bottom:1px solid #333;font-weight:400;text-align:center">'
-    +_escX(c.dept||"")+'　/　'+_escX(c.buyer||"")+'</span></div>';
-  h+='<div style="flex:1">Vendor # / Name : <span style="display:inline-block;min-width:200px;border-bottom:1px solid #333;font-weight:400;text-align:center">'
-    +_escX(c.vendorNo||"")+'　/　'+_escX(c.vendorName||"")+'</span></div>';
-  h+='</div>';
-  /* 제1조 */
-  h+='<div style="font-size:11.5px;font-weight:700;margin-bottom:9px">제 1 조 (Contract Description) :&nbsp;&nbsp;'
-    +MG_CT_DESCS.map(function(d){return '<span style="font-weight:400;margin-right:22px">'+_mgCtBox(c.desc===d)+d+'</span>';}).join("")
-    +'</div>';
-  /* 제2조 표 */
-  h+='<div style="font-size:11.5px;font-weight:700;margin-bottom:4px">제 2 조 (Coupon &amp; Billing Information. VAT 제외)</div>';
-  h+='<table style="border-collapse:collapse;width:100%;table-layout:fixed">';
-  /* 구분란이 2칸(라벨 + Inline/Online·All Whse/Whse)이라 표는 5열이다.
-     4열만 선언하면 Item 3 열이 폭 0으로 뭉개져 칸 높이가 A4를 넘긴다. */
-  h+='<colgroup><col style="width:11%"><col style="width:12%"><col style="width:25.66%"><col style="width:25.67%"><col style="width:25.67%"></colgroup>';
-  h+='<tr><th style="'+th+'" colspan="2">구　분</th>';
-  for(var k=0;k<cols;k++)h+='<th style="'+th+'">Item '+(k+1)+'</th>';
-  h+='</tr>';
-  function line(label,pick,colspan2){
-    var s='<tr><td style="'+lb+'" colspan="2">'+label+'</td>';
-    for(var k=0;k<cols;k++){var v=items[k]?pick(items[k]):"";s+='<td style="'+td+'">'+(v||"")+'</td>';}
-    return s+'</tr>';
-  }
-  h+=line("Contract #",function(v){return _escX(v.contractNo);});
-  h+=line("Coupon #",function(v){return _escX(v.couponNo);});
-  h+=line("Item #",function(v){return _escX(v.itemNo);});
-  h+=line("Item Description",function(v){return '<span style="font-size:9px">'+_escX(v.itemDesc||v.name)+'</span>';});
-  /* Start-End Date: 3칸 병합 */
-  h+='<tr><td style="'+lb+'" colspan="2">Start Date - End Date</td>'
-    +'<td style="'+td+'" colspan="'+cols+'">'+_escX(_mgCtDotDate(c.start))+'　　~　　'+_escX(_mgCtDotDate(c.end))+'</td></tr>';
-  /* Sell Value: Inline / Online */
-  h+='<tr><td style="'+lb+'" rowspan="2">Sell<br>Value</td><td style="'+lb+'">Inline</td>';
-  for(var a=0;a<cols;a++)h+='<td style="'+td+'">'+(items[a]&&!items[a].online?_mgCtWon(items[a].sell):"")+'</td>';
-  h+='</tr><tr><td style="'+lb+'">Online</td>';
-  for(var b=0;b<cols;b++)h+='<td style="'+td+'">'+(items[b]&&items[b].online?_mgCtWon(items[b].sell):"")+'</td>';
-  h+='</tr>';
-  h+=line("Coupon Value",function(v){return _mgCtWon(v.coupon);});
-  h+=line("Vendor Contract QTY Limit",function(){return "";});
-  h+=line("Vendor Contract KW Limit",function(){return "";});
-  h+='<tr><td style="'+lb+'" colspan="2">Member Purchase Limit QTY<br><span style="font-size:9px">(단, 제한 수량 변경 사유 발생시<br>양사 합의 후 변경 적용함)</span></td>';
-  for(var m=0;m<cols;m++)h+='<td style="'+td+'"></td>';
-  h+='</tr>';
-  /* Locations */
-  h+='<tr><td style="'+lb+'" rowspan="2">Locations</td><td style="'+lb+'">All Whse</td>';
-  for(var e=0;e<cols;e++){
-    var ec=items[e]?items[e].ecom:null;
-    h+='<td style="'+bd+';padding:4px 6px;font-size:9.5px;text-align:left">'
-      +_mgCtBox(ec==="포함")+'E-com 포함&nbsp;&nbsp;'+_mgCtBox(ec==="제외")+'E-com 제외</td>';
-  }
-  h+='</tr><tr><td style="'+lb+'">Whse</td>';
-  for(var w=0;w<cols;w++){
-    /* 왼쪽(850~856 + 맨아래 5055)은 오른쪽 13줄이 정한 높이에 맞춰 늘어난다.
-       예전엔 5055를 고정 여백으로 밀어내서 칸이 A4를 넘길 만큼 길어졌다. */
-    h+='<td style="'+bd+';padding:3px 6px;font-size:8.5px;line-height:1.45;text-align:left;vertical-align:top">';
-    h+='<div style="display:flex;gap:10px;align-items:stretch">';
-    h+='<div style="flex:1;display:flex;flex-direction:column;justify-content:space-between">'
-      +'<div>'+MG_CT_WH_L.map(function(n){return '<div>'+_mgCtBox(false)+n+'</div>';}).join("")+'</div>'
-      +'<div>'+_mgCtBox(false)+'5055</div></div>';
-    h+='<div style="flex:1">'+MG_CT_WH_R.map(function(n){return '<div>'+_mgCtBox(false)+n+'</div>';}).join("")+'</div>';
-    h+='</div></td>';
-  }
-  h+='</tr>';
-  /* Billing Information 안내 */
-  h+='<tr><td style="'+bd+';background:#fdf6e3;padding:5px 7px;font-size:9.5px;text-align:left;line-height:1.6" colspan="'+(cols+2)+'">'
-    +'Billing Information (VAT 제외), 경제적 이익의 비율 : 산정 불가 / 실제 쿠폰 발행 금액으로 정산 처리<br>'
-    +'협력업체 분담 비율은 최대 50%를 초과할 수 없음. 단, 협력업체의 자발적, 차별화된 행사의 경우는 그러하지 아니함</td></tr>';
-  h+=line("Vendor Fund",function(v){return _mgCtWon(v.vendorFund);});
-  h+=line("Vendor Fund (DFI)",function(){return "";});
-  h+=line("Costco Fund",function(v){return _mgCtWon(v.costcoFund);});
-  h+='</table>';
-  /* 제3·4조 */
-  h+='<div style="font-size:11.5px;font-weight:700;margin:9px 0 0">제 3 조 (Payment Method) :&nbsp;&nbsp;'
-    +'<span style="font-weight:400">'+_mgCtBox(!!c.payDFP)+'DFP (Deduct From Payment - DFI 경우 해당사항 없음)</span></div>';
-  h+='<div style="font-size:11.5px;font-weight:700;margin:9px 0 0">제 4 조 (온라인 특약 사항) :</div>';
-  h+='<div style="font-size:10.5px;padding-left:26px;line-height:1.75">'
-    +'1.&nbsp; 행사 기간 종료 후 익일 새벽 시스템 자동 전환전까지의 회원 주문 포함<br>'
-    +'2.&nbsp; 행사 기간 내 회원 주문 후 행사 기간 이후 발송된 상품 건 포함</div>';
-  /* 서명부 */
-  h+='<div style="display:flex;gap:16px;margin-top:14px">';
-  h+='<div style="flex:1;font-size:11.5px">';
-  h+='<div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:22px"><b>Buyer Signature</b><span>:</span>'
-    +'<span style="flex:1;border-bottom:1px solid #333;height:15px"></span></div>';
-  h+='<div style="display:flex;align-items:flex-end;gap:8px"><b>AGMM Signature</b><span>:</span>'
-    +'<span style="flex:1;border-bottom:1px solid #333;height:15px"></span></div>';
-  h+='<div style="font-size:9.5px;color:#333;margin-top:8px">(계약체결일은 AGMM이 최종 서명한 날입니다.)</div>';
-  h+='</div>';
-  h+='<div style="flex:1;font-size:11.5px;position:relative">';
-  h+='<div style="font-weight:700;margin-bottom:12px">Vendor Signature (명판 직인)</div>';
-  h+='<div style="color:#1a237e">';
-  h+='<div style="font-size:19px;font-weight:800;letter-spacing:2px;margin-bottom:5px">'+_escX(MG_CT_CO.regNo)+'</div>';
-  h+='<div style="font-size:14px;font-weight:800;margin-bottom:5px">'+_escX(MG_CT_CO.name.replace("㈜","(주)"))+'　　　'+_escX(MG_CT_CO.ceo)+'</div>';
-  h+='<div style="font-size:12px;font-weight:700;margin-bottom:5px">'+_escX(MG_CT_CO.sigAddr)+'</div>';
-  h+='<div style="font-size:12px;font-weight:700;letter-spacing:2px">'+_escX(MG_CT_CO.biz)+'　　　'+_escX(MG_CT_CO.item)+'</div>';
-  h+='</div>';
-  if(seal)h+='<img src="'+_escX(seal)+'" style="position:absolute;right:6px;bottom:0;width:76px;height:76px;object-fit:contain">';
-  h+='</div></div>';
-  h+='</div>';
-  return h;
-}
 function mgRenderContractPreview(){
   var el=document.getElementById("mgCtPreview");if(!el)return;
-  el.innerHTML=_mgCtDocHtml()+_mgCtContractHtml();
+  el.innerHTML=_mgCtDocHtml();
 }
-/* 파일명 — 원본과 같은 "D31_691716 WHITESANDS WOOL HAT 행사약정서.pdf" 형태 */
+/* 파일명 — "D31_691716 WHITESANDS WOOL HAT 행사공문.pdf" */
 function _mgCtFileName(){
   var c=mgCt(),items=_mgCtItems();
   var m=String(c.to||"").match(/\(([^)]+)\)/);
-  var dept=m?m[1]:("D"+String(c.dept||"").replace(/[^0-9]/g,""));
+  var dept=m?m[1]:"";
   var itemNo=items.length?items[0].itemNo:"";
-  var title=String(c.titleEn||"").trim();
-  var base=[dept,[itemNo,title].filter(Boolean).join(" ")].filter(Boolean).join("_");
-  return (base||"코스트코")+" 행사약정서.pdf";
+  var base=[dept,[itemNo,String(c.titleEn||"").trim()].filter(Boolean).join(" ")].filter(Boolean).join("_");
+  return (base||"코스트코")+" 행사공문.pdf";
 }
 function mgCtDownloadPdf(){
   var items=_mgCtItems();
-  if(!items.length){alert("약정서에 넣을 Item이 없습니다.\n'입력값 펼치기'에서 Item의 마진계산 행을 선택해주세요.");return;}
-  var c=mgCt();
-  var miss=[];
+  if(!items.length){alert("공문에 넣을 상품이 없습니다.\n'입력값 펼치기'에서 마진계산 행을 선택해주세요.");return;}
+  var c=mgCt(),miss=[];
   if(!String(c.titleEn||"").trim())miss.push("영문 상품명");
-  if(!c.start||!c.end)miss.push("행사 기간");
-  if(!String(c.buyer||"").trim())miss.push("Buyer");
-  items.forEach(function(v,i){
-    if(!v.contractNo)miss.push("Item"+(i+1)+" Contract #");
-    if(!v.couponNo)miss.push("Item"+(i+1)+" Coupon #");
-  });
+  if(!_mgCtPeriod())miss.push("행사기간(맨 위 칸)");
   if(miss.length&&!confirm("다음 항목이 비어 있습니다.\n\n  "+miss.join(", ")+"\n\n그대로 다운로드할까요?"))return;
   if(typeof html2canvas==="undefined"||!window.jspdf){alert("PDF 라이브러리 로드에 실패했습니다.\n새로고침 후 다시 시도해주세요.");return;}
   mgRenderContractPreview();
   var msg=document.getElementById("mgCtMsg");
   if(msg)msg.textContent="PDF 만드는 중...";
-  var p1=document.getElementById("mgCtPage1"),p2=document.getElementById("mgCtPage2");
   var pdf=new window.jspdf.jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
   var pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
-  /* 비율을 유지한 채 A4 안에 맞춘다 — 폭에 맞췄을 때 세로가 넘치면 세로 기준으로 줄인다(찌그러짐 방지) */
-  function fit(cv){
+  html2canvas(document.getElementById("mgCtPage1"),{scale:2,backgroundColor:"#ffffff",useCORS:true}).then(function(cv){
+    /* 비율을 유지한 채 A4 안에 맞춘다(찌그러짐 방지) */
     var w=pw,hh=cv.height*pw/cv.width;
     if(hh>ph){hh=ph;w=cv.width*ph/cv.height;}
-    return [(pw-w)/2,(ph-hh)/2,w,hh];
-  }
-  html2canvas(p1,{scale:2,backgroundColor:"#ffffff",useCORS:true}).then(function(c1){
-    var f=fit(c1);
-    pdf.addImage(c1.toDataURL("image/jpeg",0.95),"JPEG",f[0],f[1],f[2],f[3]);
-    return html2canvas(p2,{scale:2,backgroundColor:"#ffffff",useCORS:true});
-  }).then(function(c2){
-    pdf.addPage();
-    var f2=fit(c2);
-    pdf.addImage(c2.toDataURL("image/jpeg",0.95),"JPEG",f2[0],f2[1],f2[2],f2[3]);
+    pdf.addImage(cv.toDataURL("image/jpeg",0.95),"JPEG",(pw-w)/2,(ph-hh)/2,w,hh);
     pdf.save(_mgCtFileName());
     if(msg){msg.textContent="✔ 다운로드 완료";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},2500);}
   }).catch(function(err){
@@ -8051,7 +7913,6 @@ function mgCtDownloadPdf(){
     alert("PDF 생성 오류: "+err.message);
   });
 }
-
 /* 표 데이터 → 검토 요청 문구 자동 생성 (상품별 그룹) */
 function mgBuildNote(){
   var rows=(marginDB.rows||[]).filter(function(r){return String(r.name||"").trim();});
