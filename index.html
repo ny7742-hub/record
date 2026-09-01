@@ -10858,9 +10858,13 @@ function _anKoMoney(n){
   return s+"원정";
 }
 function _anNum(v){return Number(String(v==null?"":v).replace(/,/g,""))||0;}
-/* 아난티 품목명 접두사 제거 — "LV_에이치티와이(화이트샌즈)_C.O 쿨링..." → "쿨링..." */
+/* 아난티 품목명 접두사 제거 — "LV_에이치티와이(화이트샌즈)_C.O 쿨링..." → "쿨링..."
+   업체코드+회사명까지만 먼저 떼고, 그 뒤에 오는 시즌·행사 표기(C.O / 26SS / 25FW / 50%)만 추가로 뗀다.
+   예전엔 다음 한 덩어리를 무조건 떼어내서 접두사가 없는 이름까지 깎였다 —
+   "페미닌 브로더리 코튼 볼캡"→"브로더리 코튼 볼캡", "50%비즈 숏 스트랩"→"숏 스트랩". */
 function _anStripPrefix(nm){
-  return String(nm||"").replace(/^[A-Za-z]{1,3}_[^_]*\([^)]*\)_\S+\s+/,"").trim();
+  var s=String(nm||"").replace(/^[A-Za-z]{1,3}_[^_]*\([^)]*\)_/,"").trim();
+  return s.replace(/^(?:C\.O|\d{2}[A-Z]{2}|\d{1,3}%)\s*/,"").trim();
 }
 function _anParse(rows,fileName){
   var hRow=-1;
@@ -10870,6 +10874,9 @@ function _anParse(rows,fileName){
   if(hRow<0){alert("아난티 발주서 형식을 인식할 수 없습니다.\n(품목명 헤더가 필요합니다)");return false;}
   var H=(rows[hRow]||[]).map(function(c){return String(c).replace(/\s/g,"");});
   var cItem=H.indexOf("품목명"),cSpec=H.indexOf("규격"),cQty=H.indexOf("수량"),cPrice=H.indexOf("판매가"),cNote=H.indexOf("비고");
+  /* 아난티 양식이 두 가지다 — '위탁 거래명세서'는 바코드를 비고열에 넣어 보내고,
+     '발주 요청 리스트'는 바코드 전용 열이 따로 있다. 전용 열이 있으면 그쪽을 쓴다. */
+  var cBar=H.indexOf("바코드");
   if(cItem<0||cQty<0){alert("품목명·수량 열을 찾을 수 없습니다.");return false;}
 
   var list=[],idx=_anBarcodeIndex();
@@ -10878,7 +10885,8 @@ function _anParse(rows,fileName){
     var nm=String(row[cItem]==null?"":row[cItem]).trim();
     if(!nm)continue;
     if(/^총합계$/.test(nm.replace(/\s/g,"")))continue;
-    var bc=cNote>=0?String(row[cNote]==null?"":row[cNote]).trim():"";
+    var bcCol=cBar>=0?cBar:cNote;
+    var bc=bcCol>=0?String(row[bcCol]==null?"":row[bcCol]).trim():"";
     var m=idx[bc]||null;
     /* 위탁 발주서는 판매가가 비어 오는 경우가 많다(전액 0원 명세서 방지).
        비면 바코드로 매칭한 상품데이터의 TAG가(없으면 현재가)로 채운다. */
@@ -10898,8 +10906,14 @@ function _anParse(rows,fileName){
   }
   if(!list.length){alert("인식된 품목이 없습니다.");return false;}
 
-  var rate=_anNum(_anLabelVal(rows,hRow,"공급율",0,40))||0.7;
+  var rate=_anNum(_anLabelVal(rows,hRow,"공급율",0,40))||0;
   if(rate>1)rate=rate/100;
+  if(!rate){
+    /* 발주 요청 리스트 양식은 '공급율' 대신 '수수료 %'를 적게 되어 있다 — 공급율 = 1 - 수수료 */
+    var _fee=_anNum(_anLabelVal(rows,hRow,"수수료",0,40));
+    if(_fee>0)rate=1-(_fee>1?_fee/100:_fee);
+  }
+  if(!rate)rate=0.7;
   anMeta={
     fileName:fileName||"",
     docNo:String(_anLabelVal(rows,hRow,"공급받는자",0,8)||"").trim(),
@@ -10966,7 +10980,8 @@ function _anProcessFiles(fileList){
       var dt=document.getElementById("anDate");
       if(dt){var n=new Date();dt.value=n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0");}
       var dn=document.getElementById("anDocNo");
-      if(dn){var base=parseInt(anMeta.docNo,10);dn.value=isNaN(base)?"":String(base+1);}
+      /* 위탁 양식은 여기에 문서번호(46139)가, 발주 요청 리스트는 날짜가 들어온다 — 숫자일 때만 +1 제안 */
+      if(dn){var _raw=String(anMeta.docNo||"").trim();dn.value=/^\d+$/.test(_raw)?String(parseInt(_raw,10)+1):"";}
       var rt=document.getElementById("anRate");if(rt)rt.value=String(anMeta.rate);
       anRenderTable();
     }catch(err){alert("파일 오류: "+err.message);}
