@@ -11168,15 +11168,17 @@ function anDownloadWholesale(){
     a[2]=code; a[3]=(st&&st.name)||code; a[4]=(st&&st.recv)||"";
     a[7]=(st&&st.tel)||""; a[9]=(st&&st.addr)||"";
     a[11]=(r.prodName?(r.prodName+" "+r.colorName):r.name);
-    a[12]=r.qty; a[17]=r.prodCode||""; a[19]=r.skuCode||"";
+    /* R 상품코드는 8자 — 발주서 변환·수기발주·코스트코 발주와 같은 규칙.
+       상품데이터의 상품코드가 9자인 상품(GKM116Z9U 등)만 여기서 갈렸다. */
+    a[12]=r.qty; a[17]=(r.prodCode||r.skuCode||"").slice(0,8); a[19]=r.skuCode||"";
     aoa.push(a);
   });
-  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  /* 매장주소록 시트까지 붙은 공용 도매발주서 워크북을 쓴다 */
+  var wb=_wholesaleWorkbook(aoa.slice(1));
+  var ws=wb.Sheets["발주서"];
   ws["!cols"]=ORDER_HEADERS.map(function(hh,i){return {wch:(i===9?42:(i===11?46:(i===19?16:12)))};});
-  var wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"발주서");
   var dp=_anDateParts();
-  XLSX.writeFile(wb,"화이트샌즈("+String(dp.m).padStart(2,"0")+String(dp.d).padStart(2,"0")+") - 도매 발주서.xlsx");
+  XLSX.writeFile(wb,"화이트샌즈("+String(dp.m).padStart(2,"0")+String(dp.d).padStart(2,"0")+") - 도매발주서.xlsx");
 }
 /* 4단계 — 거래명세서 데이터(엑셀/PDF/미리보기 공용) */
 function _anInvoiceModel(){
