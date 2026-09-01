@@ -1159,6 +1159,7 @@ label{font-size:14px!important}
           2) 다운로드 된 파일<br>5단계에 업로드/끌어오기<br>
           3) 주문번호·송장번호<br>자동 매칭 확인<br>
           4) <b>⬇ 발송일괄업로드</b> 클릭
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">다운로드 후 <b>코스트코 탭 매출 등록</b><br>여부를 물어봅니다</div>
         </div>
       </div>
       <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
@@ -1177,6 +1178,19 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-ccpdforder -->
+<!-- 코스트코 발주 5단계 다운로드 후: 코스트코 탭 매출 등록 여부 확인 -->
+<div class="modal-overlay" id="ccPdfSalesModal" onclick="if(event.target===this)closeCcPdfSalesModal()">
+  <div class="modal" style="width:560px">
+    <h2>🛒 코스트코 탭의 매출을 등록할까요?</h2>
+    <p style="margin-bottom:12px">방금 발주한 주문 내역을 <b>코스트코 판매 현황</b>에 판매일자별로 더합니다.<br>같은 주문번호는 다시 등록되지 않습니다.</p>
+    <div id="ccPdfSalesSummary" style="font-size:13px;color:#334155;line-height:1.6;margin-bottom:10px"></div>
+    <div id="ccPdfSalesDetail" style="max-height:240px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px"></div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeCcPdfSalesModal()">아니오</button>
+      <button id="ccPdfSalesYesBtn" onclick="ccPdfRegisterSales()" style="padding:8px 20px;background:#1b6e82;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">예, 등록합니다</button>
+    </div>
+  </div>
+</div>
 <div id="page-ananti" style="display:none">
 <div class="main" style="max-width:none">
   <div class="card">
@@ -9494,6 +9508,7 @@ function _ccPdfParsePageLines(lines){
       colorCode:dd?dd.skuCode:(cm?(cm.base+mappedColor+"X"):""),
       barcode:dd?(dd.barcode||""):"",
       amt:amt,
+      rawName:it.name,ccColor:it.color,
       qty:qty,matched:!!dd,invoiceNo:"",invoiceAuto:true
     };
   });
@@ -9919,6 +9934,150 @@ function ccPdfDownloadInvoiceTarget(){
   var d=new Date();
   var ymd=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
   XLSX.writeFile(wb,"발송일괄업로드_"+ymd+".xlsx");
+  openCcPdfSalesModal();   /* 다운로드 직후 코스트코 탭 매출 등록 여부를 묻는다 */
+}
+
+/* ── 5단계 다운로드 후: 발주 내역을 코스트코 탭(판매 현황)에 매출로 등록 ──
+   주문일자를 판매일(M/D)로 삼아 상품·색상별 수량/금액을 '더한다'(판매현황 업로드처럼 통째로 덮지 않음).
+   같은 주문번호+상품+색상 조합은 costcoDB.ccPdfDone에 남겨 두 번 등록되지 않게 한다. */
+function _ccPdfPeriodOf(r){
+  var m=String(r.orderDate||"").match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if(m)return (+m[2])+"/"+(+m[3]);
+  var d=new Date();
+  return (d.getMonth()+1)+"/"+d.getDate();
+}
+/* 색상 찾기 — 정식 상품명 꼬리("...일리안(Ilian) 세이지그린") → PDF 상품명 꼬리("... - 블랙") → PDF 칼라약어(BK) 순 */
+function _ccPdfSalesColor(r,pn){
+  function strip(v){return String(v||"").replace(/\([^)]*\)/g,"").trim();}
+  var cands=[];
+  var full=String(r.prodName||"");
+  if(pn&&full.indexOf(pn)>=0)cands.push(strip(full.split(pn).pop()));
+  var raw=String(r.rawName||"");
+  if(raw.indexOf("-")>=0)cands.push(strip(raw.split("-").pop()));
+  if(r.ccColor)cands.push(String(r.ccColor));
+  for(var i=0;i<cands.length;i++){
+    if(!cands[i])continue;
+    var c=ccNormColor(cands[i])||ccMatchColor(cands[i],pn);
+    if(c)return c;
+  }
+  return null;
+}
+/* 등록 계획 산출 — {map:{기간:{상품:{색상:{qty,amount}}}}, keys, qty, amt, dup, noProd, noColor} */
+function _ccPdfBuildSalesPlan(){
+  if(!costcoDB.ccPdfDone)costcoDB.ccPdfDone={};
+  var plan={map:{},keys:[],qty:0,amt:0,dup:0,noProd:[],noColor:[]};
+  var seen={};
+  ccPdfRows.forEach(function(r){
+    var pn=ccMatchProd(r.prodName)||ccMatchProd(r.rawName||"");
+    if(!pn){plan.noProd.push(String(r.prodName||r.rawName||"(이름없음)"));return;}
+    var cl=_ccPdfSalesColor(r,pn);
+    if(!cl){plan.noColor.push(pn+" — "+String(r.prodName||r.rawName||""));return;}
+    var base=String(r.orderNo||"")+"|"+pn+"|"+cl;
+    seen[base]=(seen[base]||0)+1;
+    var key=base+"#"+seen[base];
+    if(costcoDB.ccPdfDone[key]){plan.dup++;return;}
+    var q=Number(r.qty)||0;
+    if(CC_SET_PRODS.indexOf(pn)>=0)q=q/2;   /* 2개입 상품은 세트 수로 저장 (판매현황 업로드와 동일) */
+    if(!q)return;
+    var amt=Number(r.amt)||0;
+    if(!amt){
+      var pp=costcoDB.products.find(function(x){return x.name===pn;});
+      amt=Math.round(((pp&&pp.price)||0)*q);
+    }
+    var period=_ccPdfPeriodOf(r);
+    if(!plan.map[period])plan.map[period]={};
+    if(!plan.map[period][pn])plan.map[period][pn]={};
+    if(!plan.map[period][pn][cl])plan.map[period][pn][cl]={qty:0,amount:0};
+    plan.map[period][pn][cl].qty+=q;
+    plan.map[period][pn][cl].amount+=amt;
+    plan.qty+=q;plan.amt+=amt;
+    plan.keys.push(key);
+  });
+  return plan;
+}
+var _ccPdfSalesPlan=null;
+function openCcPdfSalesModal(){
+  if(!ccPdfRows.length)return;                     /* 등록할 주문 자체가 없으면 묻지 않는다 */
+  var plan=_ccPdfBuildSalesPlan();
+  _ccPdfSalesPlan=plan;
+  var sumEl=document.getElementById("ccPdfSalesSummary");
+  var detEl=document.getElementById("ccPdfSalesDetail");
+  var yesEl=document.getElementById("ccPdfSalesYesBtn");
+  var periods=Object.keys(plan.map).sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
+  var lines=[];
+  if(plan.keys.length){
+    lines.push("등록 대상 <b>"+plan.keys.length+"줄</b> · 판매일 <b>"+periods.join(", ")+"</b>");
+    lines.push("총 수량 <b>"+plan.qty+"</b>개 · 총 금액 <b>"+plan.amt.toLocaleString()+"</b>원");
+  }else{
+    lines.push("<span style='color:#b45309'>새로 등록할 내역이 없습니다.</span>");
+  }
+  if(plan.dup)lines.push("<span style='color:#64748b'>이미 등록된 "+plan.dup+"줄은 제외했습니다.</span>");
+  if(plan.noProd.length)lines.push("<span style='color:#b45309'>상품 미매칭 "+plan.noProd.length+"줄 제외 — "+plan.noProd.slice(0,3).join(" / ")+(plan.noProd.length>3?" 외":"")+"</span>");
+  if(plan.noColor.length)lines.push("<span style='color:#b45309'>색상 미매칭 "+plan.noColor.length+"줄 제외 — "+plan.noColor.slice(0,3).join(" / ")+(plan.noColor.length>3?" 외":"")+"</span>");
+  if(sumEl)sumEl.innerHTML=lines.join("<br>");
+  var h='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h+='<thead><tr style="background:#f1f5f9;position:sticky;top:0"><th style="padding:5px 8px;text-align:left">판매일</th><th style="padding:5px 8px;text-align:left">상품</th><th style="padding:5px 8px;text-align:left">색상</th><th style="padding:5px 8px;text-align:right">수량</th><th style="padding:5px 8px;text-align:right">금액</th></tr></thead><tbody>';
+  var n=0;
+  periods.forEach(function(pd){
+    Object.keys(plan.map[pd]).forEach(function(pn){
+      Object.keys(plan.map[pd][pn]).forEach(function(cl){
+        var d=plan.map[pd][pn][cl];n++;
+        h+='<tr style="border-top:1px solid #e5e7eb"><td style="padding:4px 8px">'+pd+'</td><td style="padding:4px 8px">'+pn+'</td><td style="padding:4px 8px">'+cl+'</td><td style="padding:4px 8px;text-align:right">'+d.qty+'</td><td style="padding:4px 8px;text-align:right">'+Math.round(d.amount).toLocaleString()+'</td></tr>';
+      });
+    });
+  });
+  if(!n)h+='<tr><td colspan="5" style="padding:10px;text-align:center;color:#94a3b8">등록할 내역 없음</td></tr>';
+  h+='</tbody></table>';
+  if(detEl)detEl.innerHTML=h;
+  if(yesEl){
+    yesEl.disabled=!plan.keys.length;
+    yesEl.style.opacity=plan.keys.length?"1":".45";
+    yesEl.style.cursor=plan.keys.length?"pointer":"not-allowed";
+  }
+  document.getElementById("ccPdfSalesModal").classList.add("show");
+}
+function closeCcPdfSalesModal(){
+  document.getElementById("ccPdfSalesModal").classList.remove("show");
+}
+function ccPdfRegisterSales(){
+  var plan=_ccPdfSalesPlan;
+  if(!plan||!plan.keys.length){closeCcPdfSalesModal();return;}
+  if(!costcoDB.sales)costcoDB.sales={};
+  if(!costcoDB.periods)costcoDB.periods=[];
+  if(!costcoDB.ccPdfDone)costcoDB.ccPdfDone={};
+  var lastPeriod=null;
+  Object.keys(plan.map).forEach(function(period){
+    if(costcoDB.periods.indexOf(period)<0)costcoDB.periods.push(period);
+    if(!costcoDB.sales[period])costcoDB.sales[period]={};
+    costcoDB.sales[period]._uploaded=true;      /* 일자별 실적 키로 표시(주간합계 아님) */
+    var sp=costcoDB.sales[period];
+    Object.keys(plan.map[period]).forEach(function(pn){
+      if(!sp[pn])sp[pn]={};
+      Object.keys(plan.map[period][pn]).forEach(function(cl){
+        var d=plan.map[period][pn][cl];
+        if(!sp[pn][cl])sp[pn][cl]={qty:0,amount:0};
+        sp[pn][cl].qty=Math.round((Number(sp[pn][cl].qty)||0)+d.qty);
+        sp[pn][cl].amount=Math.round((Number(sp[pn][cl].amount)||0)+d.amount);
+      });
+    });
+    if(!lastPeriod||ccPeriodToMs(period)>ccPeriodToMs(lastPeriod))lastPeriod=period;
+  });
+  var _now=Date.now();
+  plan.keys.forEach(function(k){costcoDB.ccPdfDone[k]=_now;});
+  /* 중복방지 기록은 180일까지만 보관 (무한 증가 방지 — 예전 값 1은 시각이 없으니 이번에 시각을 채운다) */
+  Object.keys(costcoDB.ccPdfDone).forEach(function(k){
+    var t=Number(costcoDB.ccPdfDone[k])||0;
+    if(t<1000000000000){costcoDB.ccPdfDone[k]=_now;return;}
+    if(_now-t>180*86400000)delete costcoDB.ccPdfDone[k];
+  });
+  costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
+  saveCostcoDB(true);
+  closeCcPdfSalesModal();
+  var n=plan.keys.length,q=plan.qty,a=plan.amt;
+  _ccPdfSalesPlan=null;
+  if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();
+  var _pds=Object.keys(plan.map).sort(function(x,y){return ccPeriodToMs(x)-ccPeriodToMs(y);}).join(", ");
+  alert("코스트코 탭에 매출을 등록했습니다.\n\n"+n+"줄 · "+q+"개 · "+a.toLocaleString()+"원"+(_pds?"\n판매일: "+_pds:""));
 }
 /* 초기화 — 업로드한 PDF 주문목록·누적 송장번호·대상 엑셀을 모두 비우고 처음 상태로 되돌림.
    (PDF 연속 업로드 누적은 그대로 유지되므로, 새 작업을 시작할 때만 사용) */
