@@ -11503,7 +11503,9 @@ function _rowSetFormulaVal(rowXml,col,rowNum,value){
   var m=rowXml.match(re);
   if(!m||m[2].indexOf("<f")<0)return rowXml;
   var inner=m[2].replace(/<v>[\s\S]*?<\/v>/,"");
-  return rowXml.replace(re,m[1]+inner+"<v>"+(Math.round(Number(value)||0))+"</v>"+m[3]);
+  /* 치환은 반드시 함수로 — 문자열로 넘기면 수식 안의 $V$1 이 치환패턴($1 등)으로 해석돼 셀이 깨진다 */
+  var out=m[1]+inner+"<v>"+(Math.round(Number(value)||0))+"</v>"+m[3];
+  return rowXml.replace(re,function(){return out;});
 }
 function _rowSetCell(rowXml,col,rowNum,value,isNum){
   var ref=col+rowNum;
@@ -11522,7 +11524,8 @@ function _rowSetCell(rowXml,col,rowNum,value,isNum){
   }else{
     body='<c r="'+ref+'"'+sAttr+' t="inlineStr"><is><t xml:space="preserve">'+_xmlEsc(value)+'</t></is></c>';
   }
-  if(m)return rowXml.replace(re,body);
+  /* 치환은 함수로 — 값에 $ 가 있으면 문자열 치환에서 $1 등으로 해석돼 XML이 깨진다 */
+  if(m)return rowXml.replace(re,function(){return body;});
   /* 없으면 열 순서에 맞춰 삽입 */
   var colNum=_colNum(col);
   var cells=rowXml.match(/<c [\s\S]*?(?:\/>|<\/c>)/g)||[];
@@ -11531,8 +11534,8 @@ function _rowSetCell(rowXml,col,rowNum,value,isNum){
     var cr=(cells[i].match(/r="([A-Z]+)\d+"/)||[])[1];
     if(cr&&_colNum(cr)>colNum){insertAt=cells[i];break;}
   }
-  if(insertAt)return rowXml.replace(insertAt,body+insertAt);
-  return rowXml.replace(/<\/row>$/,body+"</row>");
+  if(insertAt)return rowXml.replace(insertAt,function(mm){return body+mm;});
+  return rowXml.replace(/<\/row>$/,function(){return body+"</row>";});
 }
 function _colNum(s){var n=0;for(var i=0;i<s.length;i++)n=n*26+(s.charCodeAt(i)-64);return n;}
 function _colLetter(n){var s="";while(n>0){var m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
