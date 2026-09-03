@@ -4153,6 +4153,14 @@ var EXT_CHANNELS=["아난티","팩토리","트래블메이트"];
 var UPLOAD_CHANNELS=["백화점","코스트코","홈쇼핑"].concat(EXT_CHANNELS);
 /* 홈 표의 채널 키 ↔ 업로드 채널명 */
 var UP_KEY={"백화점":"daily","코스트코":"costco","홈쇼핑":"hs"};
+/* 홈쇼핑은 방송 후 반품이 몇 달에 걸쳐 잡혀 판매일보 일자합계와 월 확정치가 다르다.
+   확정 실적표(HS_ACTUAL / PREV_YEAR_SALES)가 정본이므로 그 달 값이 있으면 업로드보다 우선한다. */
+var TAB_FIRST={"홈쇼핑":1};
+function _hsFixed(Y,m){
+  if(typeof HS_ACTUAL==="undefined")return null;
+  var v=HS_ACTUAL[Y+"-"+String(m).padStart(2,"0")];
+  return v===undefined?null:v;
+}
 var extSalesDB=(function(){
   try{var d=JSON.parse(localStorage.getItem("extSalesDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}
   return {};
@@ -4384,6 +4392,12 @@ function _homeYtdByMonth(now){
     mo._src[um]={};
     Object.keys(UP_KEY).forEach(function(nm){
       var k=UP_KEY[nm];
+      if(TAB_FIRST[nm]&&_hsFixed(Y,um)!==null){
+        /* 확정 실적표가 있는 달 — mo[um][k] 에 이미 그 값이 들어 있다 */
+        mo._src[um][nm]="실적표";
+        if(mo[um][k])has[k][um]=1;
+        return;
+      }
       var r=_chMonthVal(nm,k,Y,um,mo[um][k]);
       mo[um][k]=r.v;
       mo._src[um][nm]=r.src;
@@ -4420,6 +4434,7 @@ function _homePrevMonth(now,m){
   var out={daily:0,costco:0,hs:0,total:0},any=!!v;
   Object.keys(UP_KEY).forEach(function(nm){
     var k=UP_KEY[nm];
+    if(TAB_FIRST[nm]&&v&&v[k]!==undefined){out[k]=v[k]||0;return;}   /* 확정 실적표 우선 */
     var up=_extMonthSum(nm,PY,m);
     if(up){out[k]=up;any=true;}
     else if(v)out[k]=v[k]||0;
@@ -4620,7 +4635,8 @@ function renderExtSales(){
     +'<b>올린 날</b>은 업로드 값, <b>안 올린 날</b>은 각 탭(일별매출·코스트코) 실적으로 <b>일자 단위로 섞어</b> 계산합니다. '
     +'월 단위로 적으면 그 달은 통째로 그 값을 씁니다. '
     +'<span style="color:#94a3b8">회색 숫자 = 지금 홈 표에 반영되는 값</span> · '
-    +'<span style="color:#0891b2;font-weight:700">N일 ✕</span> = 그 달 일자 업로드 건수(누르면 삭제)</div>';
+    +'<span style="color:#0891b2;font-weight:700">N일 ✕</span> = 그 달 일자 업로드 건수(누르면 삭제)<br>'
+    +'<b>홈쇼핑</b>은 반품이 나중에 잡혀 판매일보 합계와 월 확정치가 달라서, <b>확정 실적표가 있는 달은 그 값</b>을 씁니다.</div>';
   h+='</div>';
   /* 탭에서 계산된 값(업로드 없을 때 쓰이는 값)을 회색으로 안내한다 */
   var _byM=(typeof _homeYtdByMonth==="function")?_homeYtdByMonth(new Date()):null;
@@ -4638,7 +4654,9 @@ function renderExtSales(){
       var ph="0";
       var eff=(_byM&&_byM.months[m-1])?((UP_KEY[c]?_byM.months[m-1][UP_KEY[c]]:_byM.months[m-1][c])||0):0;
       if(!v&&eff)ph=eff.toLocaleString();
-      var tip=v?"월 단위로 넣은 값 — 이 달은 통째로 이 값을 씁니다"
+      var hsFix=(c==="홈쇼핑"&&_hsFixed(Y,m)!==null);
+      var tip=hsFix?("홈쇼핑은 확정 실적표가 우선입니다 — 올린 값이 있어도 "+eff.toLocaleString()+"원이 반영됩니다")
+        :v?"월 단위로 넣은 값 — 이 달은 통째로 이 값을 씁니다"
         :(dayN?(dayN+"일치를 일자로 올렸습니다. 나머지 날은 "+(UP_KEY[c]?"탭 실적":"0")+"으로 채워 "+eff.toLocaleString()+"원")
               :(UP_KEY[c]?"비우면 탭 실적을 씁니다":"이 채널은 업로드·직접입력으로만 들어갑니다"));
       h+='<td style="padding:2px 4px;border:1px solid var(--ec-line);position:relative">'
