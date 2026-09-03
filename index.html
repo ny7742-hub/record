@@ -477,7 +477,7 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .ytd-tbl th,.ytd-tbl td{padding:6px 8px}
 .ytd-tbl tr.ytd-cur td{background:#fffbeb}
 /* 월별 표(22열) — 열 폭을 고정해 가로 스크롤 없이 화면을 꽉 채우고, 경계선을 진하게 */
-.ytd-mtbl{table-layout:fixed;width:100%;min-width:1160px}   /* 1160px 미만에서는 글자가 잘리므로 그때만 가로 스크롤 */
+.ytd-tbl.ytd-mtbl{table-layout:fixed;width:100%;min-width:1160px}   /* 1160px 미만에서는 글자가 잘리므로 그때만 가로 스크롤 */
 .ytd-mtbl th,.ytd-mtbl td{padding:3px 3px !important;font-size:10px !important;
   border:1px solid #7ea6bd !important;overflow:hidden;white-space:nowrap}
 .ytd-mtbl thead th{font-size:10.5px !important;text-align:center}
@@ -486,6 +486,24 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .ytd-mtbl tr.ytd-total td{font-size:10.5px !important;border-top:2px solid #4d7f96 !important}
 .ytd-mtbl td.ytd-rate{font-size:9.5px !important;letter-spacing:-.2px}
 .ytd-mtbl td.ytd-rate.ytd-r3{font-size:8.5px !important}
+/* 표에 주어진 폭을 재서 글자 크기를 올린다(_ytdMonthlyScale) — 창 크기가 아니라 실제 표 폭 기준이라
+   사이드바·확대배율이 달라도 글자가 잘리지 않는다. m2=1360px 이상, m3=1600px 이상 */
+.ytd-mtbl.ytd-m2 th,.ytd-mtbl.ytd-m2 td{font-size:11.5px !important;padding:4px 4px !important}
+.ytd-mtbl.ytd-m2 thead th{font-size:12px !important}
+.ytd-mtbl.ytd-m2 thead th.ytd-rh{font-size:10.5px !important}
+.ytd-mtbl.ytd-m2 td.ytd-mon{font-size:12.5px !important}
+.ytd-mtbl.ytd-m2 tr.ytd-total td{font-size:12px !important}
+.ytd-mtbl.ytd-m2 td.ytd-rate{font-size:11px !important}
+.ytd-mtbl.ytd-m2 td.ytd-rate.ytd-r3{font-size:10px !important}
+.ytd-mtbl.ytd-m3 th,.ytd-mtbl.ytd-m3 td{font-size:13px !important;padding:5px 6px !important}
+.ytd-mtbl.ytd-m3 thead th{font-size:13px !important}
+.ytd-mtbl.ytd-m3 thead th.ytd-rh{font-size:12px !important}
+.ytd-mtbl.ytd-m3 td.ytd-mon{font-size:14px !important}
+.ytd-mtbl.ytd-m3 tr.ytd-total td{font-size:13.5px !important}
+.ytd-mtbl.ytd-m3 td.ytd-rate{font-size:12.5px !important}
+.ytd-mtbl.ytd-m3 td.ytd-rate.ytd-r3{font-size:11.5px !important}
+/* 누적(4열) 표는 화면이 넓어도 지나치게 늘어나지 않게 */
+.ytd-stbl{max-width:1000px}
 .ytd-tbl{border-collapse:collapse;width:100%;min-width:520px}
 .ytd-tbl th{background:var(--ec-headbg);color:#1b6e82;font-size:12px;font-weight:800;padding:7px 10px;border:1px solid var(--ec-line);white-space:nowrap}
 .ytd-tbl td{font-size:14px;padding:7px 10px;border:1px solid var(--ec-line);white-space:nowrap}
@@ -668,7 +686,7 @@ label{font-size:14px!important}
 </div>
 
 <div id="page-home">
-<div class="main" style="max-width:1280px">
+<div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="background:linear-gradient(120deg,#154f5e,#1b6e82 60%,#2a8aa0);color:#fff;position:relative;overflow:hidden">
     <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between;position:relative">
       <div>
@@ -4568,8 +4586,8 @@ function _renderHomeYtdMonthly(now,wrap){
   /* ── 머리글 2줄 ── */
   var h='<table class="ytd-tbl ytd-mtbl">';
   /* 22열을 화면 폭에 나눠 담는다 — 합 100% (금년·전년 5.2 / 전년대비 3.35 / 월 3.9) */
-  h+='<colgroup><col style="width:4.0%">';
-  for(var ci=0;ci<7;ci++)h+='<col style="width:4.9%"><col style="width:4.9%"><col style="width:3.8%">';
+  h+='<colgroup><col style="width:4.6%">';
+  for(var ci=0;ci<7;ci++)h+='<col style="width:4.95%"><col style="width:4.95%"><col style="width:3.7%">';
   h+='</colgroup><thead>';
   h+='<tr><th rowspan="2" class="ytd-mfix">월</th>';
   CH.forEach(function(c){h+='<th colspan="3" style="'+GB+'">'+_esc(c[0])+'</th>';});
@@ -4628,7 +4646,24 @@ function _renderHomeYtdMonthly(now,wrap){
     +'백화점·코스트코는 앱 입력 실적, 홈쇼핑과 '+PY+'년은 PlayMD 매장판매일보(실판매금액) 기준입니다. '
     +M+'월은 아직 진행중이고, '+(M+1)+'월 이후는 전년 실적만 표시됩니다.</div>';
   wrap.innerHTML=h;
+  _ytdMonthlyScale();
 }
+/* 표에 실제로 주어진 폭을 재서 글자 크기 단계를 정한다.
+   10px는 1160px까지, 11.5px는 1360px부터, 13px는 1600px부터 안 잘린다. */
+function _ytdMonthlyScale(){
+  var wrap=document.getElementById("homeYtd");
+  if(!wrap)return;
+  var t=wrap.querySelector("table.ytd-mtbl");
+  if(!t)return;
+  var W=wrap.clientWidth;
+  t.classList.remove("ytd-m2","ytd-m3");
+  if(W>=1600)t.classList.add("ytd-m3");
+  else if(W>=1360)t.classList.add("ytd-m2");
+}
+window.addEventListener("resize",function(){
+  clearTimeout(_ytdMonthlyScale._t);
+  _ytdMonthlyScale._t=setTimeout(_ytdMonthlyScale,150);
+});
 function renderHomeYtd(now){
   var wrap=document.getElementById("homeYtd");
   if(!wrap)return;
@@ -4647,7 +4682,7 @@ function renderHomeYtd(now){
     ["코스트코","costco"],
     ["홈쇼핑","hs"]
   ].concat(EXT_CHANNELS.map(function(c){return [c,c];}));
-  var h='<table class="ytd-tbl"><thead><tr>'
+  var h='<table class="ytd-tbl ytd-stbl"><thead><tr>'
     +'<th style="text-align:left">구분</th>'
     +'<th style="text-align:right">'+Y+'년 1~'+M+'월</th>'
     +'<th style="text-align:right">'+(Y-1)+'년 1~'+M+'월</th>'
