@@ -12716,6 +12716,8 @@ function renderPopupPage(){
     var sc=POPUP_STATUS_COLOR[row.status]||"#374151";
     var _isEnd=row.status==="종료";
     var _dim=_isEnd?"opacity:0.6;background:#f9fafb;":"";
+    /* 진행중·진행예정은 행 높이를 2배로 — 종료된 매장은 기존 높이 유지 */
+    var _taH=_isEnd?42:129;
     /* 종료↔비종료 경계에 분계선 */
     if(_prevStatus!==null && _isEnd!==(_prevStatus==="종료")){
       h+='<tr><td colspan="11" style="padding:0;border-top:2px solid #6366f1;background:linear-gradient(90deg,#6366f1,#a5b4fc,#6366f1);height:2px"></td></tr>';
@@ -12738,16 +12740,16 @@ function renderPopupPage(){
     h+='<td class="pop-fix" style="left:202px;padding:5px 2px">'+_popDateCell(i,"start",row.start)+'</td>';
     h+='<td class="pop-fix" style="left:294px;padding:5px 2px;border-right:2px solid #e0e7ff">'+_popDateCell(i,"end",row.end)+'</td>';
     /* 내용 */
-    h+='<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:18px;font-family:inherit;resize:none;overflow:auto;height:42px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
+    h+='<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:18px;font-family:inherit;resize:none;overflow:auto;height:'+_taH+'px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
     /* 주소 · 영업시간 · 프로모션 */
     var _popCell=function(field,val,ph,color){
-      return '<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\''+field+'\',this.value)" placeholder="'+ph+'" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:16px;font-family:inherit;'+(color?"color:"+color+";":"")+'resize:none;overflow:auto;height:42px;box-sizing:border-box">'+_esc(val||"")+'</textarea></td>';
+      return '<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\''+field+'\',this.value)" placeholder="'+ph+'" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:16px;font-family:inherit;'+(color?"color:"+color+";":"")+'resize:none;overflow:auto;height:'+_taH+'px;box-sizing:border-box">'+_esc(val||"")+'</textarea></td>';
     };
     h+=_popCell("addr",row.addr,"주소","");
     h+=_popCell("hours",row.hours,"영업시간","");
     h+=_popCell("promo",row.promo,"프로모션","#b45309");
     /* 비고 */
-    h+='<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:18px;font-family:inherit;color:#6366f1;resize:none;overflow:auto;height:42px;box-sizing:border-box">'+_esc(row.note||"")+'</textarea></td>';
+    h+='<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\'note\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:18px;font-family:inherit;color:#6366f1;resize:none;overflow:auto;height:'+_taH+'px;box-sizing:border-box">'+_esc(row.note||"")+'</textarea></td>';
     /* 삭제 */
     h+='<td style="padding:8px 4px;text-align:center"><button onclick="deletePopupRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;color:#ef4444;font-size:15px;font-weight:700;cursor:pointer;padding:5px 8px">삭제</button></td>';
     h+='</tr>';
