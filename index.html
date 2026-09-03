@@ -4193,6 +4193,76 @@ function _extYm(v,defYear){
   if(m)return (defYear||new Date().getFullYear())+"-"+String(+m[1]).padStart(2,"0");
   return "";
 }
+/* 업로드 키는 'YYYY-MM'(월) 또는 'YYYY-MM-DD'(일) 둘 다 쓴다.
+   파일에 일자가 있으면 일자로 저장해 두고, 올리지 않은 날은 각 탭 실적으로 채운다. */
+function _extKey(v,defYear){
+  if(v instanceof Date)return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0")+"-"+String(v.getDate()).padStart(2,"0");
+  var s=String(v==null?"":v).trim();
+  if(!s)return "";
+  var m=s.match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})(?:\D|$)/);      /* 2026-09-01 */
+  if(m)return m[1]+"-"+String(+m[2]).padStart(2,"0")+"-"+String(+m[3]).padStart(2,"0");
+  m=s.match(/^(\d{2})\D+(\d{1,2})\D+(\d{1,2})(?:\D|$)/);          /* 26-09-01 */
+  if(m)return (2000+ +m[1])+"-"+String(+m[2]).padStart(2,"0")+"-"+String(+m[3]).padStart(2,"0");
+  m=s.match(/^(\d{8})$/);                                          /* 20260901 */
+  if(m)return s.slice(0,4)+"-"+s.slice(4,6)+"-"+s.slice(6,8);
+  return _extYm(s,defYear);                                        /* 나머지는 월 단위 */
+}
+/* 그 달에 올려둔 '일자' 항목들 → {일(숫자문자열): 금액} */
+function _extDaysIn(ch,Y,m){
+  var pre=Y+"-"+String(m).padStart(2,"0")+"-",out={};
+  var o=extSalesDB[ch]||{};
+  Object.keys(o).forEach(function(k){
+    if(k.indexOf(pre)!==0)return;
+    var d=String(+k.slice(8));
+    out[d]=(out[d]||0)+(Number(o[k])||0);
+  });
+  return out;
+}
+/* 각 탭의 '일별' 실적 → {일: 금액}. 홈쇼핑은 일별 자료가 없어 null */
+function _tabDayMap(key,Y,m){
+  var ym=Y+"-"+String(m).padStart(2,"0"),out={};
+  if(key==="daily"){
+    var md=(typeof dailySalesDB!=="undefined"&&dailySalesDB.data)?(dailySalesDB.data[ym]||{}):{};
+    Object.keys(md).forEach(function(day){
+      var sum=0;
+      Object.keys(md[day]).forEach(function(st){
+        sum+=Number(String(md[day][st].edi||0).replace(/,/g,""))||0;
+      });
+      if(sum)out[String(+day)]=sum;
+    });
+    return out;
+  }
+  if(key==="costco"){
+    if(typeof costcoDB==="undefined"||!costcoDB.sales)return out;
+    Object.keys(costcoDB.sales).forEach(function(k){
+      var mm=k.match(/^(\d+)\/(\d+)$/);
+      if(!mm||+mm[1]!==m)return;
+      var amt=ccPeriodTotal(k).amount;
+      if(amt)out[String(+mm[2])]=(out[String(+mm[2])]||0)+amt;
+    });
+    return out;
+  }
+  return null;   /* 홈쇼핑 — 월 단위만 있음 */
+}
+/* 한 채널·한 달의 최종 금액.
+   ① 월 단위로 올렸으면 그 값  ② 일자 업로드가 있으면 그 날은 업로드값 + 나머지 날은 탭값
+   ③ 아무것도 안 올렸으면 탭값 */
+function _chMonthVal(chName,key,Y,m,tabMonthVal){
+  var ym=Y+"-"+String(m).padStart(2,"0");
+  var mv=_extGet(chName,ym);
+  if(mv)return {v:mv,src:"월"};
+  var up=_extDaysIn(chName,Y,m),ud=Object.keys(up);
+  if(!ud.length)return {v:tabMonthVal||0,src:"탭"};
+  var sum=0;ud.forEach(function(d){sum+=up[d];});
+  var td=key?_tabDayMap(key,Y,m):null;
+  if(!td)return {v:sum,src:"일"};                 /* 일별 탭 자료가 없으면 업로드분만 */
+  var mixed=false;
+  Object.keys(td).forEach(function(d){
+    if(up[d]===undefined){sum+=td[d];mixed=true;}
+  });
+  return {v:sum,src:mixed?"혼합":"일",days:ud.length};
+}
+
 /* 업로드 파싱 — 헤더에서 월/날짜·금액(·채널) 열을 찾는다.
    채널 열이 없으면 화면에서 고른 채널로 전부 넣는다. */
 function _extParseRows(rows,fallbackCh){
@@ -4216,7 +4286,7 @@ function _extParseRows(rows,fallbackCh){
   var out={},n=0,skip=0;
   for(var i=hRow+1;i<rows.length;i++){
     var row=rows[i];if(!row)continue;
-    var ym=_extYm(row[cYm],Y);
+    var ym=_extKey(row[cYm],Y);   /* 일자가 있으면 YYYY-MM-DD 로 보존 */
     var amt=_extNum(row[cAmt]);
     if(!ym||!amt){if(String(row[cYm]||"").trim()||String(row[cAmt]||"").trim())skip++;continue;}
     var ch=cCh>=0?String(row[cCh]||"").trim():"";
@@ -4227,7 +4297,7 @@ function _extParseRows(rows,fallbackCh){
     if(!ch)ch=fallbackCh;
     if(!ch||UPLOAD_CHANNELS.indexOf(ch)<0){skip++;continue;}
     if(!out[ch])out[ch]={};
-    out[ch][ym]=(out[ch][ym]||0)+amt;   /* 일자별이면 월 합계로 모인다 */
+    out[ch][ym]=(out[ch][ym]||0)+amt;   /* 같은 키(월 또는 일)끼리 합산 */
     n++;
   }
   return n?{map:out,rows:n,skip:skip}:null;
@@ -4290,31 +4360,30 @@ function _homeYtdByMonth(now){
     mo[hm].hs=hv;
     if(hv)has.hs[hm]=1;
   }
-  /* 업로드 우선 — 백화점·코스트코·홈쇼핑도 올린 달이 있으면 그 값으로 대체한다.
-     (업로드가 없는 달만 각 탭에서 계산한 값을 그대로 쓴다) */
+  /* 업로드 우선 — 올린 날은 업로드값, 안 올린 날은 각 탭 실적(일자 단위로 섞는다).
+     월 단위로 올렸으면 그 달은 통째로 업로드값을 쓴다. */
+  mo._src={};
   for(var um=1;um<=M;um++){
-    var uym=Y+"-"+String(um).padStart(2,"0");
+    mo._src[um]={};
     Object.keys(UP_KEY).forEach(function(nm){
-      var v=_extGet(nm,uym);
-      if(!v)return;
-      mo[um][UP_KEY[nm]]=v;
-      has[UP_KEY[nm]][um]=1;
+      var k=UP_KEY[nm];
+      var r=_chMonthVal(nm,k,Y,um,mo[um][k]);
+      mo[um][k]=r.v;
+      mo._src[um][nm]=r.src;
+      if(r.v)has[k][um]=1;
     });
-  }
-  /* 아난티·팩토리·트래블메이트 — 업로드/직접입력한 월별 금액 */
-  for(var em=1;em<=M;em++){
-    var eym=Y+"-"+String(em).padStart(2,"0");
     EXT_CHANNELS.forEach(function(c){
-      var v=_extGet(c,eym);
-      mo[em][c]=v;
-      if(v)has[c][em]=1;
+      var r2=_chMonthVal(c,null,Y,um,0);
+      mo[um][c]=r2.v;
+      mo._src[um][c]=r2.src;
+      if(r2.v)has[c][um]=1;
     });
   }
   for(var t=1;t<=M;t++){
     mo[t].total=mo[t].daily+mo[t].costco+mo[t].hs;
     EXT_CHANNELS.forEach(function(c){mo[t].total+=mo[t][c];});
   }
-  return {M:M,Y:Y,months:mo.slice(1),has:has};
+  return {M:M,Y:Y,months:mo.slice(1),has:has,src:mo._src||{}};
 }
 /* 전년 같은 달 실적 */
 function _homePrevMonth(now,m){
@@ -4482,6 +4551,17 @@ function extEdit(ch,ym,val){
   renderExtSales();
   if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
 }
+/* 그 달에 일자 단위로 올린 값들을 지운다 (다시 탭 실적으로 돌아감) */
+function extClearDays(ch,ym){
+  var days=_extDaysIn(ch,+ym.slice(0,4),+ym.slice(5,7));
+  var n=Object.keys(days).length;
+  if(!n)return;
+  if(!confirm(ch+" "+(+ym.slice(5,7))+"월에 일자로 올린 "+n+"건을 지울까요?\n(지우면 그 달은 다시 탭 실적을 씁니다)"))return;
+  var pre=ym+"-";
+  Object.keys(extSalesDB[ch]||{}).forEach(function(k){if(k.indexOf(pre)===0)delete extSalesDB[ch][k];});
+  saveExtSales();renderExtSales();
+  if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
+}
 function renderExtSales(){
   var el=document.getElementById("extBox");if(!el)return;
   var Y=new Date().getFullYear(),M=new Date().getMonth()+1;
@@ -4494,7 +4574,11 @@ function renderExtSales(){
     +'<input type="file" accept=".xlsx,.xls" style="display:none" onchange="extLoadFile(this)"></label>';
   h+='<span id="extMsg" style="font-size:12px;color:#15803d;font-weight:600"></span>';
   h+='<span style="font-size:11px;color:#94a3b8;margin-left:auto">엑셀에 <b>월(또는 날짜)</b>·<b>매출</b> 열이 있으면 됩니다 · <b>채널</b> 열이 있으면 채널별로 자동 분류</span>';
-  h+='<div style="width:100%;font-size:11px;color:#5b6675;margin-top:2px">올린 달은 그 값이 <b>우선</b>이고, 비운 달만 각 탭(일별매출·코스트코·홈쇼핑) 실적을 씁니다. <span style="color:#94a3b8">회색 숫자 = 탭에서 계산된 값</span></div>';
+  h+='<div style="width:100%;font-size:11px;color:#5b6675;margin-top:2px">'
+    +'<b>올린 날</b>은 업로드 값, <b>안 올린 날</b>은 각 탭(일별매출·코스트코) 실적으로 <b>일자 단위로 섞어</b> 계산합니다. '
+    +'월 단위로 적으면 그 달은 통째로 그 값을 씁니다. '
+    +'<span style="color:#94a3b8">회색 숫자 = 지금 홈 표에 반영되는 값</span> · '
+    +'<span style="color:#0891b2;font-weight:700">N일 ✕</span> = 그 달 일자 업로드 건수(누르면 삭제)</div>';
   h+='</div>';
   /* 탭에서 계산된 값(업로드 없을 때 쓰이는 값)을 회색으로 안내한다 */
   var _byM=(typeof _homeYtdByMonth==="function")?_homeYtdByMonth(new Date()):null;
@@ -4507,17 +4591,22 @@ function renderExtSales(){
     h+='<tr><td class="ytd-lab">'+m+'월</td>';
     UPLOAD_CHANNELS.forEach(function(c){
       var v=_extGet(c,ym);tot[c]+=v;
-      /* 업로드가 없으면 탭 값이 쓰이므로 그 숫자를 placeholder 로 보여준다 */
+      var dayN=Object.keys(_extDaysIn(c,Y,m)).length;      /* 일자 단위로 올린 날 수 */
+      /* 실제로 홈 표에 반영되는 값(업로드+탭 혼합)을 회색으로 보여준다 */
       var ph="0";
-      if(!v&&_byM&&UP_KEY[c]){
-        var tv=(_byM.months[m-1]||{})[UP_KEY[c]]||0;
-        if(tv)ph=tv.toLocaleString();
-      }
-      h+='<td style="padding:2px 4px;border:1px solid var(--ec-line)">'
+      var eff=(_byM&&_byM.months[m-1])?((UP_KEY[c]?_byM.months[m-1][UP_KEY[c]]:_byM.months[m-1][c])||0):0;
+      if(!v&&eff)ph=eff.toLocaleString();
+      var tip=v?"월 단위로 넣은 값 — 이 달은 통째로 이 값을 씁니다"
+        :(dayN?(dayN+"일치를 일자로 올렸습니다. 나머지 날은 "+(UP_KEY[c]?"탭 실적":"0")+"으로 채워 "+eff.toLocaleString()+"원")
+              :(UP_KEY[c]?"비우면 탭 실적을 씁니다":"이 채널은 업로드·직접입력으로만 들어갑니다"));
+      h+='<td style="padding:2px 4px;border:1px solid var(--ec-line);position:relative">'
         +'<input value="'+(v?v.toLocaleString():"")+'" placeholder="'+ph+'" inputmode="numeric"'
-        +' title="'+(v?"업로드/직접입력 값":(UP_KEY[c]?"비우면 탭 실적을 씁니다":"이 채널은 업로드·직접입력으로만 들어갑니다"))+'"'
+        +' title="'+_esc(tip)+'"'
         +' onchange="extEdit(&quot;'+_esc(c)+'&quot;,&quot;'+ym+'&quot;,this.value)"'
-        +' style="width:100%;border:none;outline:none;text-align:right;font-size:13px;background:transparent;font-variant-numeric:tabular-nums">'
+        +' style="width:100%;border:none;outline:none;text-align:right;font-size:13px;background:transparent;font-variant-numeric:tabular-nums'
+        +(dayN&&!v?';color:#1b6e82;font-weight:700':'')+'">'
+        +(dayN?'<span onclick="extClearDays(&quot;'+_esc(c)+'&quot;,&quot;'+ym+'&quot;)" title="이 달의 일자 업로드 '+dayN+'건 지우기"'
+              +' style="position:absolute;left:3px;top:50%;transform:translateY(-50%);font-size:9px;color:#0891b2;cursor:pointer;font-weight:700">'+dayN+'일 ✕</span>':'')
         +'</td>';
     });
     h+='</tr>';
@@ -4549,7 +4638,7 @@ function extLoadFile(input){
         var sum=ms.reduce(function(a,k){return a+res.map[c][k];},0);
         return "  "+c+" : "+ms.length+"개월 · "+sum.toLocaleString()+"원 ("+ms[0]+"~"+ms[ms.length-1]+")";
       });
-      if(!confirm("아래 내용으로 등록할까요? (같은 달은 덮어씁니다)\n\n"+lines.join("\n")
+      if(!confirm("아래 내용으로 등록할까요? (같은 날짜·같은 달은 덮어씁니다)\n올린 날은 이 값을 쓰고, 안 올린 날은 각 탭 실적으로 채웁니다.\n\n"+lines.join("\n")
         +(res.skip?"\n\n※ 인식 못한 "+res.skip+"줄은 건너뜁니다.":"")))return;
       chs.forEach(function(c){
         Object.keys(res.map[c]).forEach(function(ym){_extSet(c,ym,res.map[c][ym]);});
