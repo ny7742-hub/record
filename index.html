@@ -4188,7 +4188,7 @@ function _extNum(v){
 }
 /* 셀 값 → "YYYY-MM". 날짜(2026-09-01·2026/9/1·엑셀 날짜)든 월(2026-09·26년9월·9월)이든 받는다 */
 function _extYm(v,defYear){
-  if(v instanceof Date)return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0");
+  if(v instanceof Date)return _extDateYmd(v).slice(0,7);
   var s=String(v==null?"":v).trim();
   if(!s)return "";
   var m=s.match(/^(\d{4})\D+(\d{1,2})(?:\D|$)/);            /* 2026-09 · 2026/09/01 */
@@ -4203,8 +4203,16 @@ function _extYm(v,defYear){
 }
 /* 업로드 키는 'YYYY-MM'(월) 또는 'YYYY-MM-DD'(일) 둘 다 쓴다.
    파일에 일자가 있으면 일자로 저장해 두고, 올리지 않은 날은 각 탭 실적으로 채운다. */
+/* 엑셀에서 읽은 날짜는 자정보다 1분 남짓 모자라게 나오는 경우가 있다(1900 날짜계 반올림).
+   그대로 쓰면 9/1 이 8/31 로 하루 밀리므로, 자정 5분 전 이후면 다음 날로 올린다. */
+function _extDateYmd(v){
+  var d=new Date(v.getTime());
+  var secs=d.getHours()*3600+d.getMinutes()*60+d.getSeconds();
+  if(secs>=86100)d=new Date(d.getTime()+(86400-secs)*1000);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
 function _extKey(v,defYear){
-  if(v instanceof Date)return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0")+"-"+String(v.getDate()).padStart(2,"0");
+  if(v instanceof Date)return _extDateYmd(v);
   var s=String(v==null?"":v).trim();
   if(!s)return "";
   var m=s.match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})(?:\D|$)/);      /* 2026-09-01 */
@@ -4648,11 +4656,12 @@ function renderExtSales(){
     var ym=Y+"-"+String(m).padStart(2,"0");
     h+='<tr><td class="ytd-lab">'+m+'월</td>';
     UPLOAD_CHANNELS.forEach(function(c){
-      var v=_extGet(c,ym);tot[c]+=v;
+      var v=_extGet(c,ym);
       var dayN=Object.keys(_extDaysIn(c,Y,m)).length;      /* 일자 단위로 올린 날 수 */
       /* 실제로 홈 표에 반영되는 값(업로드+탭 혼합)을 회색으로 보여준다 */
       var ph="0";
       var eff=(_byM&&_byM.months[m-1])?((UP_KEY[c]?_byM.months[m-1][UP_KEY[c]]:_byM.months[m-1][c])||0):0;
+      tot[c]+=eff;                       /* 누적은 '실제 반영되는 값' 기준 */
       if(!v&&eff)ph=eff.toLocaleString();
       var hsFix=(c==="홈쇼핑"&&_hsFixed(Y,m)!==null);
       var tip=hsFix?("홈쇼핑은 확정 실적표가 우선입니다 — 올린 값이 있어도 "+eff.toLocaleString()+"원이 반영됩니다")
@@ -4671,7 +4680,7 @@ function renderExtSales(){
     });
     h+='</tr>';
   }
-  h+='<tr class="ytd-total"><td>누적</td>'
+  h+='<tr class="ytd-total"><td title="홈 표에 실제로 반영되는 값의 합계">누적(반영값)</td>'
     +UPLOAD_CHANNELS.map(function(c){return '<td class="ytd-num">'+tot[c].toLocaleString()+'</td>';}).join("")
     +'</tr></tbody></table>';
   el.innerHTML=h;
