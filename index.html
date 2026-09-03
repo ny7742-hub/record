@@ -476,6 +476,16 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .ytd-tbl tr.ytd-cur .ytd-mfix{background:#fffbeb}
 .ytd-tbl th,.ytd-tbl td{padding:6px 8px}
 .ytd-tbl tr.ytd-cur td{background:#fffbeb}
+/* 월별 표(22열) — 열 폭을 고정해 가로 스크롤 없이 화면을 꽉 채우고, 경계선을 진하게 */
+.ytd-mtbl{table-layout:fixed;width:100%;min-width:1160px}   /* 1160px 미만에서는 글자가 잘리므로 그때만 가로 스크롤 */
+.ytd-mtbl th,.ytd-mtbl td{padding:3px 3px !important;font-size:10px !important;
+  border:1px solid #7ea6bd !important;overflow:hidden;white-space:nowrap}
+.ytd-mtbl thead th{font-size:10.5px !important;text-align:center}
+.ytd-mtbl thead th.ytd-rh{font-size:9px !important;letter-spacing:-.3px}
+.ytd-mtbl td.ytd-mon{font-size:11px !important}
+.ytd-mtbl tr.ytd-total td{font-size:10.5px !important;border-top:2px solid #4d7f96 !important}
+.ytd-mtbl td.ytd-rate{font-size:9.5px !important;letter-spacing:-.2px}
+.ytd-mtbl td.ytd-rate.ytd-r3{font-size:8.5px !important}
 .ytd-tbl{border-collapse:collapse;width:100%;min-width:520px}
 .ytd-tbl th{background:var(--ec-headbg);color:#1b6e82;font-size:12px;font-weight:800;padding:7px 10px;border:1px solid var(--ec-line);white-space:nowrap}
 .ytd-tbl td{font-size:14px;padding:7px 10px;border:1px solid var(--ec-line);white-space:nowrap}
@@ -4536,28 +4546,43 @@ function setHomeYtdView(v){
   try{localStorage.setItem("homeYtdView",v);}catch(e){}
   renderHomeYtd(new Date());
 }
+/* 월별 표는 칸이 좁아 소수점을 빼고 보여준다 — 정확한 값은 툴팁 */
+function _ytdRateCellS(cur,prev){
+  if(!prev)return '<td class="ytd-rate ytd-flat">–</td>';
+  var diff=cur-prev,rate=diff/Math.abs(prev)*100;
+  var cls=rate>0.05?"ytd-up":(rate<-0.05?"ytd-down":"ytd-flat");
+  var ar=rate>0.05?"▲":(rate<-0.05?"▼":"");
+  var txt=Math.abs(rate)>=1000?((rate>0?"+":"-")+"999%"):((rate>0?"+":"")+Math.round(rate)+"%");
+  if(Math.abs(rate)>=100)cls+=" ytd-r3";                 /* 세 자리는 칸에 맞춰 더 작게 */
+  return '<td class="ytd-rate '+cls+'" title="'+(diff>=0?"+":"")+diff.toLocaleString()+'원 · '+rate.toFixed(1)+'%">'
+    +(ar?'<span style="font-size:9px">'+ar+'</span>':'')+txt+'</td>';
+}
 /* 월별 표 — 채널마다 금년·전년·전년대비 3열, 1~12월 전체 + 맨 아래 누적매출 */
 function _renderHomeYtdMonthly(now,wrap){
   var b=_homeYtdByMonth(now),Y=b.Y,M=b.M,PY=Y-1;
   var CH=[["백화점","daily"],["코스트코","costco"],["홈쇼핑","hs"]]
     .concat(EXT_CHANNELS.map(function(c){return [c,c];}));
-  var won=function(n){return (n||n===0)?Number(n).toLocaleString():"";};
-  var GB="border-left:2px solid #b9d5da";   /* 채널 사이 구분선 */
+  var won=function(n){return (n||n===0)?Math.round(Number(n)/1000).toLocaleString():"";};
+  var GB="border-left:2px solid #4d7f96";   /* 채널 사이 구분선 */
 
   /* ── 머리글 2줄 ── */
-  var h='<table class="ytd-tbl"><thead>';
-  h+='<tr><th rowspan="2" class="ytd-mfix" style="min-width:56px">월</th>';
+  var h='<table class="ytd-tbl ytd-mtbl">';
+  /* 22열을 화면 폭에 나눠 담는다 — 합 100% (금년·전년 5.2 / 전년대비 3.35 / 월 3.9) */
+  h+='<colgroup><col style="width:4.0%">';
+  for(var ci=0;ci<7;ci++)h+='<col style="width:4.9%"><col style="width:4.9%"><col style="width:3.8%">';
+  h+='</colgroup><thead>';
+  h+='<tr><th rowspan="2" class="ytd-mfix">월</th>';
   CH.forEach(function(c){h+='<th colspan="3" style="'+GB+'">'+_esc(c[0])+'</th>';});
   h+='<th colspan="3" style="'+GB+';background:#dbe7ea">합계</th></tr>';
   h+='<tr>';
   CH.forEach(function(){
-    h+='<th style="'+GB+';text-align:right">'+Y+'</th>'
-     +'<th style="text-align:right">'+PY+'</th>'
-     +'<th style="text-align:right">전년대비</th>';
+    h+='<th style="'+GB+'">'+Y+'</th>'
+     +'<th>'+PY+'</th>'
+     +'<th class="ytd-rh">전년대비</th>';
   });
-  h+='<th style="'+GB+';text-align:right;background:#dbe7ea">'+Y+'</th>'
-   +'<th style="text-align:right;background:#dbe7ea">'+PY+'</th>'
-   +'<th style="text-align:right;background:#dbe7ea">전년대비</th>';
+  h+='<th style="'+GB+';background:#dbe7ea">'+Y+'</th>'
+   +'<th style="background:#dbe7ea">'+PY+'</th>'
+   +'<th class="ytd-rh" style="background:#dbe7ea">전년대비</th>';
   h+='</tr></thead><tbody>';
 
   /* ── 1~12월 ── */
@@ -4567,20 +4592,20 @@ function _renderHomeYtdMonthly(now,wrap){
     var pv=_homePrevMonth(now,m);
     var future=(m>M);
     h+='<tr'+(m===M?' class="ytd-cur"':(future?' style="opacity:.55"':''))+'>';
-    h+='<td class="ytd-mon ytd-mfix">'+m+'월'+(m===M?' <span style="font-size:10px;color:#b45309;font-weight:700">진행중</span>':'')+'</td>';
+    h+='<td class="ytd-mon ytd-mfix"'+(m===M?' title="이번 달 — 아직 진행중"':'')+'>'+m+'월'+(m===M?'<span style="color:#b45309">*</span>':'')+'</td>';
     CH.forEach(function(c){
       var k=c[1];
       var cv=cur?(cur[k]||0):null;
       var pvv=pv?(pv[k]||0):null;
       h+='<td class="ytd-num" style="'+GB+'">'+(cv===null?"":won(cv))+'</td>';
       h+='<td class="ytd-prev">'+(pvv===null?"":won(pvv))+'</td>';
-      h+=(cv!==null&&pvv)?_ytdRateCell(cv,pvv):'<td class="ytd-rate ytd-flat">–</td>';
+      h+=(cv!==null&&pvv)?_ytdRateCellS(cv,pvv):'<td class="ytd-rate ytd-flat">–</td>';
     });
     var ct=cur?(cur.total||0):null, pt=pv?(pv.total||0):null;
     if(!future&&pt&&!ct)miss.push(m+"월");
     h+='<td class="ytd-num" style="'+GB+';color:#0f5c6e">'+(ct===null?"":won(ct))+'</td>';
     h+='<td class="ytd-prev">'+(pt===null?"":won(pt))+'</td>';
-    h+=(ct!==null&&pt)?_ytdRateCell(ct,pt):'<td class="ytd-rate ytd-flat">–</td>';
+    h+=(ct!==null&&pt)?_ytdRateCellS(ct,pt):'<td class="ytd-rate ytd-flat">–</td>';
     h+='</tr>';
   }
 
@@ -4591,15 +4616,15 @@ function _renderHomeYtdMonthly(now,wrap){
     var k=c[1],cv=cum[k]||0,pvv=(pcum.any?(pcum[k]||0):0);
     h+='<td class="ytd-num" style="'+GB+'">'+won(cv)+'</td>';
     h+='<td class="ytd-num" style="color:#5b6675">'+(pvv?won(pvv):"–")+'</td>';
-    h+=pvv?_ytdRateCell(cv,pvv):'<td class="ytd-rate ytd-flat">–</td>';
+    h+=pvv?_ytdRateCellS(cv,pvv):'<td class="ytd-rate ytd-flat">–</td>';
   });
   h+='<td class="ytd-num" style="'+GB+'">'+won(cum.total)+'</td>';
   h+='<td class="ytd-num" style="color:#5b6675">'+(pcum.any?won(pcum.total):"–")+'</td>';
-  h+=pcum.any?_ytdRateCell(cum.total,pcum.total):'<td class="ytd-rate ytd-flat">–</td>';
+  h+=pcum.any?_ytdRateCellS(cum.total,pcum.total):'<td class="ytd-rate ytd-flat">–</td>';
   h+='</tr></tbody></table>';
 
   if(miss.length)h+='<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;margin-top:8px;line-height:1.5;font-weight:700">⚠ 올해 실적이 없는 달 — '+_esc(miss.join(" · "))+'<br><span style="font-weight:600;color:#94a3b8">실제 매출 0이 아니라 미입력일 수 있습니다.</span></div>';
-  h+='<div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.5">단위: 원 · '
+  h+='<div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.5">단위: 천원 · '
     +'백화점·코스트코는 앱 입력 실적, 홈쇼핑과 '+PY+'년은 PlayMD 매장판매일보(실판매금액) 기준입니다. '
     +M+'월은 아직 진행중이고, '+(M+1)+'월 이후는 전년 실적만 표시됩니다.</div>';
   wrap.innerHTML=h;
