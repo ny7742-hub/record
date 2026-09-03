@@ -4314,7 +4314,10 @@ function _extParseRows(rows,fallbackCh){
     out[ch][ym]=(out[ch][ym]||0)+amt;   /* 같은 키(월 또는 일)끼리 합산 */
     n++;
   }
-  return n?{map:out,rows:n,skip:skip}:null;
+  if(n)return {map:out,rows:n,skip:skip,hasCh:cCh>=0};
+  /* 채널 열도 없고 지정도 없어서 한 줄도 못 넣은 경우 — 어느 채널인지 물어봐야 한다 */
+  if(cCh<0&&!fallbackCh)return {needCh:true,skip:skip};
+  return null;
 }
 
 /* ── 연 누적 매출(1월~현재월) ──
@@ -4584,11 +4587,6 @@ function extToggle(){
   if(t)t.textContent=open?"▴ 접기":"▾ 매출 업로드";
   if(open)renderExtSales();
 }
-function extPickCh(v){var c=document.getElementById("extCh");if(c)c.value=v;renderExtSales();}
-function _extCurCh(){
-  var c=document.getElementById("extCh");
-  return (c&&c.value)||UPLOAD_CHANNELS[0];
-}
 /* 직접 입력 — 표의 칸에서 수정 */
 function extEdit(ch,ym,val){
   _extSet(ch,ym,_extNum(val));
@@ -4610,18 +4608,14 @@ function extClearDays(ch,ym){
 function renderExtSales(){
   var el=document.getElementById("extBox");if(!el)return;
   var Y=new Date().getFullYear(),M=new Date().getMonth()+1;
-  var ch=_extCurCh();
   var h='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
-  h+='<span style="font-size:12px;font-weight:700;color:#1b6e82">채널</span>';
-  h+='<select id="extCh" onchange="renderExtSales()" style="padding:5px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
-    +UPLOAD_CHANNELS.map(function(c){return '<option'+(c===ch?' selected':'')+'>'+_esc(c)+'</option>';}).join("")+'</select>';
   h+='<label style="cursor:pointer"><span class="bs" style="padding:5px 12px;font-size:12px;display:inline-block">📁 엑셀 업로드</span>'
     +'<input type="file" id="extFileIn" accept=".xlsx,.xls" style="display:none" onchange="extLoadFile(this)"></label>';
   h+='<div id="extDropZone" class="drop-zone" onclick="document.getElementById(\'extFileIn\').click()"'
     +' style="padding:5px 14px;font-size:11.5px;gap:6px;min-height:0" title="엑셀을 여기로 끌어다 놓으세요">'
     +'<span style="font-size:15px;line-height:1">⬇</span><span>여기로 <u>끌어다 놓기</u></span></div>';
   h+='<span id="extMsg" style="font-size:12px;color:#15803d;font-weight:600"></span>';
-  h+='<span style="font-size:11px;color:#94a3b8;margin-left:auto">파일에 <b>매장구분</b> 열이 있으면 채널을 <b>자동 분류</b>합니다 (없을 때만 위에서 고른 채널로)</span>';
+  h+='<span style="font-size:11px;color:#94a3b8;margin-left:auto">파일의 <b>매장구분</b> 열로 채널을 <b>자동 분류</b>합니다 · 그 열이 없는 파일이면 올릴 때 한 번 물어봅니다</span>';
   h+='<div style="width:100%;font-size:11px;color:#5b6675;margin-top:2px">'
     +'<b>올린 날</b>은 업로드 값, <b>안 올린 날</b>은 각 탭(일별매출·코스트코) 실적으로 <b>일자 단위로 섞어</b> 계산합니다. '
     +'월 단위로 적으면 그 달은 통째로 그 값을 씁니다. '
@@ -4663,7 +4657,6 @@ function renderExtSales(){
     +UPLOAD_CHANNELS.map(function(c){return '<td class="ytd-num">'+tot[c].toLocaleString()+'</td>';}).join("")
     +'</tr></tbody></table>';
   el.innerHTML=h;
-  var sel=document.getElementById("extCh");if(sel)sel.value=ch;
   var dz=document.getElementById("extDropZone");
   if(dz){
     dz.addEventListener("dragover",function(e){e.preventDefault();dz.classList.add("dragover");});
@@ -4679,7 +4672,6 @@ function extLoadFile(input){
   var f=input.files&&input.files[0];input.value="";
   if(!f)return;
   if(!/\.(xlsx|xls)$/i.test(f.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
-  var ch=_extCurCh();
   var msg0=document.getElementById("extMsg");
   if(msg0){msg0.style.color="#b45309";msg0.textContent="읽는 중… 큰 파일은 30초 정도 걸릴 수 있습니다";}
   var reader=new FileReader();
@@ -4690,9 +4682,17 @@ function extLoadFile(input){
       /* 서식·수식은 읽지 않는다 — 8만 줄짜리 판매일보에서 체감 속도가 크게 달라진다 */
       var wb=XLSX.read(e.target.result,{type:"array",cellDates:true,cellText:false,cellNF:false,cellStyles:false,cellFormula:false});
       var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
-      var res=_extParseRows(rows,ch);
+      var res=_extParseRows(rows,"");
+      if(res&&res.needCh){
+        /* '매장구분' 열이 없는 파일 — 어느 채널인지 한 번만 묻는다 */
+        var pick=prompt("이 파일에는 '매장구분' 열이 없습니다.\n어느 채널의 매출인가요?\n\n"+UPLOAD_CHANNELS.join(" / "),UPLOAD_CHANNELS[0]);
+        if(pick===null)return;
+        var hit=UPLOAD_CHANNELS.filter(function(c){return c===String(pick).trim();})[0];
+        if(!hit){alert("채널 이름을 정확히 적어주세요.\n\n"+UPLOAD_CHANNELS.join(" / "));return;}
+        res=_extParseRows(rows,hit);
+      }
       if(!res){
-        alert("매출을 읽지 못했습니다.\n\n엑셀 첫 시트에 '월'(또는 날짜)과 '매출'(또는 금액) 열이 필요합니다.\n'채널' 열이 있으면 채널별로 자동 분류되고, 없으면 위에서 고른 채널로 들어갑니다.");
+        alert("매출을 읽지 못했습니다.\n\n엑셀 첫 시트에 '판매일자'(또는 월)와 '실판매금액'(또는 매출) 열이 필요합니다.\n'매장구분' 열이 있으면 채널별로 자동 분류됩니다.");
         return;
       }
       var chs=Object.keys(res.map);
