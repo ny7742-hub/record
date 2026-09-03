@@ -289,6 +289,9 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 
 /* ── 코스트코 테이블 ── */
 #page-costco>.main{max-width:none;padding:16px 20px}
+/* 팝업 표 — 화면이 좁아도 열을 찌그러뜨리지 않고 가로 스크롤한다
+   (안 그러면 '일정'의 26/04/30 ~ 26/12/31 이 잘린다. 모바일은 아래 미디어쿼리가 덮어씀) */
+#popupTable{min-width:1466px}
 /* 팝업 고정 칼럼 */
 .pop-fix{position:sticky;z-index:2;background:white}
 #popupTable thead .pop-fix{background:#f1f5f9}
@@ -302,6 +305,8 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
   #popupTable td{padding:4px 3px !important}
   #popupTable input[type=date]{min-width:120px !important;font-size:13px !important;padding:6px 4px !important}
   #popupTable input[type=text]{min-width:88px !important;font-size:13px !important}
+  /* 일정은 '26/04/30 ~ 26/12/31' 한 줄이라 더 넓게 */
+  #popupTable input.pop-range{min-width:140px !important}
   #popupTable select{font-size:14px !important}
   #popupTable textarea{min-width:150px !important;font-size:13px !important}
 }
@@ -12736,11 +12741,7 @@ function renderPopupPage(){
     h+='<td class="pop-fix" style="left:122px;padding:5px 3px"><input type="text" value="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 4px;font-size:16px;box-sizing:border-box"></td>';
     /* 일정 — 시작~종료를 한 칸에. 26/08/21 형태로 입력하거나 📅로 달력 선택 */
     h+='<td class="pop-fix" style="left:202px;padding:5px 2px;border-right:2px solid #e0e7ff">'
-      +'<div style="display:flex;align-items:center;gap:3px">'
-      +'<span style="flex:1;min-width:0">'+_popDateCell(i,"start",row.start)+'</span>'
-      +'<span style="color:#94a3b8;font-size:13px;flex:none">~</span>'
-      +'<span style="flex:1;min-width:0">'+_popDateCell(i,"end",row.end)+'</span>'
-      +'</div></td>';
+      +_popRangeCell(i,row.start,row.end)+'</td>';
     /* 내용 */
     h+='<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:18px;font-family:inherit;resize:none;overflow:auto;height:'+_taH+'px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
     /* 주소 · 영업시간 · 프로모션 */
@@ -12801,6 +12802,34 @@ function _popParseDate(v){
   if(!(mo>=1&&mo<=12)||!(da>=1&&da<=31))return "";
   return y+"-"+String(mo).padStart(2,"0")+"-"+String(da).padStart(2,"0");
 }
+/* 일정 한 칸 — '26/04/30 ~ 26/12/31' 한 줄로 보이고, 📅 두 개로 각각 달력 선택 */
+/* 일정 한 칸 — 시작일·종료일을 세로 두 줄로 보여주고, 오른쪽 📅 하나로 둘 다 고른다.
+   📅를 누르면 시작일 달력이 먼저 열리고, 고르면 이어서 종료일 달력이 열린다. */
+function _popRangeCell(i,start,end){
+  var ids="poprg-s-"+i, ide="poprg-e-"+i;
+  var line=function(field,val,id,ph){
+    return '<input type="text" class="pop-range" value="'+_esc(_popFmtDate(val))+'" placeholder="'+ph+'"'
+      +' title="26/08/21 · 260821 형식으로 입력하거나 오른쪽 📅를 누르세요"'
+      +' onchange="popupEditDate('+i+',&quot;'+field+'&quot;,this.value)"'
+      +' style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:4px 3px;font-size:15px;text-align:center;box-sizing:border-box">'
+      +'<input type="date" id="'+id+'" value="'+(val||"")+'" onchange="popupEditDate('+i+',&quot;'+field+'&quot;,this.value)" style="position:absolute;width:1px;height:1px;opacity:0;border:0;padding:0">';
+  };
+  return '<div style="display:flex;align-items:center;gap:4px">'
+    +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">'
+      +line("start",start,ids,"26/08/21")
+      +line("end",end,ide,"26/09/03")
+    +'</div>'
+    +'<span onclick="_popPickRange('+i+')" title="달력에서 시작일·종료일 선택"'
+    +' style="flex:none;cursor:pointer;font-size:14px;opacity:.65;user-select:none;padding:2px">📅</span>'
+    +'</div>';
+}
+/* 📅 한 번으로 시작일 → 종료일 순서대로 고르기.
+   달력을 고르면 표가 다시 그려지므로, 이어서 열 행 번호를 밖에 들고 있는다. */
+var _popChainEnd=null;
+function _popPickRange(i){
+  _popChainEnd=i;
+  _popOpenPicker("poprg-s-"+i);
+}
 function _popDateCell(i,field,val){
   var id="popdt-"+field+"-"+i;
   return '<div style="position:relative">'
@@ -12822,6 +12851,10 @@ function popupEditDate(i,field,val){
   if(!iso&&raw!==""){renderPopupPage();return;}
   popupDB[i][field]=iso;
   savePopupDB();
+  if(field==="start"&&_popChainEnd===i){
+    var _j=_popChainEnd;_popChainEnd=null;
+    setTimeout(function(){_popOpenPicker("poprg-e-"+_j);},60);
+  }
   renderPopupPage();
 }
 function popupEdit(i,field,val){
