@@ -662,7 +662,14 @@ label{font-size:14px!important}
       <button class="ytd-tab" data-v="month" onclick="setHomeYtdView('month')">월별</button>
     </div>
   </div>
-  <div class="card" style="margin-bottom:14px;padding:12px 16px"><div id="homeYtd" style="overflow-x:auto"></div></div>
+  <div class="card" style="margin-bottom:14px;padding:12px 16px">
+    <div id="homeYtd" style="overflow-x:auto"></div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #cfe0e5">
+      <button onclick="extToggle()" class="bs" style="padding:5px 12px;font-size:12px"><span id="extToggleTxt">▾ 매출 입력·업로드</span></button>
+      <span style="font-size:11px;color:#94a3b8;margin-left:8px">아난티 · 신세계팩토리 · 트래블메이트</span>
+      <div id="extBox" style="display:none;margin-top:10px;overflow-x:auto"></div>
+    </div>
+  </div>
   <div class="sec-title" style="margin-top:4px">🛍️ 카테고리</div>
   <div id="homeShelfRev" class="home-shelf-rev"></div>
   <div id="homeShelf" class="home-shelf"></div>
@@ -1714,6 +1721,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults",
   "onlineStockDB":"ws/onlineStock",
+  "extSalesDB":"ws/extSales",
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -1866,6 +1874,18 @@ function wsSetItem(key,value){
   apply("ws/quickCreds","quickCreds",
     function(d){if(d&&typeof d==="object")quickCreds=d;},
     function(){if(typeof renderQuickLaunch==="function")renderQuickLaunch();}
+  );
+  /* 추가 채널 매출 (아난티·신세계팩토리·트래블메이트, 팀 공유) */
+  apply("ws/extSales","extSalesDB",
+    function(d){if(d&&typeof d==="object")extSalesDB=d;},
+    function(){
+      var ph=document.getElementById("page-home");
+      if(ph&&ph.style.display!=="none"){
+        if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
+        var bx=document.getElementById("extBox");
+        if(bx&&bx.style.display!=="none"&&typeof renderExtSales==="function")renderExtSales();
+      }
+    }
   );
   /* 코스트코: Firebase 리스너 없이 localStorage만 사용 (덮어쓰기 방지) */
   /* Firebase에는 백업용으로만 저장하고, 읽기는 localStorage 기준 */
@@ -4125,6 +4145,80 @@ function _yoyHtml(cur,prev,prevMk){
   var arrow=rate>0.05?"▲ +":(rate<-0.05?"▼ ":"");
   return line+'<span class="yy-badge '+cls+'" title="'+tip+'">'+arrow+rate.toFixed(1)+'%</span></div>';
 }
+/* ── 추가 채널 매출 (아난티 · 신세계팩토리 · 트래블메이트) ──
+   백화점/코스트코/홈쇼핑처럼 앱 안에서 만들어지는 실적이 아니라 밖에서 받아오므로
+   엑셀 업로드(또는 직접 입력)로 월별 금액을 넣는다. 저장은 {채널:{"YYYY-MM":금액}} 팀 공유. */
+var EXT_CHANNELS=["아난티","신세계팩토리","트래블메이트"];
+var extSalesDB=(function(){
+  try{var d=JSON.parse(localStorage.getItem("extSalesDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}
+  return {};
+})();
+function saveExtSales(){wsSetItem("extSalesDB",JSON.stringify(extSalesDB));}
+function _extGet(ch,ym){return Number((extSalesDB[ch]||{})[ym])||0;}
+function _extSet(ch,ym,amt){
+  if(!extSalesDB[ch])extSalesDB[ch]={};
+  amt=Number(amt)||0;
+  if(amt)extSalesDB[ch][ym]=amt; else delete extSalesDB[ch][ym];
+}
+function _extNum(v){
+  var n=Number(String(v==null?"":v).replace(/[,\s원]/g,""));
+  return isNaN(n)?0:n;
+}
+/* 셀 값 → "YYYY-MM". 날짜(2026-09-01·2026/9/1·엑셀 날짜)든 월(2026-09·26년9월·9월)이든 받는다 */
+function _extYm(v,defYear){
+  if(v instanceof Date)return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0");
+  var s=String(v==null?"":v).trim();
+  if(!s)return "";
+  var m=s.match(/^(\d{4})\D+(\d{1,2})(?:\D|$)/);            /* 2026-09 · 2026/09/01 */
+  if(m)return m[1]+"-"+String(+m[2]).padStart(2,"0");
+  m=s.match(/^(\d{2})\D+(\d{1,2})(?:\D|$)/);                 /* 26-09 · 26년 9월 */
+  if(m)return (2000+ +m[1])+"-"+String(+m[2]).padStart(2,"0");
+  m=s.match(/^(\d{6})$/);                                     /* 202609 */
+  if(m)return s.slice(0,4)+"-"+s.slice(4,6);
+  m=s.match(/^(\d{1,2})\s*월$/);                              /* 9월 → 올해 */
+  if(m)return (defYear||new Date().getFullYear())+"-"+String(+m[1]).padStart(2,"0");
+  return "";
+}
+/* 업로드 파싱 — 헤더에서 월/날짜·금액(·채널) 열을 찾는다.
+   채널 열이 없으면 화면에서 고른 채널로 전부 넣는다. */
+function _extParseRows(rows,fallbackCh){
+  var Y=new Date().getFullYear();
+  var hRow=-1,cYm=-1,cAmt=-1,cCh=-1;
+  for(var r=0;r<Math.min(10,rows.length);r++){
+    var H=(rows[r]||[]).map(function(c){return String(c).replace(/\s/g,"");});
+    var iy=-1,ia=-1,ic=-1;
+    /* 날짜 열을 먼저 잡고, 금액은 그 열을 빼고 찾는다 ('매출월' 같은 헤더가 금액으로 잡히지 않게) */
+    H.forEach(function(h,idx){
+      if(iy<0&&(/^월$/.test(h)||/(년월|판매일|일자|날짜|기준월|매출월|출고일)/.test(h)))iy=idx;
+    });
+    H.forEach(function(h,idx){
+      if(idx===iy)return;
+      if(ia<0&&/(매출|금액|합계)/.test(h))ia=idx;
+      if(ic<0&&/^(채널|구분|매장|거래처|점포)$/.test(h))ic=idx;
+    });
+    if(iy>=0&&ia>=0){hRow=r;cYm=iy;cAmt=ia;cCh=ic;break;}
+  }
+  if(hRow<0)return null;
+  var out={},n=0,skip=0;
+  for(var i=hRow+1;i<rows.length;i++){
+    var row=rows[i];if(!row)continue;
+    var ym=_extYm(row[cYm],Y);
+    var amt=_extNum(row[cAmt]);
+    if(!ym||!amt){if(String(row[cYm]||"").trim()||String(row[cAmt]||"").trim())skip++;continue;}
+    var ch=cCh>=0?String(row[cCh]||"").trim():"";
+    if(ch){
+      var hit=EXT_CHANNELS.filter(function(c){return ch.indexOf(c)>=0||c.indexOf(ch)>=0;})[0];
+      ch=hit||"";
+    }
+    if(!ch)ch=fallbackCh;
+    if(!ch||EXT_CHANNELS.indexOf(ch)<0){skip++;continue;}
+    if(!out[ch])out[ch]={};
+    out[ch][ym]=(out[ch][ym]||0)+amt;   /* 일자별이면 월 합계로 모인다 */
+    n++;
+  }
+  return n?{map:out,rows:n,skip:skip}:null;
+}
+
 /* ── 연 누적 매출(1월~현재월) ──
    올해는 앱에 입력된 실데이터에서, 전년은 내장된 PREV_YEAR_SALES에서 뽑아 채널별로 비교한다. */
 /* 월별 실적 — 연 누적표와 월별표가 같은 값을 쓰도록 여기 한 곳에서만 집계한다.
@@ -4132,7 +4226,11 @@ function _yoyHtml(cur,prev,prevMk){
 function _homeYtdByMonth(now){
   var Y=now.getFullYear(),M=now.getMonth()+1;
   var mo=[],has={daily:{},costco:{},hs:{}};
-  for(var i=0;i<=M;i++)mo[i]={m:i,daily:0,costco:0,hs:0,total:0};
+  EXT_CHANNELS.forEach(function(c){has[c]={};});
+  for(var i=0;i<=M;i++){
+    mo[i]={m:i,daily:0,costco:0,hs:0,total:0};
+    EXT_CHANNELS.forEach(function(c){mo[i][c]=0;});
+  }
   /* 매장별 일별매출(EDI) */
   if(typeof dailySalesDB!=="undefined"&&dailySalesDB.data){
     for(var m=1;m<=M;m++){
@@ -4178,7 +4276,19 @@ function _homeYtdByMonth(now){
     mo[hm].hs=hv;
     if(hv)has.hs[hm]=1;
   }
-  for(var t=1;t<=M;t++)mo[t].total=mo[t].daily+mo[t].costco+mo[t].hs;
+  /* 아난티·신세계팩토리·트래블메이트 — 업로드/직접입력한 월별 금액 */
+  for(var em=1;em<=M;em++){
+    var eym=Y+"-"+String(em).padStart(2,"0");
+    EXT_CHANNELS.forEach(function(c){
+      var v=_extGet(c,eym);
+      mo[em][c]=v;
+      if(v)has[c][em]=1;
+    });
+  }
+  for(var t=1;t<=M;t++){
+    mo[t].total=mo[t].daily+mo[t].costco+mo[t].hs;
+    EXT_CHANNELS.forEach(function(c){mo[t].total+=mo[t][c];});
+  }
   return {M:M,Y:Y,months:mo.slice(1),has:has};
 }
 /* 전년 같은 달 실적 */
@@ -4189,9 +4299,16 @@ function _homePrevMonth(now,m){
 }
 function _homeYtdThisYear(now){
   /* 월별 집계를 합쳐서 쓴다 — 연 누적표와 월별표가 어긋나지 않게 계산은 한 곳에서만 한다 */
-  var b=_homeYtdByMonth(now),daily=0,costco=0,hs=0;
-  b.months.forEach(function(x){daily+=x.daily;costco+=x.costco;hs+=x.hs;});
-  return {daily:daily,costco:costco,hs:hs,total:daily+costco+hs,has:b.has,M:b.M};
+  var b=_homeYtdByMonth(now),daily=0,costco=0,hs=0,ext={},extTot=0;
+  EXT_CHANNELS.forEach(function(c){ext[c]=0;});
+  b.months.forEach(function(x){
+    daily+=x.daily;costco+=x.costco;hs+=x.hs;
+    EXT_CHANNELS.forEach(function(c){ext[c]+=x[c]||0;});
+  });
+  EXT_CHANNELS.forEach(function(c){extTot+=ext[c];});
+  var out={daily:daily,costco:costco,hs:hs,total:daily+costco+hs+extTot,has:b.has,M:b.M};
+  EXT_CHANNELS.forEach(function(c){out[c]=ext[c];});
+  return out;
 }
 /* 전년에는 실적이 있는데 올해는 입력이 없는 달 목록 — 증감률이 실제 감소인지 미입력인지 구분해준다 */
 function _ytdMissingMonths(cur,key,now){
@@ -4234,7 +4351,9 @@ function _renderHomeYtdMonthly(now,wrap){
   var won=function(n){return Number(n||0).toLocaleString();};
   var h='<table class="ytd-tbl"><thead><tr>'
     +'<th>월</th><th style="text-align:right">백화점</th><th style="text-align:right">코스트코</th>'
-    +'<th style="text-align:right">홈쇼핑</th><th style="text-align:right">합계</th>'
+    +'<th style="text-align:right">홈쇼핑</th>'
+    +EXT_CHANNELS.map(function(c){return '<th style="text-align:right">'+c+'</th>';}).join("")
+    +'<th style="text-align:right">합계</th>'
     +'<th style="text-align:right">'+(Y-1)+'년 동월</th><th style="text-align:right">전년대비</th>'
     +'</tr></thead><tbody>';
   var miss=[];
@@ -4249,6 +4368,7 @@ function _renderHomeYtdMonthly(now,wrap){
       +'<td class="ytd-num">'+won(x.daily)+'</td>'
       +'<td class="ytd-num">'+won(x.costco)+'</td>'
       +'<td class="ytd-num">'+won(x.hs)+'</td>'
+      +EXT_CHANNELS.map(function(c){return '<td class="ytd-num">'+won(x[c]||0)+'</td>';}).join("")
       +'<td class="ytd-num" style="color:#0f5c6e">'+won(x.total)+'</td>'
       +'<td class="ytd-prev">'+(pv?won(pv.total):"–")+'</td>'
       +(pv?_ytdRateCell(x.total,pv.total):'<td class="ytd-rate ytd-flat">–</td>')
@@ -4257,7 +4377,9 @@ function _renderHomeYtdMonthly(now,wrap){
   var cur=_homeYtdThisYear(now),prev=_homeYtdPrevYear(now);
   h+='<tr class="ytd-total"><td style="text-align:center">누적</td>'
     +'<td class="ytd-num">'+won(cur.daily)+'</td><td class="ytd-num">'+won(cur.costco)+'</td>'
-    +'<td class="ytd-num">'+won(cur.hs)+'</td><td class="ytd-num">'+won(cur.total)+'</td>'
+    +'<td class="ytd-num">'+won(cur.hs)+'</td>'
+    +EXT_CHANNELS.map(function(c){return '<td class="ytd-num">'+won(cur[c]||0)+'</td>';}).join("")
+    +'<td class="ytd-num">'+won(cur.total)+'</td>'
     +'<td class="ytd-num" style="color:#5b6675">'+(prev.any?won(prev.total):"–")+'</td>'
     +(prev.any?_ytdRateCell(cur.total,prev.total):'<td class="ytd-rate ytd-flat">–</td>')
     +'</tr></tbody></table>';
@@ -4284,7 +4406,7 @@ function renderHomeYtd(now){
     ["백화점","daily"],
     ["코스트코","costco"],
     ["홈쇼핑","hs"]
-  ];
+  ].concat(EXT_CHANNELS.map(function(c){return [c,c];}));
   var h='<table class="ytd-tbl"><thead><tr>'
     +'<th style="text-align:left">구분</th>'
     +'<th style="text-align:right">'+Y+'년 1~'+M+'월</th>'
@@ -4293,13 +4415,14 @@ function renderHomeYtd(now){
     +'</tr></thead><tbody>';
   var warn=[];
   rows.forEach(function(r){
-    var miss=_ytdMissingMonths(cur,r[1],now);
+    var _isExt=EXT_CHANNELS.indexOf(r[1])>=0;
+    var miss=_isExt?[]:_ytdMissingMonths(cur,r[1],now);
     if(miss.length)warn.push(r[0]+" "+miss.join("·")+"월");
     var flag=miss.length?' <span style="color:#d97706;font-weight:800" title="'+miss.join("·")+'월 실적이 입력되지 않았습니다. 실제 감소가 아니라 미입력일 수 있습니다.">⚠</span>':"";
     h+='<tr><td class="ytd-lab">'+r[0]+flag+'</td>'
       +'<td class="ytd-num">'+won(cur[r[1]])+'</td>'
-      +'<td class="ytd-prev">'+(prev.any?won(prev[r[1]]):"–")+'</td>'
-      +(prev.any?_ytdRateCell(cur[r[1]],prev[r[1]]):'<td class="ytd-rate ytd-flat">–</td>')
+      +'<td class="ytd-prev">'+((prev.any&&!_isExt)?won(prev[r[1]]):"–")+'</td>'
+      +((prev.any&&!_isExt)?_ytdRateCell(cur[r[1]],prev[r[1]]):'<td class="ytd-rate ytd-flat">–</td>')
       +'</tr>';
   });
   h+='<tr class="ytd-total"><td>합계</td>'
@@ -4313,6 +4436,99 @@ function renderHomeYtd(now){
     +M+'월은 아직 진행중이라 남은 일수만큼 차이가 날 수 있습니다.</div>';
   wrap.innerHTML=h;
 }
+/* ── 추가 채널 매출 업로드/입력 UI (홈) ── */
+function extToggle(){
+  var b=document.getElementById("extBox"),t=document.getElementById("extToggleTxt");
+  if(!b)return;
+  var open=b.style.display==="none";
+  b.style.display=open?"block":"none";
+  if(t)t.textContent=open?"▴ 접기":"▾ 매출 입력·업로드";
+  if(open)renderExtSales();
+}
+function extPickCh(v){var c=document.getElementById("extCh");if(c)c.value=v;renderExtSales();}
+function _extCurCh(){
+  var c=document.getElementById("extCh");
+  return (c&&c.value)||EXT_CHANNELS[0];
+}
+/* 직접 입력 — 표의 칸에서 수정 */
+function extEdit(ch,ym,val){
+  _extSet(ch,ym,_extNum(val));
+  saveExtSales();
+  renderExtSales();
+  if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
+}
+function renderExtSales(){
+  var el=document.getElementById("extBox");if(!el)return;
+  var Y=new Date().getFullYear(),M=new Date().getMonth()+1;
+  var ch=_extCurCh();
+  var h='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+  h+='<span style="font-size:12px;font-weight:700;color:#1b6e82">채널</span>';
+  h+='<select id="extCh" onchange="renderExtSales()" style="padding:5px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
+    +EXT_CHANNELS.map(function(c){return '<option'+(c===ch?' selected':'')+'>'+_esc(c)+'</option>';}).join("")+'</select>';
+  h+='<label style="cursor:pointer"><span class="bs" style="padding:5px 12px;font-size:12px;display:inline-block">📁 엑셀 업로드</span>'
+    +'<input type="file" accept=".xlsx,.xls" style="display:none" onchange="extLoadFile(this)"></label>';
+  h+='<span id="extMsg" style="font-size:12px;color:#15803d;font-weight:600"></span>';
+  h+='<span style="font-size:11px;color:#94a3b8;margin-left:auto">엑셀에 <b>월(또는 날짜)</b>·<b>매출</b> 열이 있으면 됩니다 · <b>채널</b> 열이 있으면 채널별로 자동 분류</span>';
+  h+='</div>';
+  h+='<table class="ytd-tbl" style="min-width:0"><thead><tr><th style="text-align:left">월</th>'
+    +EXT_CHANNELS.map(function(c){return '<th style="text-align:right">'+_esc(c)+'</th>';}).join("")
+    +'</tr></thead><tbody>';
+  var tot={};EXT_CHANNELS.forEach(function(c){tot[c]=0;});
+  for(var m=1;m<=M;m++){
+    var ym=Y+"-"+String(m).padStart(2,"0");
+    h+='<tr><td class="ytd-lab">'+m+'월</td>';
+    EXT_CHANNELS.forEach(function(c){
+      var v=_extGet(c,ym);tot[c]+=v;
+      h+='<td style="padding:2px 4px;border:1px solid var(--ec-line)">'
+        +'<input value="'+(v?v.toLocaleString():"")+'" placeholder="0" inputmode="numeric"'
+        +' onchange="extEdit(&quot;'+_esc(c)+'&quot;,&quot;'+ym+'&quot;,this.value)"'
+        +' style="width:100%;border:none;outline:none;text-align:right;font-size:13px;background:transparent;font-variant-numeric:tabular-nums">'
+        +'</td>';
+    });
+    h+='</tr>';
+  }
+  h+='<tr class="ytd-total"><td>누적</td>'
+    +EXT_CHANNELS.map(function(c){return '<td class="ytd-num">'+tot[c].toLocaleString()+'</td>';}).join("")
+    +'</tr></tbody></table>';
+  el.innerHTML=h;
+  var sel=document.getElementById("extCh");if(sel)sel.value=ch;
+}
+function extLoadFile(input){
+  var f=input.files&&input.files[0];input.value="";
+  if(!f)return;
+  if(!/\.(xlsx|xls)$/i.test(f.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
+  var ch=_extCurCh();
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+      var res=_extParseRows(rows,ch);
+      if(!res){
+        alert("매출을 읽지 못했습니다.\n\n엑셀 첫 시트에 '월'(또는 날짜)과 '매출'(또는 금액) 열이 필요합니다.\n'채널' 열이 있으면 채널별로 자동 분류되고, 없으면 위에서 고른 채널로 들어갑니다.");
+        return;
+      }
+      var chs=Object.keys(res.map);
+      var lines=chs.map(function(c){
+        var ms=Object.keys(res.map[c]).sort();
+        var sum=ms.reduce(function(a,k){return a+res.map[c][k];},0);
+        return "  "+c+" : "+ms.length+"개월 · "+sum.toLocaleString()+"원 ("+ms[0]+"~"+ms[ms.length-1]+")";
+      });
+      if(!confirm("아래 내용으로 등록할까요? (같은 달은 덮어씁니다)\n\n"+lines.join("\n")
+        +(res.skip?"\n\n※ 인식 못한 "+res.skip+"줄은 건너뜁니다.":"")))return;
+      chs.forEach(function(c){
+        Object.keys(res.map[c]).forEach(function(ym){_extSet(c,ym,res.map[c][ym]);});
+      });
+      saveExtSales();
+      renderExtSales();
+      if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
+      var msg=document.getElementById("extMsg");
+      if(msg){msg.textContent="✔ "+res.rows+"줄 반영됨";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},3000);}
+    }catch(err){alert("파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(f);
+}
+
 function renderHomeDashboard(){
   var now=new Date();
   var todayEl=document.getElementById("homeToday");
