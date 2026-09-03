@@ -4629,20 +4629,22 @@ function _renderHomeYtdMonthly(now,wrap){
 
   /* ── 누적매출 (1~현재월 vs 전년 동기) ── */
   var cum=_homeYtdThisYear(now),pcum=_homeYtdPrevYear(now);
-  h+='<tr class="ytd-total"><td class="ytd-mfix" style="text-align:center" title="1~'+M+'월 · 전년 같은 기간과 비교">누적매출<br><span style="font-size:10px;font-weight:600">1~'+M+'월</span></td>';
+  /* 누적매출 행만 원 단위 그대로 — 자릿수가 길어 _ytdMonthlyScale이 칸에 맞게 글자를 줄인다 */
+  var wonF=function(n){return (n||n===0)?Number(n).toLocaleString():"";};
+  h+='<tr class="ytd-total"><td class="ytd-mfix" style="text-align:center" title="1~'+M+'월 · 전년 같은 기간과 비교 · 원 단위">누적매출<br><span style="font-size:10px;font-weight:600">1~'+M+'월(원)</span></td>';
   CH.forEach(function(c){
     var k=c[1],cv=cum[k]||0,pvv=(pcum.any?(pcum[k]||0):0);
-    h+='<td class="ytd-num" style="'+GB+'">'+won(cv)+'</td>';
-    h+='<td class="ytd-num" style="color:#5b6675">'+(pvv?won(pvv):"–")+'</td>';
+    h+='<td class="ytd-num" style="'+GB+'">'+wonF(cv)+'</td>';
+    h+='<td class="ytd-num" style="color:#5b6675">'+(pvv?wonF(pvv):"–")+'</td>';
     h+=pvv?_ytdRateCellS(cv,pvv):'<td class="ytd-rate ytd-flat">–</td>';
   });
-  h+='<td class="ytd-num" style="'+GB+'">'+won(cum.total)+'</td>';
-  h+='<td class="ytd-num" style="color:#5b6675">'+(pcum.any?won(pcum.total):"–")+'</td>';
+  h+='<td class="ytd-num" style="'+GB+'">'+wonF(cum.total)+'</td>';
+  h+='<td class="ytd-num" style="color:#5b6675">'+(pcum.any?wonF(pcum.total):"–")+'</td>';
   h+=pcum.any?_ytdRateCellS(cum.total,pcum.total):'<td class="ytd-rate ytd-flat">–</td>';
   h+='</tr></tbody></table>';
 
   if(miss.length)h+='<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;margin-top:8px;line-height:1.5;font-weight:700">⚠ 올해 실적이 없는 달 — '+_esc(miss.join(" · "))+'<br><span style="font-weight:600;color:#94a3b8">실제 매출 0이 아니라 미입력일 수 있습니다.</span></div>';
-  h+='<div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.5">단위: 천원 · '
+  h+='<div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.5">단위: 천원(맨 아래 누적매출은 원) · '
     +'백화점·코스트코는 앱 입력 실적, 홈쇼핑과 '+PY+'년은 PlayMD 매장판매일보(실판매금액) 기준입니다. '
     +M+'월은 아직 진행중이고, '+(M+1)+'월 이후는 전년 실적만 표시됩니다.</div>';
   wrap.innerHTML=h;
@@ -4659,6 +4661,25 @@ function _ytdMonthlyScale(){
   t.classList.remove("ytd-m2","ytd-m3");
   if(W>=1600)t.classList.add("ytd-m3");
   else if(W>=1360)t.classList.add("ytd-m2");
+  _ytdTotalRowFit(t);
+}
+/* 누적매출 행은 원 단위라 자릿수가 길다 — 칸을 넘치지 않을 때까지 글자를 0.5px씩 줄인다.
+   td 쪽 font-size가 !important라 인라인도 important로 넣어야 먹는다. */
+function _ytdTotalRowFit(t){
+  var tr=t.querySelector("tr.ytd-total");
+  if(!tr)return;
+  var cells=tr.querySelectorAll("td.ytd-num");
+  if(!cells.length)return;
+  for(var i=0;i<cells.length;i++)cells[i].style.removeProperty("font-size");
+  var fs=parseFloat(getComputedStyle(cells[0]).fontSize)||10;
+  var over=function(){
+    for(var j=0;j<cells.length;j++)if(cells[j].scrollWidth>cells[j].clientWidth+1)return true;
+    return false;
+  };
+  while(over()&&fs>7.5){
+    fs-=0.5;
+    for(var k=0;k<cells.length;k++)cells[k].style.setProperty("font-size",fs+"px","important");
+  }
 }
 window.addEventListener("resize",function(){
   clearTimeout(_ytdMonthlyScale._t);
