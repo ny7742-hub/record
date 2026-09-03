@@ -665,8 +665,7 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:14px;padding:12px 16px">
     <div id="homeYtd" style="overflow-x:auto"></div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #cfe0e5">
-      <button onclick="extToggle()" class="bs" style="padding:5px 12px;font-size:12px"><span id="extToggleTxt">▾ 매출 입력·업로드</span></button>
-      <span style="font-size:11px;color:#94a3b8;margin-left:8px">아난티 · 신세계팩토리 · 트래블메이트</span>
+      <button onclick="extToggle()" class="bs" style="padding:5px 12px;font-size:12px"><span id="extToggleTxt">▾ 매출 업로드</span></button>
       <div id="extBox" style="display:none;margin-top:10px;overflow-x:auto"></div>
     </div>
   </div>
@@ -1875,7 +1874,7 @@ function wsSetItem(key,value){
     function(d){if(d&&typeof d==="object")quickCreds=d;},
     function(){if(typeof renderQuickLaunch==="function")renderQuickLaunch();}
   );
-  /* 추가 채널 매출 (아난티·신세계팩토리·트래블메이트, 팀 공유) */
+  /* 추가 채널 매출 (아난티·팩토리·트래블메이트, 팀 공유) */
   apply("ws/extSales","extSalesDB",
     function(d){if(d&&typeof d==="object")extSalesDB=d;},
     function(){
@@ -4145,13 +4144,23 @@ function _yoyHtml(cur,prev,prevMk){
   var arrow=rate>0.05?"▲ +":(rate<-0.05?"▼ ":"");
   return line+'<span class="yy-badge '+cls+'" title="'+tip+'">'+arrow+rate.toFixed(1)+'%</span></div>';
 }
-/* ── 추가 채널 매출 (아난티 · 신세계팩토리 · 트래블메이트) ──
+/* ── 추가 채널 매출 (아난티 · 팩토리 · 트래블메이트) ──
    백화점/코스트코/홈쇼핑처럼 앱 안에서 만들어지는 실적이 아니라 밖에서 받아오므로
    엑셀 업로드(또는 직접 입력)로 월별 금액을 넣는다. 저장은 {채널:{"YYYY-MM":금액}} 팀 공유. */
-var EXT_CHANNELS=["아난티","신세계팩토리","트래블메이트"];
+var EXT_CHANNELS=["아난티","팩토리","트래블메이트"];
 var extSalesDB=(function(){
   try{var d=JSON.parse(localStorage.getItem("extSalesDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}
   return {};
+})();
+/* 예전 이름(신세계팩토리)으로 저장된 값은 '팩토리'로 옮긴다 */
+(function(){
+  var old=extSalesDB&&extSalesDB["신세계팩토리"];
+  if(!old)return;
+  if(!extSalesDB["팩토리"])extSalesDB["팩토리"]={};
+  Object.keys(old).forEach(function(ym){
+    if(extSalesDB["팩토리"][ym]===undefined)extSalesDB["팩토리"][ym]=old[ym];
+  });
+  delete extSalesDB["신세계팩토리"];
 })();
 function saveExtSales(){wsSetItem("extSalesDB",JSON.stringify(extSalesDB));}
 function _extGet(ch,ym){return Number((extSalesDB[ch]||{})[ym])||0;}
@@ -4276,7 +4285,7 @@ function _homeYtdByMonth(now){
     mo[hm].hs=hv;
     if(hv)has.hs[hm]=1;
   }
-  /* 아난티·신세계팩토리·트래블메이트 — 업로드/직접입력한 월별 금액 */
+  /* 아난티·팩토리·트래블메이트 — 업로드/직접입력한 월별 금액 */
   for(var em=1;em<=M;em++){
     var eym=Y+"-"+String(em).padStart(2,"0");
     EXT_CHANNELS.forEach(function(c){
@@ -4442,7 +4451,7 @@ function extToggle(){
   if(!b)return;
   var open=b.style.display==="none";
   b.style.display=open?"block":"none";
-  if(t)t.textContent=open?"▴ 접기":"▾ 매출 입력·업로드";
+  if(t)t.textContent=open?"▴ 접기":"▾ 매출 업로드";
   if(open)renderExtSales();
 }
 function extPickCh(v){var c=document.getElementById("extCh");if(c)c.value=v;renderExtSales();}
