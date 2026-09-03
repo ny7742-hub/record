@@ -1599,8 +1599,7 @@ label{font-size:14px!important}
           <col style="width:22px">
           <col style="width:100px"><!-- 구분 — '진행예정'이 잘리지 않도록 -->
           <col style="width:80px">
-          <col style="width:92px"><!-- 시작일 -->
-          <col style="width:92px"><!-- 종료일 -->
+          <col style="width:184px"><!-- 일정(시작~종료) -->
           <col style="width:300px"><!-- 내용 -->
           <col style="width:220px"><!-- 주소 -->
           <col style="width:130px"><!-- 영업시간 -->
@@ -1613,8 +1612,7 @@ label{font-size:14px!important}
             <th class="pop-fix" style="left:0;width:22px;padding:4px 1px;text-align:center;color:#5b6675;font-size:11px"></th>
             <th class="pop-fix" style="left:22px;width:100px;padding:10px 2px;text-align:center;color:#374151;font-weight:700;font-size:16px">구분</th>
             <th class="pop-fix" style="left:122px;width:80px;padding:10px 2px;text-align:center;color:#374151;font-weight:700;font-size:16px">매장</th>
-            <th class="pop-fix" style="left:202px;width:92px;padding:10px 2px;text-align:center;color:#374151;font-weight:700;font-size:14px">시작일</th>
-            <th class="pop-fix" style="left:294px;width:92px;padding:10px 2px;text-align:center;color:#374151;font-weight:700;font-size:14px;border-right:2px solid #c7d0e0">종료일</th>
+            <th class="pop-fix" style="left:202px;width:184px;padding:10px 2px;text-align:center;color:#374151;font-weight:700;font-size:16px;border-right:2px solid #c7d0e0">일정</th>
             <th style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:18px">내용</th>
             <th style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:18px">주소</th>
             <th style="padding:10px 8px;text-align:left;color:#374151;font-weight:700;font-size:18px">영업시간</th>
@@ -12720,7 +12718,7 @@ function renderPopupPage(){
     var _taH=_isEnd?42:129;
     /* 종료↔비종료 경계에 분계선 */
     if(_prevStatus!==null && _isEnd!==(_prevStatus==="종료")){
-      h+='<tr><td colspan="11" style="padding:0;border-top:2px solid #6366f1;background:linear-gradient(90deg,#6366f1,#a5b4fc,#6366f1);height:2px"></td></tr>';
+      h+='<tr><td colspan="10" style="padding:0;border-top:2px solid #6366f1;background:linear-gradient(90deg,#6366f1,#a5b4fc,#6366f1);height:2px"></td></tr>';
     }
     _prevStatus=row.status;
     h+='<tr style="border-bottom:1px solid #e5e7eb;'+_dim+'" id="poprow-'+i+'">';
@@ -12736,9 +12734,13 @@ function renderPopupPage(){
     h+='</select></td>';
     /* 매장 */
     h+='<td class="pop-fix" style="left:122px;padding:5px 3px"><input type="text" value="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 4px;font-size:16px;box-sizing:border-box"></td>';
-    /* 시작일 · 종료일 — 26/08/21 형태로 좁게 표시하고, 📅로 달력 선택 */
-    h+='<td class="pop-fix" style="left:202px;padding:5px 2px">'+_popDateCell(i,"start",row.start)+'</td>';
-    h+='<td class="pop-fix" style="left:294px;padding:5px 2px;border-right:2px solid #e0e7ff">'+_popDateCell(i,"end",row.end)+'</td>';
+    /* 일정 — 시작~종료를 한 칸에. 26/08/21 형태로 입력하거나 📅로 달력 선택 */
+    h+='<td class="pop-fix" style="left:202px;padding:5px 2px;border-right:2px solid #e0e7ff">'
+      +'<div style="display:flex;align-items:center;gap:3px">'
+      +'<span style="flex:1;min-width:0">'+_popDateCell(i,"start",row.start)+'</span>'
+      +'<span style="color:#94a3b8;font-size:13px;flex:none">~</span>'
+      +'<span style="flex:1;min-width:0">'+_popDateCell(i,"end",row.end)+'</span>'
+      +'</div></td>';
     /* 내용 */
     h+='<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:18px;font-family:inherit;resize:none;overflow:auto;height:'+_taH+'px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
     /* 주소 · 영업시간 · 프로모션 */
@@ -12755,7 +12757,7 @@ function renderPopupPage(){
     h+='</tr>';
   });
   if(!popupDB.length){
-    h='<tr><td colspan="11" style="padding:32px;text-align:center;color:#5b6675;font-size:13px">+ 행 추가 버튼으로 일정을 등록하세요</td></tr>';
+    h='<tr><td colspan="10" style="padding:32px;text-align:center;color:#5b6675;font-size:13px">+ 행 추가 버튼으로 일정을 등록하세요</td></tr>';
   }
   tbody.innerHTML=h;
   _applyPopColW();
