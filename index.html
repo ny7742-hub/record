@@ -462,6 +462,12 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .ytd-tab:hover{background:#eef4f6;color:#1b6e82}
 .ytd-tab.on{background:#1b6e82;border-color:#1b6e82;color:#fff}
 .ytd-tbl td.ytd-mon{font-weight:800;color:#1b6e82;text-align:center}
+/* 월별 표는 22열이라 가로로 길다 — 월 칸을 고정해 스크롤해도 기준이 보이게 */
+.ytd-tbl .ytd-mfix{position:sticky;left:0;z-index:3;background:#fff}
+.ytd-tbl thead .ytd-mfix{background:var(--ec-headbg);z-index:4}
+.ytd-tbl tr.ytd-total .ytd-mfix{background:#eef4f6}
+.ytd-tbl tr.ytd-cur .ytd-mfix{background:#fffbeb}
+.ytd-tbl th,.ytd-tbl td{padding:6px 8px}
 .ytd-tbl tr.ytd-cur td{background:#fffbeb}
 .ytd-tbl{border-collapse:collapse;width:100%;min-width:520px}
 .ytd-tbl th{background:var(--ec-headbg);color:#1b6e82;font-size:12px;font-weight:800;padding:7px 10px;border:1px solid var(--ec-line);white-space:nowrap}
@@ -4523,48 +4529,72 @@ function setHomeYtdView(v){
   try{localStorage.setItem("homeYtdView",v);}catch(e){}
   renderHomeYtd(new Date());
 }
-/* 월별 표 — 월마다 채널별 실적과 전년 동월 대비를 함께 본다 */
+/* 월별 표 — 채널마다 금년·전년·전년대비 3열, 1~12월 전체 + 맨 아래 누적매출 */
 function _renderHomeYtdMonthly(now,wrap){
-  var b=_homeYtdByMonth(now),Y=b.Y,M=b.M;
-  var won=function(n){return Number(n||0).toLocaleString();};
-  var h='<table class="ytd-tbl"><thead><tr>'
-    +'<th>월</th><th style="text-align:right">백화점</th><th style="text-align:right">코스트코</th>'
-    +'<th style="text-align:right">홈쇼핑</th>'
-    +EXT_CHANNELS.map(function(c){return '<th style="text-align:right">'+c+'</th>';}).join("")
-    +'<th style="text-align:right">합계</th>'
-    +'<th style="text-align:right">'+(Y-1)+'년 동월</th><th style="text-align:right">전년대비</th>'
-    +'</tr></thead><tbody>';
-  var miss=[];
-  b.months.forEach(function(x){
-    var pv=_homePrevMonth(now,x.m);
-    /* 전년엔 실적이 있는데 올해가 0인 달 = 미입력일 가능성 */
-    var gap=(pv&&pv.total>0&&x.total===0);
-    if(gap)miss.push(x.m+"월");
-    h+='<tr'+(x.m===M?' class="ytd-cur"':'')+'>'
-      +'<td class="ytd-mon">'+x.m+'월'+(x.m===M?' <span style="font-size:10px;color:#b45309;font-weight:700">진행중</span>':'')
-        +(gap?' <span style="color:#d97706;font-weight:800" title="올해 실적이 입력되지 않았습니다">⚠</span>':'')+'</td>'
-      +'<td class="ytd-num">'+won(x.daily)+'</td>'
-      +'<td class="ytd-num">'+won(x.costco)+'</td>'
-      +'<td class="ytd-num">'+won(x.hs)+'</td>'
-      +EXT_CHANNELS.map(function(c){return '<td class="ytd-num">'+won(x[c]||0)+'</td>';}).join("")
-      +'<td class="ytd-num" style="color:#0f5c6e">'+won(x.total)+'</td>'
-      +'<td class="ytd-prev">'+(pv?won(pv.total):"–")+'</td>'
-      +(pv?_ytdRateCell(x.total,pv.total):'<td class="ytd-rate ytd-flat">–</td>')
-      +'</tr>';
+  var b=_homeYtdByMonth(now),Y=b.Y,M=b.M,PY=Y-1;
+  var CH=[["백화점","daily"],["코스트코","costco"],["홈쇼핑","hs"]]
+    .concat(EXT_CHANNELS.map(function(c){return [c,c];}));
+  var won=function(n){return (n||n===0)?Number(n).toLocaleString():"";};
+  var GB="border-left:2px solid #b9d5da";   /* 채널 사이 구분선 */
+
+  /* ── 머리글 2줄 ── */
+  var h='<table class="ytd-tbl"><thead>';
+  h+='<tr><th rowspan="2" class="ytd-mfix" style="min-width:56px">월</th>';
+  CH.forEach(function(c){h+='<th colspan="3" style="'+GB+'">'+_esc(c[0])+'</th>';});
+  h+='<th colspan="3" style="'+GB+';background:#dbe7ea">합계</th></tr>';
+  h+='<tr>';
+  CH.forEach(function(){
+    h+='<th style="'+GB+';text-align:right">'+Y+'</th>'
+     +'<th style="text-align:right">'+PY+'</th>'
+     +'<th style="text-align:right">전년대비</th>';
   });
-  var cur=_homeYtdThisYear(now),prev=_homeYtdPrevYear(now);
-  h+='<tr class="ytd-total"><td style="text-align:center">누적</td>'
-    +'<td class="ytd-num">'+won(cur.daily)+'</td><td class="ytd-num">'+won(cur.costco)+'</td>'
-    +'<td class="ytd-num">'+won(cur.hs)+'</td>'
-    +EXT_CHANNELS.map(function(c){return '<td class="ytd-num">'+won(cur[c]||0)+'</td>';}).join("")
-    +'<td class="ytd-num">'+won(cur.total)+'</td>'
-    +'<td class="ytd-num" style="color:#5b6675">'+(prev.any?won(prev.total):"–")+'</td>'
-    +(prev.any?_ytdRateCell(cur.total,prev.total):'<td class="ytd-rate ytd-flat">–</td>')
-    +'</tr></tbody></table>';
+  h+='<th style="'+GB+';text-align:right;background:#dbe7ea">'+Y+'</th>'
+   +'<th style="text-align:right;background:#dbe7ea">'+PY+'</th>'
+   +'<th style="text-align:right;background:#dbe7ea">전년대비</th>';
+  h+='</tr></thead><tbody>';
+
+  /* ── 1~12월 ── */
+  var miss=[];
+  for(var m=1;m<=12;m++){
+    var cur=(m<=M)?b.months[m-1]:null;
+    var pv=_homePrevMonth(now,m);
+    var future=(m>M);
+    h+='<tr'+(m===M?' class="ytd-cur"':(future?' style="opacity:.55"':''))+'>';
+    h+='<td class="ytd-mon ytd-mfix">'+m+'월'+(m===M?' <span style="font-size:10px;color:#b45309;font-weight:700">진행중</span>':'')+'</td>';
+    CH.forEach(function(c){
+      var k=c[1];
+      var cv=cur?(cur[k]||0):null;
+      var pvv=pv?(pv[k]||0):null;
+      h+='<td class="ytd-num" style="'+GB+'">'+(cv===null?"":won(cv))+'</td>';
+      h+='<td class="ytd-prev">'+(pvv===null?"":won(pvv))+'</td>';
+      h+=(cv!==null&&pvv)?_ytdRateCell(cv,pvv):'<td class="ytd-rate ytd-flat">–</td>';
+    });
+    var ct=cur?(cur.total||0):null, pt=pv?(pv.total||0):null;
+    if(!future&&pt&&!ct)miss.push(m+"월");
+    h+='<td class="ytd-num" style="'+GB+';color:#0f5c6e">'+(ct===null?"":won(ct))+'</td>';
+    h+='<td class="ytd-prev">'+(pt===null?"":won(pt))+'</td>';
+    h+=(ct!==null&&pt)?_ytdRateCell(ct,pt):'<td class="ytd-rate ytd-flat">–</td>';
+    h+='</tr>';
+  }
+
+  /* ── 누적매출 (1~현재월 vs 전년 동기) ── */
+  var cum=_homeYtdThisYear(now),pcum=_homeYtdPrevYear(now);
+  h+='<tr class="ytd-total"><td class="ytd-mfix" style="text-align:center" title="1~'+M+'월 · 전년 같은 기간과 비교">누적매출<br><span style="font-size:10px;font-weight:600">1~'+M+'월</span></td>';
+  CH.forEach(function(c){
+    var k=c[1],cv=cum[k]||0,pvv=(pcum.any?(pcum[k]||0):0);
+    h+='<td class="ytd-num" style="'+GB+'">'+won(cv)+'</td>';
+    h+='<td class="ytd-num" style="color:#5b6675">'+(pvv?won(pvv):"–")+'</td>';
+    h+=pvv?_ytdRateCell(cv,pvv):'<td class="ytd-rate ytd-flat">–</td>';
+  });
+  h+='<td class="ytd-num" style="'+GB+'">'+won(cum.total)+'</td>';
+  h+='<td class="ytd-num" style="color:#5b6675">'+(pcum.any?won(pcum.total):"–")+'</td>';
+  h+=pcum.any?_ytdRateCell(cum.total,pcum.total):'<td class="ytd-rate ytd-flat">–</td>';
+  h+='</tr></tbody></table>';
+
   if(miss.length)h+='<div style="font-size:12px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;margin-top:8px;line-height:1.5;font-weight:700">⚠ 올해 실적이 없는 달 — '+_esc(miss.join(" · "))+'<br><span style="font-weight:600;color:#94a3b8">실제 매출 0이 아니라 미입력일 수 있습니다.</span></div>';
   h+='<div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.5">단위: 원 · '
-    +'백화점·코스트코는 앱 입력 실적, 홈쇼핑과 '+(Y-1)+'년은 PlayMD 매장판매일보(실판매금액) 기준입니다. '
-    +M+'월은 아직 진행중입니다.</div>';
+    +'백화점·코스트코는 앱 입력 실적, 홈쇼핑과 '+PY+'년은 PlayMD 매장판매일보(실판매금액) 기준입니다. '
+    +M+'월은 아직 진행중이고, '+(M+1)+'월 이후는 전년 실적만 표시됩니다.</div>';
   wrap.innerHTML=h;
 }
 function renderHomeYtd(now){
