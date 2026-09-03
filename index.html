@@ -4271,14 +4271,28 @@ function _extParseRows(rows,fallbackCh){
   for(var r=0;r<Math.min(10,rows.length);r++){
     var H=(rows[r]||[]).map(function(c){return String(c).replace(/\s/g,"");});
     var iy=-1,ia=-1,ic=-1;
-    /* 날짜 열을 먼저 잡고, 금액은 그 열을 빼고 찾는다 ('매출월' 같은 헤더가 금액으로 잡히지 않게) */
+    /* 날짜 열을 먼저 잡는다 ('매출월' 같은 헤더가 금액으로 잡히지 않게) */
     H.forEach(function(h,idx){
       if(iy<0&&(/^월$/.test(h)||/(년월|판매일|일자|날짜|기준월|매출월|출고일)/.test(h)))iy=idx;
     });
+    /* 금액 열은 우선순위대로 — 판매일보처럼 '매출구분'(카드/현금) 같은 열이 섞여 있어
+       막연히 '매출'이 든 헤더를 잡으면 값이 0이 되어 전 행이 버려진다. */
+    var AMT_PRI=[/^실판매금액$/,/^판매금액$/,/^매출액$/,/^순판매\(할인포함\)$/,/^순판매/,/^매출$/,/^금액$/,/^합계$/];
+    for(var pi=0;pi<AMT_PRI.length&&ia<0;pi++){
+      H.forEach(function(h,idx){
+        if(ia<0&&idx!==iy&&AMT_PRI[pi].test(h))ia=idx;
+      });
+    }
+    if(ia<0){
+      /* 그래도 못 찾으면 느슨하게 — 단 구분·유형·코드·명·번호·율·수량 계열은 제외 */
+      H.forEach(function(h,idx){
+        if(ia>=0||idx===iy)return;
+        if(/(구분|유형|코드|명|번호|율|수량|개수)/.test(h))return;
+        if(/(매출|금액|합계)/.test(h))ia=idx;
+      });
+    }
     H.forEach(function(h,idx){
-      if(idx===iy)return;
-      if(ia<0&&/(매출|금액|합계)/.test(h))ia=idx;
-      if(ic<0&&/^(채널|구분|매장|거래처|점포)$/.test(h))ic=idx;
+      if(ic<0&&idx!==iy&&idx!==ia&&/^(채널|매장구분|채널구분|구분|매장|매장명|거래처|점포)$/.test(h))ic=idx;
     });
     if(iy>=0&&ia>=0){hRow=r;cYm=iy;cAmt=ia;cCh=ic;break;}
   }
@@ -4571,9 +4585,12 @@ function renderExtSales(){
   h+='<select id="extCh" onchange="renderExtSales()" style="padding:5px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
     +UPLOAD_CHANNELS.map(function(c){return '<option'+(c===ch?' selected':'')+'>'+_esc(c)+'</option>';}).join("")+'</select>';
   h+='<label style="cursor:pointer"><span class="bs" style="padding:5px 12px;font-size:12px;display:inline-block">📁 엑셀 업로드</span>'
-    +'<input type="file" accept=".xlsx,.xls" style="display:none" onchange="extLoadFile(this)"></label>';
+    +'<input type="file" id="extFileIn" accept=".xlsx,.xls" style="display:none" onchange="extLoadFile(this)"></label>';
+  h+='<div id="extDropZone" class="drop-zone" onclick="document.getElementById(\'extFileIn\').click()"'
+    +' style="padding:5px 14px;font-size:11.5px;gap:6px;min-height:0" title="엑셀을 여기로 끌어다 놓으세요">'
+    +'<span style="font-size:15px;line-height:1">⬇</span><span>여기로 <u>끌어다 놓기</u></span></div>';
   h+='<span id="extMsg" style="font-size:12px;color:#15803d;font-weight:600"></span>';
-  h+='<span style="font-size:11px;color:#94a3b8;margin-left:auto">엑셀에 <b>월(또는 날짜)</b>·<b>매출</b> 열이 있으면 됩니다 · <b>채널</b> 열이 있으면 채널별로 자동 분류</span>';
+  h+='<span style="font-size:11px;color:#94a3b8;margin-left:auto">파일에 <b>매장구분</b> 열이 있으면 채널을 <b>자동 분류</b>합니다 (없을 때만 위에서 고른 채널로)</span>';
   h+='<div style="width:100%;font-size:11px;color:#5b6675;margin-top:2px">'
     +'<b>올린 날</b>은 업로드 값, <b>안 올린 날</b>은 각 탭(일별매출·코스트코) 실적으로 <b>일자 단위로 섞어</b> 계산합니다. '
     +'월 단위로 적으면 그 달은 통째로 그 값을 씁니다. '
@@ -4616,16 +4633,31 @@ function renderExtSales(){
     +'</tr></tbody></table>';
   el.innerHTML=h;
   var sel=document.getElementById("extCh");if(sel)sel.value=ch;
+  var dz=document.getElementById("extDropZone");
+  if(dz){
+    dz.addEventListener("dragover",function(e){e.preventDefault();dz.classList.add("dragover");});
+    dz.addEventListener("dragleave",function(){dz.classList.remove("dragover");});
+    dz.addEventListener("drop",function(e){
+      e.preventDefault();dz.classList.remove("dragover");
+      var fs=e.dataTransfer&&e.dataTransfer.files;
+      if(fs&&fs.length)extLoadFile({files:fs,value:""});
+    });
+  }
 }
 function extLoadFile(input){
   var f=input.files&&input.files[0];input.value="";
   if(!f)return;
   if(!/\.(xlsx|xls)$/i.test(f.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
   var ch=_extCurCh();
+  var msg0=document.getElementById("extMsg");
+  if(msg0){msg0.style.color="#b45309";msg0.textContent="읽는 중… 큰 파일은 30초 정도 걸릴 수 있습니다";}
   var reader=new FileReader();
   reader.onload=function(e){
+   /* 엑셀 파싱이 화면을 멈추므로, 위 안내가 먼저 그려지도록 한 번 넘긴 뒤 실행한다 */
+   setTimeout(function(){
     try{
-      var wb=XLSX.read(e.target.result,{type:"array",cellDates:true});
+      /* 서식·수식은 읽지 않는다 — 8만 줄짜리 판매일보에서 체감 속도가 크게 달라진다 */
+      var wb=XLSX.read(e.target.result,{type:"array",cellDates:true,cellText:false,cellNF:false,cellStyles:false,cellFormula:false});
       var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
       var res=_extParseRows(rows,ch);
       if(!res){
@@ -4636,10 +4668,11 @@ function extLoadFile(input){
       var lines=chs.map(function(c){
         var ms=Object.keys(res.map[c]).sort();
         var sum=ms.reduce(function(a,k){return a+res.map[c][k];},0);
-        return "  "+c+" : "+ms.length+"개월 · "+sum.toLocaleString()+"원 ("+ms[0]+"~"+ms[ms.length-1]+")";
+        var unit=(ms[0]||"").length>7?"일":"개월";
+        return "  "+c+" : "+ms.length.toLocaleString()+unit+"치 · "+sum.toLocaleString()+"원 ("+ms[0]+" ~ "+ms[ms.length-1]+")";
       });
       if(!confirm("아래 내용으로 등록할까요? (같은 날짜·같은 달은 덮어씁니다)\n올린 날은 이 값을 쓰고, 안 올린 날은 각 탭 실적으로 채웁니다.\n\n"+lines.join("\n")
-        +(res.skip?"\n\n※ 인식 못한 "+res.skip+"줄은 건너뜁니다.":"")))return;
+        +(res.skip?"\n\n※ 금액이 0이거나 날짜를 못 읽은 "+res.skip.toLocaleString()+"줄은 제외됩니다.":"")))return;
       chs.forEach(function(c){
         Object.keys(res.map[c]).forEach(function(ym){_extSet(c,ym,res.map[c][ym]);});
       });
@@ -4647,8 +4680,14 @@ function extLoadFile(input){
       renderExtSales();
       if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
       var msg=document.getElementById("extMsg");
-      if(msg){msg.textContent="✔ "+res.rows+"줄 반영됨";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},3000);}
-    }catch(err){alert("파일 오류: "+err.message);}
+      if(msg){msg.style.color="";msg.textContent="✔ "+res.rows.toLocaleString()+"줄 반영됨";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},3000);}
+    }catch(err){
+      alert("파일 오류: "+err.message);
+    }finally{
+      var mz=document.getElementById("extMsg");
+      if(mz&&/읽는 중/.test(mz.textContent)){mz.style.color="";mz.textContent="";}
+    }
+   },50);
   };
   reader.readAsArrayBuffer(f);
 }
