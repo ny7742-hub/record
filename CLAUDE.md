@@ -37,6 +37,14 @@
   모달에 경고 + 체크박스로만 강제 포함할 수 있다. 그래서 발주 등록은 `_uploaded`를 켜지 않고 `_pdfReg`만 남긴다
   (`_uploaded`는 `ccMergeWeekMap` = 파일 업로드 전용 표시여야 경고 근거가 된다).
   ④ '예' 연타: `_ccPdfSalesBusy` + 계획 즉시 분리.
+  **5단계 다운로드는 DSS가 내려준 원본 xlsx를 그대로 두고 J/K(택배사·송장번호) 셀만 고쳐 쓴다**
+  (`_ccPdfBuildInvoiceXlsx`, 아난티와 같은 zip 직접 편집). SheetJS `aoa_to_sheet`로 새로 만들면
+  송장번호를 못 찾은 행에도 `<c r="K5" t="str"><v></v></c>` 빈 셀이 생겨
+  DSS 발송업로드가 `Shipment upload failed due to an unexpected error`로 거부한다.
+  셀은 DSS 자신이 쓰는 방식(`t="str"` + `<v>`, 그 행의 `s=` 스타일 재사용)으로 넣는다.
+  파일명은 `<원본이름>_송장.xlsx`. 원본이 `.xls`이거나 zip 편집이 실패하면 옛 방식으로 되돌아간다.
+  DSS Export(PurchaseOrderDetail) 구조: 1행 표시헤더 · **2행 필드경로**(`shipmentDetails.shipment.trackingNo`) · 3행부터 데이터,
+  주문번호는 A열(`customerOrder`), 택배사 J열, 송장번호 K열.
 - 사입출고등록: 홈쇼핑 주문서는 결제금액이 비어 오는 경우가 많아,
   비면 `홈쇼핑 매칭표의 현재가 → 상품데이터(자사코드) 현재가/TAG가` 순으로 단가를 찾아
   `단가 × 수량`으로 채우고 표에 총 수량·총 판매금액을 보여준다(자동 채운 건은 💡 표시, 직접 수정하면 해제).

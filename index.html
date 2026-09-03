@@ -10856,7 +10856,12 @@ function _ccPdfProcessInvoiceFiles(fileList){
       var h=_ccPdfDetectOrderCol(rows);
       var pairs=_ccPdfHarvestPairs(rows);
       Object.keys(pairs).forEach(function(k){ccPdfInvoiceMap[k]=pairs[k];});
-      ccPdfInvoiceTarget={rows:rows,orderCol:h.cOrder,startRow:h.startRow,fileName:file.name,sheetName:sheetName};
+      /* 원본 바이트를 그대로 들고 있는다 — 다운로드할 때 새로 만들지 않고 J/K 셀만 고쳐 쓰기 위함.
+         시트 범위가 A1에서 시작하지 않을 수도 있어 시작 행·열도 같이 기억한다. */
+      var rng={s:{r:0,c:0}};
+      try{rng=XLSX.utils.decode_range(ws["!ref"]||"A1");}catch(e2){}
+      ccPdfInvoiceTarget={rows:rows,orderCol:h.cOrder,startRow:h.startRow,fileName:file.name,sheetName:sheetName,
+                          buf:new Uint8Array(e.target.result),r0:rng.s.r,c0:rng.s.c};
       _ccPdfApplyInvoiceMapToRows();
       _ccPdfFillTargetInvoiceCols();
       renderCcPdfTable();
@@ -10868,16 +10873,98 @@ function _ccPdfProcessInvoiceFiles(fileList){
   };
   reader.readAsArrayBuffer(file);
 }
-/* 매칭된 J/K열이 채워진 대상 엑셀을 그대로 다운로드 (원본 파일의 다른 열/행은 그대로 유지) */
-function ccPdfDownloadInvoiceTarget(){
+/* 행 XML에 문자열 셀을 넣는다 — DSS가 쓰는 방식(t="str" + <v>)을 그대로 따라간다.
+   inlineStr이나 sharedStrings로 쓰면 DSS 파서가 값을 못 읽어 업로드가 거부된다. */
+function _ccPdfRowSetStr(rowXml,col,rowNum,value){
+  var ref=col+rowNum;
+  var re=new RegExp('<c r="'+ref+'"([^>]*?)(\/>|>[\s\S]*?<\/c>)');
+  var m=rowXml.match(re);
+  var sAttr="";
+  if(m){var sm=m[1].match(/\ss="(\d+)"/);if(sm)sAttr=' s="'+sm[1]+'"';}
+  else{var sm2=rowXml.match(/<c r="[A-Z]+\d+"[^>]*\ss="(\d+)"/);if(sm2)sAttr=' s="'+sm2[1]+'"';}
+  var body='<c r="'+ref+'"'+sAttr+' t="str"><v>'+_xmlEsc(value)+'</v></c>';
+  if(m)return rowXml.replace(re,function(){return body;});
+  var colNum=_colNum(col);
+  var cells=rowXml.match(/<c [\s\S]*?(?:\/>|<\/c>)/g)||[];
+  for(var i=0;i<cells.length;i++){
+    var cr=(cells[i].match(/r="([A-Z]+)\d+"/)||[])[1];
+    if(cr&&_colNum(cr)>colNum)return rowXml.replace(cells[i],function(mm){return body+mm;});
+  }
+  return rowXml.replace(/<\/row>$/,function(){return body+"</row>";});
+}
+/* DSS가 내려준 xlsx를 그대로 두고 J/K(택배사·송장번호) 셀만 채워 넣는다.
+   SheetJS로 새로 쓰면 문자열이 sharedStrings로 바뀌고 값이 안 든 칸에도 빈 문자열 셀이 생겨
+   DSS 발송업로드가 "Shipment upload failed due to an unexpected error"로 거부한다. */
+async function _ccPdfBuildInvoiceXlsx(){
+  var t=ccPdfInvoiceTarget;
+  var entries=_zipParse(new Uint8Array(t.buf));
+  var target=null;
+  entries.forEach(function(e){if(/^xl\/worksheets\/sheet1\.xml$/i.test(e.name))target=e;});
+  if(!target)entries.forEach(function(e){if(!target&&/^xl\/worksheets\/[^\/]+\.xml$/i.test(e.name))target=e;});
+  if(!target)throw new Error("시트를 찾을 수 없습니다");
+  var raw=target.method===0?target.data:await _inflateRaw(target.data);
+  var xml=new TextDecoder().decode(raw);
+  var sdM=xml.match(/<sheetData>([\s\S]*?)<\/sheetData>/);
+  if(!sdM)throw new Error("sheetData를 찾을 수 없습니다");
+  var rowsXml=sdM[1].match(/<row[^>]*\/>|<row[^>]*>[\s\S]*?<\/row>/g)||[];
+  var byNum={},order=[];
+  rowsXml.forEach(function(rx){
+    var n=parseInt((rx.match(/<row[^>]*\br="(\d+)"/)||[])[1],10);
+    if(!isNaN(n)){byNum[n]=rx;order.push(n);}
+  });
+  var cJ=_colLetter(t.c0+10),cK=_colLetter(t.c0+11);
+  var changed=0;
+  for(var r=t.startRow;r<t.rows.length;r++){
+    var row=t.rows[r];
+    if(!row||!row[10])continue;                      /* 송장번호가 붙은 행만 건드린다 */
+    var rn=t.r0+r+1;
+    if(!byNum[rn])continue;
+    byNum[rn]=_ccPdfRowSetStr(byNum[rn],cJ,rn,row[9]||"C-CJ");
+    byNum[rn]=_ccPdfRowSetStr(byNum[rn],cK,rn,row[10]);
+    changed++;
+  }
+  var newSD="<sheetData>"+order.map(function(n){return byNum[n];}).join("")+"</sheetData>";
+  xml=xml.replace(/<sheetData>[\s\S]*?<\/sheetData>/,function(){return newSD;});
+  /* K열이 원래 범위 밖이면 dimension을 넓힌다 */
+  xml=xml.replace(/<dimension ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"\/>/,function(mm,a1,a2,b1,b2){
+    return _colNum(b1)>=_colNum(cK)?mm:'<dimension ref="'+a1+a2+':'+cK+b2+'"/>';
+  });
+  var outBytes=new TextEncoder().encode(xml);
+  var deflated=await _deflateRaw(outBytes);
+  entries=entries.map(function(e){
+    if(e!==target)return e;
+    return {name:e.name,method:8,crc:_zipCrc32(outBytes),csize:deflated.length,usize:outBytes.length,
+            flag:e.flag,time:e.time,date:e.date,data:deflated};
+  });
+  return {bytes:_zipBuild(entries),changed:changed};
+}
+/* 매칭된 J/K열이 채워진 대상 엑셀을 다운로드 — 원본 파일의 셀 형식을 그대로 유지한다 */
+async function ccPdfDownloadInvoiceTarget(){
   if(!ccPdfInvoiceTarget){alert("먼저 5단계에 DSS Export(Main Attributes) 파일을 업로드하세요.");return;}
+  var t=ccPdfInvoiceTarget;
   _ccPdfFillTargetInvoiceCols();
-  var ws=XLSX.utils.aoa_to_sheet(ccPdfInvoiceTarget.rows);
-  var wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,(ccPdfInvoiceTarget.sheetName||"Sheet1").slice(0,31));
-  var d=new Date();
-  var ymd=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-  XLSX.writeFile(wb,"발송일괄업로드_"+ymd+".xlsx");
+  var base=String(t.fileName||"발송일괄업로드").replace(/\.xlsx?$/i,"");
+  var done=false;
+  if(t.buf&&/\.xlsx$/i.test(t.fileName||"")){
+    try{
+      var out=await _ccPdfBuildInvoiceXlsx();
+      var blob=new Blob([out.bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+      var a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);a.download=base+"_송장.xlsx";
+      document.body.appendChild(a);a.click();
+      setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);
+      done=true;
+    }catch(err){
+      if(!confirm("원본 서식을 유지한 저장에 실패했습니다.\n("+err.message+")\n\n새 파일로 만들어 내려받을까요?\nDSS가 거부할 수 있습니다."))return;
+    }
+  }
+  if(!done){
+    /* .xls 이거나 원본 편집이 안 되는 경우 — 예전 방식(새로 만들기) */
+    var ws2=XLSX.utils.aoa_to_sheet(t.rows);
+    var wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws2,(t.sheetName||"Sheet1").slice(0,31));
+    XLSX.writeFile(wb,base+"_송장"+(/\.xls$/i.test(t.fileName||"")?".xls":".xlsx"));
+  }
   openCcPdfSalesModal();   /* 다운로드 직후 코스트코 탭 매출 등록 여부를 묻는다 */
 }
 
