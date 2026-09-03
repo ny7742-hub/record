@@ -4399,11 +4399,37 @@ function _homeYtdByMonth(now){
   }
   return {M:M,Y:Y,months:mo.slice(1),has:has,src:mo._src||{}};
 }
-/* 전년 같은 달 실적 */
+/* 그 채널·그 달에 올려둔 금액 (월 키가 있으면 그 값, 없으면 일자 키 합계) */
+function _extMonthSum(ch,Y,m){
+  var ym=Y+"-"+String(m).padStart(2,"0");
+  var mv=_extGet(ch,ym);
+  if(mv)return mv;
+  var d=_extDaysIn(ch,Y,m),k=Object.keys(d),sum=0;
+  if(!k.length)return 0;
+  k.forEach(function(x){sum+=d[x];});
+  return sum;
+}
+/* 전년 같은 달 실적 — 업로드한 전년 데이터가 있으면 그 값이 우선,
+   없으면 앱에 내장된 전년 실적표(PREV_YEAR_SALES)를 쓴다. */
 function _homePrevMonth(now,m){
-  var v=PREV_YEAR_SALES[(now.getFullYear()-1)+"-"+String(m).padStart(2,"0")];
-  if(!v)return null;
-  return {daily:v.daily,costco:v.costco,hs:v.hs,total:v.daily+v.costco+v.hs};
+  var PY=now.getFullYear()-1;
+  var v=PREV_YEAR_SALES[PY+"-"+String(m).padStart(2,"0")]||null;
+  var out={daily:0,costco:0,hs:0,total:0},any=!!v;
+  Object.keys(UP_KEY).forEach(function(nm){
+    var k=UP_KEY[nm];
+    var up=_extMonthSum(nm,PY,m);
+    if(up){out[k]=up;any=true;}
+    else if(v)out[k]=v[k]||0;
+  });
+  EXT_CHANNELS.forEach(function(c){
+    var up2=_extMonthSum(c,PY,m);
+    out[c]=up2;
+    if(up2)any=true;
+  });
+  if(!any)return null;
+  out.total=out.daily+out.costco+out.hs;
+  EXT_CHANNELS.forEach(function(c){out.total+=out[c]||0;});
+  return out;
 }
 function _homeYtdThisYear(now){
   /* 월별 집계를 합쳐서 쓴다 — 연 누적표와 월별표가 어긋나지 않게 계산은 한 곳에서만 한다 */
@@ -4427,15 +4453,19 @@ function _ytdMissingMonths(cur,key,now){
   }
   return out;
 }
+/* 전년 누적 — 월별과 같은 규칙(업로드 우선)으로 합산해 두 표가 어긋나지 않게 한다 */
 function _homeYtdPrevYear(now){
-  var Y=now.getFullYear()-1,M=now.getMonth()+1,t={daily:0,costco:0,hs:0},any=false;
+  var M=now.getMonth()+1,t={daily:0,costco:0,hs:0},any=false;
+  EXT_CHANNELS.forEach(function(c){t[c]=0;});
   for(var m=1;m<=M;m++){
-    var v=PREV_YEAR_SALES[Y+"-"+String(m).padStart(2,"0")];
+    var v=_homePrevMonth(now,m);
     if(!v)continue;
     any=true;
     t.daily+=v.daily;t.costco+=v.costco;t.hs+=v.hs;
+    EXT_CHANNELS.forEach(function(c){t[c]+=v[c]||0;});
   }
   t.total=t.daily+t.costco+t.hs;
+  EXT_CHANNELS.forEach(function(c){t.total+=t[c];});
   t.any=any;
   return t;
 }
@@ -4524,13 +4554,14 @@ function renderHomeYtd(now){
   var warn=[];
   rows.forEach(function(r){
     var _isExt=EXT_CHANNELS.indexOf(r[1])>=0;
+    var _hasPrev=prev.any&&(prev[r[1]]||0)!==0;   /* 전년 값이 있을 때만 비교를 보여준다 */
     var miss=_isExt?[]:_ytdMissingMonths(cur,r[1],now);
     if(miss.length)warn.push(r[0]+" "+miss.join("·")+"월");
     var flag=miss.length?' <span style="color:#d97706;font-weight:800" title="'+miss.join("·")+'월 실적이 입력되지 않았습니다. 실제 감소가 아니라 미입력일 수 있습니다.">⚠</span>':"";
     h+='<tr><td class="ytd-lab">'+r[0]+flag+'</td>'
       +'<td class="ytd-num">'+won(cur[r[1]])+'</td>'
-      +'<td class="ytd-prev">'+((prev.any&&!_isExt)?won(prev[r[1]]):"–")+'</td>'
-      +((prev.any&&!_isExt)?_ytdRateCell(cur[r[1]],prev[r[1]]):'<td class="ytd-rate ytd-flat">–</td>')
+      +'<td class="ytd-prev">'+(_hasPrev?won(prev[r[1]]):"–")+'</td>'
+      +(_hasPrev?_ytdRateCell(cur[r[1]],prev[r[1]]):'<td class="ytd-rate ytd-flat">–</td>')
       +'</tr>';
   });
   h+='<tr class="ytd-total"><td>합계</td>'
