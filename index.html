@@ -4189,6 +4189,10 @@ function _extNum(v){
 /* 셀 값 → "YYYY-MM". 날짜(2026-09-01·2026/9/1·엑셀 날짜)든 월(2026-09·26년9월·9월)이든 받는다 */
 function _extYm(v,defYear){
   if(v instanceof Date)return _extDateYmd(v).slice(0,7);
+  if(typeof v==="number"&&isFinite(v)){
+    var k=_extKey(v,defYear);
+    return k?k.slice(0,7):"";
+  }
   var s=String(v==null?"":v).trim();
   if(!s)return "";
   var m=s.match(/^(\d{4})\D+(\d{1,2})(?:\D|$)/);            /* 2026-09 · 2026/09/01 */
@@ -4203,16 +4207,26 @@ function _extYm(v,defYear){
 }
 /* 업로드 키는 'YYYY-MM'(월) 또는 'YYYY-MM-DD'(일) 둘 다 쓴다.
    파일에 일자가 있으면 일자로 저장해 두고, 올리지 않은 날은 각 탭 실적으로 채운다. */
-/* 엑셀에서 읽은 날짜는 자정보다 1분 남짓 모자라게 나오는 경우가 있다(1900 날짜계 반올림).
-   그대로 쓰면 9/1 이 8/31 로 하루 밀리므로, 자정 5분 전 이후면 다음 날로 올린다. */
+/* 엑셀은 날짜를 '기준일부터 며칠째'인 정수로 저장한다(2026-09-01 → 46266).
+   그 정수를 그대로 날짜로 바꾸므로 파일의 판매일자와 정확히 같다 — 시각·표준시가 끼어들지 않는다. */
+function _xlSerialYmd(n){
+  var days=Math.floor(Number(n));
+  var d=new Date(Math.round((days-25569)*86400000));
+  return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");
+}
+/* Date 로 넘어온 경우(다른 경로) — 날짜 부분만 그대로 쓴다 */
 function _extDateYmd(v){
-  var d=new Date(v.getTime());
-  var secs=d.getHours()*3600+d.getMinutes()*60+d.getSeconds();
-  if(secs>=86100)d=new Date(d.getTime()+(86400-secs)*1000);
-  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0")+"-"+String(v.getDate()).padStart(2,"0");
 }
 function _extKey(v,defYear){
   if(v instanceof Date)return _extDateYmd(v);
+  if(typeof v==="number"&&isFinite(v)){
+    var iv=String(Math.floor(v));
+    if(iv.length===8)return iv.slice(0,4)+"-"+iv.slice(4,6)+"-"+iv.slice(6,8);   /* 20260901 */
+    if(iv.length===6)return iv.slice(0,4)+"-"+iv.slice(4,6);                      /* 202609 */
+    if(v>=1000&&v<=100000)return _xlSerialYmd(v);                                 /* 엑셀 날짜 숫자 */
+    return "";
+  }
   var s=String(v==null?"":v).trim();
   if(!s)return "";
   var m=s.match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})(?:\D|$)/);      /* 2026-09-01 */
@@ -4707,7 +4721,9 @@ function extLoadFile(input){
    setTimeout(function(){
     try{
       /* 서식·수식은 읽지 않는다 — 8만 줄짜리 판매일보에서 체감 속도가 크게 달라진다 */
-      var wb=XLSX.read(e.target.result,{type:"array",cellDates:true,cellText:false,cellNF:false,cellStyles:false,cellFormula:false});
+      /* cellDates:false — 날짜를 Date 로 변환하지 않고 파일에 저장된 원본 값 그대로 받는다.
+         변환을 거치면 자정 직전으로 어긋나 판매일자가 하루씩 밀린다. */
+      var wb=XLSX.read(e.target.result,{type:"array",cellDates:false,cellText:false,cellNF:false,cellStyles:false,cellFormula:false});
       var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
       var res=_extParseRows(rows,"");
       if(res&&res.needCh){
