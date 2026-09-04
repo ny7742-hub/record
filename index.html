@@ -8049,9 +8049,12 @@ function clearExcelViewer(){
 
 /* ── 홈쇼핑 ── */
 var homeshoppingDB=(function(){try{return JSON.parse(localStorage.getItem("homeshoppingDB")||"[]");}catch(e){return [];}})();
+/* 상품명 옆 '구분' 선택지 — 확정/제안 상태를 한 칸에서 고른다 */
+var HS_STAGES=["라이브확정","녹화확정","현대제안","롯데제안","GS제안","홈앤제안"];
 var HS_COLS=[
   {key:"img",label:"이미지",w:64,type:"img"},
   {key:"name",label:"상품명",w:150},
+  {key:"stage",label:"구분",w:104,type:"sel",opts:HS_STAGES},
   {key:"color",label:"컬러",w:90},
   {key:"company",label:"홈쇼핑사",w:100},
   {key:"price",label:"판매가",w:100,type:"num"},
@@ -8066,7 +8069,7 @@ var HS_COLS=[
 ];
 function saveHomeshopping(){wsSetItem("homeshoppingDB",JSON.stringify(homeshoppingDB));}
 function hsAddRow(){
-  homeshoppingDB.push({img:"",name:"",color:"",company:"",date:"",pgm:"",live:"",target:"",sold:"",returnRate:""});
+  homeshoppingDB.push({img:"",name:"",stage:"",color:"",company:"",date:"",pgm:"",live:"",target:"",sold:"",returnRate:""});
   saveHomeshopping();renderHomeshopping();
   var w=document.getElementById("hsTableWrap");if(w)w.scrollTop=w.scrollHeight;
 }
@@ -8212,6 +8215,19 @@ function renderHomeshopping(){
           inner='<div style="width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8593a6;margin:auto;font-size:9px;line-height:1.15">📷<span>붙여넣기</span></div>';
         }
         h+='<td onclick="hsSelImg('+i+',this)" ondblclick="hsSetImg('+i+')" title="클릭 후 Ctrl+V로 사진 붙여넣기 · 더블클릭=URL 입력" style="border:1px solid #e1e6ee;padding:3px;text-align:center;position:relative;cursor:pointer">'+inner+'</td>';
+      }else if(col.type==="sel"){
+        /* 확정은 초록, 제안은 주황으로 물들여 한눈에 구분되게 한다 */
+        var sv=row[col.key]||"";
+        var tone=/확정$/.test(sv)?"background:#ecfdf5;color:#047857;font-weight:700"
+                :(/제안$/.test(sv)?"background:#fff7ed;color:#9a3412;font-weight:700":"color:#5b6675");
+        var opt='<option value=""></option>';
+        col.opts.forEach(function(o){
+          opt+='<option value="'+_escX(o)+'"'+(sv===o?' selected':'')+'>'+_escX(o)+'</option>';
+        });
+        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px">'
+          +'<select onchange="hsEdit('+i+',\''+col.key+'\',this.value);renderHomeshopping()"'
+          +' style="width:100%;border:none;outline:none;font-size:13px;padding:3px 2px;border-radius:4px;cursor:pointer;'+tone+'">'
+          +opt+'</select></td>';
       }else if(col.type==="calc"){
         h+='<td id="hsEff_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;font-weight:700;color:#1b6e82;background:#f1f5f9">'+_hsEff(row)+'</td>';
       }else if(col.type==="date"){
