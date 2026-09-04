@@ -332,6 +332,10 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .drop-zone.dragover{border-color:#1b6e82;background:#dbeafe;box-shadow:inset 0 0 0 3px rgba(27,110,130,.18)}
 .cc-tbl .cc-amt-diff{background:#fef3c7 !important;color:#b45309 !important;font-weight:800;box-shadow:inset 0 0 0 2px #f59e0b}
 .cc-tbl .cc-nodata{background:#c8ccd4}
+/* 바이어(D26/D31)·직매입 묶음 머리줄과 표 마감선 */
+.cc-tbl .cc-grp-row td{background:#1b6e82;color:#fff;font-weight:800;font-size:15px;
+  text-align:left;padding:4px 10px;border:1px solid #134e5c;letter-spacing:.5px}
+.cc-tbl .cc-last-row td{border-bottom:3px solid #1b6e82}
 .cc-tbl [contenteditable]:focus{outline:2px solid #6366f1;background:#eff6ff!important}
 .cc-tbl .cc-sticky-1{position:sticky;left:0;z-index:3}
 .cc-tbl .cc-sticky-2{position:sticky;left:var(--ccL2,76px);z-index:3}
@@ -13195,11 +13199,22 @@ function _ccProdHasAnySales(prod){
   }
   return false;
 }
-/* 코스트코 판매현황 표 진열 순서 (영업2팀 지정).
-   여기 없는 상품은 표 맨 뒤로 간다 — 새 상품이 조용히 사라지지 않게. */
-var CC_PROD_ORDER=["아다나","린다우","메르신","우양산 2종","포시타","세팔로","루시아",
-  "루시","크리스티","로슬라","소니아","케디리","일리안","듀리에","바르셀",
-  "오비크","헬로나","아르고","아말리","바르셀 직매입","장우산 850 직매입"];
+/* 코스트코 판매현황 표 진열 순서·묶음 (영업2팀 지정).
+   바이어(D26/D31)와 직매입으로 나눠 보고, 묶음 사이에 머리줄을 넣는다.
+   여기 없는 상품은 '기타'로 표 맨 뒤에 붙는다 — 새 상품이 조용히 사라지지 않게. */
+var CC_PROD_GROUPS=[
+  {label:"D26",   names:["아다나","린다우","메르신","우양산 2종","포시타","세팔로","루시아"]},
+  {label:"D31",   names:["루시","크리스티","로슬라","소니아","케디리","일리안","듀리에","바르셀",
+                         "오비크","헬로나","아르고","아말리"]},
+  {label:"직매입", names:["바르셀 직매입","장우산 850 직매입"]}
+];
+var CC_PROD_ORDER=CC_PROD_GROUPS.reduce(function(a,g){return a.concat(g.names);},[]);
+var _CC_GRP_OF=(function(){
+  var m={};
+  CC_PROD_GROUPS.forEach(function(g){g.names.forEach(function(n){m[String(n).replace(/\s/g,"")]=g.label;});});
+  return m;
+})();
+function _ccGroupOf(name){return _CC_GRP_OF[String(name||"").replace(/\s/g,"")]||"기타";}
 var _CC_ORDER_IDX=(function(){
   var m={};
   CC_PROD_ORDER.forEach(function(n,i){m[String(n).replace(/\s/g,"")]=i;});
@@ -13298,11 +13313,22 @@ function renderCostcoPage(){
   });
   /* 영업2팀이 정한 진열 순서대로 — 목록에 없는 상품(새로 생긴 것)은 뒤에 붙는다 */
   visibleProds.sort(function(a,b){return _ccOrderIdx(a.name)-_ccOrderIdx(b.name);});
-  visibleProds.forEach(function(prod){
+  /* 묶음 머리줄이 표 전체 폭을 덮도록 열 수를 센다 */
+  var _totCols=3+(monthKeys.length?monthKeys.length*2+2:1);
+  var _curGrp=null;
+  visibleProds.forEach(function(prod,pi){
+    var grp=_ccGroupOf(prod.name);
+    if(grp!==_curGrp){
+      _curGrp=grp;
+      h+='<tr class="cc-grp-row"><td class="cc-sticky-1" colspan="3">'+_escX(grp)+'</td>'
+        +'<td colspan="'+(_totCols-3)+'"></td></tr>';
+    }
+    var isLastProd=(pi===visibleProds.length-1);
     /* 색상은 전체 표시 (수기 입력 가능하도록) — 상품 단위로만 숨김 처리 */
     prod.colors.forEach(function(color,ci){
       var isDisc=ccIsDiscontinued(prod.name,color);
-      h+='<tr'+(isDisc?' class="cc-disc-row"':'')+'>';
+      var lastRow=isLastProd&&ci===prod.colors.length-1;   /* 표 맨 아랫줄 — 굵은 마감선 */
+      h+='<tr class="'+(isDisc?'cc-disc-row ':'')+(lastRow?'cc-last-row':'')+'">';
       if(ci===0){
         var code=prod.code||'';
         var monthSalePrice=ccGetSalePriceForMonth(prod.name);
