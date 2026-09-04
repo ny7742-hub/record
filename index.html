@@ -13254,23 +13254,13 @@ function renderCostcoPage(){
   }
   h+='</tr>';
 
-  /* ── 상품별 행 (당월 매출 있거나 당월 세일 진행 중인 상품만 표시) ── */
+  /* ── 상품별 행 ──
+     그 달에 판매가 없어도 등록된 상품은 모두 보여준다(수기 입력·재고 확인용).
+     예전에는 '당월 매출이 있는 상품'만 걸러 보여줬는데, 안 팔린 상품이 사라져
+     그 달에 뭘 못 팔았는지 볼 수가 없었다.
+     표가 길어 거슬리는 상품은 '구분 ▼' 필터에서 개별로 숨긴다(`hiddenProds`). */
   var _hidden=costcoDB.hiddenProds||{};
-  var visibleProds=(monthKeys.length?prods.filter(function(prod){
-    if(ccGetSalePriceForMonth(prod.name))return true; /* 세일 등록 상품은 매출 없어도 표시 (신규 행사 준비용) */
-    var inMonth=prod.colors.some(function(color){
-      return monthKeys.some(function(k){
-        var d=((costcoDB.sales[k]||{})[prod.name]||{})[color]||{};
-        return !!(d.qty||d.amount);
-      });
-    });
-    if(inMonth)return true;
-    /* 앱에 기본 등록된 상품 중 아직 판매데이터가 한 번도 없는 것(직매입 등)은
-       수기 입력할 수 있게 표시한다. 값이 한 번이라도 들어가면 그 뒤로는
-       위의 '해당 월 데이터' 규칙만 적용된다.
-       (업로드 중 자동 추가된 이름들까지 다 뜨면 표가 지저분해지므로 기본 상품으로 한정) */
-    return _ccIsDefaultProd(prod.name)&&!_ccProdHasAnySales(prod);
-  }):prods).filter(function(prod){return !_hidden[prod.name];});
+  var visibleProds=prods.filter(function(prod){return !_hidden[prod.name];});
   visibleProds.forEach(function(prod){
     /* 색상은 전체 표시 (수기 입력 가능하도록) — 상품 단위로만 숨김 처리 */
     prod.colors.forEach(function(color,ci){
