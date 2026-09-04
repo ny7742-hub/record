@@ -51,7 +51,7 @@
   즉 `_ccIsDefaultProd(기본 등록) || _ccProdHasAnySales(판매 이력)`이고, 세일 등록 상품도 보여준다.
   개별로 숨기려면 `구분 ▼` 필터(`hiddenProds`)를 쓴다.
   **진열 순서·묶음은 `CC_PROD_GROUPS`(영업2팀 지정)를 따른다** — 바이어 `D26`/`D31`과 `직매입` 세 묶음이고,
-  묶음은 **맨 왼쪽 세로 띠**(`cc-sticky-0`/`cc-grp-cell`, 글자를 세워 폭 35px)로 rowspan해서 묶는다.
+  묶음은 **맨 왼쪽 열**(`cc-sticky-0`/`cc-grp-cell`, 폭 54px)에 rowspan으로 묶는다 — 글자는 가로로 쓴다(세로쓰기는 읽기 나빴다).
   표 마감선(`cc-last-row`)은 다른 칸 선과 같은 두께로 둔다.
   고정 열이 넷이 되면서 `ccSyncStickyOffsets`는 **열 폭을 더해 sticky left를 계산**한다 —
   예전의 '스크롤로 밀어붙여 렌더 위치를 재는' 방식은 묶음 열이 생긴 뒤 8~17px 모자라게 수렴해 열이 겹쳤다.
