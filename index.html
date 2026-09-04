@@ -13195,6 +13195,20 @@ function _ccProdHasAnySales(prod){
   }
   return false;
 }
+/* 코스트코 판매현황 표 진열 순서 (영업2팀 지정).
+   여기 없는 상품은 표 맨 뒤로 간다 — 새 상품이 조용히 사라지지 않게. */
+var CC_PROD_ORDER=["아다나","린다우","메르신","우양산 2종","포시타","세팔로","루시아",
+  "루시","크리스티","로슬라","소니아","케디리","일리안","듀리에","바르셀",
+  "오비크","헬로나","아르고","아말리","바르셀 직매입","장우산 850 직매입"];
+var _CC_ORDER_IDX=(function(){
+  var m={};
+  CC_PROD_ORDER.forEach(function(n,i){m[String(n).replace(/\s/g,"")]=i;});
+  return m;
+})();
+function _ccOrderIdx(name){
+  var k=String(name||"").replace(/\s/g,"");
+  return (_CC_ORDER_IDX[k]===undefined)?CC_PROD_ORDER.length:_CC_ORDER_IDX[k];
+}
 function renderCostcoPage(){
   var _yEl=document.getElementById("ccYear"),_mEl=document.getElementById("ccMonth");
   var _year=_yEl?parseInt(_yEl.value):new Date().getFullYear();
@@ -13282,6 +13296,8 @@ function renderCostcoPage(){
     if(ccGetSalePriceForMonth(prod.name))return true;      /* 세일 등록 상품 */
     return _ccIsDefaultProd(prod.name)||_ccProdHasAnySales(prod);
   });
+  /* 영업2팀이 정한 진열 순서대로 — 목록에 없는 상품(새로 생긴 것)은 뒤에 붙는다 */
+  visibleProds.sort(function(a,b){return _ccOrderIdx(a.name)-_ccOrderIdx(b.name);});
   visibleProds.forEach(function(prod){
     /* 색상은 전체 표시 (수기 입력 가능하도록) — 상품 단위로만 숨김 처리 */
     prod.colors.forEach(function(color,ci){
