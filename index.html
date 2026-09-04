@@ -695,6 +695,7 @@ label{font-size:14px!important}
     <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #cfe0e5">
       <button onclick="extToggle()" class="bs" style="padding:5px 12px;font-size:12px"><span id="extToggleTxt">▾ 매출 업로드</span></button>
       <div id="extBox" style="display:none;margin-top:10px;overflow-x:auto"></div>
+      <div id="extDupBox" style="display:none;margin-top:10px;padding:10px 12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px"></div>
     </div>
   </div>
   <div class="sec-title" style="margin-top:4px">🛍️ 카테고리</div>
@@ -4846,6 +4847,82 @@ function extClearDays(ch,ym){
   saveExtSales();renderExtSales();
   if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
 }
+/* ── 날짜 밀림으로 남은 옛 값 정리 ────────────────────────────────
+   예전 업로드는 판매일자를 하루 앞당겨 저장했다(2026-09-01 → 2026-08-31).
+   고친 뒤 다시 올리면 올바른 날짜로 '추가'되어 두 벌이 남는다.
+   앞 날짜 금액이 바로 다음 날 금액과 같으면 앞쪽이 옛 값이므로,
+   파일의 판매일자인 뒷 날짜만 남기고 앞쪽을 지운다. */
+function _extNextDay(k){
+  var d=new Date(k+"T00:00:00");
+  if(isNaN(d))return "";
+  d.setDate(d.getDate()+1);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function _extFindShifted(){
+  var out=[];
+  Object.keys(extSalesDB||{}).forEach(function(ch){
+    var o=extSalesDB[ch]||{};
+    Object.keys(o).forEach(function(k){
+      if(k.length!==10)return;
+      var v=Number(o[k])||0;
+      if(!v)return;
+      var nx=_extNextDay(k);
+      if(nx&&(Number(o[nx])||0)===v)out.push({ch:ch,key:k,next:nx,amt:v});
+    });
+  });
+  out.sort(function(a,b){return a.ch===b.ch?(a.key<b.key?-1:1):(a.ch<b.ch?-1:1);});
+  return out;
+}
+/* 지울 목록을 먼저 펼쳐 보여준다 — 팀 공유 데이터라 확인 없이 지우지 않는다 */
+function extShowDupPreview(){
+  var box=document.getElementById("extDupBox");
+  if(!box)return;
+  if(box.style.display==="block"){box.style.display="none";return;}
+  var list=_extFindShifted();
+  if(!list.length){box.style.display="none";alert("정리할 중복이 없습니다.");return;}
+  var byCh={},tot=0;
+  list.forEach(function(x){
+    byCh[x.ch]=byCh[x.ch]||{n:0,amt:0,rows:[]};
+    byCh[x.ch].n++;byCh[x.ch].amt+=x.amt;byCh[x.ch].rows.push(x);tot+=x.amt;
+  });
+  var h='<div style="font-weight:800;color:#92400e;margin-bottom:6px">🧹 지울 목록 — '+list.length+'건 / '+tot.toLocaleString()+'원</div>';
+  h+='<div style="font-size:11.5px;color:#5b6675;margin-bottom:8px;line-height:1.6">'
+    +'앞 날짜 금액이 <b>바로 다음 날과 같은</b> 항목입니다. 옛 업로드가 하루 앞당겨 저장한 값이라,'
+    +' <b>파일의 판매일자인 뒷 날짜만 남기고</b> 앞쪽을 지웁니다.</div>';
+  h+='<div style="max-height:260px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px">';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:11.5px">';
+  Object.keys(byCh).forEach(function(c){
+    h+='<tr style="background:#f1f5f9"><td colspan="3" style="padding:4px 8px;font-weight:800;color:#0f5c6e">'
+      +_esc(c)+' — '+byCh[c].n+'건 / '+byCh[c].amt.toLocaleString()+'원</td></tr>';
+    byCh[c].rows.forEach(function(x){
+      h+='<tr><td style="padding:3px 8px;color:#dc2626;text-decoration:line-through">'+x.key+'</td>'
+        +'<td style="padding:3px 8px;color:#16a34a">남김 '+x.next+'</td>'
+        +'<td style="padding:3px 8px;text-align:right;font-variant-numeric:tabular-nums">'+x.amt.toLocaleString()+'</td></tr>';
+    });
+  });
+  h+='</table></div>';
+  h+='<div style="margin-top:8px;display:flex;gap:8px;align-items:center">'
+    +'<button class="bs" style="padding:5px 14px;font-size:12px;background:#fee2e2;border-color:#fca5a5;color:#b91c1c" onclick="extCleanShifted()">지우기 실행</button>'
+    +'<button class="bs" style="padding:5px 14px;font-size:12px" onclick="extShowDupPreview()">닫기</button>'
+    +'<span style="font-size:11px;color:#94a3b8">되돌릴 수 없습니다. 지운 뒤에는 홈 표 금액이 줄어듭니다.</span></div>';
+  box.innerHTML=h;
+  box.style.display="block";
+}
+function extCleanShifted(){
+  var list=_extFindShifted();
+  if(!list.length){alert("정리할 중복이 없습니다.");return;}
+  if(!confirm(list.length+"건을 지웁니다. 되돌릴 수 없습니다.\n계속할까요?"))return;
+  list.forEach(function(x){ if(extSalesDB[x.ch])delete extSalesDB[x.ch][x.key]; });
+  Object.keys(extSalesDB).forEach(function(ch){
+    if(!Object.keys(extSalesDB[ch]||{}).length)delete extSalesDB[ch];
+  });
+  saveExtSales();
+  var box=document.getElementById("extDupBox");
+  if(box){box.style.display="none";box.innerHTML="";}
+  renderExtSales();
+  if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
+  alert(list.length+"건을 정리했습니다.");
+}
 function renderExtSales(){
   var el=document.getElementById("extBox");if(!el)return;
   var Y=new Date().getFullYear(),M=new Date().getMonth()+1;
@@ -4856,6 +4933,11 @@ function renderExtSales(){
     +' style="padding:5px 14px;font-size:11.5px;gap:6px;min-height:0" title="엑셀을 여기로 끌어다 놓으세요">'
     +'<span style="font-size:15px;line-height:1">⬇</span><span>여기로 <u>끌어다 놓기</u></span></div>';
   h+='<span id="extMsg" style="font-size:12px;color:#15803d;font-weight:600"></span>';
+  (function(){
+    var dn=_extFindShifted().length;
+    if(dn)h+='<button class="bs" style="padding:5px 12px;font-size:12px;background:#fef3c7;border-color:#fbbf24;color:#92400e"'
+      +' onclick="extShowDupPreview()" title="날짜가 하루 앞당겨 저장된 옛 값을 찾아 지웁니다">🧹 중복 정리 '+dn+'건</button>';
+  })();
   h+='<span style="font-size:11px;color:#94a3b8;margin-left:auto">파일의 <b>매장구분</b> 열로 채널을 <b>자동 분류</b>합니다 · 그 열이 없는 파일이면 올릴 때 한 번 물어봅니다</span>';
   h+='<div style="width:100%;font-size:11px;color:#5b6675;margin-top:2px">'
     +'<b>올린 날</b>은 업로드 값, <b>안 올린 날</b>은 각 탭(일별매출·코스트코) 실적으로 <b>일자 단위로 섞어</b> 계산합니다. '
