@@ -12947,12 +12947,19 @@ function closeSaleModal(){
   document.getElementById("ccSaleModal").style.display="none";
 }
 function renderSaleModal(){
-  /* 기존 세일 목록 — 기간이 지나도 삭제하지 않고 전부 표시하되, 진행중/예정/종료를 색으로 구분 */
+  /* 기존 세일 목록 — **끝난 세일은 여기서 감춘다**(진행중·예정만).
+     자료는 지우지 않는다: 지난 달 표의 세일가와 판매현황 위 세일 배지가 그대로 나와야 하기 때문. */
   var listEl=document.getElementById("ccSaleList");
   if(listEl){
     var lh="";
     var today=new Date();today.setHours(0,0,0,0);
-    var sorted=(costcoDB.salePeriods||[]).map(function(sp,i){return {sp:sp,i:i};}).sort(function(a,b){return _ccYMD(b.sp.start)-_ccYMD(a.sp.start);});
+    var _endedN=0;
+    var sorted=(costcoDB.salePeriods||[]).map(function(sp,i){return {sp:sp,i:i};})
+      .filter(function(r){
+        if(_ccYMD(r.sp.end)>=today)return true;
+        _endedN++;return false;
+      })
+      .sort(function(a,b){return _ccYMD(b.sp.start)-_ccYMD(a.sp.start);});
     sorted.forEach(function(row){
       var sp=row.sp,i=row.i;
       var sd=_ccYMD(sp.start),ed=_ccYMD(sp.end);
@@ -12970,7 +12977,8 @@ function renderSaleModal(){
       lh+='<button onclick="deleteSalePeriod('+i+')" style="background:none;border:1px solid '+border+';color:'+txt+';border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">삭제</button>';
       lh+='</div>';
     });
-    listEl.innerHTML=lh||'<p style="font-size:12px;color:#5b6675;margin:0 0 12px">등록된 세일 없음</p>';
+    if(_endedN)lh+='<p style="font-size:11px;color:#5b6675;margin:2px 0 10px">끝난 세일 '+_endedN+'건은 목록에서 감췄습니다 — 판매현황 위 세일 표시와 지난 달 세일가는 그대로 나옵니다.</p>';
+    listEl.innerHTML=lh||'<p style="font-size:12px;color:#5b6675;margin:0 0 12px">진행중·예정 세일 없음</p>';
   }
   /* 상품 체크리스트 */
   var prodsEl=document.getElementById("ccSaleNewProds");
