@@ -332,12 +332,18 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .drop-zone.dragover{border-color:#1b6e82;background:#dbeafe;box-shadow:inset 0 0 0 3px rgba(27,110,130,.18)}
 .cc-tbl .cc-amt-diff{background:#fef3c7 !important;color:#b45309 !important;font-weight:800;box-shadow:inset 0 0 0 2px #f59e0b}
 .cc-tbl .cc-nodata{background:#c8ccd4}
-/* 바이어(D26/D31)·직매입 묶음 머리줄과 표 마감선 */
-.cc-tbl .cc-grp-row td{background:#1b6e82;color:#fff;font-weight:800;font-size:15px;
-  text-align:left;padding:4px 10px;border:1px solid #134e5c;letter-spacing:.5px}
-.cc-tbl .cc-last-row td{border-bottom:3px solid #1b6e82}
+/* 바이어(D26/D31)·직매입 묶음 — 맨 왼쪽 세로 띠. 글자를 세워 열 폭을 좁게 유지한다 */
+.cc-tbl .cc-grp-cell{background:#1b6e82;color:#fff;font-weight:800;font-size:14px;
+  padding:2px 0;text-align:center;vertical-align:middle;letter-spacing:1px;
+  border:1px solid #475569;border-right:2px solid #5b6675}
+.cc-tbl .cc-grp-cell span{writing-mode:vertical-rl;text-orientation:upright;display:inline-block;white-space:nowrap}
+.cc-tbl thead .cc-sticky-0{background:#374151}
+.cc-tbl .cc-total-row .cc-sticky-0{background:#e8eaf0}
+/* 표 마감선 — 다른 칸 선과 같은 두께로 */
+.cc-tbl .cc-last-row td{border-bottom:1px solid #475569}
 .cc-tbl [contenteditable]:focus{outline:2px solid #6366f1;background:#eff6ff!important}
-.cc-tbl .cc-sticky-1{position:sticky;left:0;z-index:3}
+.cc-tbl .cc-sticky-0{position:sticky;left:0;z-index:4}
+.cc-tbl .cc-sticky-1{position:sticky;left:var(--ccL1,0px);z-index:3}
 .cc-tbl .cc-sticky-2{position:sticky;left:var(--ccL2,76px);z-index:3}
 .cc-tbl .cc-sticky-3{position:sticky;left:var(--ccL3,76px);z-index:3}
 .cc-tbl .cc-sticky-4{position:sticky;left:var(--ccL4,146px);z-index:3;border-right:2px solid #5b6675!important}
@@ -12835,49 +12841,28 @@ function initCostcoScroll(){
 }
 /* 고정 열(구분/색상/단종)의 실제 렌더 너비를 측정해 sticky left 오프셋을 정확히 맞춤
    (셀 min-width·글자 크기로 실제 열이 colgroup보다 넓어져 모바일에서 겹치는 문제 방지) */
+/* 고정 열(묶음·구분·색상·단종)의 sticky left 값을 실제 열 폭으로 계산한다.
+   예전에는 스크롤로 밀어붙인 상태에서 렌더 위치를 재어 보정했는데, 맨 왼쪽에 묶음 열이 생긴 뒤로는
+   그 방식이 8~17px씩 모자라게 수렴해 열이 서로 겹쳤다. 열 폭은 흔들리지 않으므로 그대로 더해 쓴다.
+   border-collapse라 열 사이 경계선을 두 열이 나눠 쓰므로 경계마다 1px씩 뺀다. */
 function ccSyncStickyOffsets(){
   var wrap=document.getElementById('costcoTableWrap');
   var tbl=wrap&&wrap.querySelector('table.cc-tbl');
   if(!tbl)return;
   var headRow=tbl.querySelector('thead tr');
   if(!headRow)return;
+  var c0=headRow.querySelector('.cc-sticky-0');
   var c1=headRow.querySelector('.cc-sticky-1');
   var c3=headRow.querySelector('.cc-sticky-3');
   var c4=headRow.querySelector('.cc-sticky-4');
   if(!c1||!c3||!c4)return;
-  /* border-collapse+sticky 환경에서는 sticky left 값과 실제 렌더 위치가 서브픽셀 이상 어긋나
-     열 사이에 gap이 생긴다. → 스크롤로 고정 열을 실제로 밀어붙인(clamped) 상태에서
-     렌더 위치를 측정해, 색상은 구분 바로 뒤·단종은 색상 바로 뒤에 붙도록 반복 보정한다. */
   var prev=wrap.scrollLeft;
-  /* 1차: 자연 위치(오프셋 0, 스크롤 0)에서 누적 폭 측정 */
-  tbl.style.setProperty('--ccL3','0px');
-  tbl.style.setProperty('--ccL4','0px');
-  wrap.scrollLeft=0;
-  var base=c1.getBoundingClientRect().left;
-  var l3=c3.getBoundingClientRect().left-base;
-  var l4=c4.getBoundingClientRect().left-base;
-  tbl.style.setProperty('--ccL3',l3+'px');
-  tbl.style.setProperty('--ccL4',l4+'px');
-  /* 2차: clamped 상태에서 실제 렌더 위치 기준으로 반복 보정 */
-  var clampX=Math.max(400,l4+150);
-  for(var i=0;i<5;i++){
-    wrap.scrollLeft=clampX;
-    var wl=wrap.getBoundingClientRect().left;
-    var prodR=c1.getBoundingClientRect().right-wl;
-    var colorL=c3.getBoundingClientRect().left-wl;
-    var colorR=c3.getBoundingClientRect().right-wl;
-    var discL=c4.getBoundingClientRect().left-wl;
-    var d3=colorL-prodR;   /* 색상이 구분 오른쪽 끝에서 시작하도록 */
-    var d4=discL-colorR;   /* 단종이 색상 오른쪽 끝에서 시작하도록 */
-    if(Math.abs(d3)<0.5&&Math.abs(d4)<0.5)break;
-    l3-=d3;
-    l4-=(d3+d4);
-    tbl.style.setProperty('--ccL3',l3+'px');
-    tbl.style.setProperty('--ccL4',l4+'px');
-  }
-  /* 1px 겹침으로 남은 서브픽셀 seam 제거 */
-  tbl.style.setProperty('--ccL3',(l3-1)+'px');
-  tbl.style.setProperty('--ccL4',(l4-1)+'px');
+  wrap.scrollLeft=0;                      /* 밀리지 않은 자연 폭에서 잰다 */
+  var w=function(e){return e?e.getBoundingClientRect().width:0;};
+  var w0=w(c0),w1=w(c1),w3=w(c3);
+  tbl.style.setProperty('--ccL1',w0+'px');
+  tbl.style.setProperty('--ccL3',Math.max(0,w0+w1-1)+'px');
+  tbl.style.setProperty('--ccL4',Math.max(0,w0+w1+w3-2)+'px');
   wrap.scrollLeft=prev;
 }
 
@@ -12991,7 +12976,16 @@ function renderSaleModal(){
   var prodsEl=document.getElementById("ccSaleNewProds");
   if(prodsEl){
     var ph="";
-    costcoDB.products.forEach(function(p){
+    /* 판매현황 표와 같은 순서·묶음으로 보여준다 — 두 화면을 오갈 때 상품을 찾기 쉽게 */
+    var _sgrp=null;
+    costcoDB.products.slice().sort(function(a,b){return _ccOrderIdx(a.name)-_ccOrderIdx(b.name);})
+      .forEach(function(p){
+      var g=_ccGroupOf(p.name);
+      if(g!==_sgrp){
+        _sgrp=g;
+        ph+='<div style="margin:8px 0 3px;font-size:11px;font-weight:800;color:#1b6e82;'
+          +'border-bottom:1px solid #cfe0e5;padding-bottom:2px">'+_escX(g)+'</div>';
+      }
       ph+='<div style="display:flex;align-items:center;gap:8px">';
       ph+='<input type="checkbox" id="ccScb_'+p.name+'" style="width:15px;height:15px;cursor:pointer">';
       ph+='<label for="ccScb_'+p.name+'" style="font-size:13px;font-weight:600;color:#374151;min-width:60px;cursor:pointer">'+p.name+'</label>';
@@ -13247,7 +13241,7 @@ function renderCostcoPage(){
   monthKeys.forEach(function(k){var t=ccPeriodTotal(k);monthTotQty+=t.qty;monthTotAmt+=t.amount;});
 
   var h='<table class="cc-tbl"><colgroup>';
-  h+='<col style="width:1px"><col style="width:1px"><col style="width:1px">';
+  h+='<col style="width:26px"><col style="width:1px"><col style="width:1px"><col style="width:1px">';
   if(monthKeys.length){
     monthKeys.forEach(function(){h+='<col style="width:56px"><col style="width:88px">';});
     h+='<col style="width:60px"><col style="width:90px">';
@@ -13258,6 +13252,7 @@ function renderCostcoPage(){
 
   /* ── 헤더 1행: 고정 컬럼 + 일자 + 월 합계 (주차 범위 행 제거, 일자별만 표시) ── */
   h+='<tr>';
+  h+='<th rowspan="2" class="cc-sticky-0">묶음</th>';
   h+='<th rowspan="2" class="cc-sticky-1">구분 <button onclick="ccToggleFilterMenu(event)" title="필터" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#1b6e82;vertical-align:middle">▼</button></th>';
   h+='<th rowspan="2" class="cc-sticky-3">색상</th>';
   h+='<th rowspan="2" class="cc-sticky-4">단종</th>';
@@ -13284,6 +13279,7 @@ function renderCostcoPage(){
 
   /* ── 누계 행 ── */
   h+='<tr class="cc-total-row">';
+  h+='<td class="cc-sticky-0" style="background:#e8eaf0"></td>';
   h+='<td class="cc-sticky-1" style="background:#e8eaf0;font-size:16px;font-weight:700">누계</td>';
   h+='<td class="cc-sticky-3" style="background:#e8eaf0;font-size:16px;color:#475569">컬러</td>';
   h+='<td class="cc-sticky-4" style="background:#e8eaf0"></td>';
@@ -13313,22 +13309,24 @@ function renderCostcoPage(){
   });
   /* 영업2팀이 정한 진열 순서대로 — 목록에 없는 상품(새로 생긴 것)은 뒤에 붙는다 */
   visibleProds.sort(function(a,b){return _ccOrderIdx(a.name)-_ccOrderIdx(b.name);});
-  /* 묶음 머리줄이 표 전체 폭을 덮도록 열 수를 센다 */
-  var _totCols=3+(monthKeys.length?monthKeys.length*2+2:1);
-  var _curGrp=null;
+  /* 묶음(D26/D31/직매입)은 맨 왼쪽 세로 띠로 표시한다 — 묶음의 첫 줄에서 rowspan으로 내려 덮는다 */
+  var _grpRows={},_grpFirst={};
+  visibleProds.forEach(function(p){
+    var g=_ccGroupOf(p.name);
+    _grpRows[g]=(_grpRows[g]||0)+p.colors.length;
+    if(_grpFirst[g]===undefined)_grpFirst[g]=p.name;
+  });
   visibleProds.forEach(function(prod,pi){
     var grp=_ccGroupOf(prod.name);
-    if(grp!==_curGrp){
-      _curGrp=grp;
-      h+='<tr class="cc-grp-row"><td class="cc-sticky-1" colspan="3">'+_escX(grp)+'</td>'
-        +'<td colspan="'+(_totCols-3)+'"></td></tr>';
-    }
     var isLastProd=(pi===visibleProds.length-1);
     /* 색상은 전체 표시 (수기 입력 가능하도록) — 상품 단위로만 숨김 처리 */
     prod.colors.forEach(function(color,ci){
       var isDisc=ccIsDiscontinued(prod.name,color);
       var lastRow=isLastProd&&ci===prod.colors.length-1;   /* 표 맨 아랫줄 — 굵은 마감선 */
       h+='<tr class="'+(isDisc?'cc-disc-row ':'')+(lastRow?'cc-last-row':'')+'">';
+      if(_grpFirst[grp]===prod.name&&ci===0){
+        h+='<td class="cc-sticky-0 cc-grp-cell" rowspan="'+_grpRows[grp]+'"><span>'+_escX(grp)+'</span></td>';
+      }
       if(ci===0){
         var code=prod.code||'';
         var monthSalePrice=ccGetSalePriceForMonth(prod.name);
