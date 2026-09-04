@@ -488,6 +488,8 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .ytd-mtbl td.ytd-rate.ytd-r3{font-size:8.5px !important}
 /* 누적(4열) 표는 화면이 넓어도 지나치게 늘어나지 않게 */
 .ytd-stbl{max-width:1000px}
+/* 주간 표(9열) — 월~일 단위, 열이 적어 기본 글자 크기로 충분하다 */
+.ytd-tbl.ytd-wtbl{min-width:880px;max-width:1500px}
 .ytd-tbl{border-collapse:collapse;width:100%;min-width:520px}
 .ytd-tbl th{background:var(--ec-headbg);color:#1b6e82;font-size:12px;font-weight:800;padding:7px 10px;border:1px solid var(--ec-line);white-space:nowrap}
 .ytd-tbl td{font-size:14px;padding:7px 10px;border:1px solid var(--ec-line);white-space:nowrap}
@@ -685,6 +687,7 @@ label{font-size:14px!important}
     <div id="homeYtdTabs" style="display:flex;gap:4px">
       <button class="ytd-tab" data-v="sum" onclick="setHomeYtdView('sum')">누적</button>
       <button class="ytd-tab" data-v="month" onclick="setHomeYtdView('month')">월별</button>
+      <button class="ytd-tab" data-v="week" onclick="setHomeYtdView('week')">주간</button>
     </div>
   </div>
   <div class="card" style="margin-bottom:14px;padding:12px 16px">
@@ -4545,10 +4548,97 @@ function _ytdRateCell(cur,prev){
   return '<td class="ytd-rate '+cls+'" title="'+(diff>=0?"+":"")+diff.toLocaleString()+'원">'+arrow+rate.toFixed(1)+'%</td>';
 }
 /* 홈 연매출 표 보기 — 'sum'(채널별 누적) / 'month'(월별) */
-function homeYtdView(){try{return localStorage.getItem("homeYtdView")==="month"?"month":"sum";}catch(e){return "sum";}}
+function homeYtdView(){try{var v=localStorage.getItem("homeYtdView");return (v==="month"||v==="week")?v:"sum";}catch(e){return "sum";}}
 function setHomeYtdView(v){
   try{localStorage.setItem("homeYtdView",v);}catch(e){}
   renderHomeYtd(new Date());
+}
+/* ── 주간 매출 (월~일) ──────────────────────────────────────────────
+   일자 단위 자료가 있는 채널만 주로 쪼갤 수 있다.
+   월 단위로만 있는 달(홈쇼핑 확정 실적표, 월 키로 올린 업로드)은 주간에 넣지 않고 안내로 알린다. */
+var YTD_WEEKS=8;
+/* 그 날짜가 속한 주의 월요일 */
+function _weekMonday(d){
+  var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  var w=x.getDay();                 /* 0=일요일 */
+  x.setDate(x.getDate()+(w===0?-6:1-w));
+  return x;
+}
+/* 한 채널·한 달의 '일자별 금액' — {일:금액}.
+   monthOnly가 0이 아니면 그 달은 월 단위 값뿐이라 주간으로 나눌 수 없다는 뜻. */
+function _chDayMap(chName,key,Y,m){
+  var out={};
+  var td=key?_tabDayMap(key,Y,m):null;
+  if(td)Object.keys(td).forEach(function(d){out[d]=td[d];});
+  var up=_extDaysIn(chName,Y,m);
+  Object.keys(up).forEach(function(d){out[d]=up[d];});   /* 업로드가 탭 실적보다 우선 */
+  if(Object.keys(out).length)return {days:out,monthOnly:0};
+  /* 일자 자료가 아예 없는 달만 '월 단위뿐'으로 본다.
+     홈쇼핑은 월별 표에서 확정 실적표를 쓰지만, 주간은 쪼갤 수가 없어 일자 업로드를 쓴다. */
+  var mv=_extGet(chName,Y+"-"+String(m).padStart(2,"0"));
+  if(!mv&&TAB_FIRST[chName])mv=_hsFixed(Y,m)||0;
+  return {days:{},monthOnly:mv||0};
+}
+/* 최근 n주(월~일)를 채널별로 합산. 오늘 이후 날짜는 빼고 센다. */
+function _homeWeekly(now,n){
+  var CH=[["백화점","daily"],["코스트코","costco"],["홈쇼핑","hs"]]
+    .concat(EXT_CHANNELS.map(function(c){return [c,null];}));
+  var mon0=_weekMonday(now),weeks=[],cache={},mOnly={};
+  for(var i=n-1;i>=0;i--){
+    var s=new Date(mon0);s.setDate(s.getDate()-i*7);
+    var e=new Date(s);e.setDate(e.getDate()+6);
+    var wk={start:s,end:e,cur:(i===0),total:0,days:0};
+    CH.forEach(function(c){
+      var sum=0;
+      for(var k=0;k<7;k++){
+        var d=new Date(s);d.setDate(d.getDate()+k);
+        if(d>now)break;
+        var Y=d.getFullYear(),m=d.getMonth()+1;
+        var ck=c[0]+"|"+Y+"-"+m;
+        if(!cache[ck])cache[ck]=_chDayMap(c[0],c[1],Y,m);
+        if(cache[ck].monthOnly){mOnly[c[0]]=1;continue;}
+        sum+=cache[ck].days[String(d.getDate())]||0;
+      }
+      wk[c[0]]=sum;wk.total+=sum;
+    });
+    var cnt=0;
+    for(var k2=0;k2<7;k2++){var d2=new Date(s);d2.setDate(d2.getDate()+k2);if(d2<=now)cnt++;}
+    wk.days=cnt;
+    weeks.push(wk);
+  }
+  return {weeks:weeks,CH:CH,monthOnly:Object.keys(mOnly)};
+}
+/* 주간 표 — 최신 주가 맨 위 */
+function _renderHomeYtdWeekly(now,wrap){
+  var W=_homeWeekly(now,YTD_WEEKS),CH=W.CH;
+  var won=function(n){return (n||n===0)?Number(n).toLocaleString():"";};
+  var GB="border-left:2px solid #4d7f96";
+  var md=function(d){return (d.getMonth()+1)+"/"+d.getDate();};
+  var h='<table class="ytd-tbl ytd-wtbl"><thead><tr><th style="min-width:118px">기간</th>';
+  CH.forEach(function(c){h+='<th style="'+GB+'">'+_esc(c[0])+'</th>';});
+  h+='<th style="'+GB+';background:#dbe7ea">합계</th>'
+   +'<th style="'+GB+'" title="바로 앞 주와 비교">전주대비</th></tr></thead><tbody>';
+  var rows=W.weeks.slice().reverse();
+  rows.forEach(function(wk,i){
+    var prev=rows[i+1];
+    h+='<tr'+(wk.cur?' class="ytd-cur"':'')+'>';
+    h+='<td class="ytd-mon" style="white-space:nowrap">'+md(wk.start)+'~'+md(wk.end)
+      +(wk.cur?' <span style="font-size:10px;color:#b45309;font-weight:700">진행중 '+wk.days+'일</span>':'')+'</td>';
+    CH.forEach(function(c){h+='<td class="ytd-num" style="'+GB+'">'+won(wk[c[0]])+'</td>';});
+    h+='<td class="ytd-num" style="'+GB+';color:#0f5c6e">'+won(wk.total)+'</td>';
+    h+=(wk.cur||!prev||!prev.total)
+      ? '<td class="ytd-rate ytd-flat" style="'+GB+'" title="'+(wk.cur?"진행중이라 비교하지 않습니다":"비교할 앞 주 실적이 없습니다")+'">–</td>'
+      : _ytdRateCellS(wk.total,prev.total).replace('<td class="ytd-rate','<td style="'+GB+'" class="ytd-rate');
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  h+='<div style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.6">단위: 원 · 주는 <b>월요일~일요일</b> 기준입니다.';
+  if(W.monthOnly.length)
+    h+='<br><span style="color:#b45309;font-weight:700">⚠ '+_esc(W.monthOnly.join(" · "))
+      +'는 이 기간에 월 단위 자료만 있어 주간으로 나눌 수 없습니다(0으로 표시).</span>';
+  h+='<br>아난티·팩토리·트래블메이트는 월말에 한 번에 등록해서, 그 날이 속한 주에 한 달치가 몰려 잡힙니다.'
+   +'<br>주간은 <b>판매일자 자료</b>로만 더하므로, 월 확정 실적표를 쓰는 홈쇼핑은 월별 표와 금액이 다를 수 있습니다.</div>';
+  wrap.innerHTML=h;
 }
 /* 월별 표는 칸이 좁아 소수점을 빼고 보여준다 — 정확한 값은 툴팁 */
 function _ytdRateCellS(cur,prev){
@@ -4687,8 +4777,10 @@ function renderHomeYtd(now){
   var tabs=document.querySelectorAll("#homeYtdTabs .ytd-tab");
   for(var t=0;t<tabs.length;t++)tabs[t].classList.toggle("on",tabs[t].dataset.v===view);
   var titleEl=document.getElementById("homeYtdTitle");
-  if(titleEl)titleEl.textContent=view==="month"?("📊 월별 매출 ("+Y+"년 1~"+M+"월)"):("📊 연 누적 매출 (1~"+M+"월)");
+  if(titleEl)titleEl.textContent=view==="month"?("📊 월별 매출 ("+Y+"년 1~"+M+"월)")
+    :(view==="week"?("📊 주간 매출 (최근 "+YTD_WEEKS+"주 · 월~일)"):("📊 연 누적 매출 (1~"+M+"월)"));
   if(view==="month")return _renderHomeYtdMonthly(now,wrap);
+  if(view==="week")return _renderHomeYtdWeekly(now,wrap);
   var cur=_homeYtdThisYear(now),prev=_homeYtdPrevYear(now);
   if(!prev.any&&!cur.total){wrap.innerHTML='<div style="font-size:13px;color:#8a95a6;padding:6px 2px">표시할 매출 데이터가 없습니다.</div>';return;}
   var won=function(n){return Number(n||0).toLocaleString()+"원";};
