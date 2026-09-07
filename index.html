@@ -10123,50 +10123,92 @@ function fmtCC(n){return(n!==undefined&&n!==''&&Number(n)!==0)?Number(n).toLocal
 var ccrRows=[];
 var CCR_MEMO="코스트코 반품";
 var CCR_SKIP=["처리보류","확인요청","출고예정"];
-/* 붙여넣기 열 순서 — 시트 '온라인' 탭 기준 */
-var CCR_COL={status:0,"in":1,proc:2,open:3,shop:4,orderShop:5,orderNo:6,prod:12,qty:13,pay:14};
+/* 반품일자 = 해체일 > 처리일 > 입고일 */
+function _ccrRowDate(r){return r.open||r.proc||r["in"]||null;}
+function _ccrReady(r){return !!_ccrRowDate(r);}
 function _ccrNum(v){
   var n=parseInt(String(v==null?"":v).replace(/[^0-9-]/g,""),10);
   return isNaN(n)?0:n;
 }
-/* 반품일자 = 해체일 > 처리일 > 입고일 */
-function _ccrRowDate(r){return r.open||r.proc||r["in"]||null;}
-function _ccrReady(r){return !!_ccrRowDate(r);}
+/* 붙여넣은 한 줄에서 열 위치를 내용으로 찾는다.
+   고정 위치(CCR_COL)로 읽으면 복사 범위가 한 칸만 밀려도 상품명 자리가 어긋나 전부 미매칭이 된다.
+   상품명(화이트샌즈가 든 가장 긴 칸)을 기준으로 수량·결제가는 그 뒤, 날짜·상태는 그 앞에서 찾는다. */
+var CCR_STATES=["처리완료","처리보류","확인요청","출고예정","처리종결","접수완료","확인필요"];
+function _ccrMapRow(c){
+  var prod=-1,len=0;
+  for(var i=0;i<c.length;i++){
+    var s=String(c[i]==null?"":c[i]);
+    if(/화이트샌즈|WHITE\s*SANDS/i.test(s)&&s.length>len){prod=i;len=s.length;}
+  }
+  if(prod<0)return null;
+  var status="";
+  for(var j=0;j<c.length;j++){
+    var v=String(c[j]==null?"":c[j]).trim();
+    if(CCR_STATES.indexOf(v)>=0){status=v;break;}
+  }
+  /* 상품명 앞쪽의 날짜들 — 순서대로 입고 → 처리 → 해체 */
+  var dates=[];
+  for(var k=0;k<prod;k++){
+    var d=_hsrParseDate(c[k]);
+    if(d)dates.push(d);
+  }
+  /* 쇼핑몰: '코스트코'가 든 칸(없으면 상품명 바로 앞 칸들 중 글자 있는 것) */
+  var shop="";
+  for(var m=0;m<prod;m++){
+    var sv=String(c[m]==null?"":c[m]).trim();
+    if(/코스트코|온라인몰|몰$/.test(sv)){shop=sv;break;}
+  }
+  /* 수량·결제가: 상품명 뒤에서 첫 숫자칸 = 수량, 그 다음 칸 = 결제가 */
+  var qty=0,pay="",qi=-1;
+  for(var n=prod+1;n<c.length;n++){
+    var t=String(c[n]==null?"":c[n]).trim();
+    if(t===""||!/^[0-9,]+$/.test(t))continue;
+    qty=_ccrNum(t);qi=n;break;
+  }
+  if(qi>=0&&qi+1<c.length){
+    var pv=String(c[qi+1]==null?"":c[qi+1]).trim();
+    pay=/[0-9]/.test(pv)?_ccrNum(pv):"";
+  }
+  var orderNo="";
+  for(var o=0;o<prod;o++){
+    var ov=String(c[o]==null?"":c[o]).trim();
+    if(/^[0-9]{6,}$/.test(ov)){orderNo=ov;break;}
+  }
+  return {
+    status:status,
+    "in":dates[0]||null,
+    proc:dates.length>2?dates[1]:null,
+    open:dates.length?dates[dates.length-1]:null,
+    shop:shop,
+    orderNo:orderNo,
+    prod:String(c[prod]).trim(),
+    qty:(qty>0?qty:1),
+    pay:pay
+  };
+}
 function ccrPasteRows(){
   var ta=document.getElementById("ccrPasteArea");if(!ta)return;
   var txt=(ta.value||"").replace(/\r/g,"");
   if(!txt.trim()){alert("붙여넣은 내용이 없습니다.");return;}
-  var lines=txt.split("\n"),added=0,skipped=0,skipNames={};
+  var lines=txt.split("\n"),added=0,skipNames={},noProd=0;
   lines.forEach(function(line){
     if(!line.trim())return;
-    var c=line.split("\t");
-    var prod=String(c[CCR_COL.prod]==null?"":c[CCR_COL.prod]).trim();
-    if(!prod||prod==="상품명")return;
-    var st=String(c[CCR_COL.status]==null?"":c[CCR_COL.status]).trim();
-    if(CCR_SKIP.indexOf(st)>=0){skipped++;skipNames[st]=(skipNames[st]||0)+1;return;}
-    var qty=_ccrNum(c[CCR_COL.qty]);
-    var payRaw=String(c[CCR_COL.pay]==null?"":c[CCR_COL.pay]).trim();
-    var pay=/[0-9]/.test(payRaw)?_ccrNum(payRaw):"";
-    var rec={
-      status:st,
-      "in":_hsrParseDate(c[CCR_COL["in"]]),
-      proc:_hsrParseDate(c[CCR_COL.proc]),
-      open:_hsrParseDate(c[CCR_COL.open]),
-      shop:String(c[CCR_COL.shop]==null?"":c[CCR_COL.shop]).trim(),
-      orderNo:String(c[CCR_COL.orderShop]==null?"":c[CCR_COL.orderShop]).trim(),
-      prod:prod,
-      qty:(qty>0?qty:1),
-      pay:pay,
-      colorCode:"",price:"",matched:false
-    };
-    var m=(typeof _hsFindMatchFromDefaultData==="function")?_hsFindMatchFromDefaultData(prod):null;
-    if(m&&m.colorCode){rec.colorCode=m.colorCode;rec.matched=true;}
-    if(pay!==""&&rec.qty)rec.price=Math.round(pay/rec.qty);
-    ccrRows.push(rec);added++;
+    var m=_ccrMapRow(line.split("\t"));
+    if(!m){noProd++;return;}                       /* 상품명을 못 찾은 줄(머리글 등) */
+    if(CCR_SKIP.indexOf(m.status)>=0){skipNames[m.status]=(skipNames[m.status]||0)+1;return;}
+    m.colorCode="";m.price="";m.matched=false;
+    var hit=(typeof _hsFindMatchFromDefaultData==="function")?_hsFindMatchFromDefaultData(m.prod):null;
+    if(hit&&hit.colorCode){m.colorCode=hit.colorCode;m.matched=true;}
+    if(m.pay!==""&&m.qty)m.price=Math.round(m.pay/m.qty);
+    ccrRows.push(m);added++;
   });
   ta.value="";
-  if(!added&&!skipped){alert("인식된 반품 내역이 없습니다.\n처리상태부터 결제가까지 복사했는지 확인해주세요.");return;}
   var sk=Object.keys(skipNames);
+  if(!added&&!sk.length){
+    alert("인식된 반품 내역이 없습니다.\n\n상품명 칸(화이트샌즈…)이 포함되도록\n처리상태부터 결제가까지 복사했는지 확인해주세요."
+      +(noProd?"\n\n(상품명을 찾지 못한 줄 "+noProd+"개)":""));
+    return;
+  }
   var el=document.getElementById("ccrMsg");
   if(el)el.textContent="✔ "+added+"건 등록"+(sk.length?" · 제외 "+sk.map(function(k){return k+" "+skipNames[k];}).join(", "):"");
   renderCcrTable();
