@@ -2149,7 +2149,7 @@ function _fixMergedColorRows(raw){
 /* 코스트코 단독상품 판매가 보정 — 바르셀(WLW44H5S)은 코스트코에서만 파는 상품이라
    플레이엠디에 TAG가·현재가가 0으로 등록돼 있다. 판매일보에서 0원으로 잡히지 않도록
    코스트코 판매가(25,990원)를 채운다. 여기 적힌 상품에만 적용하고, 값이 있으면 건드리지 않는다. */
-var CC_ONLY_PRICE={"WLW44H5S":25990};
+var CC_ONLY_PRICE={"WLW44H5S":25990,"GLM104Z9Z":18990};
 function _fixCostcoOnlyPrice(rows){
   (rows||[]).forEach(function(r){
     var p=r&&CC_ONLY_PRICE[r[1]];
@@ -11145,9 +11145,10 @@ var CC_PDF_CODE_MAP={
   "690567":{base:"WKW40T9H",name:"[화이트샌즈] 25FW 울 헤어 이어머프 캡 오비크"},
   "690568":{base:"WKW21N9S",name:"[화이트샌즈] 25FW 알파카 니트 귀달이퍼 비니 아르고"},
   "690570":{base:"GKW47K9C",name:"[화이트샌즈 그린라벨] 25FW 경량 패딩 버킷 햇+ 넥워머 SET 헬로나"},
-  "691716":{base:"WLW44H5S",name:"울 니트 보닛햇 바르셀"}
+  "691716":{base:"WLW44H5S",name:"울 니트 보닛햇 바르셀"},
+  "696151":{base:"GLM104Z9Z",name:"WHITE SANDS 850 UV Protection Parasol (장우산 850)"}
 };
-var CC_PDF_COLOR_MAP={LG:"LGY",SK:"SN",WT:"WH",BK:"BK",BE:"BE",WH:"WH",SGN:"SGN"};
+var CC_PDF_COLOR_MAP={LG:"LGY",SK:"SN",WT:"WH",BK:"BK",BE:"BE",WH:"WH",SGN:"SGN",DG:"DGE"};
 /* 아이템 목록 영역의 각 줄은 "상품명 수량 상품코드-컬러" 형태(코드가 맨 뒤)로 나온다.
    예: "화이트샌즈 자외선 쿨링 이어 마스크 2개 - 블랙 1 693953-BK" */
 function _ccPdfExtractItems(itemLines){
@@ -11193,6 +11194,10 @@ function _ccPdfResolveFromDefaultData(baseCode,colorCode){
    마스크 3종처럼 2개입 상품은 정상가 자체가 1세트(2개) 기준이라 그대로 곱하면 된다.
    (mgPrice는 업로드 파일의 실판매단가라 정상가와 다르므로 여기서는 쓰지 않음) */
 function _ccPdfCostcoAmount(cm,origQty){
+  /* 코스트코 단독상품은 판매현황에 '직매입'(매입가) 행으로 들어가 있어 그 값이 잡힌다.
+     정해 둔 코스트코 판매가(CC_ONLY_PRICE)가 있으면 그걸 먼저 쓴다. */
+  var only=cm&&CC_ONLY_PRICE[cm.base];
+  if(only)return Math.round(only*(origQty||1));
   if(!cm||typeof costcoDB==="undefined"||typeof ccMatchProd!=="function")return 0;
   var pname=ccMatchProd(cm.name);
   if(!pname)return 0;
