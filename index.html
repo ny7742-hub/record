@@ -890,6 +890,7 @@ label{font-size:14px!important}
       <select id="dsYear" onchange="renderDaily()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
       <select id="dsMonth" onchange="renderDaily()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#374151;background:white"></select>
       <button onclick="dsAddStore()" class="bs" style="padding:5px 12px;font-size:12px">+ 매장</button>
+      <button onclick="openDsFocusModal()" class="bs" style="padding:5px 12px;font-size:12px;background:#fef3c7;border-color:#fbbf24;color:#92400e" title="기간·매장을 지정하면 온라인 칸이 노랗게 표시됩니다">🟡 온라인 주력주차</button>
       <span id="dsMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <span style="margin-left:auto;font-size:11px;color:#5b6675">EDI·PLAY MD는 금액, 수량은 개수 · 셀 클릭 후 입력</span>
     </div>
@@ -6338,6 +6339,94 @@ var dailySalesDB=(function(){
   return {stores:DS_DEFAULT_STORES.map(function(n){return {name:n,target:"",prevYear:"",period:""};}),data:{}};
 })();
 function saveDaily(){wsSetItem("dailySalesDB",JSON.stringify(dailySalesDB));}
+/* ── 온라인 주력주차 ────────────────────────────────────────────
+   매장별로 돌아가며 진행하므로 기간마다 대상 매장을 고른다.
+   dailySalesDB.onlineFocus=[{start:"YYYY-MM-DD",end:"YYYY-MM-DD",stores:["매장명",...]}]
+   지정한 기간·매장의 '온라인'·'수량' 칸이 표에서 노란 배경으로 칠해진다. */
+function _dsFocusList(){
+  if(!dailySalesDB.onlineFocus)dailySalesDB.onlineFocus=[];
+  return dailySalesDB.onlineFocus;
+}
+function _dsYMDv(s){var p=String(s||"").split("-");return new Date(+p[0],(+p[1]||1)-1,+p[2]||1);}
+/* 그 매장·그 날짜가 주력주차인가 */
+function _dsIsFocus(store,Y,M,d){
+  var t=new Date(Y,M-1,d).getTime();
+  return _dsFocusList().some(function(f){
+    if(!f.start||!f.end)return false;
+    if(t<_dsYMDv(f.start).getTime()||t>_dsYMDv(f.end).getTime())return false;
+    return !f.stores||!f.stores.length||f.stores.indexOf(store)>=0;
+  });
+}
+function openDsFocusModal(){
+  var m=document.getElementById("dsFocusModal");if(!m)return;
+  m.style.display="block";renderDsFocusModal();
+}
+function closeDsFocusModal(){
+  var m=document.getElementById("dsFocusModal");if(m)m.style.display="none";
+}
+function renderDsFocusModal(){
+  var today=new Date();today.setHours(0,0,0,0);
+  /* 등록 목록 — 끝난 주차는 감춘다(코스트코 세일과 같은 방식). 자료는 지우지 않아 지난 달 색은 그대로 */
+  var listEl=document.getElementById("dsFocusList");
+  if(listEl){
+    var lh="",endedN=0;
+    _dsFocusList().map(function(f,i){return {f:f,i:i};})
+      .filter(function(r){
+        if(_dsYMDv(r.f.end)>=today)return true;
+        endedN++;return false;
+      })
+      .sort(function(a,b){return _dsYMDv(b.f.start)-_dsYMDv(a.f.start);})
+      .forEach(function(row){
+        var f=row.f,sd=_dsYMDv(f.start),ed=_dsYMDv(f.end);
+        var label=(sd.getMonth()+1)+"/"+sd.getDate()+"~"+(ed.getMonth()+1)+"/"+ed.getDate();
+        var on=(today>=sd&&today<=ed);
+        var bg=on?"#fffbeb":"#eff6ff",bd=on?"#fbbf24":"#93c5fd",tx=on?"#b45309":"#1d4ed8";
+        lh+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:'+bg+';border:1px solid '+bd+';border-radius:8px;margin-bottom:6px">';
+        lh+='<div><span style="font-size:11px;font-weight:800;color:'+tx+';background:'+bd+'33;border-radius:8px;padding:1px 7px;margin-right:5px">'+(on?"진행중":"예정")+'</span>';
+        lh+='<span style="font-size:12px;font-weight:700;color:'+tx+'">'+label+'</span>';
+        lh+='<br><span style="font-size:11px;color:#475569">'+_esc((f.stores||[]).join(", ")||"전 매장")+'</span></div>';
+        lh+='<button onclick="deleteDsFocus('+row.i+')" style="background:none;border:1px solid '+bd+';color:'+tx+';border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700">삭제</button>';
+        lh+='</div>';
+      });
+    if(endedN)lh+='<p style="font-size:11px;color:#5b6675;margin:2px 0 10px">끝난 주차 '+endedN+'건은 감췄습니다 — 지난 달 표의 색은 그대로 나옵니다.</p>';
+    listEl.innerHTML=lh||'<p style="font-size:12px;color:#5b6675;margin:0 0 12px">진행중·예정 주력주차 없음</p>';
+  }
+  /* 매장 체크리스트 — 온라인 칸이 있는 매장만 */
+  var el=document.getElementById("dsFocusStores");
+  if(el){
+    var mk=dsKey();
+    var h="";
+    dsStores(mk).forEach(function(s){
+      if(!_dsFldsOf(s.name,mk).some(function(f){return f.k==="online";}))return;
+      h+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#374151;cursor:pointer;padding:2px 0">'
+        +'<input type="checkbox" class="dsFocusCb" value="'+_esc(s.name)+'" style="width:15px;height:15px;cursor:pointer">'
+        +_esc(s.name)+'</label>';
+    });
+    el.innerHTML=h||'<p style="font-size:12px;color:#5b6675;margin:0">온라인 칸이 있는 매장이 없습니다.</p>';
+  }
+}
+function addDsFocus(){
+  var s=document.getElementById("dsFocusStart"),e=document.getElementById("dsFocusEnd");
+  if(!s||!s.value){alert("시작일을 골라주세요.");return;}
+  var endV=e&&e.value;
+  if(!endV){                                   /* 비우면 월~일 한 주로 */
+    var d=_dsYMDv(s.value);d.setDate(d.getDate()+6);
+    endV=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  var stores=[].slice.call(document.querySelectorAll(".dsFocusCb"))
+    .filter(function(cb){return cb.checked;}).map(function(cb){return cb.value;});
+  if(!stores.length){alert("주력주차를 진행할 매장을 하나 이상 골라주세요.");return;}
+  _dsFocusList().push({start:s.value,end:endV,stores:stores});
+  _dsFocusList().sort(function(a,b){return String(a.start).localeCompare(String(b.start));});
+  saveDaily();
+  s.value="";if(e)e.value="";
+  renderDsFocusModal();renderDaily();
+}
+function deleteDsFocus(i){
+  if(!confirm("이 주력주차를 삭제할까요?"))return;
+  _dsFocusList().splice(i,1);
+  saveDaily();renderDsFocusModal();renderDaily();
+}
 function _ds2(n){n=String(n);return n.length<2?"0"+n:n;}
 function _dsN(v){return Number(String(v==null?"":v).replace(/,/g,""))||0;}
 function _dsFmt(n){return n?Number(n).toLocaleString():"";}
@@ -6739,10 +6828,12 @@ function renderDaily(){
       var mism=_dsN(c.edi)!==_dsN(c.playmd);
       _dsFldsOf(s.name,mk).forEach(function(f,fi){
         var red=(mism&&f.k==="playmd");
+        /* 온라인 주력주차 — 지정 기간·매장의 온라인/수량 칸을 노랗게 */
+        var foc=(f.k==="online"||f.k==="onlineQ")&&_dsIsFocus(s.name,Y,M,d);
         var isQ=/Q$/.test(f.k)?"1":"0";
         var noteTxt=(c._notes&&c._notes[f.k])||"";
         var noteFlag=noteTxt?'<span style="position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 7px 7px 0;border-color:transparent #f59e0b transparent transparent;pointer-events:none" title="메모 있음"></span>':"";
-        h+='<td class="ds-sel-able" data-dsrow="'+d+'" data-dscol="'+_col+'" data-dsval="'+_dsN(c[f.k])+'" data-dsq="'+isQ+'" oncontextmenu="return dsOpenNote(event,this)" title="'+_esc(noteTxt)+'" style="position:relative;border:1px solid #e1e6ee;padding:0;'+(fi===0?"border-left:3px solid #1b6e82;":"")+(red?"background:#fee2e2;":"")+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+noteFlag+'</td>';
+        h+='<td class="ds-sel-able" data-dsrow="'+d+'" data-dscol="'+_col+'" data-dsval="'+_dsN(c[f.k])+'" data-dsq="'+isQ+'" oncontextmenu="return dsOpenNote(event,this)" title="'+_esc(noteTxt)+'" style="position:relative;border:1px solid #e1e6ee;padding:0;'+(fi===0?"border-left:3px solid #1b6e82;":"")+(red?"background:#fee2e2;":(foc?"background:#fef3c7;":""))+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+noteFlag+'</td>';
         _col++;
       });
     });
@@ -15082,6 +15173,30 @@ function initTransferTab(){tfDropInit();tfRenderChips();tfRender();}
   </div>
 </div>
 
+<!-- ===== 온라인 주력주차 모달 ===== -->
+<div id="dsFocusModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2000;overflow-y:auto">
+  <div style="background:#fff;max-width:520px;margin:56px auto;border-radius:14px;padding:20px 22px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h3 style="margin:0;font-size:16px;font-weight:700;color:#111">🟡 온라인 주력주차</h3>
+      <button onclick="closeDsFocusModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#5b6675">×</button>
+    </div>
+    <p style="font-size:12px;color:#5b6675;margin:0 0 12px;line-height:1.6">
+      기간과 매장을 고르면 매장별 일별매출 표의 그 매장 <b>온라인·수량</b> 칸이 노란색으로 칠해집니다.
+      매장별로 돌아가며 진행하므로 기간마다 매장을 다르게 고르면 됩니다.</p>
+    <div id="dsFocusList" style="margin-bottom:12px"></div>
+    <div style="border-top:1px solid #e5e7eb;padding-top:12px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <input type="date" id="dsFocusStart" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+        <span style="color:#5b6675">~</span>
+        <input type="date" id="dsFocusEnd" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+        <span style="font-size:11px;color:#5b6675">종료일을 비우면 시작일부터 7일</span>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">주력 매장</div>
+      <div id="dsFocusStores" style="max-height:220px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-bottom:10px"></div>
+      <button onclick="addDsFocus()" class="bg" style="padding:7px 16px;font-size:13px;border:none;cursor:pointer">주력주차 추가</button>
+    </div>
+  </div>
+</div>
 <!-- ===== 상품관리 모달 ===== -->
 <div id="ccProdModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2000;overflow-y:auto">
   <div style="background:white;border-radius:16px;max-width:480px;margin:40px auto;padding:24px;position:relative">
