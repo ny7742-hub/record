@@ -6359,7 +6359,23 @@ function _dsIsFocus(store,Y,M,d){
 }
 function openDsFocusModal(){
   var m=document.getElementById("dsFocusModal");if(!m)return;
-  m.style.display="block";renderDsFocusModal();
+  m.style.display="block";
+  renderDsFocusModal();
+  /* 열자마자 달력을 띄운다 — 매장 목록은 바로 아래에 이미 그려져 있다 */
+  var st=document.getElementById("dsFocusStart");
+  if(st){
+    st.focus();
+    try{if(st.showPicker)st.showPicker();}catch(e){}
+  }
+}
+/* 시작일을 고르면 그 주 일요일까지 자동으로 채운다(월~일 한 주) */
+function _dsFocusFillEnd(){
+  var s=document.getElementById("dsFocusStart"),e=document.getElementById("dsFocusEnd");
+  if(!s||!e||!s.value)return;
+  var d=_dsYMDv(s.value);
+  var wd=d.getDay();                       /* 0=일 */
+  d.setDate(d.getDate()+(wd===0?0:7-wd));  /* 그 주 일요일 */
+  e.value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
 function closeDsFocusModal(){
   var m=document.getElementById("dsFocusModal");if(m)m.style.display="none";
@@ -15183,17 +15199,24 @@ function initTransferTab(){tfDropInit();tfRenderChips();tfRender();}
     <p style="font-size:12px;color:#5b6675;margin:0 0 12px;line-height:1.6">
       기간과 매장을 고르면 매장별 일별매출 표의 그 매장 <b>온라인·수량</b> 칸이 노란색으로 칠해집니다.
       매장별로 돌아가며 진행하므로 기간마다 매장을 다르게 고르면 됩니다.</p>
-    <div id="dsFocusList" style="margin-bottom:12px"></div>
-    <div style="border-top:1px solid #e5e7eb;padding-top:12px">
+    <!-- 기간·매장 입력을 맨 위에 둔다 — 버튼을 누르면 바로 고를 수 있게 -->
+    <div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-        <input type="date" id="dsFocusStart" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+        <input type="date" id="dsFocusStart" onchange="_dsFocusFillEnd()" style="padding:6px 9px;border:1px solid #fbbf24;border-radius:6px;font-size:13px;background:#fffbeb">
         <span style="color:#5b6675">~</span>
-        <input type="date" id="dsFocusEnd" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
-        <span style="font-size:11px;color:#5b6675">종료일을 비우면 시작일부터 7일</span>
+        <input type="date" id="dsFocusEnd" style="padding:6px 9px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+        <span style="font-size:11px;color:#5b6675">시작일을 고르면 그 주 일요일까지 자동</span>
       </div>
-      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:4px">주력 매장</div>
-      <div id="dsFocusStores" style="max-height:220px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-bottom:10px"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:12px;font-weight:700;color:#374151">주력 매장</span>
+        <span style="font-size:11px;color:#5b6675">여러 곳을 함께 고를 수 있습니다</span>
+      </div>
+      <div id="dsFocusStores" style="max-height:240px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-bottom:10px"></div>
       <button onclick="addDsFocus()" class="bg" style="padding:7px 16px;font-size:13px;border:none;cursor:pointer">주력주차 추가</button>
+    </div>
+    <div style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:12px">
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:6px">등록된 주력주차</div>
+      <div id="dsFocusList"></div>
     </div>
   </div>
 </div>
