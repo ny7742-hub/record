@@ -1424,7 +1424,7 @@ label{font-size:14px!important}
   <div class="card" style="padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <input id="stockResultSearch" type="text" placeholder="상품명/상품코드 검색" oninput="renderStockCheckResults()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;width:220px">
-      <label style="font-size:11px;color:#5b6675;cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="stockOnlyZero" onchange="renderStockCheckResults()"> 품절만 보기</label>
+      <label style="font-size:11px;color:#5b6675;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;flex:none"><input type="checkbox" id="stockOnlyZero" onchange="renderStockCheckResults()"> 품절만 보기</label>
       <span id="stockResultSummary" style="font-size:11px;color:#5b6675;margin-left:auto"></span>
     </div>
     <div id="stockResultWrap" style="overflow:auto;max-height:calc(100vh - 260px)"></div>
@@ -5912,14 +5912,8 @@ function renderStockCheckResults(){
   var soldOut=stockCheckResults.filter(function(r){return r.qty<=0;}).length;
   var sm=document.getElementById("stockResultSummary");
   if(sm)sm.textContent="전체 "+stockCheckResults.length+"건(컬러별) · 품절 "+soldOut+"건"+(stockWarehouseDate?" · 창고재고 기준일 "+stockWarehouseDate:"");
-  var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
-  h+='<thead><tr>';
-  [['채널',''],['상품명','min-width:260px'],['칼라',''],['자사코드',''],['재고수량',''],['상태','']].forEach(function(c){
-    h+='<th style="position:sticky;top:0;background:#e3eeee;border:1px solid #e7dcc4;padding:6px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
-  });
-  h+='</tr></thead><tbody>';
-  /* 채널 → 상품으로 묶어서 보여준다(백화점몰 재고확인과 같은 방식).
-     같은 채널·같은 상품은 셀을 rowspan으로 합쳐 한 덩어리로 읽히게 한다. */
+  /* 채널 → 상품으로 묶는다. 표로 늘어놓으면 좌우가 넓어 읽기 나빠서
+     상품마다 카드로 만들고 화면 폭에 맞춰 한 줄에 여러 개를 깐다. */
   var chMap={},chOrder=[];
   list.forEach(function(r){
     var ck=r.ch||"(채널없음)";
@@ -5944,35 +5938,35 @@ function renderStockCheckResults(){
     g.out=g.prods.reduce(function(a,p){return a+p.out;},0);
     return g;
   });
-  var TD='border:1px solid #e1e6ee;padding:5px 8px';
-  chGroups.forEach(function(g,gi){
-    var firstOfCh=true;
+  var h="";
+  chGroups.forEach(function(g){
+    h+='<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px">'
+      +'<span style="background:#1b6e82;color:#fff;font-weight:800;font-size:13px;border-radius:8px;padding:3px 12px;white-space:nowrap">'+_escX(g.ch)+'</span>'
+      +'<span style="font-size:11.5px;color:#5b6675;font-weight:700;white-space:nowrap">'+g.rowN+'건'
+      +(g.out?' · <span style="color:#dc2626">품절 '+g.out+'</span>':'')+'</span>'
+      +'<span style="flex:1;height:1px;background:#e2e8f0"></span></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;align-items:start">';
     g.prods.forEach(function(p){
       var nm=_escX(p.name);
-      if(p.url)nm='<a href="'+_escX(p.url)+'" target="_blank" rel="noopener" style="color:#0f172a">'+nm+' <span style="font-size:11px;color:#2563eb">↗</span></a>';
+      if(p.url)nm='<a href="'+_escX(p.url)+'" target="_blank" rel="noopener" style="color:#0f172a;text-decoration:none">'+nm+' <span style="font-size:11px;color:#2563eb">↗</span></a>';
+      h+='<div style="border:1px solid #e1e6ee;border-radius:10px;overflow:hidden;background:#fff">';
+      h+='<div style="background:#f8fafc;border-bottom:1px solid #e1e6ee;padding:6px 10px">'
+        +'<div style="font-size:12.5px;font-weight:700;color:#0f172a;line-height:1.35;word-break:keep-all">'+nm+'</div>'
+        +'<div style="font-size:10.5px;color:#5b6675;font-weight:600;margin-top:1px">'+p.rows.length+'색'
+        +(p.out?' · <span style="color:#dc2626;font-weight:800">품절 '+p.out+'</span>':'')+'</div></div>';
       p.rows.forEach(function(r,ri){
         var out=r.qty<=0;
-        var top=(ri===0&&gi>0&&firstOfCh)?';border-top:2px solid #1b6e82':'';
-        h+='<tr style="'+(out?"background:#fef2f2":"")+'">';
-        if(firstOfCh){
-          h+='<td rowspan="'+g.rowN+'" style="'+TD+';text-align:center;vertical-align:middle;background:#eef4f6;'
-            +'font-weight:800;color:#1b6e82'+(gi>0?';border-top:2px solid #1b6e82':'')+'">'+_escX(g.ch)
-            +'<br><span style="font-size:10px;font-weight:600;color:#5b6675">'+g.rowN+'건'
-            +(g.out?' · 품절 '+g.out:'')+'</span></td>';
-          firstOfCh=false;
-        }
-        if(ri===0){
-          h+='<td rowspan="'+p.rows.length+'" style="'+TD+';white-space:normal;vertical-align:middle;background:#fafbfc;font-weight:600'+top+'">'+nm+'</td>';
-        }
-        h+='<td style="'+TD+';text-align:center;font-weight:600">'+_escX(r.color)+'</td>';
-        h+='<td style="'+TD+';font-family:monospace;font-size:12px;color:#475569">'+_escX(r.sku)+'</td>';
-        h+='<td style="'+TD+';text-align:right;font-weight:700;color:'+(out?"#dc2626":"#15803d")+'">'+r.qty.toLocaleString()+'</td>';
-        h+='<td style="'+TD+';text-align:center;font-weight:700;color:'+(out?"#dc2626":"#15803d")+'">'+(out?"품절":"재고있음")+'</td>';
-        h+='</tr>';
+        h+='<div title="'+_escX(r.sku)+'" style="display:flex;align-items:center;gap:8px;padding:3px 10px;'
+          +(ri?'border-top:1px solid #f1f5f9;':'')+(out?'background:#fef2f2;':'')+'">'
+          +'<span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escX(r.color)+'</span>'
+          +'<span style="font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;color:'+(out?"#dc2626":"#15803d")+'">'+r.qty.toLocaleString()+'</span>'
+          +'<span style="width:30px;text-align:right;font-size:10.5px;font-weight:800;color:#dc2626">'+(out?"품절":"")+'</span>'
+          +'</div>';
       });
+      h+='</div>';
     });
+    h+='</div>';
   });
-  h+='</tbody></table>';
   if(!list.length)h='<div style="padding:24px;text-align:center;color:#5b6675;font-size:12px">결과가 없습니다.</div>';
   wrap.innerHTML=h;
 }
