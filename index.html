@@ -10152,11 +10152,13 @@ function _ccrMapRow(c){
     var d=_hsrParseDate(c[k]);
     if(d)dates.push(d);
   }
-  /* 쇼핑몰: '코스트코'가 든 칸(없으면 상품명 바로 앞 칸들 중 글자 있는 것) */
+  /* 쇼핑몰(채널) — 반품매장코드를 정하는 값이라 반드시 잡아야 한다.
+     코스트코뿐 아니라 홈쇼핑·면세점 채널명도 함께 본다. */
   var shop="";
   for(var m=0;m<prod;m++){
     var sv=String(c[m]==null?"":c[m]).trim();
-    if(/코스트코|온라인몰|몰$/.test(sv)){shop=sv;break;}
+    if(!sv||_hsrParseDate(sv))continue;
+    if(/코스트코|홈쇼핑|홈앤|쇼핑|면세|온라인|몰$|GS|CJ|SSG/i.test(sv)){shop=sv;break;}
   }
   /* 수량·결제가: 상품명 뒤에서 첫 숫자칸 = 수량, 그 다음 칸 = 결제가 */
   var qty=0,pay="",qi=-1;
@@ -10370,26 +10372,36 @@ function _hsrProcessRows(rows){
     if(found.prod!==undefined&&found.qty!==undefined){col=found;hRow=r;break;}
   }
   /* 헤더 없이 데이터만 붙여넣은 경우 — 표 순서가 고정이라 열 위치로 읽는다 */
-  if(hRow<0)col={"in":0,open:2,shop:3,orderNo:5,prod:11,qty:12};
   var added=0;
   for(var i=hRow+1;i<rows.length;i++){
     var row2=rows[i];if(!row2)continue;
-    var prod=String(row2[col.prod]==null?"":row2[col.prod]).trim();
-    if(!prod)continue;
-    if(_hsrNorm(prod)===_hsrNorm("상품명"))continue;   /* 헤더가 중간에 또 있는 경우 */
-    var shop=col.shop!==undefined?String(row2[col.shop]==null?"":row2[col.shop]).trim():"";
-    var qty=parseInt(String(row2[col.qty]==null?"":row2[col.qty]).replace(/[^0-9-]/g,""),10);
-    var rec={
-      "in":_hsrParseDate(row2[col["in"]]),
-      open:_hsrParseDate(row2[col.open]),
-      shop:shop,
-      orderNo:col.orderNo!==undefined?String(row2[col.orderNo]==null?"":row2[col.orderNo]).trim():"",
-      prod:prod,
-      qty:(qty>0?qty:1),
-      colorCode:"",price:"",matched:false
-    };
+    var rec=null;
+    if(hRow<0){
+      /* 머리글 없이 데이터만 붙여넣은 경우 — 열 위치를 내용으로 찾는다.
+         예전에는 고정 위치(prod:11)로 읽어서, 반품리스트처럼 앞에 '처리상태' 열이 하나 더 붙으면
+         주소를 상품명으로 읽어 코드매칭이 전부 실패했다. */
+      var mm=(typeof _ccrMapRow==="function")?_ccrMapRow(row2):null;
+      if(!mm)continue;
+      rec={"in":mm["in"],open:mm.open,shop:mm.shop,orderNo:mm.orderNo,
+           prod:mm.prod,qty:mm.qty,colorCode:"",price:"",matched:false};
+    }else{
+      var prod=String(row2[col.prod]==null?"":row2[col.prod]).trim();
+      if(!prod)continue;
+      if(_hsrNorm(prod)===_hsrNorm("상품명"))continue;   /* 헤더가 중간에 또 있는 경우 */
+      var shop=col.shop!==undefined?String(row2[col.shop]==null?"":row2[col.shop]).trim():"";
+      var qty=parseInt(String(row2[col.qty]==null?"":row2[col.qty]).replace(/[^0-9-]/g,""),10);
+      rec={
+        "in":_hsrParseDate(row2[col["in"]]),
+        open:_hsrParseDate(row2[col.open]),
+        shop:shop,
+        orderNo:col.orderNo!==undefined?String(row2[col.orderNo]==null?"":row2[col.orderNo]).trim():"",
+        prod:prod,
+        qty:(qty>0?qty:1),
+        colorCode:"",price:"",matched:false
+      };
+    }
     /* 사입출고등록과 같은 매칭 경로 — 바코드=상품컬러코드, 공급가=매칭가(현재가) */
-    var hm=(typeof _hsFindMatch==="function")?_hsFindMatch(shop,prod):null;
+    var hm=(typeof _hsFindMatch==="function")?_hsFindMatch(rec.shop,rec.prod):null;
     if(hm&&hm.colorCode){rec.colorCode=hm.colorCode;rec.matched=true;rec.price=hm.price||_hsrPriceByCode(hm.colorCode);}
     hsrRows.push(rec);added++;
   }
