@@ -1425,6 +1425,7 @@ label{font-size:14px!important}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <input id="stockResultSearch" type="text" placeholder="상품명/상품코드 검색" oninput="renderStockCheckResults()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;width:220px">
       <label style="font-size:11px;color:#5b6675;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;flex:none"><input type="checkbox" id="stockOnlyZero" onchange="renderStockCheckResults()"> 품절만 보기</label>
+      <label style="font-size:11px;color:#5b6675;display:flex;align-items:center;gap:4px;white-space:nowrap;flex:none" title="창고재고가 이 수량보다 적으면 품절로 봅니다">품절 기준 <input type="number" id="stockOutMin" value="30" min="0" onchange="setHsOutMin()" style="width:56px;padding:3px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;text-align:right"> 개 미만</label>
       <span id="stockResultSummary" style="font-size:11px;color:#5b6675;margin-left:auto"></span>
     </div>
     <div id="stockResultWrap" style="overflow:auto;max-height:calc(100vh - 260px)"></div>
@@ -5895,26 +5896,49 @@ function startStockCheck(){
   renderStockCheckResults();
   logStockCheck();
 }
+/* 창고재고가 이 수량보다 적으면 품절로 본다(기본 30개).
+   재고가 몇 개 남지 않은 컬러는 몰에 걸어둬도 곧 결품이라 품절로 취급한다. */
+function hsOutMin(){
+  var el=document.getElementById("stockOutMin");
+  var v=el?parseInt(el.value,10):NaN;
+  if(isNaN(v)||v<0){
+    try{v=parseInt(localStorage.getItem("hsOutMin"),10);}catch(e){v=NaN;}
+  }
+  return isNaN(v)?30:v;
+}
+function setHsOutMin(){
+  var el=document.getElementById("stockOutMin");
+  if(el){try{localStorage.setItem("hsOutMin",String(hsOutMin()));}catch(e){}}
+  renderStockCheckResults();
+}
 function renderStockCheckResults(){
+  /* 저장해 둔 기준값을 입력칸에 한 번 되살린다(HTML 기본값은 30) */
+  var _thEl=document.getElementById("stockOutMin");
+  if(_thEl&&!_thEl._init){
+    _thEl._init=1;
+    try{var _sv=localStorage.getItem("hsOutMin");if(_sv!==null&&_sv!=="")_thEl.value=_sv;}catch(e){}
+  }
+  var OUTMIN=hsOutMin();
+  var isOutQ=function(q){return (Number(q)||0)<OUTMIN;};
   var wrap=document.getElementById("stockResultWrap");if(!wrap)return;
   if(!stockCheckResults){wrap.innerHTML="";return;}
   var qEl=document.getElementById("stockResultSearch"),zEl=document.getElementById("stockOnlyZero");
   var q=(qEl&&qEl.value||"").trim();
   var onlyZero=zEl&&zEl.checked;
   var list=stockCheckResults.filter(function(r){
-    if(onlyZero&&r.qty>0)return false;
+    if(onlyZero&&!isOutQ(r.qty))return false;
     if(q){
       var hay=(r.name||"")+" "+(r.color||"")+" "+(r.sku||"")+" "+(r.ch||"");
       if(hay.indexOf(q)<0)return false;
     }
     return true;
   });
-  var soldOut=stockCheckResults.filter(function(r){return r.qty<=0;}).length;
+  var soldOut=stockCheckResults.filter(function(r){return isOutQ(r.qty);}).length;
   var sm=document.getElementById("stockResultSummary");
   if(sm){
-    var _op=stockCheckResults.filter(function(r){return String(r.note||"").trim()==="품절"&&r.qty>0;}).length;
-    var _cl=stockCheckResults.filter(function(r){return String(r.note||"").trim()!=="품절"&&r.qty<=0;}).length;
-    sm.textContent="전체 "+stockCheckResults.length+"건(컬러별) · 창고재고 없음 "+soldOut+"건 · 해제 가능 "+_op+"건 · 품절 처리 "+_cl+"건"
+    var _op=stockCheckResults.filter(function(r){return String(r.note||"").trim()==="품절"&&!isOutQ(r.qty);}).length;
+    var _cl=stockCheckResults.filter(function(r){return String(r.note||"").trim()!=="품절"&&isOutQ(r.qty);}).length;
+    sm.textContent="전체 "+stockCheckResults.length+"건(컬러별) · 품절("+OUTMIN+"개 미만) "+soldOut+"건 · 해제 가능 "+_op+"건 · 품절 처리 "+_cl+"건"
       +(stockWarehouseDate?" · 창고재고 기준일 "+stockWarehouseDate:"");
   }
   /* 채널 → 상품으로 묶는다. 표로 늘어놓으면 좌우가 넓어 읽기 나빠서
@@ -5931,7 +5955,7 @@ function renderStockCheckResults(){
     var g=chMap[ck];
     g.prods=g.pOrder.map(function(pk){
       var p=g.pMap[pk];
-      p.out=p.rows.filter(function(x){return x.qty<=0;}).length;
+      p.out=p.rows.filter(function(x){return isOutQ(x.qty);}).length;
       p.qty=p.rows.reduce(function(a,x){return a+(x.qty||0);},0);
       return p;
     }).sort(function(a,b){                      /* 품절 많은 상품 → 재고 적은 상품 순 */
@@ -5949,9 +5973,9 @@ function renderStockCheckResults(){
      ② 몰은 판매중인데 창고가 비었으면 → 품절로 걸어야 한다
      검색·필터와 무관하게 전체 기준으로 뽑는다(해야 할 일이 필터에 가려지면 안 되므로). */
   var _isOut=function(r){return String(r.note||"").trim()==="품절";};
-  var canOpen=stockCheckResults.filter(function(r){return _isOut(r)&&r.qty>0;})
+  var canOpen=stockCheckResults.filter(function(r){return _isOut(r)&&!isOutQ(r.qty);})
     .sort(function(a,b){return b.qty-a.qty;});
-  var mustClose=stockCheckResults.filter(function(r){return !_isOut(r)&&r.qty<=0;})
+  var mustClose=stockCheckResults.filter(function(r){return !_isOut(r)&&isOutQ(r.qty);})
     .sort(function(a,b){return String(a.ch+a.name).localeCompare(String(b.ch+b.name));});
   var actBox=function(title,sub,rows,color,bg,bd){
     var b='<div style="border:1px solid '+bd+';background:'+bg+';border-radius:10px;overflow:hidden">'
@@ -5975,8 +5999,8 @@ function renderStockCheckResults(){
     return b;
   };
   var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px;margin-bottom:6px">'
-    +actBox("✅ 품절 해제 가능","몰에는 품절인데 창고에 재고가 있습니다 — 다시 등록하세요",canOpen,"#15803d","#f0fdf4","#86efac")
-    +actBox("⛔ 품절 처리 필요","몰에는 판매중인데 창고재고가 없습니다 — 품절로 거세요",mustClose,"#dc2626","#fef2f2","#fca5a5")
+    +actBox("✅ 품절 해제 가능","몰에는 품절인데 창고재고가 "+OUTMIN+"개 이상입니다 — 다시 등록하세요",canOpen,"#15803d","#f0fdf4","#86efac")
+    +actBox("⛔ 품절 처리 필요","몰에는 판매중인데 창고재고가 "+OUTMIN+"개 미만입니다 — 품절로 거세요",mustClose,"#dc2626","#fef2f2","#fca5a5")
     +'</div>';
   chGroups.forEach(function(g){
     h+='<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px">'
@@ -5994,7 +6018,7 @@ function renderStockCheckResults(){
         +'<div style="font-size:10.5px;color:#5b6675;font-weight:600;margin-top:1px">'+p.rows.length+'색'
         +(p.out?' · <span style="color:#dc2626;font-weight:800">품절 '+p.out+'</span>':'')+'</div></div>';
       p.rows.forEach(function(r,ri){
-        var out=r.qty<=0;
+        var out=isOutQ(r.qty);
         h+='<div title="'+_escX(r.sku)+'" style="display:flex;align-items:center;gap:8px;padding:3px 10px;'
           +(ri?'border-top:1px solid #f1f5f9;':'')+(out?'background:#fef2f2;':'')+'">'
           +'<span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escX(r.color)+'</span>'
