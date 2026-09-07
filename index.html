@@ -5911,7 +5911,12 @@ function renderStockCheckResults(){
   });
   var soldOut=stockCheckResults.filter(function(r){return r.qty<=0;}).length;
   var sm=document.getElementById("stockResultSummary");
-  if(sm)sm.textContent="전체 "+stockCheckResults.length+"건(컬러별) · 품절 "+soldOut+"건"+(stockWarehouseDate?" · 창고재고 기준일 "+stockWarehouseDate:"");
+  if(sm){
+    var _op=stockCheckResults.filter(function(r){return String(r.note||"").trim()==="품절"&&r.qty>0;}).length;
+    var _cl=stockCheckResults.filter(function(r){return String(r.note||"").trim()!=="품절"&&r.qty<=0;}).length;
+    sm.textContent="전체 "+stockCheckResults.length+"건(컬러별) · 창고재고 없음 "+soldOut+"건 · 해제 가능 "+_op+"건 · 품절 처리 "+_cl+"건"
+      +(stockWarehouseDate?" · 창고재고 기준일 "+stockWarehouseDate:"");
+  }
   /* 채널 → 상품으로 묶는다. 표로 늘어놓으면 좌우가 넓어 읽기 나빠서
      상품마다 카드로 만들고 화면 폭에 맞춰 한 줄에 여러 개를 깐다. */
   var chMap={},chOrder=[];
@@ -5938,7 +5943,41 @@ function renderStockCheckResults(){
     g.out=g.prods.reduce(function(a,p){return a+p.out;},0);
     return g;
   });
-  var h="";
+  /* ── 할 일 두 가지 ──
+     상품리스트의 '품절표시'(note)는 몰에 지금 걸려 있는 상태, qty는 창고재고다.
+     ① 몰은 품절인데 창고에 재고가 있으면 → 다시 등록(판매재개)할 수 있다
+     ② 몰은 판매중인데 창고가 비었으면 → 품절로 걸어야 한다
+     검색·필터와 무관하게 전체 기준으로 뽑는다(해야 할 일이 필터에 가려지면 안 되므로). */
+  var _isOut=function(r){return String(r.note||"").trim()==="품절";};
+  var canOpen=stockCheckResults.filter(function(r){return _isOut(r)&&r.qty>0;})
+    .sort(function(a,b){return b.qty-a.qty;});
+  var mustClose=stockCheckResults.filter(function(r){return !_isOut(r)&&r.qty<=0;})
+    .sort(function(a,b){return String(a.ch+a.name).localeCompare(String(b.ch+b.name));});
+  var actBox=function(title,sub,rows,color,bg,bd){
+    var b='<div style="border:1px solid '+bd+';background:'+bg+';border-radius:10px;overflow:hidden">'
+      +'<div style="padding:7px 12px;border-bottom:1px solid '+bd+'">'
+      +'<span style="font-size:13px;font-weight:800;color:'+color+'">'+title+' '+rows.length+'건</span>'
+      +'<div style="font-size:10.5px;color:#5b6675;font-weight:600;margin-top:1px">'+sub+'</div></div>';
+    if(!rows.length){
+      b+='<div style="padding:10px 12px;font-size:12px;color:#5b6675">해당 없음</div></div>';
+      return b;
+    }
+    b+='<div style="max-height:210px;overflow:auto">';
+    rows.forEach(function(r,i){
+      b+='<div title="'+_escX(r.sku)+'" style="display:flex;align-items:center;gap:8px;padding:3px 12px;'
+        +(i?'border-top:1px solid rgba(0,0,0,.05);':'')+'">'
+        +'<span style="font-size:10px;font-weight:700;color:#5b6675;width:58px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escX(r.ch)+'</span>'
+        +'<span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escX(r.name)+' <span style="color:#5b6675">'+_escX(r.color)+'</span></span>'
+        +'<span style="font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;color:'+color+'">'+r.qty.toLocaleString()+'</span>'
+        +'</div>';
+    });
+    b+='</div></div>';
+    return b;
+  };
+  var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px;margin-bottom:6px">'
+    +actBox("✅ 품절 해제 가능","몰에는 품절인데 창고에 재고가 있습니다 — 다시 등록하세요",canOpen,"#15803d","#f0fdf4","#86efac")
+    +actBox("⛔ 품절 처리 필요","몰에는 판매중인데 창고재고가 없습니다 — 품절로 거세요",mustClose,"#dc2626","#fef2f2","#fca5a5")
+    +'</div>';
   chGroups.forEach(function(g){
     h+='<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px">'
       +'<span style="background:#1b6e82;color:#fff;font-weight:800;font-size:13px;border-radius:8px;padding:3px 12px;white-space:nowrap">'+_escX(g.ch)+'</span>'
