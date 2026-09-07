@@ -1320,6 +1320,7 @@ label{font-size:14px!important}
           <div id="ccPdfInvoiceTargetDownloadWrap" style="display:none">
             <button class="bg" style="width:100%;font-size:15px" onclick="ccPdfDownloadInvoiceTarget()">⬇ 발송일괄업로드</button>
           </div>
+          <div id="ccPdfSalesHint" style="display:none;font-size:12px;line-height:1.5;margin-top:6px;padding:6px 8px;border-radius:6px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e"></div>
         </div>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:14px;color:#334155;line-height:1.5">
           1) DSS 접속 &gt; 작업 &gt;<br>발송일괄업로드 &gt; <b>QUERY</b> &gt;<br><b>Export</b> &gt; <b>Main Attributes</b> 클릭<br>
@@ -11790,7 +11791,19 @@ async function ccPdfDownloadInvoiceTarget(){
     XLSX.utils.book_append_sheet(wb,ws2,(t.sheetName||"Sheet1").slice(0,31));
     XLSX.writeFile(wb,base+"_송장"+(/\.xls$/i.test(t.fileName||"")?".xls":".xlsx"));
   }
-  openCcPdfSalesModal();   /* 다운로드 직후 코스트코 탭 매출 등록 여부를 묻는다 */
+  /* 다운로드 직후 코스트코 탭 매출 등록 여부를 묻는다.
+     1단계 PDF 주문 내역이 없으면 등록할 게 없어 모달이 뜨지 않으므로, 그 이유를 화면에 적어 준다. */
+  var hint=document.getElementById("ccPdfSalesHint");
+  if(hint){
+    if(!ccPdfRows.length){
+      hint.innerHTML="다운로드 완료 · <b>코스트코 탭 매출 등록은 건너뜁니다</b><br>"
+        +"<span style=\"color:#b45309\">1단계에 PDF 주문서를 올리면</span> 다운로드 후 등록 여부를 물어봅니다.";
+      hint.style.display="block";
+    }else{
+      hint.style.display="none";hint.innerHTML="";
+    }
+  }
+  openCcPdfSalesModal();
 }
 
 /* ── 5단계 다운로드 후: 발주 내역을 코스트코 탭(판매 현황)에 매출로 등록 ──
