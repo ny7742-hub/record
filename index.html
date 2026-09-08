@@ -6574,6 +6574,41 @@ function _dsIsFocus(store,Y,M,d){
     return !f.stores||!f.stores.length||f.stores.indexOf(store)>=0;
   });
 }
+/* 매장 운영 종료(팝업종료·퇴점) 이후 날짜는 회색으로 막아 둔다.
+   기간은 백화점 탭의 운영기간(deptStoresMeta[매장].popupPeriod)이 정본이고,
+   종료일 다음 날부터 그 달 끝까지가 대상 — 아직 안 끝난 매장은 아무 영향이 없다. */
+var _dsEndCache={};
+/* 일별매출 매장명은 백화점 탭 표기와 다를 수 있다(커넥트현대 청주점 ↔ 현대 청주점).
+   이름이 그대로 없으면 _tfNormStore로 정규화해 한 번 더 찾는다 — 앞글자만 겹치는
+   추정 매칭(tfMatchDept)은 쓰지 않는다. 엉뚱한 매장이 통째로 회색이 되면 안 되므로. */
+function _dsDeptMeta(store){
+  if(typeof deptStoresMeta==="undefined")return {};
+  if(deptStoresMeta[store])return deptStoresMeta[store];
+  if(typeof _tfNormStore!=="function")return {};
+  var k=_tfNormStore(store);
+  if(!k)return {};
+  for(var n in deptStoresMeta){
+    if(Object.prototype.hasOwnProperty.call(deptStoresMeta,n)&&_tfNormStore(n)===k)return deptStoresMeta[n]||{};
+  }
+  return {};
+}
+function _dsStoreEnd(store){
+  var meta=_dsDeptMeta(store);
+  var per=meta.popupPeriod||"";
+  if(!per)return null;
+  var hit=_dsEndCache[store];
+  if(hit&&hit.per===per)return hit.end;
+  var r=(typeof parseStorePeriod==="function")?parseStorePeriod(per):null;
+  var end=(r&&r.end)?r.end:null;
+  _dsEndCache[store]={per:per,end:end};
+  return end;
+}
+/* 그 매장·그 날짜가 운영 종료 이후인가 */
+function _dsIsClosed(store,Y,M,d){
+  var end=_dsStoreEnd(store);
+  if(!end)return false;
+  return new Date(Y,M-1,d).getTime()>end.getTime();
+}
 function openDsFocusModal(){
   var m=document.getElementById("dsFocusModal");if(!m)return;
   m.style.display="block";
@@ -7082,10 +7117,11 @@ function renderDaily(){
         var red=(mism&&f.k==="playmd");
         /* 온라인 주력주차 — 지정 기간·매장의 온라인/수량 칸을 노랗게 */
         var foc=(f.k==="online"||f.k==="onlineQ")&&_dsIsFocus(s.name,Y,M,d);
+        var closed=_dsIsClosed(s.name,Y,M,d);
         var isQ=/Q$/.test(f.k)?"1":"0";
         var noteTxt=(c._notes&&c._notes[f.k])||"";
         var noteFlag=noteTxt?'<span style="position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 7px 7px 0;border-color:transparent #f59e0b transparent transparent;pointer-events:none" title="메모 있음"></span>':"";
-        h+='<td class="ds-sel-able" data-dsrow="'+d+'" data-dscol="'+_col+'" data-dsval="'+_dsN(c[f.k])+'" data-dsq="'+isQ+'" oncontextmenu="return dsOpenNote(event,this)" title="'+_esc(noteTxt)+'" style="position:relative;border:1px solid #e1e6ee;padding:0;'+(fi===0?"border-left:3px solid #1b6e82;":"")+(red?"background:#fee2e2;":(foc?"background:#fef3c7;":""))+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+noteFlag+'</td>';
+        h+='<td class="ds-sel-able" data-dsrow="'+d+'" data-dscol="'+_col+'" data-dsval="'+_dsN(c[f.k])+'" data-dsq="'+isQ+'" oncontextmenu="return dsOpenNote(event,this)" title="'+_esc(noteTxt)+'" style="position:relative;border:1px solid #e1e6ee;padding:0;'+(fi===0?"border-left:3px solid #1b6e82;":"")+(red?"background:#fee2e2;":(closed?"background:#e6eaf0;":(foc?"background:#fef3c7;":"")))+'">'+_dsInput(_dsFmt(_dsN(c[f.k])),"this.value=dsEdit("+d+","+si+",'"+f.k+"',this.value)","dsIn_"+d+"_"+si+"_"+f.k,red)+noteFlag+'</td>';
         _col++;
       });
     });
