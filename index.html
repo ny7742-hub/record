@@ -6574,36 +6574,59 @@ function _dsIsFocus(store,Y,M,d){
     return !f.stores||!f.stores.length||f.stores.indexOf(store)>=0;
   });
 }
-/* 매장 운영 종료(팝업종료·퇴점) 이후 날짜는 회색으로 막아 둔다.
-   기간은 백화점 탭의 운영기간(deptStoresMeta[매장].popupPeriod)이 정본이고,
-   종료일 다음 날부터 그 달 끝까지가 대상 — 아직 안 끝난 매장은 아무 영향이 없다. */
+/* 팝업이 끝난 뒤 남은 날짜는 회색으로 막아 둔다.
+   **기간은 팝업 탭(popupDB)이 정본**이다 — 백화점 탭 운영기간은 갱신이 늦어 실제와 어긋났다
+   (현대 목동: 백화점 탭 ~8/20, 팝업 탭 ~9/3). 팝업 탭에 없는 매장은 회색으로 칠하지 않는다.
+   한 매장에 팝업이 여러 번이면 **가장 늦은 종료일** 다음 날부터가 대상이다. */
 var _dsEndCache={};
-/* 일별매출 매장명은 백화점 탭 표기와 다를 수 있다(커넥트현대 청주점 ↔ 현대 청주점).
-   이름이 그대로 없으면 _tfNormStore로 정규화해 한 번 더 찾는다 — 앞글자만 겹치는
-   추정 매칭(tfMatchDept)은 쓰지 않는다. 엉뚱한 매장이 통째로 회색이 되면 안 되므로. */
-function _dsDeptMeta(store){
-  if(typeof deptStoresMeta==="undefined")return {};
-  if(deptStoresMeta[store])return deptStoresMeta[store];
-  if(typeof _tfNormStore!=="function")return {};
-  var k=_tfNormStore(store);
-  if(!k)return {};
-  for(var n in deptStoresMeta){
-    if(Object.prototype.hasOwnProperty.call(deptStoresMeta,n)&&_tfNormStore(n)===k)return deptStoresMeta[n]||{};
-  }
-  return {};
+var _dsEndStamp="";
+/* 팝업 탭 매장명은 일별매출 표기와 다르다 — 현대 목동점/현대 목동, 롯데 피트인 산본/롯데 산본,
+   현대백 본사/현대 본사. 붙임말(점·백화점·피트인·몰·팝업)을 떼고 백화점 브랜드와 지점명으로 나눠 맞춘다. */
+function _dsNormPop(n){
+  var t=String(n||"").replace(/[\s()·\-]/g,"");
+  t=t.replace(/커넥트현대|더현대|현대백화점|현대백/g,"현대");
+  t=t.replace(/피트인|아울렛|아웃렛|프리미엄|팩토리|백화점|팝업|몰/g,"");
+  return t.replace(/점$/,"");
 }
+function _dsPlaceOf(n){
+  var t=_dsNormPop(n),b=t.match(/^(현대|롯데|신세계|스타필드)/);
+  return {brand:b?b[1]:"",place:b?t.slice(b[1].length):t};
+}
+/* 그 매장의 팝업 줄들 — 이름이 그대로 맞는 게 있으면 그것만, 없으면 지점명으로 찾되
+   후보 매장이 둘 이상이면 포기한다(엉뚱한 매장이 통째로 회색이 되면 안 되므로). */
+function _dsPopRows(store){
+  if(typeof popupDB==="undefined"||!Array.isArray(popupDB))return [];
+  var k=_dsNormPop(store);
+  if(!k)return [];
+  var hit=popupDB.filter(function(r){return _dsNormPop(r.store)===k;});
+  if(hit.length)return hit;
+  var t=_dsPlaceOf(store);
+  if(!t.place||t.place.length<2)return [];
+  var names={},rows=[];
+  popupDB.forEach(function(r){
+    var u=_dsPlaceOf(r.store);
+    if(u.place!==t.place)return;
+    if(t.brand&&u.brand&&t.brand!==u.brand)return;
+    names[_dsNormPop(r.store)]=1;rows.push(r);
+  });
+  return Object.keys(names).length===1?rows:[];
+}
+/* 마지막 팝업 종료일. 종료일이 빈 줄이 하나라도 있으면 '아직 안 끝남'으로 본다 */
 function _dsStoreEnd(store){
-  var meta=_dsDeptMeta(store);
-  var per=meta.popupPeriod||"";
-  if(!per)return null;
-  var hit=_dsEndCache[store];
-  if(hit&&hit.per===per)return hit.end;
-  var r=(typeof parseStorePeriod==="function")?parseStorePeriod(per):null;
-  var end=(r&&r.end)?r.end:null;
-  _dsEndCache[store]={per:per,end:end};
+  var stamp=(typeof popupDB!=="undefined"&&Array.isArray(popupDB))?popupDB.length+"|"+popupDB.map(function(r){return r.end||"";}).join(","):"";
+  if(stamp!==_dsEndStamp){_dsEndCache={};_dsEndStamp=stamp;}
+  if(Object.prototype.hasOwnProperty.call(_dsEndCache,store))return _dsEndCache[store];
+  var rows=_dsPopRows(store),last="";
+  for(var i=0;i<rows.length;i++){
+    var e=String(rows[i].end||"").trim();
+    if(!e){last="";break;}
+    if(e>last)last=e;
+  }
+  var end=last?_dsYMDv(last):null;
+  _dsEndCache[store]=end;
   return end;
 }
-/* 그 매장·그 날짜가 운영 종료 이후인가 */
+/* 그 매장·그 날짜가 마지막 팝업 종료 이후인가 */
 function _dsIsClosed(store,Y,M,d){
   var end=_dsStoreEnd(store);
   if(!end)return false;
