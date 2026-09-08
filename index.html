@@ -11806,7 +11806,7 @@ async function ccPdfDownloadInvoiceTarget(){
   if(hint){
     if(!_ccPdfSalesSource().length){
       hint.innerHTML="다운로드 완료 · <b>코스트코 탭 매출 등록은 건너뜁니다</b><br>"
-        +"<span style=\"color:#b45309\">1단계에 PDF 주문서를 올리면</span> 다운로드 후 등록 여부를 물어봅니다.";
+        +"<span style=\"color:#b45309\">올린 파일에서 등록할 주문을 찾지 못했습니다</span> — 상품코드(예: 696151-BK)가 매칭표에 있는지 확인해주세요.";
       hint.style.display="block";
     }else{
       hint.style.display="none";hint.innerHTML="";
@@ -11902,8 +11902,59 @@ function _ccPdfSaveSalesBackup(){
     localStorage.setItem("ccPdfSalesBackup",JSON.stringify(ccPdfSalesBackup));
   }catch(e){}
 }
-/* 매출 등록이 볼 자료 — 이번에 올린 PDF가 있으면 그걸, 없으면 저장해 둔 백업을 쓴다 */
+/* 5단계 파일(DSS Export)의 판매일 — 파일명의 날짜(PurchaseOrderDetail_09_03_2026)를 쓰고, 없으면 오늘 */
+function _ccPdfTargetSaleDate(){
+  var fn=String((ccPdfInvoiceTarget&&ccPdfInvoiceTarget.fileName)||"");
+  var m=fn.match(/(\d{2})_(\d{2})_(\d{4})/);
+  if(m)return m[3]+"/"+m[1]+"/"+m[2];
+  var d=new Date();
+  return d.getFullYear()+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+String(d.getDate()).padStart(2,"0");
+}
+/* 5단계 DSS Export에서 매출 등록용 줄을 만든다.
+   retailerSKU("696151-BK")로 상품·색상을 찾고, 금액은 코스트코 판매가 × 수량.
+   1단계 PDF 없이 5단계만으로도 등록할 수 있게 하는 것이 목적이다. */
+function _ccPdfSalesRowsFromTarget(){
+  var t=ccPdfInvoiceTarget;
+  if(!t||!t.rows||!t.rows.length)return [];
+  var H=(t.rows[0]||[]).map(function(x){return String(x==null?"":x).toLowerCase().replace(/\s/g,"");});
+  var find=function(re){for(var i=0;i<H.length;i++){if(re.test(H[i]))return i;}return -1;};
+  var cSku=find(/retailersku/), cQty=find(/quantity/), cDesc=find(/description/);
+  if(cSku<0)cSku=4;
+  if(cQty<0)cQty=8;
+  var date=_ccPdfTargetSaleDate();
+  var out=[];
+  for(var r=t.startRow;r<t.rows.length;r++){
+    var row=t.rows[r];if(!row)continue;
+    var ord=String(row[t.orderCol]==null?"":row[t.orderCol]).trim();
+    if(!_ccPdfLooksLikeOrderNo(ord))continue;
+    var sku=String(row[cSku]==null?"":row[cSku]).trim();
+    var mm=sku.match(/^(\d{6})-([A-Za-z]+)$/);
+    if(!mm)continue;
+    var cm=CC_PDF_CODE_MAP[mm[1]];
+    if(!cm)continue;
+    var ccColor=mm[2].toUpperCase();
+    var mapped=CC_PDF_COLOR_MAP[ccColor]||ccColor;
+    var q=Number(String(row[cQty]==null?"":row[cQty]).replace(/[^0-9.-]/g,""))||0;
+    if(!q)continue;
+    var desc=cDesc>=0?String(row[cDesc]==null?"":row[cDesc]).trim():"";
+    var dd=_ccPdfResolveFromDefaultData(cm.base,mapped);
+    if(!dd&&desc)dd=_ccPdfResolveByColorName(cm.base,desc);
+    out.push({
+      orderNo:ord, orderDate:date,
+      prodName:dd?(dd.prodName+" "+dd.colorName):cm.name,
+      prodCode:dd?dd.prodCode:cm.base,
+      colorCode:dd?dd.skuCode:(cm.base+mapped+"X"),
+      rawName:desc||cm.name, ccColor:ccColor,
+      qty:q*((cm.setQty)||1),
+      amt:_ccPdfCostcoAmount(cm,q)
+    });
+  }
+  return out;
+}
+/* 매출 등록이 볼 자료 — 5단계 파일이 우선, 없으면 1단계 PDF(또는 저장해 둔 백업) */
 function _ccPdfSalesSource(){
+  var t=_ccPdfSalesRowsFromTarget();
+  if(t.length)return t;
   return ccPdfRows.length?ccPdfRows:(ccPdfSalesBackup||[]);
 }
 function openCcPdfSalesModal(){
@@ -13428,7 +13479,6 @@ function ccSyncStickyOffsets(){
   var headRow=tbl.querySelector('thead tr');
   if(!headRow)return;
   var apply=function(){
-    var c0=headRow.querySelector('.cc-sticky-0');
     var c1=headRow.querySelector('.cc-sticky-1');
     var c3=headRow.querySelector('.cc-sticky-3');
     var c4=headRow.querySelector('.cc-sticky-4');
@@ -13442,13 +13492,18 @@ function ccSyncStickyOffsets(){
       return;
     }
     var prev=wrap.scrollLeft;
-    wrap.scrollLeft=0;                      /* 밀리지 않은 자연 폭에서 잰다 */
-    var w=function(e){return e?e.getBoundingClientRect().width:0;};
-    var w0=w(c0),w1=w(c1),w3=w(c3);
-    /* border-collapse라 열 사이 경계선을 두 열이 나눠 쓰므로 경계마다 1px씩 뺀다 */
-    tbl.style.setProperty('--ccL1',w0+'px');
-    tbl.style.setProperty('--ccL3',Math.max(0,w0+w1-1)+'px');
-    tbl.style.setProperty('--ccL4',Math.max(0,w0+w1+w3-2)+'px');
+    /* 오프셋을 지우고 스크롤을 0으로 되돌린 '자연 상태'에서 각 열의 실제 위치를 잰다.
+       열 폭을 더해 계산하면 border-collapse의 공유 경계선 때문에 어긋나 칸 사이가 벌어졌다. */
+    tbl.style.setProperty('--ccL1','0px');
+    tbl.style.setProperty('--ccL3','0px');
+    tbl.style.setProperty('--ccL4','0px');
+    wrap.scrollLeft=0;
+    var tl=tbl.getBoundingClientRect().left;
+    var off=function(e){return Math.max(0,e.getBoundingClientRect().left-tl-0.5);};
+    var l1=off(c1),l3=off(c3),l4=off(c4);
+    tbl.style.setProperty('--ccL1',l1+'px');
+    tbl.style.setProperty('--ccL3',l3+'px');
+    tbl.style.setProperty('--ccL4',l4+'px');
     wrap.scrollLeft=prev;
   };
   apply();
