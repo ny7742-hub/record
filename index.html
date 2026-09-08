@@ -14034,7 +14034,10 @@ function renderCostcoPage(){
   /* ── 헤더 1행: 고정 컬럼 + 일자 + 월 합계 (주차 범위 행 제거, 일자별만 표시) ── */
   h+='<tr>';
   h+='<th rowspan="2" class="cc-sticky-0">묶음</th>';
-  h+='<th rowspan="2" class="cc-sticky-1">구분 <button onclick="ccToggleFilterMenu(event)" title="필터" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#1b6e82;vertical-align:middle">▼</button></th>';
+  /* 숨긴 상품이 있으면 헤더에 건수를 띄운다 — 안 보이는 상품이 있다는 걸 알아야 다시 켤 수 있다 */
+  var _hidN=Object.keys(costcoDB.hiddenProds||{}).length;
+  h+='<th rowspan="2" class="cc-sticky-1">구분 <button onclick="ccToggleFilterMenu(event)" title="상품 숨김/표시" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#1b6e82;vertical-align:middle">👁</button>'
+    +(_hidN?'<div style="font-size:10.5px;font-weight:700;color:#fcd34d;margin-top:2px;white-space:nowrap;cursor:pointer" onclick="ccToggleFilterMenu(event)" title="숨긴 상품 보기">숨김 '+_hidN+'</div>':'')+'</th>';
   h+='<th rowspan="2" class="cc-sticky-3">색상</th>';
   h+='<th rowspan="2" class="cc-sticky-4">단종</th>';
   if(monthKeys.length){
@@ -14151,17 +14154,26 @@ function renderCostcoPage(){
     }); /* prod.colors */
   }); /* visibleProds */
   h+='</tbody></table>';
-  /* 엑셀식 필터 드롭다운 (구분 헤더) */
+  /* 상품 숨김/표시 패널 (구분 헤더의 👁) — 숨긴 상품도 목록에 남아야 다시 켤 수 있다 */
   var allNames=prods.map(function(p){return p.name;});
-  var menu='<div id="ccFilterMenu" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);padding:8px;min-width:180px;max-height:360px;overflow:auto;text-align:left">';
+  var _hidNames=allNames.filter(function(nm){return _hidden[nm];});
+  var menu='<div id="ccFilterMenu" style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);padding:8px;min-width:210px;max-height:420px;overflow:auto;text-align:left">';
+  menu+='<div style="font-size:12.5px;font-weight:800;color:#1b6e82;padding:0 2px 6px">상품 숨김 / 표시</div>';
+  menu+='<div style="font-size:11.5px;color:#5b6675;padding:0 2px 6px;line-height:1.45">체크를 끄면 표에서 숨깁니다.<br>다시 켜면 그대로 돌아옵니다.</div>';
   menu+='<div style="display:flex;gap:6px;margin-bottom:6px">';
-  menu+='<button onclick="ccFilterAll(true)" style="flex:1;font-size:12px;border:1px solid #2563a8;background:#e7f0fb;color:#1b6e82;border-radius:4px;padding:3px;cursor:pointer;font-weight:700">전체 선택</button>';
-  menu+='<button onclick="ccFilterAll(false)" style="flex:1;font-size:12px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:4px;padding:3px;cursor:pointer;font-weight:700">전체 해제</button>';
+  menu+='<button onclick="ccFilterAll(true)" style="flex:1;font-size:12px;border:1px solid #2563a8;background:#e7f0fb;color:#1b6e82;border-radius:4px;padding:3px;cursor:pointer;font-weight:700">전체 표시</button>';
+  menu+='<button onclick="ccFilterAll(false)" style="flex:1;font-size:12px;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:4px;padding:3px;cursor:pointer;font-weight:700">전체 숨김</button>';
   menu+='</div>';
+  menu+='<div style="font-size:11.5px;font-weight:700;color:#5b6675;border-top:1px dashed #cbd5e1;padding:6px 2px 3px">'
+    +(_hidNames.length?'숨긴 상품 '+_hidNames.length+'개':'숨긴 상품 없음')+'</div>';
   allNames.forEach(function(nm){
-    var checked=!_hidden[nm]?"checked":"";
+    var off=!!_hidden[nm];
     var esc=String(nm).replace(/'/g,"\\'");
-    menu+='<label style="display:flex;align-items:center;gap:6px;padding:3px 2px;font-size:13px;color:#1f2937;cursor:pointer;white-space:nowrap"><input type="checkbox" '+checked+' onchange="ccFilterToggle(\''+esc+'\',this.checked)" style="width:15px;height:15px;cursor:pointer">'+nm+'</label>';
+    menu+='<label style="display:flex;align-items:center;gap:6px;padding:3px 2px;font-size:13px;cursor:pointer;white-space:nowrap;'
+      +(off?'color:#5b6675;background:#f1f5f9;border-radius:4px;':'color:#1f2937;')+'">'
+      +'<input type="checkbox" '+(off?"":"checked")+' onchange="ccFilterToggle(\''+esc+'\',this.checked)" style="width:15px;height:15px;cursor:pointer">'
+      +'<span style="flex:1">'+nm+'</span>'
+      +(off?'<span style="font-size:11px;font-weight:700;color:#b45309">숨김</span>':'')+'</label>';
   });
   menu+='</div>';
   document.getElementById("costcoTableWrap").innerHTML=h;
