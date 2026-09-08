@@ -1079,8 +1079,12 @@ label{font-size:14px!important}
         <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">5단계<br>플레이엠디 등록</div>
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:9px 10px;font-size:12.5px;color:#334155;line-height:1.6;flex:1">
           <div style="display:flex;gap:5px"><b style="color:#1b6e82;flex:none">1)</b><span><b>[EX]사입매장출고반품등록</b><br>&gt; 사입반품 체크 &gt; 파일 불러오기 &gt; 저장</span></div>
-          <div style="display:flex;gap:5px;margin-top:7px"><b style="color:#1b6e82;flex:none">2)</b><span><b style="color:#b45309">불량건 창고 이동</b><br>물류답변 <b>TRUE</b>만 · 주희물류 → 불량창고<br><span style="color:#5b6675">우양산 양품화 기재건도 불량창고</span></span></div>
-          <div style="display:flex;gap:5px;margin-top:7px"><b style="color:#1b6e82;flex:none">3)</b><span><b>출고반품오류자료처리</b><br>처리구분 <b style="color:#dc2626">[5]판매마진수정</b><br>매장명 코스트코온라인 &gt; 저장</span></div>
+          <div style="display:flex;gap:5px;margin-top:7px"><b style="color:#1b6e82;flex:none">2)</b><span><b style="color:#b45309">불량건 창고 이동</b><br>표의 <b>불량</b> 체크(물류답변 TRUE) 건만 받습니다</span></div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #cfe0e5;display:flex;flex-direction:column;gap:5px">
+            <label style="font-size:11.5px;color:#5b6675;font-weight:600;display:flex;align-items:center;gap:5px">반품창고코드 <input id="ccrMoveFrom" value="NH" style="flex:1;padding:4px 7px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;font-family:monospace"></label>
+            <label style="font-size:11.5px;color:#5b6675;font-weight:600;display:flex;align-items:center;gap:5px">입고창고코드 <input id="ccrMoveTo" value="ST" placeholder="불량창고" style="flex:1;padding:4px 7px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;font-family:monospace"></label>
+            <button class="bs" style="width:100%;font-size:13px;background:#fff7ed;border-color:#fdba74;color:#9a3412" onclick="ccrMoveDownload()">📥 창고간이동 다운로드</button>
+          </div>
         </div>
       </div>
 
@@ -10237,6 +10241,11 @@ function _ccrMapRow(c){
     var pv=String(c[qi+1]==null?"":c[qi+1]).trim();
     pay=/[0-9]/.test(pv)?_ccrNum(pv):"";
   }
+  /* 불량 여부 — 시트 맨 뒤의 물류 답변(TRUE/FALSE) 칸. TRUE면 창고간이동 대상 */
+  var bad=false;
+  for(var t2=0;t2<c.length;t2++){
+    if(/^true$/i.test(String(c[t2]==null?"":c[t2]).trim())){bad=true;break;}
+  }
   var orderNo="";
   for(var o=0;o<prod;o++){
     var ov=String(c[o]==null?"":c[o]).trim();
@@ -10251,7 +10260,8 @@ function _ccrMapRow(c){
     orderNo:orderNo,
     prod:String(c[prod]).trim(),
     qty:(qty>0?qty:1),
-    pay:pay
+    pay:pay,
+    bad:bad
   };
 }
 function ccrPasteRows(){
@@ -10290,6 +10300,28 @@ function ccrEditColorCode(el){
 function ccrEditPrice(el){var i=+el.dataset.i;if(!ccrRows[i])return;ccrRows[i].price=el.value.replace(/[^0-9]/g,"");renderCcrTable();}
 function ccrEditQty(el){var i=+el.dataset.i;if(!ccrRows[i])return;var q=parseInt(el.value.replace(/[^0-9]/g,""),10);ccrRows[i].qty=(q>0?q:1);renderCcrTable();}
 function ccrDelRow(i){ccrRows.splice(i,1);renderCcrTable();}
+function ccrToggleBad(i,v){if(!ccrRows[i])return;ccrRows[i].bad=!!v;renderCcrTable();}
+/* 불량(TRUE) 건만 '창고이동' 양식으로 내려받는다 — 주희물류(NH) → 불량창고.
+   양식: 반품창고코드·입고창고코드·이동일자(8자리)·상품코드·칼라코드·사이즈코드·이동수량·비고 */
+function ccrMoveDownload(){
+  var rows=ccrRows.filter(function(r){return r.bad&&_ccrReady(r);});
+  if(!rows.length){alert("창고간이동 대상이 없습니다.\n\n표의 '불량' 칸이 체크되고 해체일이 있는 건만 내려받습니다.");return;}
+  var noCode=rows.filter(function(r){return !r.colorCode;}).length;
+  if(noCode&&!confirm("상품컬러코드가 비어있는 행이 "+noCode+"건 있습니다.\n\n그대로 다운로드할까요?"))return;
+  var from=(document.getElementById("ccrMoveFrom")||{}).value||"NH";
+  var to=(document.getElementById("ccrMoveTo")||{}).value||"";
+  var aoa=[["반품창고코드","입고창고코드","이동일자(8자리 숫자만)","상품코드","칼라코드","사이즈코드","이동수량","비고"]];
+  rows.forEach(function(r){
+    aoa.push([String(from).trim(),String(to).trim(),_hsrYmd(_ccrRowDate(r)),r.colorCode||"","","",r.qty,"코스트코 불량 반품"]);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=[14,14,16,16,10,10,10,16].map(function(w){return {wch:w};});
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"창고이동");
+  var d=new Date();
+  var ymd=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  XLSX.writeFile(wb,"창고이동(코스트코 불량)_"+ymd+".xlsx");
+}
 function ccrResetAll(){
   if(ccrRows.length&&!confirm("등록된 코스트코 반품 내역을 모두 지울까요?"))return;
   ccrRows=[];
@@ -10301,7 +10333,7 @@ function renderCcrTable(){
   if(!ccrRows.length){wrap.innerHTML='<div style="padding:20px;text-align:center;color:#5b6675;font-size:12px">2단계에서 반품 표를 붙여넣으세요.</div>';_ccrSummary();return;}
   var h='<table style="border-collapse:collapse;font-size:12.5px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  ["상태","반품일자","쇼핑몰","주문번호","상품명","수량","결제가","바코드(상품컬러코드)","공급가",""].forEach(function(t,i){
+  ["상태","반품일자","쇼핑몰","주문번호","상품명","수량","결제가","바코드(상품컬러코드)","공급가","불량",""].forEach(function(t,i){
     h+='<th style="position:sticky;top:0;background:#e3eeee;border:1px solid #e7dcc4;padding:6px 8px;color:#1b6e82;font-weight:700'+(i===4?';min-width:260px':'')+'">'+t+'</th>';
   });
   h+='</tr></thead><tbody>';
@@ -10319,6 +10351,8 @@ function renderCcrTable(){
     h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:right;color:#5b6675">'+(r.pay===""?"":Number(r.pay).toLocaleString())+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input value="'+_escX(r.colorCode||"")+'" data-i="'+i+'" onblur="ccrEditColorCode(this)" placeholder="미매칭" style="width:130px;border:none;outline:none;font-family:monospace;font-size:12px;background:transparent;'+(r.colorCode?"":"color:#dc2626")+'"></td>';
     h+='<td style="border:1px solid #e1e6ee;padding:2px 4px;text-align:right"><input value="'+(r.price===""?"":r.price)+'" data-i="'+i+'" onblur="ccrEditPrice(this)" placeholder="필수" style="width:76px;border:none;outline:none;text-align:right;background:transparent;font-size:12.5px;'+(r.price===""?"color:#dc2626":"")+'"></td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:2px 6px;text-align:center" title="불량이면 창고간이동 대상">'
+      +'<input type="checkbox" '+(r.bad?"checked":"")+' onchange="ccrToggleBad('+i+',this.checked)" style="width:15px;height:15px;cursor:pointer"></td>';
     h+='<td style="border:1px solid #e1e6ee;padding:2px 6px;text-align:center"><button onclick="ccrDelRow('+i+')" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:14px">✕</button></td>';
     h+='</tr>';
   });
@@ -10333,7 +10367,9 @@ function _ccrSummary(){
   var noPrice=ccrRows.filter(function(r){return r.price==="";}).length;
   var noOpen=ccrRows.filter(function(r){return !r.open;}).length;
   var noDate=ccrRows.filter(function(r){return !_ccrRowDate(r);}).length;
+  var badN=ccrRows.filter(function(r){return r.bad;}).length;
   el.innerHTML=ccrRows.length+'건'
+    +(badN?' · <span style="color:#b45309;font-weight:700">불량 '+badN+'건</span>':'')
     +(noOpen?' · <span style="color:#5b6675">해체일 없어 제외 '+noOpen+'건</span>':'')
     +(noCode?' · <span style="color:#dc2626;font-weight:700">미매칭 '+noCode+'건</span>':' · <span style="color:#15803d;font-weight:700">코드 매칭 완료</span>')
     +(noPrice?' · <span style="color:#dc2626;font-weight:700">공급가 없음 '+noPrice+'건</span>':'')
