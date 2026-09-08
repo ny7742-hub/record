@@ -6879,7 +6879,9 @@ function dsRenameStore(i,val){
   Object.keys(md).forEach(function(d){if(md[d][old]){md[d][val]=md[d][old];delete md[d][old];}});
   saveDaily();renderDaily();
 }
-function _dsInput(val,onblur,idv,red){return '<input '+(idv?'id="'+idv+'" ':'')+'value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:right;font-size:12px;background:transparent;padding:4px 4px;box-sizing:border-box;'+(red?'color:#dc2626;font-weight:700;':'')+'">';}
+/* 매출 칸 — 백화점·수량·온라인·수량·EDI·수량·PLAY MD는 **가운데 정렬**이다(2026-09 영업2팀 지정).
+   날짜·달성금액(합계) 열만 오른쪽 정렬로 남긴다. */
+function _dsInput(val,onblur,idv,red){return '<input '+(idv?'id="'+idv+'" ':'')+'value="'+_esc(val)+'" onblur="'+onblur+'" inputmode="numeric" style="width:100%;border:none;outline:none;text-align:center;font-size:14px;background:transparent;padding:5px 4px;box-sizing:border-box;'+(red?'color:#dc2626;font-weight:700;':'')+'">';}
 /* 매장별 표시 필드 — 온라인 매출 없는 매장은 온라인/온라인수량 열 제외 */
 function _dsFldsOf(name,mk){
   var noOnline=DS_FIELDS.filter(function(f){return f.k!=="online"&&f.k!=="onlineQ";});
@@ -7079,7 +7081,7 @@ function renderDaily(){
   var thb='background:#e3eeee;border:1px solid #e7dcc4;color:#1b6e82';
   var mobileMode=window.innerWidth<=700;
   var achTh='<th rowspan="2" style="position:sticky;'+(mobileMode?'':'left:58px;')+'top:0;z-index:5;'+thb+';padding:6px 6px;min-width:96px">달성금액<br><span style="font-size:10px;font-weight:600;color:#64748b">(EDI 합계)</span></th>';
-  var h='<table style="border-collapse:collapse;font-size:13px;white-space:nowrap">';
+  var h='<table style="border-collapse:collapse;font-size:15px;white-space:nowrap">';
   h+='<thead>';
   /* 매장 헤더(이름+팝업기간+목표+전년+달성+달성률+객단가+부족) */
   h+='<tr>';
@@ -7111,7 +7113,7 @@ function renderDaily(){
   stores.forEach(function(s,si){
     _dsFldsOf(s.name,mk).forEach(function(f,fi){
       var qty=/Q$/.test(f.k);
-      h+='<th style="position:sticky;top:52px;z-index:2;background:#f1f5f9;border:1px solid #e7dcc4;padding:3px 5px;color:#475569;font-size:11px;min-width:'+(qty?"46px":"76px")+';'+(fi===0?"border-left:3px solid #1b6e82;":"")+'">'+f.t+'</th>';
+      h+='<th style="position:sticky;top:52px;z-index:2;background:#f1f5f9;border:1px solid #e7dcc4;padding:4px 5px;color:#475569;font-size:13px;text-align:center;min-width:'+(qty?"54px":"88px")+';'+(fi===0?"border-left:3px solid #1b6e82;":"")+'">'+f.t+'</th>';
       _dsColMeta.push({si:si,field:f.k});
     });
   });
@@ -7124,7 +7126,7 @@ function renderDaily(){
   if(!mobileMode)h+=grandTd;
   stores.forEach(function(s,si){
     _dsFldsOf(s.name,mk).forEach(function(f,fi){
-      h+='<td id="dsTot_'+si+'_'+f.k+'" style="border:1px solid #e7dcc4;padding:5px 4px;text-align:right;color:#1b6e82;'+(fi===0?"border-left:3px solid #1b6e82;":"")+'"></td>';
+      h+='<td id="dsTot_'+si+'_'+f.k+'" style="border:1px solid #e7dcc4;padding:5px 4px;text-align:center;color:#1b6e82;'+(fi===0?"border-left:3px solid #1b6e82;":"")+'"></td>';
     });
   });
   if(mobileMode)h+=grandTd;
