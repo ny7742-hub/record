@@ -324,8 +324,8 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-tbl .cc-prod-cell{background:#f1f5f9;font-weight:700;vertical-align:middle;font-size:14px;min-width:0;padding-left:6px;padding-right:6px}
 .cc-tbl .cc-cumul-cell{background:#fef08a;font-weight:700;min-width:70px}
 .cc-tbl .cc-color-cell{background:#f9fafb;font-size:14px;min-width:0;padding-left:6px;padding-right:6px}
-/* 칸마다 선을 긋되, 날짜가 바뀌는 자리(수량 칸 왼쪽)만 조금 진하게 */
-.cc-tbl .cc-num-cell{text-align:right;min-width:70px;border-left:1px solid #7e93a8}
+/* 팝업 표처럼 칸 선 하나로 통일 — 강조는 묶음 경계선에만 남긴다 */
+.cc-tbl .cc-num-cell{text-align:right;min-width:70px}
 .cc-tbl .cc-amt-cell{text-align:right;min-width:90px}
 /* 파일 끌어오기 영역 (코스트코 판매현황 / 코스트코 발주 공통) */
 .drop-zone{border:2px dashed #7dd3fc;border-radius:10px;background:#f0f9ff;color:#0369a1;font-weight:600;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
@@ -336,12 +336,12 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 /* 바이어(D26/D31)·직매입 묶음 — 맨 왼쪽 세로 띠. 글자를 세워 열 폭을 좁게 유지한다 */
 .cc-tbl .cc-grp-cell{background:#1b6e82;color:#fff;font-weight:800;font-size:14px;
   padding:2px 0;text-align:center;vertical-align:middle;letter-spacing:1px;
-  border:1px solid #cdd7e1;border-right:2px solid #9fb2c4}
+  border:1px solid #b9c4d4}
 .cc-tbl .cc-grp-cell span{display:inline-block;white-space:nowrap}
 .cc-tbl thead .cc-sticky-0{background:#374151}
 .cc-tbl .cc-total-row .cc-sticky-0{background:#e8eaf0}
 /* 표 마감선 — 다른 칸 선과 같은 두께로 */
-.cc-tbl .cc-last-row td{border-bottom:1px solid #9fb2c4}
+.cc-tbl .cc-last-row td{border-bottom:1px solid #b9c4d4}
 /* 묶음(D26/D31/직매입) 경계 — 색선으로 갈라 보이게 */
 .cc-tbl .cc-grp-end td{border-bottom:2px solid #1b6e82}
 .cc-tbl [contenteditable]:focus{outline:2px solid #6366f1;background:#eff6ff!important}
@@ -349,7 +349,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-tbl .cc-sticky-1{position:sticky;left:var(--ccL1,0px);z-index:3}
 .cc-tbl .cc-sticky-2{position:sticky;left:var(--ccL2,76px);z-index:3}
 .cc-tbl .cc-sticky-3{position:sticky;left:var(--ccL3,76px);z-index:3}
-.cc-tbl .cc-sticky-4{position:sticky;left:var(--ccL4,146px);z-index:3;border-right:2px solid #9fb2c4!important}
+.cc-tbl .cc-sticky-4{position:sticky;left:var(--ccL4,146px);z-index:3}
 .cc-tbl thead .cc-sticky-1,.cc-tbl thead .cc-sticky-2,.cc-tbl thead .cc-sticky-3,.cc-tbl thead .cc-sticky-4{z-index:5;background:#374151}
 .cc-tbl .cc-total-row .cc-sticky-1,.cc-tbl .cc-total-row .cc-sticky-2,.cc-tbl .cc-total-row .cc-sticky-3,.cc-tbl .cc-total-row .cc-sticky-4{background:#e8eaf0}
 .cc-tbl .cc-prod-cell.cc-sticky-1{background:#f1f5f9}
@@ -9476,7 +9476,8 @@ function ccApplyDataFixes(db){
   db.products.forEach(function(p){
     /* 직매입 행도 코스트코 상품 페이지가 있으면 바로가기를 둔다.
        예전에는 여기서 url을 강제로 지워, 상품관리에서 넣어도 새로 고치면 사라졌다. */
-    if(p.url===undefined&&CC_PRODUCT_URLS[p.name]){p.url=CC_PRODUCT_URLS[p.name];ch=true;}
+    /* 빈 문자열도 채운다 — 옛 규칙이 직매입 행의 url을 ""로 지워놔서 undefined 조건만으로는 안 채워진다 */
+    if((p.url===undefined||p.url==="")&&CC_PRODUCT_URLS[p.name]){p.url=CC_PRODUCT_URLS[p.name];ch=true;}
   });
   /* 듀리에: 실제 판매는 베이지/블랙 2컬러, 판매가 21990원 — 다르면 강제 보정 */
   var d=db.products.find(function(p){return p.name==="듀리에";});
