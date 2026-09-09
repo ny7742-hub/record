@@ -1765,7 +1765,7 @@ label{font-size:14px!important}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
 <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px"><div style="background:#0f766e;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">1단계<br>도매발주서 업로드</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:9px 10px;font-size:12.5px;color:#334155;line-height:1.6;flex:1;display:flex;flex-direction:column;gap:6px"><label class="bs" style="cursor:pointer;width:100%;box-sizing:border-box;text-align:center;font-size:13px;font-weight:700;padding:7px 0">📁 도매발주서<input type="file" id="usOrdIn" accept=".xlsx,.xls" style="display:none" onchange="unshipLoadOrder(this.files[0]);this.value=&quot;&quot;"></label><div id="usOrdDrop" class="drop-zone" style="border-radius:8px;padding:10px;font-size:12px;font-weight:700">📂 끌어오기</div><div style="color:#5b6675">물류에서 <b>운송장번호가 채워져</b> 돌아온 도매발주서(27열)</div><span id="usOrdMsg" style="font-size:11.5px;color:#15803d;font-weight:700"></span></div></div>
 <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px"><div style="background:#0f766e;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">2단계<br>미출고 내역 업로드</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:9px 10px;font-size:12.5px;color:#334155;line-height:1.6;flex:1;display:flex;flex-direction:column;gap:6px"><label class="bs" style="cursor:pointer;width:100%;box-sizing:border-box;text-align:center;font-size:13px;font-weight:700;padding:7px 0">📁 미출고 내역<input type="file" id="usListIn" accept=".xlsx,.xls" style="display:none" onchange="unshipLoadList(this.files[0]);this.value=&quot;&quot;"></label><div id="usListDrop" class="drop-zone" style="border-radius:8px;padding:10px;font-size:12px;font-weight:700">📂 끌어오기</div><label style="font-size:11.5px;color:#5b6675;font-weight:600;display:flex;align-items:center;gap:5px">날짜 시트<select id="usSheet" onchange="unshipPickSheet()" style="flex:1;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px"></select></label><span id="usListMsg" style="font-size:11.5px;color:#15803d;font-weight:700"></span></div></div>
-<div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px"><div style="background:#0f766e;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">3단계<br>발주서 다운로드</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:9px 10px;font-size:12.5px;color:#334155;line-height:1.6;flex:1;display:flex;flex-direction:column;gap:6px"><button class="bg" style="width:100%;font-size:14px;background:#0f766e" onclick="unshipDownload()">📥 미출고 표시 발주서</button><div style="color:#5b6675">원본 27열 뒤에 <b>미출고수량 · 실출고수량</b> 두 열을 붙여 받습니다<br>미출고가 있는 줄은 붉게 표시됩니다</div></div></div>
+<div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px"><div style="background:#0f766e;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">3단계<br>매장출고양식</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:9px 10px;font-size:12.5px;color:#334155;line-height:1.6;flex:1;display:flex;flex-direction:column;gap:6px"><label style="font-size:11.5px;color:#5b6675;font-weight:600;display:flex;align-items:center;gap:5px">출고창고코드<input id="usWh" value="NH" style="flex:1;padding:4px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:monospace"></label><label style="font-size:11.5px;color:#5b6675;font-weight:600;display:flex;align-items:center;gap:5px">출고일자<input type="date" id="usDate" style="flex:1;padding:4px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px"></label><button class="bg" style="width:100%;font-size:14px;background:#0f766e" onclick="unshipDownload()">📥 매장출고양식</button><div style="color:#5b6675"><b>출고창고코드·매장코드·출고일자·바코드·출고수량·비고</b> 6열<br>수량은 <b>실출고</b>(발주 − 미출고)이고 전량 미출고인 줄은 빠집니다</div></div></div>
     </div>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
@@ -5612,7 +5612,11 @@ function switchTab(tab){
   document.getElementById("page-tmorder").style.display=tab==="tmorder"?"block":"none";
   if(tab==="tmorder")renderTmOrder();
   document.getElementById("page-unship").style.display=tab==="unship"?"block":"none";
-  if(tab==="unship")renderUnship();
+  if(tab==="unship"){
+    var _ud=document.getElementById("usDate");
+    if(_ud&&!_ud.value){var _t=new Date();_ud.value=_t.getFullYear()+"-"+String(_t.getMonth()+1).padStart(2,"0")+"-"+String(_t.getDate()).padStart(2,"0");}
+    renderUnship();
+  }
   document.getElementById("page-orderconv").style.display=tab==="orderconv"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("page-lossreport").style.display=tab==="lossreport"?"block":"none";
@@ -8195,23 +8199,50 @@ function renderUnship(){
   h+='</tbody></table>';
   wrap.innerHTML=h;
 }
-/* 3단계 — 원본 열 뒤에 미출고수량·실출고수량을 붙여 내려준다 */
+/* 자사코드 → 바코드. 도매발주서의 바코드 칸은 비어 오므로 상품데이터에서 찾는다 */
+function _usBarcode(sku){
+  var k=String(sku||"").trim();
+  if(!k)return "";
+  if(typeof DB!=="undefined"&&DB.length){
+    for(var i=0;i<DB.length;i++)
+      if(String(DB[i]["자사코드"]||"").trim()===k)return String(DB[i]["바코드1"]||"").trim();
+  }
+  if(typeof DEFAULT_DATA!=="undefined"){
+    for(var j=0;j<DEFAULT_DATA.length;j++)
+      if(String(DEFAULT_DATA[j][7]||"").trim()===k)return String(DEFAULT_DATA[j][8]||"").trim();
+  }
+  return "";
+}
+function _usYmd8(){
+  var v=(document.getElementById("usDate")||{}).value||"";
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if(m)return m[1]+m[2]+m[3];
+  var d=new Date();
+  return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
+}
+/* 3단계 — **매장출고양식**(6열)으로 내려준다(2026-09 영업2팀 제공 양식).
+   수량은 실출고(발주 − 미출고)이고, 전량 미출고인 줄은 내보낼 게 없어 뺀다. */
 function unshipDownload(){
   if(!usOrder.rows.length){alert("도매발주서를 먼저 올려주세요.");return;}
   _usMatch();
-  var head=usOrder.head.slice();
-  while(head.length<27)head.push("");
-  head=head.concat(["미출고수량","실출고수량"]);
-  var aoa=[head];
+  var wh=String((document.getElementById("usWh")||{}).value||"NH").trim();
+  var ymd=_usYmd8();
+  var aoa=[["출고창고코드","매장코드","출고일자(8자리 숫자만)","바코드","출고수량","비고"]];
+  var noBar=0;
   usOrder.rows.forEach(function(r){
-    var row=r.raw.slice();
-    while(row.length<27)row.push("");
-    row=row.slice(0,27).concat([r.un||"",r.qty-r.un]);
-    aoa.push(row);
+    var out=r.qty-r.un;
+    if(out<=0)return;                              /* 전량 미출고 */
+    var bar=r.raw[15]?String(r.raw[15]).trim():"";
+    if(!bar)bar=_usBarcode(r.code);
+    if(!bar)noBar++;
+    aoa.push([wh,r.store||"",ymd,bar,out,""]);
   });
+  if(aoa.length<2){alert("내보낼 출고 수량이 없습니다.");return;}
+  if(noBar&&!confirm("바코드를 못 찾은 줄이 "+noBar+"건 있습니다.\n\n그대로 다운로드할까요?"))return;
   var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=[14,10,20,18,10,16].map(function(w){return {wch:w};});
   var wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"발주서");
+  XLSX.utils.book_append_sheet(wb,ws,"매장출고");
   /* 못 맞춘 미출고는 따로 한 시트에 남긴다 — 그냥 버리면 놓친다 */
   var left=usList.items.filter(function(it){return it.used<it.qty;});
   if(left.length){
@@ -8220,7 +8251,7 @@ function unshipDownload(){
         left.map(function(it){return [it.who,it.inv,it.item,it.qty-it.used,"O"];}))),"미매칭 미출고");
   }
   var d=new Date();
-  XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 도매발주서(미출고표시).xlsx");
+  XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 매장출고양식.xlsx");
 }
 (function(){
   var wire=function(id,fn){
