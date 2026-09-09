@@ -1175,6 +1175,7 @@ label{font-size:14px!important}
       </div>
     </div>
 
+    <div class="wh-slot" style="display:block;margin-bottom:8px"></div>
     <div id="ccoResultWrap"></div>
   </div>
 
@@ -1357,6 +1358,7 @@ label{font-size:14px!important}
       </div>
     </div>
     <div id="ccPdfInvoiceStatus" style="font-size:18px;color:#5b6675;min-height:1.2em;margin-bottom:10px"></div>
+    <div class="wh-slot" style="display:block;margin-bottom:8px"></div>
     <div id="ccPdfResultWrap"></div>
   </div>
 </div>
@@ -1455,6 +1457,7 @@ label{font-size:14px!important}
       <input type="text" id="anDocNo" oninput="anRenderInvoicePreview()" style="width:90px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"/>
       <span style="font-size:13px;color:#475569;font-weight:700">공급율</span>
       <input type="text" id="anRate" oninput="anRenderTable()" style="width:60px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"/>
+      <span class="wh-slot"></span>
       <span id="anSummary" style="font-size:13px;color:#0891b2;font-weight:700;margin-left:auto"></span>
     </div>
 
@@ -1685,6 +1688,7 @@ label{font-size:14px!important}
       <button onclick="ordDownloadCxAll()" title="매장과 상관없이 표의 모든 행을 CX통합관리(wscx.pages.dev) 업로드용 양식으로 받습니다" style="padding:6px 14px;font-size:12px;font-weight:700;background:#1b6e82;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ CX통합관리 양식</button>
       <button onclick="openTmInvoice()" title="트래블메이트 매장 발주 행으로 거래명세표(PDF)를 만듭니다" style="padding:6px 14px;font-size:12px;font-weight:700;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer">📄 트래블메이트 명세표</button>
       <button onclick="ordClear()" class="bs" style="padding:5px 12px;font-size:12px;color:#dc2626">초기화</button>
+      <span class="wh-slot"></span>
       <span id="ordMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
     </div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -1742,6 +1746,7 @@ label{font-size:14px!important}
       <label style="font-size:11px;font-weight:600;color:#475569">요청일 <input type="text" id="cxReqDate" oninput="cxCommonEdit('date',this.value)" style="width:80px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></label>
       <label style="font-size:11px;font-weight:600;color:#475569">배송수단 <input type="text" id="cxShip" oninput="cxCommonEdit('ship',this.value)" style="width:70px;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:13px"></label>
       <span style="font-size:11px;color:#5b6675">모든 행에 동일하게 들어갑니다 · 목적·전산 처리 방법·요청자·수령인·비고는 공백으로 나갑니다</span>
+      <span class="wh-slot" style="width:100%"></span>
     </div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:600;color:#475569">상품 검색 추가</span>
@@ -1765,6 +1770,7 @@ label{font-size:14px!important}
       <div id="ocDropZone" class="drop-zone" onclick="document.getElementById('ocFileIn').click()" style="border-radius:8px;padding:5px 14px;font-size:12px;gap:5px">📂 끌어오기</div>
       <button onclick="ocDownload()" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ 발주서 다운로드</button>
       <span id="ocMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+      <span class="wh-slot"></span>
     </div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675">
       주문배분현황 엑셀을 올리면 발주서 양식(27열)으로 자동 변환됩니다. 매장코드로 수령인·연락처·주소가 자동 채워지고, 파일명은 화이트샌즈(MMDD) - 도매발주서.xlsx 로 받습니다.
@@ -5595,6 +5601,7 @@ function switchTab(tab){
   if(tab==="margin"){ renderMargin(); mgRenderContractPreview(); }
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock"){ initStockTab(); stockWhDropInit(); }
+  whInitSlots();          /* 발주 화면들의 창고재고 불러오기 칸 */
   if(tab==="onstock"){ _onsRefreshMatch(); _onsApplyWh(); renderOnlineStock(); _onsWhMsgRefresh(); onsDropInit(); }
   if(tab==="transfer") initTransferTab();
   if(tab==="order"){ renderOrder(); ordLotteDropInit(); }
@@ -7427,6 +7434,170 @@ document.addEventListener("mousedown",function(e){
   });
 })();
 
+/* ── 창고재고 (발주 공용) ──
+   PlayMD `출고관리 > 현황 > 창고재고현황` 엑셀을 한 번 올려 두면
+   발주 화면 다섯 곳(발주서 변환·수기발주·코스트코 발주·아난티 발주·CX팀 물류센터)에서
+   상품컬러코드로 재고를 찾아 **발주 가능 여부**를 보여준다.
+   파일이 커서 팀 공유(Firebase)는 하지 않고 이 브라우저에만 저장한다. */
+var whStock=(function(){
+  try{var d=JSON.parse(localStorage.getItem("whStockDB")||"null");
+    if(d&&d.ship)return d;}catch(e){}
+  return {ship:{},all:{},date:"",n:0,at:"",whs:[]};
+})();
+/* 어느 창고를 '발주 가능 재고'로 볼지 — 기본은 **주희물류**(출고가 나가는 곳).
+   전체로 두면 불량창고·생산팀·타팀 창고까지 더해져 실제보다 훨씬 많아 보인다. */
+var whScope=(function(){try{return localStorage.getItem("whScope")||"ship";}catch(e){return "ship";}})();
+function whSetScope(v){
+  whScope=(v==="all")?"all":"ship";
+  try{localStorage.setItem("whScope",whScope);}catch(e){}
+  _whKeys=null;whRefresh();
+}
+function _whFlat(){return (whScope==="all"?whStock.all:whStock.ship)||{};}
+var _whKeys=null;
+function _whSave(){try{localStorage.setItem("whStockDB",JSON.stringify(whStock));}catch(e){}}
+function _whKeyList(){
+  if(!_whKeys)_whKeys=Object.keys(_whFlat()).sort(function(a,b){return b.length-a.length;});
+  return _whKeys;
+}
+/* 상품컬러코드(자사코드) → 창고재고. 창고 파일은 `상품코드+칼라코드` 단위라
+   자사코드에서 **사이즈 한 글자를 떼고** 맞춘다(재고확인 탭과 같은 규칙).
+   못 찾으면 null — 0개(발주 불가)와 구분해야 한다. */
+function whQty(sku){
+  var s=String(sku||"").trim().toUpperCase();
+  if(!s||!whStock.n)return null;
+  var f=_whFlat();
+  if(f[s]!==undefined)return f[s];
+  var cut=s.slice(0,-1);
+  if(f[cut]!==undefined)return f[cut];
+  var keys=_whKeyList();
+  for(var i=0;i<keys.length;i++){if(s.indexOf(keys[i])===0)return f[keys[i]];}
+  return null;
+}
+/* 발주 표에 넣을 '창고재고' 칸 — 재고가 주문 수량보다 적으면 빨강, 아슬아슬하면 주황 */
+function whCell(sku,qty,tdStyle){
+  var st=tdStyle||"border:1px solid #e1e6ee;padding:5px 8px";
+  if(!whStock.n)return '<td style="'+st+';text-align:center;color:#5b6675">–</td>';
+  var q=whQty(sku),need=Number(String(qty==null?"":qty).replace(/[^0-9.-]/g,""))||0;
+  if(q===null)return '<td style="'+st+';text-align:center;color:#b45309" title="창고재고현황에 없는 코드입니다">?</td>';
+  var col="#15803d",bg="",txt=q.toLocaleString();
+  if(q<=0){col="#dc2626";bg="background:#fef2f2;";txt="0 (발주불가)";}
+  else if(need&&q<need){col="#dc2626";bg="background:#fef2f2;";txt=q.toLocaleString()+" (부족 "+(need-q).toLocaleString()+")";}
+  else if(need&&q<need*2){col="#b45309";bg="background:#fffbeb;";}
+  return '<td style="'+st+';text-align:right;font-weight:700;color:'+col+';'+bg+'">'+txt+'</td>';
+}
+/* 화면마다 넣는 업로드 칸 — 어디서 올리든 같은 자료를 쓴다 */
+function whBoxHtml(){
+  return '<span class="wh-box" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">'
+    +'<label class="bs" style="cursor:pointer;padding:5px 12px;font-size:12px;font-weight:700;white-space:nowrap" title="PlayMD 출고관리 > 현황 > 창고재고현황 엑셀">📦 창고재고 불러오기'
+    +'<input type="file" accept=".xlsx,.xls" style="display:none" onchange="whLoadFile(this.files[0]);this.value=&quot;&quot;"></label>'
+    +'<span class="wh-drop drop-zone" style="border-radius:8px;padding:5px 14px;font-size:12px;font-weight:700;gap:5px">📂 끌어오기</span>'
+    +'<select class="wh-scope" onchange="whSetScope(this.value)" title="발주 가능 재고로 볼 창고" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:11.5px;color:#334155">'
+    +'<option value="ship"'+(whScope==="ship"?" selected":"")+'>주희물류 기준</option>'
+    +'<option value="all"'+(whScope==="all"?" selected":"")+'>전체 창고 기준</option></select>'
+    +'<span class="wh-msg" style="font-size:11.5px;color:#5b6675;font-weight:600"></span></span>';
+}
+function whStatusText(){
+  if(!whStock.n)return "창고재고 없음 — 파일을 올리면 발주 가능 여부가 보입니다";
+  var n=Object.keys(_whFlat()).length;
+  return "✔ "+(whScope==="all"?"전체 창고":"주희물류")+" "+n.toLocaleString()+"품목"
+    +(whStock.date?" · 기준일 "+whStock.date:"")+(whStock.at?" · "+whStock.at+" 불러옴":"");
+}
+function whRefresh(){
+  var els=document.querySelectorAll(".wh-msg");
+  for(var i=0;i<els.length;i++)els[i].textContent=whStatusText();
+  var sels=document.querySelectorAll(".wh-scope");
+  for(var k=0;k<sels.length;k++)sels[k].value=whScope;
+  /* 열려 있는 발주 표를 다시 그려 재고 칸을 채운다 */
+  ["renderOrder","renderCxOrder","renderCcoTable","renderCcPdfTable","anRenderTable"].forEach(function(fn){
+    try{if(typeof window[fn]==="function")window[fn]();}catch(e){}
+  });
+}
+/* 화면마다 둔 자리(.wh-slot)에 업로드 칸을 한 번씩 채워 넣는다 */
+function whInitSlots(){
+  var els=document.querySelectorAll(".wh-slot");
+  for(var i=0;i<els.length;i++){
+    if(els[i]._done)continue;
+    els[i]._done=true;
+    els[i].innerHTML=whBoxHtml();
+  }
+  var msgs=document.querySelectorAll(".wh-msg");
+  for(var j=0;j<msgs.length;j++)msgs[j].textContent=whStatusText();
+  var sels=document.querySelectorAll(".wh-scope");
+  for(var k=0;k<sels.length;k++)sels[k].value=whScope;
+}
+function whLoadFile(file){
+  if(!file)return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
+  var els=document.querySelectorAll(".wh-msg");
+  for(var i=0;i<els.length;i++)els[i].textContent="불러오는 중...";
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+      /* 헤더 칸은 키워드와 **정확히** 같아야 한다 —
+         1행 메타 문구(" 재고일자 : … 상품코드 : ")를 헤더로 오인하지 않게. */
+      var findCol=function(H,keys){
+        for(var k=0;k<keys.length;k++)for(var c=0;c<(H||[]).length;c++)
+          if(String(H[c]||"").replace(/\s/g,"")===keys[k])return c;
+        return -1;
+      };
+      var hRow=-1;
+      for(var r=0;r<Math.min(10,rows.length);r++){if(findCol(rows[r],["상품코드"])>=0){hRow=r;break;}}
+      if(hRow<0)throw new Error("창고재고현황 형식이 아닙니다 (상품코드 열이 필요합니다)");
+      var H=rows[hRow];
+      var cCode=findCol(H,["상품코드"]),cColor=findCol(H,["칼라","칼라코드","칼라명"]),
+          cQty=findCol(H,["재고합계","가용재고","현재고","재고수량","재고"]),
+          cWh=findCol(H,["창고코드"]),cWhName=findCol(H,["창고명"]);
+      if(cQty<0)throw new Error("재고수량 열을 찾을 수 없습니다 (열: "+H.join(", ")+")");
+      /* 출고가 나가는 창고 = 주희물류(NH·NH3). 나머지(불량창고·생산팀·타팀·샘플)는
+         '전체 창고 기준'을 골랐을 때만 더한다. */
+      var isShip=function(code,name){
+        var c=String(code||"").toUpperCase(),nm=String(name||"");
+        if(/불량|샘플/.test(nm))return false;
+        return /^NH\d*$/.test(c)||/주희물류/.test(nm);
+      };
+      var ship={},all={},n=0,whs={};
+      for(var r2=hRow+1;r2<rows.length;r2++){
+        var row=rows[r2];if(!row||!row[cCode])continue;
+        var key=(String(row[cCode]).trim()+(cColor>=0?String(row[cColor]||"").trim():"")).toUpperCase();
+        var q=Number(row[cQty])||0;
+        var wc=cWh>=0?String(row[cWh]||"").trim():"",wn=cWhName>=0?String(row[cWhName]||"").trim():"";
+        if(all[key]===undefined)n++;
+        all[key]=(all[key]||0)+q;
+        if(isShip(wc,wn))ship[key]=(ship[key]||0)+q;
+        if(wc&&!whs[wc])whs[wc]=wn||wc;
+      }
+      var m=/재고일자\s*:\s*(\d{8})/.exec(String((rows[0]&&rows[0][0])||""));
+      var d=new Date();
+      whStock={ship:ship,all:all,n:n,at:(d.getMonth()+1)+"/"+d.getDate(),
+        whs:Object.keys(whs).map(function(k){return k+" "+whs[k];}),
+        date:m?(m[1].slice(0,4)+"-"+m[1].slice(4,6)+"-"+m[1].slice(6,8)):""};
+      _whKeys=null;_whSave();whRefresh();
+    }catch(err){
+      alert("창고재고 파일 오류: "+err.message);
+      whRefresh();
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+/* 끌어오기 — 화면마다 배선하지 않고 문서 한 곳에서 받는다 */
+document.addEventListener("dragover",function(e){
+  var z=e.target&&e.target.closest&&e.target.closest(".wh-drop");
+  if(!z)return;
+  e.preventDefault();z.classList.add("dragover");
+});
+document.addEventListener("dragleave",function(e){
+  var z=e.target&&e.target.closest&&e.target.closest(".wh-drop");
+  if(z)z.classList.remove("dragover");
+});
+document.addEventListener("drop",function(e){
+  var z=e.target&&e.target.closest&&e.target.closest(".wh-drop");
+  if(!z)return;
+  e.preventDefault();z.classList.remove("dragover");
+  whLoadFile((e.dataTransfer.files||[])[0]);
+});
+
 /* ── 발주서 ── */
 var ORDER_STORES=[
   {code:"",    name:"매장없음",                recv:"",           tel:"",              addr:""},
@@ -7522,12 +7693,12 @@ function renderOrder(){
   var wrap=document.getElementById("ordTableWrap");if(!wrap)return;
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  [['#',''],['매장',''],['상품명','min-width:300px'],['상품컬러코드','min-width:130px'],['수량',''],['상품코드',''],['수령인','min-width:90px'],['받는분연락처','min-width:120px'],['주소','min-width:240px'],['배송메세지','min-width:130px'],['주문번호','min-width:120px'],['삭제','']].forEach(function(c){
+  [['#',''],['매장',''],['상품명','min-width:300px'],['상품컬러코드','min-width:130px'],['수량',''],['창고재고',''],['상품코드',''],['수령인','min-width:90px'],['받는분연락처','min-width:120px'],['주소','min-width:240px'],['배송메세지','min-width:130px'],['주문번호','min-width:120px'],['삭제','']].forEach(function(c){
     h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
   if(!orderDB.rows.length){
-    h+='<tr><td colspan="12" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
+    h+='<tr><td colspan="13" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
   }
   var _ordEd=function(i,key,val,style){
     return '<td contenteditable="true" onblur="ordEdit('+i+',&quot;'+key+'&quot;,this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;'+(style||"")+'">'+_escX(val||"")+'</td>';
@@ -7542,6 +7713,7 @@ function renderOrder(){
       +'<span onmousedown="ordFillStart(event,'+i+')" title="드래그하면 이 상품명·코드를 위/아래 행에 복사합니다" style="position:absolute;right:2px;bottom:2px;width:9px;height:9px;background:#2563eb;border:1px solid #fff;cursor:crosshair;z-index:1"></span></td>';
     h+='<td contenteditable="true" onblur="ordEdit('+i+',\'code\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;font-family:monospace">'+_escX(r.code||"")+'</td>';
     h+='<td contenteditable="true" onblur="ordEdit('+i+',\'qty\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;text-align:right">'+_escX(r.qty||"")+'</td>';
+    h+=whCell(r.code,r.qty);
     h+='<td id="ordPcode_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;color:#6366f1;font-weight:600;font-family:monospace;background:#f8fafc">'+_escX((r.code||"").slice(0,8))+'</td>';
     h+=_ordEd(i,"recv",r.recv,_need?"background:#fff7ed;color:#b45309":"");
     h+=_ordEd(i,"tel",r.tel,_need?"background:#fff7ed;color:#b45309":"");
@@ -8117,7 +8289,7 @@ function cxEdit(i,key,val){
 function renderCxOrder(){
   cxInitCommon();
   var wrap=document.getElementById("cxTableWrap");if(!wrap)return;
-  var cols=[["#",""],["매장",""],["받는분연락처",""],["주소","min-width:260px"],["배송메세지","min-width:110px"],["상품컬러명(상품명)","min-width:300px"],["상품컬러코드","min-width:120px"],["상품코드",""],["수량",""],["결제금액",""],["바코드",""],["삭제",""]];
+  var cols=[["#",""],["매장",""],["받는분연락처",""],["주소","min-width:260px"],["배송메세지","min-width:110px"],["상품컬러명(상품명)","min-width:300px"],["상품컬러코드","min-width:120px"],["상품코드",""],["수량",""],["창고재고",""],["결제금액",""],["바코드",""],["삭제",""]];
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
   cols.forEach(function(c){
@@ -8141,6 +8313,7 @@ function renderCxOrder(){
     h+=ed(i,"code",r.code,"font-family:monospace");
     h+='<td id="cxPcode_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;color:#6366f1;font-weight:600;font-family:monospace;background:#f8fafc">'+_escX((r.code||"").slice(0,8))+'</td>';
     h+=ed(i,"qty",r.qty,"text-align:right");
+    h+=whCell(r.code,r.qty);
     h+='<td id="cxAmt_'+i+'" contenteditable="true" onblur="cxEdit('+i+',\'amt\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;text-align:right;color:'+(r.amtManual?"#b45309":"#1f2937")+'">'+(r.amt?Number(_cxNum(r.amt)).toLocaleString():"")+'</td>';
     h+=ed(i,"barcode",r.barcode,"font-family:monospace;font-size:12px;color:#475569");
     h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="cxDelRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:3px 8px">✕</button></td>';
@@ -8506,12 +8679,12 @@ function ocRender(){
   if(msg)msg.textContent=orderConvRows.length?("✅ "+orderConvRows.length+"줄 변환됨"+(merged?(" · 동일상품 "+merged+"건 합산"):"")+(unmatched?(" · 주소 미매칭 "+unmatched+"건"):"")+(noSku?(" · ❗자사코드 미매칭 "+noSku+"건"):"")):"";
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량',''],['상품코드',''],['수령인',''],['주소','min-width:280px']].forEach(function(c){
+  [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량',''],['창고재고',''],['상품코드',''],['수령인',''],['주소','min-width:280px']].forEach(function(c){
     h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
   if(!orderConvRows.length){
-    h+='<tr><td colspan="8" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">📁 주문배분현황 엑셀을 업로드하세요</td></tr>';
+    h+='<tr><td colspan="9" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">📁 주문배분현황 엑셀을 업로드하세요</td></tr>';
   }
   orderConvRows.forEach(function(r,i){
     var _noSku=(r.skuMatched===false);
@@ -8523,6 +8696,7 @@ function ocRender(){
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;white-space:normal">'+_escX(r.name||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;color:'+(_noSku?"#dc2626":"#1f2937")+'">'+(_noSku?"❗코드없음":_escX(r.code||""))+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;color:#1f2937"'+(r.cnt>1?' title="주문 '+r.cnt+'건 합산"':'')+'>'+_escX(r.qty||"")+(r.cnt>1?' <span style="font-size:11px;color:#0891b2">('+r.cnt+'건)</span>':'')+'</td>';
+    h+=whCell(r.code,r.qty);
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;color:#6366f1;font-weight:600;font-family:monospace;background:#f8fafc">'+_escX((r.code||"").slice(0,8))+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937">'+_escX(r.recv||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#475569;white-space:normal">'+_escX(r.addr||"")+'</td>';
@@ -11391,6 +11565,7 @@ function renderCcoTable(){
   h+='<thead><tr>'
     +'<th style="'+th+'">쇼핑몰</th><th style="'+th+'">상품명</th><th style="'+th+'">컬러코드</th>'
     +'<th style="'+th+'">출고일자</th><th style="'+th+'">바코드</th><th style="'+th+'">수량</th>'
+    +'<th style="'+th+'">창고재고</th>'
     +'<th style="'+th+'">결제금액(수정가능)</th><th style="'+th+'">공급가</th>'
     +'</tr></thead><tbody>';
   ccoRows.forEach(function(r,i){
@@ -11407,6 +11582,7 @@ function renderCcoTable(){
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+out.ymd+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.barcode)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
+      +whCell(r.colorCode,r.qty,"border:1px solid #e2e8f0;padding:5px 8px")
       +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:90px">'
         +'<input type="text" value="'+r.amt+'" data-i="'+i+'" onchange="ccoEditAmt(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(!r.amt?'#fca5a5':(r.amtAuto?'#fcd34d':'#d1d5db'))+';border-radius:5px;padding:4px 6px;text-align:right;font-size:13px">'
         +(r.amtAuto?'<div style="font-size:10px;color:#b45309;padding:2px 2px 0">💡'+_esc(r.amtSrc||"자동")+' 단가</div>':'')
@@ -11753,7 +11929,7 @@ function renderCcPdfTable(){
   h+='<thead><tr>'
     +'<th style="'+th+'">받는분</th><th style="'+th+'">연락처</th><th style="'+th+'">주소</th>'
     +'<th style="'+th+'">상품명</th><th style="'+th+'">상품코드</th><th style="'+th+'">상품컬러코드</th>'
-    +'<th style="'+th+'">바코드</th><th style="'+th+'">수량</th><th style="'+th+'">결제금액</th>'
+    +'<th style="'+th+'">바코드</th><th style="'+th+'">수량</th><th style="'+th+'">창고재고</th><th style="'+th+'">결제금액</th>'
     +'<th style="'+th+'">주문번호</th><th style="'+th+'">송장번호</th><th style="'+th+'">배송메시지</th><th style="'+th+'"></th>'
     +'</tr></thead><tbody>';
   ccPdfRows.forEach(function(r,i){
@@ -11766,6 +11942,7 @@ function renderCcPdfTable(){
       +'<td style="border:1px solid #b9c4d4;padding:2px;min-width:130px"><input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="ccPdfEditColorCode(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.matched?'#d1d5db':'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:18px'+(r.matched?'':';color:#dc2626')+'"></td>'
       +'<td style="border:1px solid #b9c4d4;padding:5px 8px;font-size:16px;color:#64748b;white-space:nowrap">'+_esc(r.barcode||"")+'</td>'
       +'<td style="border:1px solid #b9c4d4;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
+      +whCell(r.colorCode,r.qty,"border:1px solid #b9c4d4;padding:5px 8px")
       +'<td style="border:1px solid #b9c4d4;padding:5px 8px;text-align:right">'+fmtCC(r.amt)+'</td>'
       +'<td style="border:1px solid #b9c4d4;padding:5px 8px;font-size:16px;color:#64748b;white-space:nowrap">'+_esc(r.orderNo)+'</td>'
       +'<td style="border:1px solid #b9c4d4;padding:2px;min-width:120px"><input type="text" value="'+_esc(r.invoiceNo||"")+'" data-i="'+i+'" onchange="ccPdfEditInvoiceNo(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.invoiceNo?'#d1d5db':'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:18px'+(r.invoiceNo?'':';color:#dc2626')+'"></td>'
@@ -13208,7 +13385,7 @@ function anRenderTable(){
   var h='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:14px">';
   h+='<thead><tr><th style="'+th+'"><input type="checkbox" '+(picked.length===anRows.length?'checked':'')+' onchange="anToggleAll(this.checked)" style="width:16px;height:16px;cursor:pointer"></th>'
     +'<th style="'+th+'">아난티 품목명</th><th style="'+th+'">바코드</th><th style="'+th+'">매칭 상품명</th>'
-    +'<th style="'+th+'">자사코드</th><th style="'+th+'">수량</th><th style="'+th+'">판매가</th><th style="'+th+'">공급가액</th></tr></thead><tbody>';
+    +'<th style="'+th+'">자사코드</th><th style="'+th+'">수량</th><th style="'+th+'">창고재고</th><th style="'+th+'">판매가</th><th style="'+th+'">공급가액</th></tr></thead><tbody>';
   anRows.forEach(function(r,i){
     var sup=Math.round(r.price*anRate()/1.1*r.qty);
     var off=!r.checked;
@@ -13219,6 +13396,7 @@ function anRenderTable(){
       +'<td style="'+td+'">'+(r.matched?_esc(r.prodName+" "+r.colorName):'<span style="color:#dc2626;font-weight:700">미매칭 — 자사코드 직접 입력</span>')+'</td>'
       +'<td style="'+td+';padding:2px;min-width:140px"><input type="text" value="'+_esc(r.skuCode)+'" data-i="'+i+'" onchange="anEditSku(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.matched?'#d1d5db':'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:13px'+(r.matched?'':';color:#dc2626')+'"></td>'
       +'<td style="'+td+';text-align:right">'+r.qty.toLocaleString()+'</td>'
+      +whCell(r.skuCode,r.qty,td)
       +'<td style="'+td+';text-align:right'+(r.price?'':';color:#dc2626;font-weight:700')+'">'
         +(r.priceAuto?'<span title="발주서에 판매가가 없어 상품데이터 TAG가로 채웠습니다" style="color:#b45309">💡 </span>':'')
         +r.price.toLocaleString()+'</td>'
