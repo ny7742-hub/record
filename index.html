@@ -7474,16 +7474,21 @@ function whQty(sku){
   return null;
 }
 /* 발주 표에 넣을 '창고재고' 칸 — 재고가 주문 수량보다 적으면 빨강, 아슬아슬하면 주황 */
+/* 창고재고가 이 수량보다 적으면 **발주 불가**다(2026-09 영업2팀 지정) */
+var WH_MIN_ORDER=10;
 function whCell(sku,qty,tdStyle){
   var st=tdStyle||"border:1px solid #e1e6ee;padding:5px 8px";
   if(!whStock.n)return '<td style="'+st+';text-align:center;color:#5b6675">–</td>';
   var q=whQty(sku),need=Number(String(qty==null?"":qty).replace(/[^0-9.-]/g,""))||0;
   if(q===null)return '<td style="'+st+';text-align:center;color:#b45309" title="창고재고현황에 없는 코드입니다">?</td>';
-  var col="#15803d",bg="",txt=q.toLocaleString();
-  if(q<=0){col="#dc2626";bg="background:#fef2f2;";txt="0 (발주불가)";}
-  else if(need&&q<need){col="#dc2626";bg="background:#fef2f2;";txt=q.toLocaleString()+" (부족 "+(need-q).toLocaleString()+")";}
-  else if(need&&q<need*2){col="#b45309";bg="background:#fffbeb;";}
-  return '<td style="'+st+';text-align:right;font-weight:700;color:'+col+';'+bg+'">'+txt+'</td>';
+  var col="#15803d",bg="",txt=q.toLocaleString(),tip="";
+  if(q<WH_MIN_ORDER){
+    col="#dc2626";bg="background:#fef2f2;";txt=q.toLocaleString()+" (발주불가)";
+    tip=" title=\"창고재고 "+WH_MIN_ORDER+"개 미만은 발주할 수 없습니다\"";
+  }else if(need&&q<need){
+    col="#dc2626";bg="background:#fef2f2;";txt=q.toLocaleString()+" (부족 "+(need-q).toLocaleString()+")";
+  }else if(need&&q<need*2){col="#b45309";bg="background:#fffbeb;";}
+  return '<td'+tip+' style="'+st+';text-align:right;font-weight:700;color:'+col+';'+bg+'">'+txt+'</td>';
 }
 /* 화면마다 넣는 업로드 칸 — 어디서 올리든 같은 자료를 쓴다 */
 function whBoxHtml(){
@@ -7500,7 +7505,8 @@ function whStatusText(){
   if(!whStock.n)return "창고재고 없음 — 파일을 올리면 발주 가능 여부가 보입니다";
   var n=Object.keys(_whFlat()).length;
   return "✔ "+(whScope==="all"?"전체 창고":"주희물류")+" "+n.toLocaleString()+"품목"
-    +(whStock.date?" · 기준일 "+whStock.date:"")+(whStock.at?" · "+whStock.at+" 불러옴":"");
+    +(whStock.date?" · 기준일 "+whStock.date:"")+(whStock.at?" · "+whStock.at+" 불러옴":"")
+    +" · "+WH_MIN_ORDER+"개 미만 발주불가";
 }
 function whRefresh(){
   var els=document.querySelectorAll(".wh-msg");
