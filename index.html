@@ -8083,8 +8083,15 @@ function unshipLoadOrder(file){
           shop:iShop>=0?String(row[iShop]||"").trim():"",
           store:iStore>=0?String(row[iStore]||"").trim():"",
           code:iCode>=0?String(row[iCode]||"").trim():"",
-          un:0});
+          bar:"",un:0});
       }
+      /* 바코드는 도매발주서 칸이 비어 오는 게 보통이라 자사코드로 상품데이터에서 찾아 채운다.
+         못 찾은 줄은 표에서 직접 입력할 수 있다. */
+      var iBar=col("바코드");
+      out.forEach(function(r){
+        var b=(iBar>=0&&r.raw[iBar]!=null)?String(r.raw[iBar]).trim():"";
+        r.bar=b||_usBarcode(r.code);
+      });
       usOrder={name:file.name,head:rows[hRow]||[],rows:out};
       if(msg)msg.textContent="✔ "+out.length+"줄"+(out.filter(function(x){return x.inv;}).length?"":" · ⚠ 운송장번호가 비어 있습니다");
       renderUnship();
@@ -8154,6 +8161,13 @@ function _usMatch(){
     }
   });
 }
+/* 바코드를 못 찾은 줄은 표에서 직접 넣는다 — 숫자만 남긴다 */
+function usEditBar(i,v){
+  if(!usOrder.rows[i])return;
+  var t=String(v||"").replace(/[^0-9A-Za-z]/g,"");
+  usOrder.rows[i].bar=t;
+  renderUnship();
+}
 function renderUnship(){
   var wrap=document.getElementById("usTableWrap");if(!wrap)return;
   var sum=document.getElementById("usSummary");
@@ -8167,9 +8181,11 @@ function renderUnship(){
   var unQty=usOrder.rows.reduce(function(a,b){return a+b.un;},0);
   var leftover=usList.items.filter(function(it){return it.used<it.qty;});
   if(sum){
+    var noBar=usOrder.rows.filter(function(r){return (r.qty-r.un)>0&&!r.bar;}).length;
     sum.textContent=usOrder.rows.length+"줄 · 미출고 "+unRows.length+"줄 "+unQty+"개"
       +(usList.sheet?" ("+usList.sheet.trim()+")":"")
-      +(leftover.length?" · 발주서에서 못 찾은 미출고 "+leftover.length+"건":"");
+      +(leftover.length?" · 발주서에서 못 찾은 미출고 "+leftover.length+"건":"")
+      +(noBar?" · ❗바코드 없음 "+noBar+"줄 (표에서 입력)":"");
   }
   var th='position:sticky;top:0;z-index:2;background:#ccfbf1;border:1px solid #99f6e4;padding:7px 8px;color:#115e59;font-weight:700';
   var h="";
@@ -8180,7 +8196,7 @@ function renderUnship(){
       +'<div style="font-weight:600;margin-top:3px">운송장번호가 이 발주서에 없거나(다른 차수) 상품명이 달라 못 맞춘 건입니다.</div></div>';
   }
   h+='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap"><thead><tr>';
-  [["#",""],["매장",""],["운송장번호",""],["상품명","min-width:320px"],["발주수량",""],["미출고",""],["실출고",""]].forEach(function(c){
+  [["#",""],["매장",""],["운송장번호",""],["상품명","min-width:300px"],["바코드","min-width:130px"],["발주수량",""],["미출고",""],["실출고",""]].forEach(function(c){
     h+='<th style="'+th+';'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
@@ -8188,9 +8204,12 @@ function renderUnship(){
     var out=r.qty-r.un;
     h+='<tr'+(r.un>0?' style="background:#fef2f2"':'')+'>'
       +'<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>'
-      +'<td style="border:1px solid #e1e6ee;padding:5px 8px">'+_esc(r.shop||r.store)+'</td>'
+      +'<td style="border:1px solid #e1e6ee;padding:5px 8px">'+_esc(r.shop||"")
+        +(r.store?' <span style="font-family:monospace;font-size:12px;color:#0f766e;font-weight:700">('+_esc(r.store)+')</span>':"")+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;font-size:12px;color:#475569">'+_esc(r.inv)+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;white-space:normal">'+_esc(r.name)+'</td>'
+      +'<td contenteditable="true" onblur="usEditBar('+i+',this.textContent)" title="'+_esc(r.code||"")+'" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;font-family:monospace;font-size:12px'
+        +(r.bar?'':';background:#fef3c7;color:#b45309;font-weight:700')+'">'+(r.bar?_esc(r.bar):"직접 입력")+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right">'+r.qty+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;font-weight:700;color:'+(r.un>0?"#dc2626":"#5b6675")+'">'+(r.un||"")+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;font-weight:700;color:'+(out<=0?"#dc2626":"#15803d")+'">'+out+'</td>'
@@ -8232,8 +8251,7 @@ function unshipDownload(){
   usOrder.rows.forEach(function(r){
     var out=r.qty-r.un;
     if(out<=0)return;                              /* 전량 미출고 */
-    var bar=r.raw[15]?String(r.raw[15]).trim():"";
-    if(!bar)bar=_usBarcode(r.code);
+    var bar=String(r.bar||"").trim();
     if(!bar)noBar++;
     aoa.push([wh,r.store||"",ymd,bar,out,""]);
   });
