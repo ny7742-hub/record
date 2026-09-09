@@ -13630,90 +13630,223 @@ async function anDownloadInvoiceXlsx(){
   }
 }
 
-/* 거래명세서 미리보기(HTML) — PDF는 이 화면을 그대로 이미지로 떠서 만든다.
-   **엑셀 명세서와 같은 문서로 보여야 한다**(아난티 위탁 양식 2026-09):
-   A4 폭·흰 바탕·검은 실선, 공급받는자(왼쪽: 일자·등록번호·주소·상호/성명) +
-   공급자(오른쪽: 등록번호·상호/성명·주소·업태/종목) → 일금 → 품목표.
-   품목 열은 엑셀과 같다 — 일자·품목명·바코드·수량·판매가·매입단가·공급가액·세액·합계·비고.
-   (규격·면과세는 옛 양식 열이라 새 양식에는 없다) */
-function anRenderInvoicePreview(){
+/* ── xlsx를 그대로 화면에 그리기 ──
+   **엑셀 명세서와 PDF 명세서는 같은 문서여야 한다**(2026-09 영업2팀 지정).
+   그래서 미리보기를 따로 만들지 않고, 방금 만든 xlsx를 읽어 셀 값·병합·열폭·행높이·
+   테두리·정렬·글꼴·표시형식을 그대로 옮겨 표로 그린다. PDF는 이 표를 이미지로 떠서 만든다. */
+function _xlText(x){return String(x==null?"":x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function _xlUnesc(t){
+  return String(t||"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"')
+    .replace(/&apos;/g,"'").replace(/&#(\d+);/g,function(m,d){return String.fromCharCode(+d);}).replace(/&amp;/g,"&");
+}
+function _xlColNum(letters){var n=0;for(var i=0;i<letters.length;i++)n=n*26+(letters.charCodeAt(i)-64);return n;}
+/* 엑셀 테두리 굵기 → CSS */
+var XL_BORDER={thin:"1px solid",medium:"2px solid",thick:"3px solid",hair:"1px solid",
+  dotted:"1px dotted",dashed:"1px dashed",double:"3px double",mediumDashed:"2px dashed"};
+function _xlBorderCss(tag,color){
+  if(!tag)return "none";
+  var w=XL_BORDER[tag]||"1px solid";
+  return w+" "+(color||"#000");
+}
+function _xlColor(xml){
+  var m=/rgb="([0-9A-Fa-f]{8})"/.exec(xml||"");
+  if(!m)return "";
+  return "#"+m[1].slice(2);
+}
+/* 표시형식 — 이 양식이 쓰는 것만 다룬다(#,##0 계열 · 0% · 일반) */
+function _xlFormat(v,code){
+  if(v===""||v==null)return "";
+  var num=Number(v);
+  if(!isFinite(num))return String(v);
+  if(/%/.test(code||""))return Math.round(num*1000)/10+"%";
+  if(/#,##0/.test(code||""))return Math.round(num).toLocaleString();
+  if(/^0+(_|;|$)/.test(code||""))return String(Math.round(num));
+  return String(num);
+}
+/* maxCol — 인쇄되는 마지막 열. 아난티 위탁 양식은 B~Q(17)가 명세서이고
+   그 오른쪽 S1(수수료)·T3(안내문구)는 보조 칸이라 문서에 나오면 안 된다.
+   안 주면 값이 든 마지막 열까지 그린다. */
+async function _xlsxToHtml(bytes,maxColOpt){
+  var ents=_zipParse(new Uint8Array(bytes)),files={};
+  for(var i=0;i<ents.length;i++){
+    var e=ents[i];
+    if(!/^xl\/(worksheets\/sheet1|styles|sharedStrings)\.xml$/i.test(e.name))continue;
+    var raw=e.method===0?e.data:await _inflateRaw(e.data);
+    files[e.name.toLowerCase()]=new TextDecoder().decode(raw);
+  }
+  var sheet=files["xl/worksheets/sheet1.xml"]||"";
+  var styles=files["xl/styles.xml"]||"";
+  var sstXml=files["xl/sharedstrings.xml"]||"";
+  if(!sheet)throw new Error("시트를 읽지 못했습니다.");
+
+  /* 공유 문자열 */
+  var sst=(sstXml.match(/<si>[\s\S]*?<\/si>|<si\/>/g)||[]).map(function(si){
+    return (si.match(/<t[^>]*>([\s\S]*?)<\/t>/g)||[]).map(function(t){
+      return _xlUnesc(t.replace(/<t[^>]*>|<\/t>/g,""));
+    }).join("");
+  });
+  /* 서식 */
+  var numFmt={};
+  (styles.match(/<numFmt[^>]*\/>/g)||[]).forEach(function(f){
+    var id=/numFmtId="(\d+)"/.exec(f),c=/formatCode="([^"]*)"/.exec(f);
+    if(id&&c)numFmt[id[1]]=_xlUnesc(c[1]);
+  });
+  numFmt["9"]="0%";numFmt["10"]="0.00%";numFmt["3"]="#,##0";numFmt["4"]="#,##0.00";
+  numFmt["41"]="#,##0";numFmt["42"]="#,##0";numFmt["43"]="#,##0";numFmt["44"]="#,##0";
+  var grab=function(re){var m=re.exec(styles);return m?m[1]:"";};
+  var fonts=(grab(/<fonts[^>]*>([\s\S]*?)<\/fonts>/)||"").match(/<font\/>|<font>[\s\S]*?<\/font>/g)||[];
+  var fills=(grab(/<fills[^>]*>([\s\S]*?)<\/fills>/)||"").match(/<fill\/>|<fill>[\s\S]*?<\/fill>/g)||[];
+  /* **자체닫힘(<xf .../>)을 먼저** 잡아야 한다 — 순서를 바꾸면 뒤 항목들이 앞 항목에 빨려 들어가
+     번호가 밀리고(cellXfs 126개가 118개로 줄었다) 제목 글꼴 같은 서식이 통째로 사라진다. */
+  var borders=(grab(/<borders[^>]*>([\s\S]*?)<\/borders>/)||"").match(/<border[^>]*\/>|<border[^>]*>[\s\S]*?<\/border>/g)||[];
+  var xfs=(grab(/<cellXfs[^>]*>([\s\S]*?)<\/cellXfs>/)||"").match(/<xf[^>]*\/>|<xf[^>]*>[\s\S]*?<\/xf>/g)||[];
+
+  function styleOf(si){
+    var xf=xfs[si]||"";
+    var css="";
+    var b=borders[+((/borderId="(\d+)"/.exec(xf)||[])[1]||0)]||"";
+    ["left","right","top","bottom"].forEach(function(side){
+      var m=new RegExp("<"+side+"([^>]*)(?:\\/>|>([\\s\\S]*?)<\\/"+side+">)").exec(b);
+      var stl=m?((/style="([^"]+)"/.exec(m[1]||"")||[])[1]||""):"";
+      css+="border-"+side+":"+_xlBorderCss(stl,_xlColor(m&&m[2]))+";";
+    });
+    var f=fonts[+((/fontId="(\d+)"/.exec(xf)||[])[1]||0)]||"";
+    var sz=(/<sz val="([\d.]+)"/.exec(f)||[])[1];
+    if(sz)css+="font-size:"+(Math.round(Number(sz)*1.18*10)/10)+"px;";
+    if(/<b\/>|<b /.test(f))css+="font-weight:700;";
+    var fc=_xlColor((/<color[^>]*\/>/.exec(f)||[])[0]);
+    if(fc&&fc!=="#000000")css+="color:"+fc+";";
+    var fl=fills[+((/fillId="(\d+)"/.exec(xf)||[])[1]||0)]||"";
+    if(/patternType="solid"/.test(fl)){
+      var bg=_xlColor((/<fgColor[^>]*\/>/.exec(fl)||[])[0]);
+      if(bg)css+="background:"+bg+";";
+    }
+    var al=(/<alignment([^>]*)\/>/.exec(xf)||[])[1]||"";
+    var ha=(/horizontal="([^"]+)"/.exec(al)||[])[1];
+    var va=(/vertical="([^"]+)"/.exec(al)||[])[1];
+    if(ha)css+="text-align:"+(ha==="center"?"center":(ha==="right"?"right":"left"))+";";
+    if(va)css+="vertical-align:"+(va==="center"?"middle":(va==="top"?"top":"bottom"))+";";
+    if(/wrapText="1"/.test(al))css+="white-space:pre-wrap;word-break:break-all;";
+    var nf=numFmt[((/numFmtId="(\d+)"/.exec(xf)||[])[1]||"0")]||"";
+    return {css:css,fmt:nf,align:ha||""};
+  }
+
+  /* 열 폭 */
+  var cols={},maxC=0;
+  (sheet.match(/<col [^>]*\/>/g)||[]).forEach(function(c){
+    var a=+(/min="(\d+)"/.exec(c)||[])[1],b=+(/max="(\d+)"/.exec(c)||[])[1];
+    var w=parseFloat((/width="([\d.]+)"/.exec(c)||[])[1]||"8.43");
+    var hid=/hidden="1"/.test(c);
+    for(var k=a;k<=b&&k<=64;k++)cols[k]=hid?0:Math.round(w*7)+5;
+  });
+  /* 병합 */
+  var span={},skip={};
+  (sheet.match(/<mergeCell ref="[^"]+"\/>/g)||[]).forEach(function(mc){
+    var m=/ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"/.exec(mc);
+    if(!m)return;
+    var c1=_xlColNum(m[1]),r1=+m[2],c2=_xlColNum(m[3]),r2=+m[4];
+    span[r1+","+c1]={rs:r2-r1+1,cs:c2-c1+1};
+    for(var r=r1;r<=r2;r++)for(var c=c1;c<=c2;c++)if(!(r===r1&&c===c1))skip[r+","+c]=1;
+  });
+  /* 행·셀 */
+  var rowsXml=sheet.match(/<row[^>]*\/>|<row[^>]*>[\s\S]*?<\/row>/g)||[];
+  var rows=[];
+  rowsXml.forEach(function(rx){
+    var rn=+((/<row[^>]*\br="(\d+)"/.exec(rx)||[])[1]||0);
+    if(!rn)return;
+    var ht=parseFloat((/ht="([\d.]+)"/.exec(rx)||[])[1]||"15");
+    var cells={};
+    (rx.match(/<c [^>]*\/>|<c [^>]*>[\s\S]*?<\/c>/g)||[]).forEach(function(cx){
+      var ref=(/r="([A-Z]+)(\d+)"/.exec(cx)||[]);
+      if(!ref[1])return;
+      var cn=_xlColNum(ref[1]);
+      var si=+((/\ss="(\d+)"/.exec(cx)||[])[1]||0);
+      var t=(/\st="([^"]+)"/.exec(cx)||[])[1]||"";
+      var v=(/<v>([\s\S]*?)<\/v>/.exec(cx)||[])[1];
+      var isT=(/<is>[\s\S]*?<t[^>]*>([\s\S]*?)<\/t>/.exec(cx)||[])[1];
+      var val="";
+      if(t==="s")val=sst[+v]||"";
+      else if(t==="inlineStr")val=_xlUnesc(isT||"");
+      else if(v!==undefined)val=_xlUnesc(v);
+      cells[cn]={s:si,t:t,v:val};
+      if(val!==""&&cn>maxC)maxC=cn;   /* 값이 있는 칸까지만 문서로 본다 */
+    });
+    rows.push({n:rn,h:ht,cells:cells});
+  });
+  if(maxColOpt>0)maxC=maxColOpt;
+  else if(!maxC)maxC=17;
+
+  /* 표로 그리기 */
+  var totalW=0;
+  for(var c=1;c<=maxC;c++){if(cols[c]===undefined)cols[c]=64;totalW+=cols[c];}
+  var h='<table style="border-collapse:collapse;table-layout:fixed;width:'+totalW+'px;background:#fff;color:#000;font-family:\'맑은 고딕\',\'Malgun Gothic\',sans-serif"><colgroup>';
+  for(c=1;c<=maxC;c++)h+='<col style="width:'+cols[c]+'px">';
+  h+="</colgroup><tbody>";
+  rows.forEach(function(row){
+    h+='<tr style="height:'+Math.round(row.h*4/3)+'px">';
+    for(var c=1;c<=maxC;c++){
+      if(skip[row.n+","+c])continue;
+      var cell=row.cells[c]||{s:0,t:"",v:""};
+      var stl=styleOf(cell.s);
+      var txt=cell.v;
+      var isNum=(cell.t===""||cell.t==="n")&&txt!==""&&isFinite(Number(txt));
+      if(isNum)txt=_xlFormat(txt,stl.fmt);
+      var extra=(!stl.align&&isNum)?"text-align:right;":"";
+      var sp=span[row.n+","+c];
+      h+="<td"+(sp?' rowspan="'+sp.rs+'" colspan="'+sp.cs+'"':"")
+        +' style="padding:1px 3px;overflow:hidden;'+stl.css+extra+'">'+_xlText(txt).replace(/\r?\n/g,"<br>")+"</td>";
+    }
+    h+="</tr>";
+  });
+  h+="</tbody></table>";
+  return h;
+}
+/* 명세서는 A4 가로폭(엑셀 열폭 합계)이 화면보다 넓다 — 보기만 줄이고, PDF는 원래 크기로 뜬다 */
+function _anFitPreview(){
+  var box=document.getElementById("anInvoiceScaleBox"),sc=document.getElementById("anInvoiceScale"),
+      sh=document.getElementById("anInvoiceSheet");
+  if(!box||!sc||!sh)return;
+  var w=sh.scrollWidth||1, avail=box.clientWidth||w;
+  var k=Math.min(1,avail/w);
+  sc.style.transform=k<1?("scale("+k+")"):"none";
+  box.style.height=Math.ceil(sh.scrollHeight*k)+"px";
+}
+window.addEventListener("resize",function(){if(document.getElementById("anInvoiceScale"))_anFitPreview();});
+/* 거래명세서 미리보기 — 엑셀 명세서를 그대로 그린다(= PDF도 같은 그림) */
+async function anRenderInvoicePreview(){
   var wrap=document.getElementById("anInvoiceWrap");
   if(!wrap)return;
   if(!anRows.length){wrap.innerHTML="";return;}
   var M=_anInvoiceModel();
-  var b=M.meta.buyer||{},sl=M.meta.seller||{};
-  var n=function(v){return Math.round(v).toLocaleString();};
-  var bd="border:1px solid #000;padding:3px 5px;font-size:11px";
-  var lb=bd+";text-align:center;white-space:nowrap;background:#fff";
-  var side="border:1px solid #000;width:22px;padding:0;text-align:center;font-size:9.5px;font-weight:700;line-height:1.45;letter-spacing:0";
-  /* 업태·종목은 여러 줄이라 줄바꿈 그대로 보여준다(엑셀 양식과 같게) */
-  var ml=function(v){return _esc(String(v||"")).replace(/\r?\n/g,"<br>");};
-  var h='<div style="font-size:13px;color:#475569;font-weight:700;margin-bottom:6px">📄 거래명세서 미리보기 (출고 '+M.rows.length+'건) — PDF는 이 내용 그대로 저장됩니다</div>';
-  h+='<div id="anInvoiceSheet" style="width:794px;box-sizing:border-box;background:#fff;padding:26px 28px;color:#000;font-family:\'맑은 고딕\',\'Malgun Gothic\',sans-serif">';
-  h+='<div style="text-align:center;font-size:21px;font-weight:700;letter-spacing:12px;margin-bottom:12px">거 래 명 세 서</div>';
-  /* 공급받는자 · 공급자 */
-  h+='<div style="display:flex;gap:6px">';
-  h+='<table style="flex:1;width:50%;border-collapse:collapse;table-layout:fixed">'
-   +'<colgroup><col style="width:22px"><col style="width:56px"><col><col style="width:38px"><col style="width:92px"></colgroup>'
-   +'<tr><td style="'+side+'" rowspan="4">공<br>급<br>받<br>는<br>자</td>'
-   +'<td style="'+bd+';text-align:center" colspan="4">'+M.dp.y+'년 '+String(M.dp.m).padStart(2,"0")+'월 '+String(M.dp.d).padStart(2,"0")+'일</td></tr>'
-   +'<tr><td style="'+lb+'">등록번호</td><td style="'+bd+'" colspan="3">'+_esc(b.regNo||"")+'</td></tr>'
-   +'<tr><td style="'+lb+'">주소</td><td style="'+bd+';font-size:10px" colspan="3">'+_esc(b.addr||"")+'</td></tr>'
-   +'<tr><td style="'+lb+'">상호</td><td style="'+bd+'">'+_esc(b.company||"")+'</td>'
-   +'<td style="'+lb+'">성명</td><td style="'+bd+'">'+_esc(b.person||"")+'</td></tr>'
-   +'</table>';
-  h+='<table style="flex:1;width:50%;border-collapse:collapse;table-layout:fixed">'
-   +'<colgroup><col style="width:22px"><col style="width:56px"><col><col style="width:38px"><col style="width:96px"></colgroup>'
-   +'<tr><td style="'+side+'" rowspan="4">공<br>급<br>자</td>'
-   +'<td style="'+lb+'">등록번호</td><td style="'+bd+'" colspan="3">'+_esc(sl.regNo||"")+'</td></tr>'
-   +'<tr><td style="'+lb+'">상호</td><td style="'+bd+'">'+_esc(sl.company||"")+'</td>'
-   +'<td style="'+lb+'">성명</td><td style="'+bd+'">'+_esc(sl.person||"")+'</td></tr>'
-   +'<tr><td style="'+lb+'">주소</td><td style="'+bd+';font-size:10px" colspan="3">'+_esc(sl.addr||"")+'</td></tr>'
-   +'<tr><td style="'+lb+'">업태</td><td style="'+bd+';font-size:10px">'+ml(sl.biz)+'</td>'
-   +'<td style="'+lb+'">종목</td><td style="'+bd+';font-size:10px">'+ml(sl.item)+'</td></tr>'
-   +'</table></div>';
-  /* 일금 */
-  h+='<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:6px">'
-   +'<colgroup><col style="width:56px"><col><col style="width:150px"></colgroup>'
-   +'<tr><td style="'+lb+';font-weight:700">일금:</td>'
-   +'<td style="'+bd+';font-size:13px;font-weight:700;letter-spacing:1px">'+_anKoMoney(M.totAll)+'</td>'
-   +'<td style="'+bd+';text-align:right;font-size:13px;font-weight:700">₩ '+n(M.totAll)+'</td></tr></table>';
-  /* 품목 */
-  h+='<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:6px">'
-   +'<colgroup><col style="width:6%"><col style="width:26%"><col style="width:13%"><col style="width:6%"><col style="width:9%">'
-   +'<col style="width:10%"><col style="width:10%"><col style="width:9%"><col style="width:11%"></colgroup>'
-   +'<thead><tr>'
-   +'<th style="'+lb+'">일자</th><th style="'+lb+'">품목명</th><th style="'+lb+'">바코드</th><th style="'+lb+'">수량</th>'
-   +'<th style="'+lb+'">판매가</th><th style="'+lb+'">매입단가</th><th style="'+lb+'">공급가액</th>'
-   +'<th style="'+lb+'">세액</th><th style="'+lb+'">합계</th></tr></thead><tbody>';
-  M.rows.forEach(function(r,i){
-    h+='<tr>'
-     +'<td style="'+bd+';text-align:center;white-space:nowrap">'+(i===0?(M.dp.m+"/"+M.dp.d):"")+'</td>'
-     +'<td style="'+bd+';font-size:10px;word-break:break-all">'+_esc(r.name)+'</td>'
-     +'<td style="'+bd+';text-align:center;font-size:10px">'+_esc(r.barcode)+'</td>'
-     +'<td style="'+bd+';text-align:right">'+r.qty+'</td>'
-     +'<td style="'+bd+';text-align:right">'+n(r.price)+'</td>'
-     +'<td style="'+bd+';text-align:right">'+n(r.unit)+'</td>'
-     +'<td style="'+bd+';text-align:right">'+n(r.sup)+'</td>'
-     +'<td style="'+bd+';text-align:right">'+n(r.tax)+'</td>'
-     +'<td style="'+bd+';text-align:right">'+n(r.tot)+'</td></tr>';
-  });
-  h+='<tr><td style="'+lb+';font-weight:700" colspan="3">총  합  계</td>'
-   +'<td style="'+bd+';text-align:right;font-weight:700">'+M.totQty+'</td>'
-   +'<td style="'+bd+'"></td><td style="'+bd+'"></td>'
-   +'<td style="'+bd+';text-align:right;font-weight:700">'+n(M.totSup)+'</td>'
-   +'<td style="'+bd+';text-align:right;font-weight:700">'+n(M.totTax)+'</td>'
-   +'<td style="'+bd+';text-align:right;font-weight:700">'+n(M.totAll)+'</td></tr>';
-  h+='</tbody></table></div>';
-  wrap.innerHTML=h;
+  if(!M.rows.length){
+    wrap.innerHTML='<div style="font-size:13px;color:#5b6675">출고할 상품을 표에서 체크하면 명세서가 여기에 보입니다.</div>';
+    return;
+  }
+  var head='<div style="font-size:13px;color:#475569;font-weight:700;margin-bottom:6px">📄 거래명세서 미리보기 (출고 '+M.rows.length+'건) — <b>엑셀 명세서 그대로</b>이며 PDF도 이 내용으로 저장됩니다</div>';
+  try{
+    var bytes=await _anBuildInvoiceXlsx();
+    var anc=((document.getElementById("anStore")||{}).value==="ANC");
+    var inner=await _xlsxToHtml(bytes,anc?17:0);
+    wrap.innerHTML=head+'<div id="anInvoiceScaleBox" style="overflow:hidden"><div id="anInvoiceScale" style="transform-origin:top left">'
+      +'<div id="anInvoiceSheet" style="display:inline-block;background:#fff;padding:14px">'+inner+"</div></div></div>";
+    _anFitPreview();
+  }catch(err){
+    wrap.innerHTML=head+'<div style="font-size:13px;color:#b45309;font-weight:600">미리보기를 만들지 못했습니다 — '+_xlText(err.message)+"</div>";
+  }
 }
-function anDownloadInvoicePdf(){
+
+async function anDownloadInvoicePdf(){
   var M=_anInvoiceModel();
   if(!M.rows.length){alert("출고할 상품이 없습니다.\n표에서 상품을 체크해주세요.");return;}
+  if(typeof html2canvas==="undefined"||!window.jspdf){alert("PDF 라이브러리 로드에 실패했습니다.\n새로고침 후 다시 시도해주세요.");return;}
+  if(!document.getElementById("anInvoiceSheet"))await anRenderInvoicePreview();
   var el=document.getElementById("anInvoiceSheet");
   if(!el){alert("거래명세서 미리보기를 찾을 수 없습니다.");return;}
-  if(typeof html2canvas==="undefined"||!window.jspdf){alert("PDF 라이브러리 로드에 실패했습니다.\n새로고침 후 다시 시도해주세요.");return;}
+  /* 화면에서는 줄여 보여주지만 PDF는 원래 크기로 떠야 글씨가 깨지지 않는다 */
+  var _sc=document.getElementById("anInvoiceScale"),_keep=_sc?_sc.style.transform:"";
+  if(_sc)_sc.style.transform="none";
   html2canvas(el,{scale:2,backgroundColor:"#ffffff",useCORS:true}).then(function(canvas){
+    if(_sc)_sc.style.transform=_keep;
     var pdf=new window.jspdf.jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
     var pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
     var mg=6,w=pw-mg*2,h=canvas.height*w/canvas.width;
