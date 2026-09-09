@@ -1716,7 +1716,7 @@ label{font-size:14px!important}
         <span style="font-size:11.5px;color:#5b6675">전표번호</span>
         <input id="tmInvNo" value="0001" oninput="renderTmInvoice()" style="width:64px;padding:4px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:monospace">
         <span style="font-size:11.5px;color:#5b6675">공급율</span>
-        <input id="tmInvRate" value="0.48" oninput="renderTmInvoice()" style="width:60px;padding:4px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:monospace" title="단가 = TAG가 × 공급율 (샘플 명세표 기준 0.48)">
+        <input id="tmInvRate" value="0.48" oninput="renderTmInvoice()" style="width:60px;padding:4px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:monospace" title="고정 단가표(TAG 45,000 → 21,600)에 없는 TAG가에만 씁니다. 단가 = TAG가 × 공급율">
         <button class="bg" style="padding:6px 14px;font-size:13px" onclick="tmInvoicePdf()">📄 PDF 저장</button>
         <button class="bs" style="padding:6px 12px;font-size:12px;margin-left:auto" onclick="closeTmInvoice()">닫기</button>
       </div>
@@ -7838,21 +7838,31 @@ function _tmRate(){
   var v=Number((document.getElementById("tmInvRate")||{}).value);
   return (v>0&&v<=1)?v:0.48;
 }
+/* TAG가별 출고 단가 — **영업2팀이 정한 고정값이 먼저다**(2026-09 지정: TAG 45,000 → 21,600).
+   표에 없는 TAG가만 공급율(기본 0.48)로 계산하고, 몇 건이 그렇게 됐는지 화면에 알린다.
+   새 가격대가 나오면 이 표에 한 줄 더 넣으면 된다. */
+var TM_UNIT_BY_TAG={45000:21600};
+function _tmUnitPrice(tag){
+  var t=Number(tag)||0;
+  if(TM_UNIT_BY_TAG[t]!=null)return TM_UNIT_BY_TAG[t];
+  return Math.round(t*_tmRate());
+}
 /* 공급가액은 **줄마다** 금액÷1.1을 10원 단위로 버리고, 부가세는 그 나머지다.
    (샘플 명세표: 216,000 → 196,360 + 19,640. 총액에서 한 번에 나누면 785,454가 되어 안 맞는다) */
 function _tmSupply(amt){return Math.floor(amt/1.1/10)*10;}
 /* 매장별로 묶은 명세표 자료 */
 function _tmInvoiceGroups(){
-  var rate=_tmRate(),by={};
+  var by={};
   (orderDB.rows||[]).filter(_tmIsTm).forEach(function(r){
     var info=_tmSkuInfo(r.code)||{};
     var qty=parseInt(String(r.qty==null?"":r.qty).replace(/[^0-9]/g,""),10)||0;
     var tag=Number(info.tag)||0;
-    var unit=Math.round(tag*rate);
+    var unit=_tmUnitPrice(tag);
     var amt=unit*qty;
     (by[r.store]=by[r.store]||[]).push({
       name:r.name||"",prodCode:info.prodCode||String(r.code||"").slice(0,9),
-      color:info.color||"",size:info.size||"",qty:qty,tag:tag,unit:unit,amt:amt});
+      color:info.color||"",size:info.size||"",qty:qty,tag:tag,unit:unit,amt:amt,
+      fixed:(tag&&TM_UNIT_BY_TAG[tag]!=null)});
   });
   return Object.keys(by).map(function(code){
     var rows=by[code];
@@ -7962,9 +7972,17 @@ function renderTmInvoice(){
     if(msg)msg.textContent="트래블메이트 매장으로 지정된 발주 행이 없습니다. 표에서 매장을 트래블메이트로 골라주세요.";
     return;
   }
-  var noTag=0;
-  gs.forEach(function(g){g.rows.forEach(function(r){if(!r.tag)noTag++;});});
-  if(msg)msg.textContent=noTag?("TAG가를 못 찾은 행이 "+noTag+"건 있습니다 — 상품데이터를 최신으로 올려주세요."):"";
+  var noTag=0,byRate={};
+  gs.forEach(function(g){g.rows.forEach(function(r){
+    if(!r.tag){noTag++;return;}
+    if(!r.fixed)byRate[r.tag]=1;
+  });});
+  var rateTags=Object.keys(byRate).map(Number).sort(function(a,b){return a-b;});
+  var m=[];
+  if(noTag)m.push("TAG가를 못 찾은 행 "+noTag+"건 — 상품데이터를 최신으로 올려주세요.");
+  if(rateTags.length)m.push("고정 단가표에 없는 TAG가("+rateTags.map(function(t){return t.toLocaleString();}).join(" · ")
+    +")는 공급율 "+_tmRate()+"로 계산했습니다.");
+  if(msg)msg.textContent=m.join(" / ");
   wrap.innerHTML=gs.map(function(g,i){return _tmSheetHtml(g,i+1,gs.length);}).join('<div style="height:10px"></div>');
 }
 async function tmInvoicePdf(){
