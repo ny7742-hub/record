@@ -8234,6 +8234,8 @@ function tmOrderDownload(){
    **매장마다 다른 것은 공급받는자 상호 하나뿐**이라 상호만 `TM_INV_NAME`으로 갈아 끼운다.
    공급자(엔에이치그룹) 정보는 고정이고, 직인은 마진계산에 올려 둔 도장 이미지를 그대로 쓴다. */
 var TM_INV_NAME={TMI1:"트래블메이트 제1여객터미널점",TMI2:"트래블메이트 제2여객터미널점",TMG:"트래블메이트 김포공항점"};
+/* PlayMD 명세표 한 장에 들어가는 품목 줄 수 — 모자라면 빈 줄로 채운다 */
+var TM_SHEET_ROWS=22;
 var TM_SUPPLIER={regNo:"634-87-01986",company:"(주) 엔에이치그룹",person:"나경화",
   addr:"서울특별시 금천구 가산디지털1로 100,215호 (가산동, 에이스골드타워)",
   biz:"도소매, 제조업, 정보통신",item:"모자,잡화,의류"};
@@ -8245,14 +8247,14 @@ function _tmSkuInfo(code){
   if(typeof DB!=="undefined"&&DB.length){
     for(var i=0;i<DB.length;i++){
       if(String(DB[i]["자사코드"]||"").trim()===k)
-        return {prodCode:DB[i]["상품코드"]||"",color:DB[i]["칼라명"]||"",size:DB[i]["사이즈명"]||"",tag:Number(DB[i]["TAG가"])||0};
+        return {prodCode:DB[i]["상품코드"]||"",name:DB[i]["상품명"]||"",color:DB[i]["칼라명"]||"",size:DB[i]["사이즈명"]||"",tag:Number(DB[i]["TAG가"])||0};
     }
   }
   if(typeof DEFAULT_DATA!=="undefined"){
     for(var j=0;j<DEFAULT_DATA.length;j++){
       var r=DEFAULT_DATA[j];
       if(String(r[7]||"").trim()===k)
-        return {prodCode:r[1]||"",color:r[4]||"",size:r[6]||"",tag:Number(r[10])||0};
+        return {prodCode:r[1]||"",name:r[2]||"",color:r[4]||"",size:r[6]||"",tag:Number(r[10])||0};
     }
   }
   return null;
@@ -8270,9 +8272,12 @@ function _tmUnitPrice(tag){
   if(TM_UNIT_BY_TAG[t]!=null)return TM_UNIT_BY_TAG[t];
   return Math.round(t*_tmRate());
 }
-/* 공급가액은 **줄마다** 금액÷1.1을 10원 단위로 버리고, 부가세는 그 나머지다.
-   (샘플 명세표: 216,000 → 196,360 + 19,640. 총액에서 한 번에 나누면 785,454가 되어 안 맞는다) */
-function _tmSupply(amt){return Math.floor(amt/1.1/10)*10;}
+/* 공급가액은 **단가를 1.1로 나눠 원 단위로 버린 뒤 수량을 곱한다**. 부가세는 금액에서 뺀 나머지.
+   PlayMD 명세표 두 장이 모두 이 규칙과 맞는다 —
+   단가 21,600 → 19,636 × 10 = 196,360 (합계 785,440 / VAT 78,560),
+   단가 45,000 → 40,909 × 5 = 204,545 (합계 613,635 / VAT 61,365).
+   금액에서 한 번에 나누면 두 장 중 한 장이 어긋난다. */
+function _tmSupply(unit,qty){return Math.floor((Number(unit)||0)/1.1)*(Number(qty)||0);}
 /* 매장별로 묶은 명세표 자료 */
 /* 명세표에 쓸 줄 — **트래블메이트 발주 탭이 우선**이고, 비어 있으면 수기발주에서 모은다 */
 function _tmInvoiceSource(){
@@ -8288,13 +8293,14 @@ function _tmInvoiceGroups(){
     var unit=_tmUnitPrice(tag);
     var amt=unit*qty;
     (by[r.store]=by[r.store]||[]).push({
-      name:r.name||"",prodCode:info.prodCode||String(r.code||"").slice(0,9),
+      /* 상품명 칸에는 **색상을 붙이지 않는다** — 칼라 칸이 따로 있다(PlayMD 양식) */
+      name:info.name||r.name||"",prodCode:info.prodCode||String(r.code||"").slice(0,9),
       color:info.color||"",size:info.size||"",qty:qty,tag:tag,unit:unit,amt:amt,
       fixed:(tag&&TM_UNIT_BY_TAG[tag]!=null)});
   });
   return Object.keys(by).map(function(code){
     var rows=by[code];
-    var sup=rows.reduce(function(a,b){return a+_tmSupply(b.amt);},0);
+    var sup=rows.reduce(function(a,b){return a+_tmSupply(b.unit,b.qty);},0);
     var amt=rows.reduce(function(a,b){return a+b.amt;},0);
     return {code:code,name:TM_INV_NAME[code],rows:rows,
       qty:rows.reduce(function(a,b){return a+b.qty;},0),amt:amt,sup:sup,vat:amt-sup};
@@ -8311,6 +8317,15 @@ function _tmStamp(){
   var d=new Date(),p=function(n){return String(n).padStart(2,"0");};
   return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
 }
+/* 전표번호 — 매장마다 한 장이고 번호가 하나씩 올라간다(PlayMD 원본: 0007, 0008 …) */
+function _tmSlipNo(pageNo){
+  var v=String((document.getElementById("tmInvNo")||{}).value||"0001").trim();
+  var m=/^(\D*)(\d+)$/.exec(v);
+  if(!m)return v;
+  var n=String(Number(m[2])+(pageNo-1));
+  while(n.length<m[2].length)n="0"+n;
+  return m[1]+n;
+}
 /* 명세표 한 장(HTML) — PDF는 이 화면을 그대로 이미지로 떠서 만든다 */
 function _tmSheetHtml(g,pageNo,pageTot){
   var n=function(v){return Math.round(v||0).toLocaleString();};
@@ -8322,7 +8337,7 @@ function _tmSheetHtml(g,pageNo,pageTot){
   h+='<div style="text-align:center;font-size:22px;font-weight:700;letter-spacing:11px">거 래 명 세 표</div>';
   h+='<div style="text-align:center;font-size:12px;margin-top:5px">구분: 출고</div>';
   h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin:3px 0 7px">'
-   +'<span>출고일자: '+_tmYmd8()+'</span><span>전표번호: '+_esc((document.getElementById("tmInvNo")||{}).value||"0001")+'</span></div>';
+   +'<span>출고일자: '+_tmYmd8()+'</span><span>전표번호: '+_esc(_tmSlipNo(pageNo))+'</span></div>';
   /* 공급자 · 공급받는자 */
   h+='<div style="display:flex;gap:8px;font-size:11px">';
   h+='<table style="flex:1;border-collapse:collapse;table-layout:fixed;width:50%">'
@@ -8365,6 +8380,12 @@ function _tmSheetHtml(g,pageNo,pageTot){
      +'<td style="'+bd+';text-align:right">'+n(r.unit)+'</td>'
      +'<td style="'+bd+';text-align:right">'+n(r.amt)+'</td></tr>';
   });
+  /* PlayMD 양식은 한 장에 **품목 22줄**이고 모자란 만큼 빈 줄로 채워 소계가 아래에 온다 */
+  for(var _b=g.rows.length;_b<TM_SHEET_ROWS;_b++){
+    h+='<tr>';
+    for(var _c=0;_c<9;_c++)h+='<td style="'+bd+'">&nbsp;</td>';
+    h+='</tr>';
+  }
   h+='<tr><td style="'+lb+'" colspan="5">소계</td>'
    +'<td style="'+bd+';text-align:right;font-weight:700">'+g.qty+'</td><td style="'+bd+'"></td><td style="'+bd+'"></td>'
    +'<td style="'+bd+';text-align:right;font-weight:700">'+n(g.amt)+'</td></tr>';
