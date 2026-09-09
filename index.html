@@ -600,6 +600,7 @@ label{font-size:14px!important}
       <button class="tab-btn" id="tab-ananti" onclick="switchTab('ananti')">🏨 아난티 발주</button>
       <button class="tab-btn" id="tab-tmorder" onclick="switchTab('tmorder')">🧳 트래블메이트 발주</button>
       <button class="tab-btn" id="tab-cxorder" onclick="switchTab('cxorder')">🚛 CX팀 물류센터 발주</button>
+      <button class="tab-btn" id="tab-unship" onclick="switchTab('unship')">📮 미출고 반영</button>
     </div>
   </div>
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
@@ -1752,6 +1753,27 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-tmorder -->
+
+<div id="page-unship" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="sec-title" style="margin:0;font-size:13px">📮 미출고 반영</div>
+      <span id="usSummary" style="font-size:12px;color:#5b6675;font-weight:600"></span>
+      <button class="bs" style="padding:5px 12px;font-size:12px;color:#dc2626;margin-left:auto" onclick="unshipClear()">초기화</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+<div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px"><div style="background:#0f766e;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">1단계<br>도매발주서 업로드</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:9px 10px;font-size:12.5px;color:#334155;line-height:1.6;flex:1;display:flex;flex-direction:column;gap:6px"><label class="bs" style="cursor:pointer;width:100%;box-sizing:border-box;text-align:center;font-size:13px;font-weight:700;padding:7px 0">📁 도매발주서<input type="file" id="usOrdIn" accept=".xlsx,.xls" style="display:none" onchange="unshipLoadOrder(this.files[0]);this.value=&quot;&quot;"></label><div id="usOrdDrop" class="drop-zone" style="border-radius:8px;padding:10px;font-size:12px;font-weight:700">📂 끌어오기</div><div style="color:#5b6675">물류에서 <b>운송장번호가 채워져</b> 돌아온 도매발주서(27열)</div><span id="usOrdMsg" style="font-size:11.5px;color:#15803d;font-weight:700"></span></div></div>
+<div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px"><div style="background:#0f766e;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">2단계<br>미출고 내역 업로드</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:9px 10px;font-size:12.5px;color:#334155;line-height:1.6;flex:1;display:flex;flex-direction:column;gap:6px"><label class="bs" style="cursor:pointer;width:100%;box-sizing:border-box;text-align:center;font-size:13px;font-weight:700;padding:7px 0">📁 미출고 내역<input type="file" id="usListIn" accept=".xlsx,.xls" style="display:none" onchange="unshipLoadList(this.files[0]);this.value=&quot;&quot;"></label><div id="usListDrop" class="drop-zone" style="border-radius:8px;padding:10px;font-size:12px;font-weight:700">📂 끌어오기</div><label style="font-size:11.5px;color:#5b6675;font-weight:600;display:flex;align-items:center;gap:5px">날짜 시트<select id="usSheet" onchange="unshipPickSheet()" style="flex:1;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px"></select></label><span id="usListMsg" style="font-size:11.5px;color:#15803d;font-weight:700"></span></div></div>
+<div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px"><div style="background:#0f766e;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">3단계<br>발주서 다운로드</div><div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:9px 10px;font-size:12.5px;color:#334155;line-height:1.6;flex:1;display:flex;flex-direction:column;gap:6px"><button class="bg" style="width:100%;font-size:14px;background:#0f766e" onclick="unshipDownload()">📥 미출고 표시 발주서</button><div style="color:#5b6675">원본 27열 뒤에 <b>미출고수량 · 실출고수량</b> 두 열을 붙여 받습니다<br>미출고가 있는 줄은 붉게 표시됩니다</div></div></div>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="usTableWrap" style="overflow-x:auto;padding:0"></div>
+  </div>
+</div>
+</div><!-- /page-unship -->
+
 
 
 <div id="page-cxorder" style="display:none">
@@ -5589,6 +5611,8 @@ function switchTab(tab){
   document.getElementById("page-cxorder").style.display=tab==="cxorder"?"block":"none";
   document.getElementById("page-tmorder").style.display=tab==="tmorder"?"block":"none";
   if(tab==="tmorder")renderTmOrder();
+  document.getElementById("page-unship").style.display=tab==="unship"?"block":"none";
+  if(tab==="unship")renderUnship();
   document.getElementById("page-orderconv").style.display=tab==="orderconv"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("page-lossreport").style.display=tab==="lossreport"?"block":"none";
@@ -8010,6 +8034,218 @@ function ordDownloadCxAll(){
   if(need&&!confirm("받는분 또는 주소가 비어있는 행이 "+need+"건 있습니다.\n\nCX통합관리는 받는분·연락처·주소가 필수입니다.\n그대로 다운로드할까요?"))return;
   ordDownloadCx(orderDB.rows);
 }
+/* ── 미출고 반영 ──
+   물류에서 **운송장번호가 채워져** 돌아온 도매발주서(27열)와, 날짜별 시트로 오는 `미출고` 엑셀을
+   대조해 **어느 줄이 몇 개 미출고인지** 발주서에 표시한다.
+   미출고 파일은 한 시트에 `차수·운송장번호·미출고 품목·미출고수량·출고수량` 다섯 칸짜리 블록이
+   가로로 여러 벌 놓여 있다(빈 칸 하나를 두고 6칸 간격). 첫 블록의 `차수` 자리에는 매장명이 들어온다.
+   **맞추는 열쇠는 운송장번호 + 품목 이름**이다 — 미출고 품목은 `루노아 딥그린`처럼 줄임말이라
+   낱말이 발주서 상품명에 **모두** 들어가면 같은 상품으로 본다. */
+var usOrder={name:"",head:[],rows:[]};
+var usList={name:"",sheets:[],sheet:"",items:[]};
+function _usDigits(v){return String(v==null?"":v).replace(/[^0-9]/g,"");}
+function _usNorm(v){return String(v==null?"":v).replace(/\s/g,"").toLowerCase();}
+function unshipClear(){
+  usOrder={name:"",head:[],rows:[]};usList={name:"",sheets:[],sheet:"",items:[]};
+  ["usOrdMsg","usListMsg","usSummary"].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent="";});
+  var sel=document.getElementById("usSheet");if(sel)sel.innerHTML="";
+  renderUnship();
+}
+function unshipLoadOrder(file){
+  if(!file)return;
+  var msg=document.getElementById("usOrdMsg");if(msg)msg.textContent="불러오는 중...";
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      var hRow=-1;
+      for(var r=0;r<Math.min(8,rows.length);r++){
+        var line=(rows[r]||[]).map(function(c){return String(c).replace(/\s/g,"");});
+        if(line.indexOf("상품명")>=0&&line.indexOf("수량")>=0){hRow=r;break;}
+      }
+      if(hRow<0)throw new Error("도매발주서 형식이 아닙니다 (상품명·수량 열이 필요합니다)");
+      var H=(rows[hRow]||[]).map(function(c){return String(c).replace(/\s/g,"");});
+      var col=function(k){return H.indexOf(k);};
+      var iInv=col("운송장번호"),iName=col("상품명"),iQty=col("수량"),
+          iShop=col("쇼핑몰"),iCode=col("상품컬러코드"),iStore=col("주문번호(쇼핑몰)");
+      var out=[];
+      for(var r2=hRow+1;r2<rows.length;r2++){
+        var row=rows[r2]||[];
+        if(!String(row[iName]||"").trim())continue;
+        out.push({raw:row,inv:_usDigits(row[iInv]),name:String(row[iName]||"").trim(),
+          qty:Number(String(row[iQty]||"").replace(/[^0-9.-]/g,""))||0,
+          shop:iShop>=0?String(row[iShop]||"").trim():"",
+          store:iStore>=0?String(row[iStore]||"").trim():"",
+          code:iCode>=0?String(row[iCode]||"").trim():"",
+          un:0});
+      }
+      usOrder={name:file.name,head:rows[hRow]||[],rows:out};
+      if(msg)msg.textContent="✔ "+out.length+"줄"+(out.filter(function(x){return x.inv;}).length?"":" · ⚠ 운송장번호가 비어 있습니다");
+      renderUnship();
+    }catch(err){alert("도매발주서 오류: "+err.message);if(msg)msg.textContent="";}
+  };
+  rd.readAsArrayBuffer(file);
+}
+function unshipLoadList(file){
+  if(!file)return;
+  var msg=document.getElementById("usListMsg");if(msg)msg.textContent="불러오는 중...";
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      window._usWb=wb;
+      /* 날짜 시트(YYYYMMDD)만 고른다 — Sheet1·취소요청건 같은 건 뺀다 */
+      var dates=wb.SheetNames.filter(function(n){return /^\s*\d{8}\s*$/.test(n);});
+      if(!dates.length)dates=wb.SheetNames.slice();
+      var sel=document.getElementById("usSheet");
+      if(sel){
+        sel.innerHTML=dates.map(function(n){return '<option value="'+_esc(n)+'">'+_esc(n.trim())+"</option>";}).join("");
+        sel.value=dates[dates.length-1];      /* 가장 최근 날짜 */
+      }
+      usList.name=file.name;usList.sheets=dates;
+      unshipPickSheet();
+    }catch(err){alert("미출고 파일 오류: "+err.message);if(msg)msg.textContent="";}
+  };
+  rd.readAsArrayBuffer(file);
+}
+function unshipPickSheet(){
+  var wb=window._usWb;if(!wb)return;
+  var sel=document.getElementById("usSheet"),msg=document.getElementById("usListMsg");
+  var name=sel?sel.value:(usList.sheets[usList.sheets.length-1]||"");
+  var rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:""});
+  var items=[];
+  for(var r=1;r<rows.length;r++){
+    var v=rows[r]||[];
+    for(var b=0;b+3<v.length+3;b+=6){          /* 다섯 칸 블록이 6칸 간격으로 반복된다 */
+      var inv=_usDigits(v[b+1]),item=String(v[b+2]||"").trim();
+      var q=Number(String(v[b+3]||"").replace(/[^0-9.-]/g,""))||0;
+      if(!item||!q)continue;
+      items.push({who:String(v[b]||"").trim(),inv:inv,item:item,qty:q,used:0});
+    }
+  }
+  usList.sheet=name;usList.items=items;
+  if(msg)msg.textContent="✔ "+name.trim()+" · "+items.length+"건";
+  renderUnship();
+}
+/* 발주서 줄에 미출고 수량을 나눠 붙인다 — 같은 운송장·같은 상품이 여러 줄이면 앞줄부터 채운다 */
+function _usMatch(){
+  usOrder.rows.forEach(function(r){r.un=0;});
+  usList.items.forEach(function(it){it.used=0;});
+  usList.items.forEach(function(it){
+    var toks=it.item.split(/\s+/).filter(function(t){return t;}).map(_usNorm);
+    var cand=usOrder.rows.filter(function(r){
+      if(it.inv&&r.inv&&r.inv!==it.inv)return false;
+      if(it.inv&&!r.inv)return false;
+      var nm=_usNorm(r.name);
+      for(var i=0;i<toks.length;i++)if(nm.indexOf(toks[i])<0)return false;
+      return true;
+    });
+    var left=it.qty;
+    for(var i=0;i<cand.length&&left>0;i++){
+      var room=Math.max(0,cand[i].qty-cand[i].un);
+      var take=Math.min(room,left);
+      cand[i].un+=take;left-=take;it.used+=take;
+    }
+  });
+}
+function renderUnship(){
+  var wrap=document.getElementById("usTableWrap");if(!wrap)return;
+  var sum=document.getElementById("usSummary");
+  if(!usOrder.rows.length){
+    wrap.innerHTML='<div style="padding:30px;text-align:center;color:#475569">1단계에서 도매발주서를 올리세요</div>';
+    if(sum)sum.textContent="";
+    return;
+  }
+  _usMatch();
+  var unRows=usOrder.rows.filter(function(r){return r.un>0;});
+  var unQty=usOrder.rows.reduce(function(a,b){return a+b.un;},0);
+  var leftover=usList.items.filter(function(it){return it.used<it.qty;});
+  if(sum){
+    sum.textContent=usOrder.rows.length+"줄 · 미출고 "+unRows.length+"줄 "+unQty+"개"
+      +(usList.sheet?" ("+usList.sheet.trim()+")":"")
+      +(leftover.length?" · 발주서에서 못 찾은 미출고 "+leftover.length+"건":"");
+  }
+  var th='position:sticky;top:0;z-index:2;background:#ccfbf1;border:1px solid #99f6e4;padding:7px 8px;color:#115e59;font-weight:700';
+  var h="";
+  if(leftover.length){
+    h+='<div style="margin:8px;padding:8px 10px;background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;font-size:12px;color:#92400e;font-weight:700">'
+      +'⚠ 발주서에서 못 찾은 미출고 '+leftover.length+'건 — '
+      +leftover.map(function(it){return _esc(it.who+" "+it.item+" "+(it.qty-it.used)+"개");}).join(" · ")
+      +'<div style="font-weight:600;margin-top:3px">운송장번호가 이 발주서에 없거나(다른 차수) 상품명이 달라 못 맞춘 건입니다.</div></div>';
+  }
+  h+='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap"><thead><tr>';
+  [["#",""],["매장",""],["운송장번호",""],["상품명","min-width:320px"],["발주수량",""],["미출고",""],["실출고",""]].forEach(function(c){
+    h+='<th style="'+th+';'+c[1]+'">'+c[0]+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  usOrder.rows.forEach(function(r,i){
+    var out=r.qty-r.un;
+    h+='<tr'+(r.un>0?' style="background:#fef2f2"':'')+'>'
+      +'<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>'
+      +'<td style="border:1px solid #e1e6ee;padding:5px 8px">'+_esc(r.shop||r.store)+'</td>'
+      +'<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;font-size:12px;color:#475569">'+_esc(r.inv)+'</td>'
+      +'<td style="border:1px solid #e1e6ee;padding:5px 8px;white-space:normal">'+_esc(r.name)+'</td>'
+      +'<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right">'+r.qty+'</td>'
+      +'<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;font-weight:700;color:'+(r.un>0?"#dc2626":"#5b6675")+'">'+(r.un||"")+'</td>'
+      +'<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;font-weight:700;color:'+(out<=0?"#dc2626":"#15803d")+'">'+out+'</td>'
+      +'</tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+}
+/* 3단계 — 원본 열 뒤에 미출고수량·실출고수량을 붙여 내려준다 */
+function unshipDownload(){
+  if(!usOrder.rows.length){alert("도매발주서를 먼저 올려주세요.");return;}
+  _usMatch();
+  var head=usOrder.head.slice();
+  while(head.length<27)head.push("");
+  head=head.concat(["미출고수량","실출고수량"]);
+  var aoa=[head];
+  usOrder.rows.forEach(function(r){
+    var row=r.raw.slice();
+    while(row.length<27)row.push("");
+    row=row.slice(0,27).concat([r.un||"",r.qty-r.un]);
+    aoa.push(row);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"발주서");
+  /* 못 맞춘 미출고는 따로 한 시트에 남긴다 — 그냥 버리면 놓친다 */
+  var left=usList.items.filter(function(it){return it.used<it.qty;});
+  if(left.length){
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(
+      [["매장/차수","운송장번호","미출고 품목","미출고수량","발주서에서 못 찾음"]].concat(
+        left.map(function(it){return [it.who,it.inv,it.item,it.qty-it.used,"O"];}))),"미매칭 미출고");
+  }
+  var d=new Date();
+  XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 도매발주서(미출고표시).xlsx");
+}
+(function(){
+  var wire=function(id,fn){
+    document.addEventListener("dragover",function(e){
+      var z=e.target&&e.target.closest&&e.target.closest("#"+id);
+      if(!z)return;e.preventDefault();z.classList.add("dragover");
+    });
+    document.addEventListener("dragleave",function(e){
+      var z=e.target&&e.target.closest&&e.target.closest("#"+id);
+      if(z)z.classList.remove("dragover");
+    });
+    document.addEventListener("drop",function(e){
+      var z=e.target&&e.target.closest&&e.target.closest("#"+id);
+      if(!z)return;e.preventDefault();z.classList.remove("dragover");
+      fn((e.dataTransfer.files||[])[0]);
+    });
+    document.addEventListener("click",function(e){
+      var z=e.target&&e.target.closest&&e.target.closest("#"+id);
+      if(z)document.getElementById(id==="usOrdDrop"?"usOrdIn":"usListIn").click();
+    });
+  };
+  wire("usOrdDrop",function(f){unshipLoadOrder(f);});
+  wire("usListDrop",function(f){unshipLoadList(f);});
+})();
+
 /* ── 트래블메이트 발주 ──
    트래블메이트가 보낸 `[트래블메이트] 발 주 서` 엑셀은 **시트 하나가 매장 하나**다
    (인천공항1청사점 · 인천공항2청사점 · 김포공항점).
