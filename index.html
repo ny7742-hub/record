@@ -618,6 +618,7 @@ label{font-size:14px!important}
     </div>
   </div>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산</button>
+  <button class="tab-btn" id="tab-doc" onclick="switchTab('doc')">📄 공문 작성</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <div class="tab-drop" id="tabDropStock">
     <button class="tab-btn tab-drop-btn" onclick="tabDropToggle(event,'tabDropStock')">📦 재고확인 <span class="tab-drop-caret">▾</span></button>
@@ -1487,18 +1488,13 @@ label{font-size:14px!important}
     <div id="marginTableWrap" style="overflow:auto;max-height:74vh;padding:0"></div>
   </div>
 
-  <div class="card" style="margin-top:12px;padding:0;overflow:hidden">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid #e1e6ee">
-      <div class="sec-title" style="margin:0;font-size:13px">📄 코스트코 행사 공문</div>
-      <button onclick="mgCtToggle()" class="bs" style="padding:5px 12px;font-size:12px"><span id="mgCtToggleTxt">▾ 입력값 펼치기</span></button>
-      <button onclick="mgCtDownloadPdf()" class="bg" style="padding:6px 16px;font-size:12px">📄 공문 PDF 다운로드</button>
-      <span style="font-size:11px;color:#5b6675">금액은 마진계산 표에서 <b>VAT 제외</b>로, 기간은 맨 위 <b>행사기간</b> 칸에서 자동으로 들어갑니다</span>
-      <span id="mgCtMsg" style="font-size:11px;color:#15803d;font-weight:600"></span>
-    </div>
-    <div id="mgCtForm" style="display:none;padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e1e6ee"></div>
-    <div style="padding:14px;background:#eef2f7;overflow:auto;max-height:80vh">
-      <div id="mgCtPreview"></div>
-    </div>
+  <div class="card" style="margin-top:12px;padding:12px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <div class="sec-title" style="margin:0;font-size:13px">📄 코스트코 행사 약정서</div>
+    <label class="bs" style="cursor:pointer;padding:5px 14px;font-size:12px;font-weight:700">📁 PDF 업로드<input type="file" class="doc-ct-in" accept=".pdf" style="display:none" onchange="docLoadContract(this.files[0]);this.value=''"></label>
+    <div class="doc-ct-drop drop-zone" style="border-radius:8px;padding:5px 14px;font-size:12px;font-weight:700;gap:5px">📂 끌어오기</div>
+    <span class="doc-ct-msg" style="font-size:11.5px;color:#15803d;font-weight:700"></span>
+    <span style="font-size:11.5px;color:#5b6675;flex-basis:100%">코스트코가 보낸 <b>KO COUPON CONTRACT</b>를 올리면 수신(D26/D31)·상품·기간·쿠폰·Vendor fund·Costco Fund를 읽어 <b>공문 작성</b> 탭의 공문을 채웁니다</span>
+    <button class="bs" style="padding:5px 14px;font-size:12px;font-weight:700" onclick="switchTab('doc')">📄 공문 작성 탭으로</button>
   </div>
 </div>
 </div><!-- /page-margin -->
@@ -1773,6 +1769,45 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-unship -->
+
+<div id="page-doc" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">📄 공문 작성</div>
+      <button class="doc-kind bs" data-kind="cc-D26" onclick="docSetKind('cc-D26')" style="padding:5px 14px;font-size:12.5px;font-weight:700">🛒 코스트코 D26</button>
+      <button class="doc-kind bs" data-kind="cc-D31" onclick="docSetKind('cc-D31')" style="padding:5px 14px;font-size:12.5px;font-weight:700">🛒 코스트코 D31</button>
+      <button class="doc-kind bs" data-kind="dept" onclick="docSetKind('dept')" style="padding:5px 14px;font-size:12.5px;font-weight:700">🏬 백화점</button>
+      <span id="docHint" style="font-size:11.5px;color:#5b6675;font-weight:600;margin-left:6px"></span>
+    </div>
+  </div>
+  <div id="docCostco" style="display:none">  <div class="card" style="margin-top:12px;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid #e1e6ee">
+      <div class="sec-title" style="margin:0;font-size:13px"><span id="docCcTitle">📄 코스트코 행사 공문</span></div>
+      <button onclick="mgCtToggle()" class="bs" style="padding:5px 12px;font-size:12px"><span id="mgCtToggleTxt">▾ 입력값 펼치기</span></button>
+      <button onclick="mgCtDownloadPdf()" class="bg" style="padding:6px 16px;font-size:12px">📄 공문 PDF 다운로드</button>
+      <span style="font-size:11px;color:#5b6675">금액은 마진계산 표에서 <b>VAT 제외</b>로, 기간은 맨 위 <b>행사기간</b> 칸에서 자동으로 들어갑니다</span>
+      <span id="mgCtMsg" style="font-size:11px;color:#15803d;font-weight:600"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:#f5f3ff;border-bottom:1px solid #e1e6ee">
+      <span style="font-size:12px;font-weight:700;color:#5b21b6">📎 행사약정서(KO COUPON CONTRACT)</span>
+      <label class="bs" style="cursor:pointer;padding:5px 14px;font-size:12px;font-weight:700">📁 PDF 업로드<input type="file" class="doc-ct-in" accept=".pdf" style="display:none" onchange="docLoadContract(this.files[0]);this.value=''"></label>
+      <div class="doc-ct-drop drop-zone" style="border-radius:8px;padding:5px 14px;font-size:12px;font-weight:700;gap:5px">📂 끌어오기</div>
+      <span style="font-size:11px;color:#5b6675">코스트코가 보낸 약정서를 올리면 <b>수신(D26/D31)·상품·기간·쿠폰·Vendor fund·Costco Fund</b>가 자동으로 채워집니다</span>
+      <span class="doc-ct-msg" style="font-size:11.5px;color:#15803d;font-weight:700"></span>
+    </div>
+    <div id="mgCtForm" style="display:none;padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e1e6ee"></div>
+    <div style="padding:14px;background:#eef2f7;overflow:auto;max-height:80vh">
+      <div id="mgCtPreview"></div>
+    </div>
+  </div>
+  </div>
+  <div class="card" style="padding:14px 16px">
+    <div id="docBody"></div>
+  </div>
+</div>
+</div><!-- /page-doc -->
+
 
 
 
@@ -5612,6 +5647,8 @@ function switchTab(tab){
   document.getElementById("page-tmorder").style.display=tab==="tmorder"?"block":"none";
   if(tab==="tmorder")renderTmOrder();
   document.getElementById("page-unship").style.display=tab==="unship"?"block":"none";
+  document.getElementById("page-doc").style.display=tab==="doc"?"block":"none";
+  if(tab==="doc")renderDocPage();
   if(tab==="unship"){
     var _ud=document.getElementById("usDate");
     if(_ud&&!_ud.value){var _t=new Date();_ud.value=_t.getFullYear()+"-"+String(_t.getMonth()+1).padStart(2,"0")+"-"+String(_t.getDate()).padStart(2,"0");}
@@ -8038,6 +8075,204 @@ function ordDownloadCxAll(){
   if(need&&!confirm("받는분 또는 주소가 비어있는 행이 "+need+"건 있습니다.\n\nCX통합관리는 받는분·연락처·주소가 필수입니다.\n그대로 다운로드할까요?"))return;
   ordDownloadCx(orderDB.rows);
 }
+/* ── 행사약정서(KO COUPON CONTRACT) 읽어 공문 채우기 ──
+   코스트코가 보내오는 약정서 PDF 한 장에 공문에 필요한 값이 다 있다 —
+   `Dept / Buyer`(26·31) · `Item #`(6자리) · `Item Description`(영문 상품명) ·
+   `Start Date - End Date` · `Coupon Value` · `Vendor Fund` · `Costco Fund` · Inline/Online.
+   그대로 공문 입력값(`marginDB.contract`)에 옮겨 담아 마진계산 없이도 공문이 완성되게 한다. */
+function _docNum(v){return Number(String(v==null?"":v).replace(/[^0-9.-]/g,""))||0;}
+async function _docPdfLines(file){
+  if(typeof pdfjsLib==="undefined")throw new Error("PDF 라이브러리를 불러오지 못했습니다");
+  var buf=await file.arrayBuffer();
+  var pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  var out=[];
+  for(var p=1;p<=pdf.numPages;p++){
+    var page=await pdf.getPage(p);
+    var lines=await _ccPdfGetPageLines(page);
+    out=out.concat(lines);
+  }
+  return out;
+}
+/* 약정서 한 장 → {dept, channel, items:[{code,name,coupon,vendor,costco}], start, end} */
+function _docParseContract(lines){
+  var txt=lines.join("\n");
+  var flat=txt.replace(/\s+/g," ");
+  var r={dept:"",channel:"",items:[],start:"",end:""};
+  /* 바이어 부서 — `Dept / Buyer : 26 /Jisook Kim` */
+  var m=/Dept\s*\/\s*Buyer\s*:?\s*(\d{2})/i.exec(flat);
+  if(m)r.dept=m[1];
+  /* 상품코드·상품명 */
+  var codes=[],names=[];
+  lines.forEach(function(L,i){
+    if(/^Item\s*#/i.test(L)){
+      (L.replace(/^Item\s*#\s*:?/i,"").match(/\d{6}/g)||[]).forEach(function(c){codes.push(c);});
+      for(var j=i+1;j<Math.min(i+3,lines.length)&&!codes.length;j++)
+        (lines[j].match(/\d{6}/g)||[]).forEach(function(c){codes.push(c);});
+    }
+    if(/^Item\s*Description/i.test(L)){
+      var v=L.replace(/^Item\s*Description\s*:?/i,"").trim();
+      if(!v&&lines[i+1])v=lines[i+1].trim();
+      if(v)names.push(v);
+    }
+  });
+  /* 기간 — `2026/ 9 / 21 ~ 2026/ 10 / 4` */
+  var dm=/(\d{4})\s*\/\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*~\s*(\d{4})\s*\/\s*(\d{1,2})\s*\/\s*(\d{1,2})/.exec(flat);
+  var pad=function(n){return String(n).padStart(2,"0");};
+  if(dm){
+    r.start=dm[1]+"."+pad(dm[2])+"."+pad(dm[3]);
+    r.end=dm[4]+"."+pad(dm[5])+"."+pad(dm[6]);
+  }
+  /* 금액 — 줄 이름 뒤의 ₩숫자들 */
+  var pick=function(re){
+    for(var i=0;i<lines.length;i++){
+      if(!re.test(lines[i]))continue;
+      var v=(lines[i].match(/₩\s*[\d,]+/g)||[]);
+      for(var j=i+1;j<Math.min(i+3,lines.length)&&!v.length;j++)
+        v=(lines[j].match(/₩\s*[\d,]+/g)||[]);
+      return v.map(_docNum);
+    }
+    return [];
+  };
+  var coupon=pick(/^Coupon\s*Value/i),
+      vendor=pick(/^Vendor\s*Fund(?!\s*\(DFI)/i),
+      costco=pick(/^Costco\s*Fund/i);
+  /* 판매처 — Inline/Online 중 값이 붙은 쪽 */
+  for(var i=0;i<lines.length;i++){
+    if(/Inline/i.test(lines[i])&&/₩/.test(lines[i])){r.channel="코스트코 인라인";break;}
+    if(/Online/i.test(lines[i])&&/₩/.test(lines[i])){r.channel="코스트코 온라인";break;}
+  }
+  if(!r.channel&&/E-?com\s*포함/i.test(flat))r.channel="코스트코 온라인";
+  var n=Math.max(codes.length,names.length,coupon.length,1);
+  for(var k=0;k<n;k++){
+    r.items.push({code:codes[k]||"",name:names[k]||"",
+      coupon:coupon[k]||coupon[0]||0,vendor:vendor[k]||vendor[0]||0,costco:costco[k]||costco[0]||0});
+  }
+  return r;
+}
+async function docLoadContract(file){
+  if(!file)return;
+  var _say=function(t){
+    var els=document.querySelectorAll(".doc-ct-msg");
+    for(var i=0;i<els.length;i++)els[i].textContent=t;
+  };
+  _say("읽는 중...");
+  try{
+    var lines=await _docPdfLines(file);
+    var r=_docParseContract(lines);
+    if(!r.items.length||!r.items[0].code)throw new Error("약정서에서 상품코드(Item #)를 찾지 못했습니다");
+    var c=mgCt();
+    if(r.dept==="26"||r.dept==="31"){
+      var to="코스트코 상품본부(D"+r.dept+")";
+      c.to=to;
+      docKind="cc-D"+r.dept;
+      try{localStorage.setItem("docKind",docKind);}catch(e){}
+    }
+    if(r.channel)c.channel=r.channel;
+    if(r.start&&r.end&&typeof marginDB!=="undefined")marginDB.period=r.start+"~"+r.end;
+    c.titleEn=r.items[0].name||c.titleEn;
+    /* 약정서에서 읽은 금액을 그대로 쓴다 — 마진계산 표가 없어도 공문이 완성되게 */
+    c.fromContract=r.items.map(function(it){
+      return {code:it.code,name:it.name,coupon:it.coupon,vendor:it.vendor,costco:it.costco};
+    });
+    if(!Array.isArray(c.items)||c.items.length<r.items.length){
+      c.items=r.items.map(function(){return {row:"",docName:""};});
+    }
+    r.items.forEach(function(it,i){if(c.items[i])c.items[i].docName=it.name;});
+    if(typeof saveMargin==="function")saveMargin();
+    renderDocPage();
+    _say("✔ D"+(r.dept||"?")+" · "+r.items.length+"품목 · "+(r.start||"")+"~"+(r.end||"")
+      +" · 쿠폰 "+(r.items[0].coupon||0).toLocaleString()+"원");
+  }catch(err){
+    alert("행사약정서 오류: "+err.message);
+    _say("");
+  }
+}
+(function(){
+  document.addEventListener("dragover",function(e){
+    var z=e.target&&e.target.closest&&e.target.closest(".doc-ct-drop");
+    if(!z)return;e.preventDefault();z.classList.add("dragover");
+  });
+  document.addEventListener("dragleave",function(e){
+    var z=e.target&&e.target.closest&&e.target.closest(".doc-ct-drop");
+    if(z)z.classList.remove("dragover");
+  });
+  document.addEventListener("drop",function(e){
+    var z=e.target&&e.target.closest&&e.target.closest(".doc-ct-drop");
+    if(!z)return;e.preventDefault();z.classList.remove("dragover");
+    docLoadContract((e.dataTransfer.files||[])[0]);
+  });
+  document.addEventListener("click",function(e){
+    var z=e.target&&e.target.closest&&e.target.closest(".doc-ct-drop");
+    if(!z)return;
+    var box=z.parentNode.querySelector(".doc-ct-in");
+    if(box)box.click();
+  });
+})();
+
+/* ── 공문 작성 ──
+   코스트코(**바이어 D26·D31 둘로 나뉜다**)와 백화점 공문을 한자리에서 만든다.
+   **양식은 영업2팀이 주는 대로 채워 넣는다** — 지금은 자리만 잡아 두었고,
+   코스트코 행사 공문은 이미 마진계산 탭에서 만들 수 있어 그리로 안내한다. */
+var DOC_KINDS={"cc-D26":{name:"코스트코 상품본부(D26)",cc:true,to:"코스트코 상품본부(D26)"},
+               "cc-D31":{name:"코스트코 상품본부(D31)",cc:true,to:"코스트코 상품본부(D31)"},
+               "dept":{name:"백화점",cc:false}};
+var docKind=(function(){
+  try{var v=localStorage.getItem("docKind");if(v&&DOC_KINDS[v])return v;}catch(e){}
+  return "cc-D26";
+})();
+function docSetKind(k){
+  if(!DOC_KINDS[k])k="cc-D26";
+  docKind=k;
+  try{localStorage.setItem("docKind",docKind);}catch(e){}
+  renderDocPage();
+}
+function renderDocPage(){
+  var body=document.getElementById("docBody");if(!body)return;
+  var btns=document.querySelectorAll(".doc-kind");
+  for(var i=0;i<btns.length;i++){
+    var on=btns[i].getAttribute("data-kind")===docKind;
+    btns[i].style.background=on?"#1b6e82":"#fff";
+    btns[i].style.color=on?"#fff":"#334155";
+    btns[i].style.borderColor=on?"#1b6e82":"#cbd5e1";
+  }
+  var k=DOC_KINDS[docKind]||DOC_KINDS["cc-D26"];
+  var hint=document.getElementById("docHint");
+  if(hint)hint.textContent=k.name+"에 보내는 공문";
+  var box=function(title,inner){
+    return '<div style="border:1px solid #cbd5e1;border-radius:10px;padding:14px 16px;background:#fff">'
+      +'<div style="font-size:14px;font-weight:800;color:#1b6e82;margin-bottom:8px">'+title+'</div>'+inner+'</div>';
+  };
+  var todo='<div style="margin-top:14px;padding-top:12px;border-top:1px dashed #cbd5e1;font-size:12.5px;color:#5b6675;line-height:1.7">'
+    +'<b style="color:#b45309">양식을 여기에 넣습니다.</b><br>'
+    +'양식 파일(엑셀·한글·PDF)을 주시면 이 자리에 만들어 드립니다.<br>'
+    +'수신처·행사기간·상품·금액처럼 <b>매번 바뀌는 칸</b>과, 직인·회사 정보처럼 <b>늘 같은 칸</b>을 구분해 주시면'
+    +' 바뀌는 칸만 입력해 PDF로 받도록 만들겠습니다.</div>';
+  var ccBox=document.getElementById("docCostco");
+  if(k.cc){
+    /* 코스트코 행사 공문 — 수신(D26/D31)을 버튼에 맞춰 놓고 미리보기를 다시 그린다.
+       금액·행사기간은 마진계산 표에서 그대로 가져온다. */
+    if(ccBox)ccBox.style.display="block";
+    var t=document.getElementById("docCcTitle");
+    if(t)t.textContent="📄 "+k.name+" 행사 공문";
+    if(typeof mgCt==="function"){
+      var c=mgCt();
+      if(c.to!==k.to){c.to=k.to;if(typeof saveMargin==="function")saveMargin();}
+    }
+    if(typeof mgRenderContractPreview==="function")mgRenderContractPreview();
+    body.innerHTML=box("🛒 "+k.name+" 공문",
+      '<div style="font-size:12.5px;color:#5b6675;line-height:1.7">'
+      +'금액(쿠폰·Vendor fund·Costco Fund)은 <b>마진계산 표</b>에서 VAT 제외로, 기간은 마진계산 맨 위 '
+      +'<b>행사기간</b> 칸에서 자동으로 들어갑니다.</div>'
+      +'<button class="bs" style="margin-top:10px;padding:6px 14px;font-size:13px;font-weight:700" onclick="switchTab(\'margin\')">💰 마진계산 표 열기</button>'
+      +todo);
+  }else{
+    if(ccBox)ccBox.style.display="none";
+    body.innerHTML=box("🏬 백화점 공문",
+      '<div style="font-size:13px;color:#334155;line-height:1.7">'
+      +'롯데·현대·신세계 공문을 여기서 만듭니다.</div>'+todo);
+  }
+}
+
 /* ── 미출고 반영 ──
    물류에서 **운송장번호가 채워져** 돌아온 도매발주서(27열)와, 날짜별 시트로 오는 `미출고` 엑셀을
    대조해 **어느 줄이 몇 개 미출고인지** 발주서에 표시한다.
@@ -9941,6 +10176,13 @@ function _mgCtPeriod(){
   return {start:fmt(a),end:fmt(b)};
 }
 /* 판매처가 공문 제목의 '인라인/온라인 상품'을 정한다 */
+/* 제목 — 품목이 하나면 상품코드를 앞에 붙인다(약정서 공문 표기: `온라인 상품 694467 … 행사 진행건`) */
+function _mgCtTitle(c,items){
+  var t=String(c.titleEn||"").trim();
+  var no=(items&&items.length===1)?String(items[0].itemNo||""):"";
+  if(no&&t.indexOf(no)<0)t=(no+" "+t).trim();
+  return _mgCtChannelWord(c)+" 상품 "+t+" 행사 진행건";
+}
 function _mgCtChannelWord(c){return /온라인/.test(String(c.channel||""))?"온라인":"인라인";}
 
 /* 직인 이미지 — 용량이 크고 개인 도장이라 팀 공유(Firebase)에 올리지 않고 이 브라우저에만 둔다 */
@@ -9999,8 +10241,18 @@ function _mgCtItemVals(it){
   };
 }
 function _mgCtItems(){
-  var out=[];
-  mgCt().items.forEach(function(it){var v=_mgCtItemVals(it);if(v)out.push(v);});
+  var c=mgCt(),out=[];
+  c.items.forEach(function(it){var v=_mgCtItemVals(it);if(v)out.push(v);});
+  /* 마진계산 행을 안 골랐어도 **행사약정서에서 읽은 값**이 있으면 그걸로 채운다 —
+     약정서(KO COUPON CONTRACT)에 쿠폰·Vendor fund·Costco Fund가 이미 다 적혀 있다. */
+  if(!out.length&&Array.isArray(c.fromContract)){
+    c.fromContract.forEach(function(f,i){
+      if(!f||!f.code)return;
+      out.push({itemNo:f.code,name:f.name||"",
+        docName:((c.items[i]&&c.items[i].docName)||f.name||""),
+        coupon:Number(f.coupon)||0,vendorFund:Number(f.vendor)||0,costcoFund:Number(f.costco)||0});
+    });
+  }
   return out;
 }
 /* 2026-09-14 → "2026.09.14" */
@@ -10095,7 +10347,7 @@ function _mgCtDocHtml(){
     ["발 송 일 자",String(c.sendDate||"")],
     ["수　　　　신",String(c.to||"")],
     ["발　　　　신",MG_CT_CO.name],
-    ["제　　　　목",_mgCtChannelWord(c)+" 상품 "+String(c.titleEn||"")+" 행사 진행건"]
+    ["제　　　　목",_mgCtTitle(c,items)]
   ];
   h+='<table style="border-collapse:collapse;font-size:14px;line-height:1.85">';
   rowsTop.forEach(function(r){
