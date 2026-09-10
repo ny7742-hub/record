@@ -4908,49 +4908,73 @@ function _homeStoreMonthly(now){
   return h;
 }
 /* 주간 — 위 채널 주간 표와 같은 달·같은 주(월~일) */
+/* 주간 — 매장마다 `금액 · 전주대비 · 전년대비` 세 칸.
+   전년은 **364일(52주) 앞** 같은 요일 주와 견준다 — 날짜로 맞추면 요일이 어긋나 주간 비교가 깨진다. */
 function _homeStoreWeekly(){
   var ym=homeWeekYm(),Y=+ym.slice(0,4),m=+ym.slice(5,7);
   var rg=_weeksOfMonth(Y,m);
   var GB="border-left:2px solid #4d7f96";
   var md=function(d){return (d.getMonth()+1)+"/"+d.getDate();};
   var today=new Date();today.setHours(0,0,0,0);
+  /* 한 매장·한 주의 합계 — 아직 안 지난 날은 빼고 더한다 */
+  var weekSum=function(re,start){
+    var v=0,d=new Date(start),en=new Date(start);en.setDate(start.getDate()+6);
+    while(d<=en){
+      if(d<=today)v+=(_storeDayMap(re,d.getFullYear(),d.getMonth()+1)[String(d.getDate())]||0);
+      d.setDate(d.getDate()+1);
+    }
+    return v;
+  };
   /* 그 달에 걸치는 주 + 전주대비용 한 주 앞 */
   var weeks=[],from=new Date(rg.from);from.setDate(from.getDate()-7);
   for(var i=0;i<rg.n+1;i++){
-    var st=new Date(from);st.setDate(from.getDate()+i*7);
-    var en=new Date(st);en.setDate(st.getDate()+6);
-    var vals=HOME_STORES.map(function(s2){
-      var v=0,d=new Date(st);
-      while(d<=en){
-        if(d<=today){
-          var mp=_storeDayMap(s2.re,d.getFullYear(),d.getMonth()+1);
-          v+=mp[String(d.getDate())]||0;
-        }
-        d.setDate(d.getDate()+1);
-      }
-      return v;
-    });
-    weeks.push({start:st,end:en,vals:vals,total:vals.reduce(function(a,b){return a+b;},0),
-      cur:(today>=st&&today<=en),future:(st>today)});
+    var ws=new Date(from);ws.setDate(from.getDate()+i*7);
+    var we=new Date(ws);we.setDate(ws.getDate()+6);
+    var py=new Date(ws);py.setDate(ws.getDate()-364);          /* 전년 같은 주 */
+    var vals=HOME_STORES.map(function(s2){return weekSum(s2.re,ws);});
+    var pys=HOME_STORES.map(function(s2){return weekSum(s2.re,py);});
+    weeks.push({start:ws,end:we,vals:vals,pys:pys,
+      total:vals.reduce(function(a,b){return a+b;},0),
+      pyTotal:pys.reduce(function(a,b){return a+b;},0),
+      cur:(today>=ws&&today<=we),future:(ws>today)});
   }
-  var h='<table class="ytd-tbl ytd-wtbl"><thead><tr><th style="min-width:118px">기간</th>';
-  HOME_STORES.forEach(function(st){h+='<th style="'+GB+'">'+_esc(st.lab)+'</th>';});
-  h+='<th style="'+GB+';background:#dbe7ea">합계</th><th style="'+GB+'">전주대비</th></tr></thead><tbody>';
+  var rate=function(cur,base,why){
+    if(!base)return '<td class="ytd-rate ytd-flat" title="'+why+'">–</td>';
+    return _ytdRateCellS(cur,base);
+  };
+  var h='<table class="ytd-tbl ytd-wtbl"><thead><tr><th rowspan="2" style="min-width:118px">기간</th>';
+  HOME_STORES.forEach(function(x){h+='<th colspan="3" style="'+GB+'">'+_esc(x.lab)+'</th>';});
+  h+='<th colspan="3" style="'+GB+';background:#dbe7ea">합계</th></tr><tr>';
+  for(var k=0;k<HOME_STORES.length+1;k++){
+    h+='<th style="'+GB+'">금액</th><th class="ytd-rh">전주비</th><th class="ytd-rh">전년비</th>';
+  }
+  h+='</tr></thead><tbody>';
   var all=weeks.slice().reverse();
   var rows=all.slice(0,all.length-1).filter(function(w){return !w.future;});
-  if(!rows.length)h+='<tr><td colspan="'+(HOME_STORES.length+3)+'" style="text-align:center;color:#5b6675;padding:14px">아직 지나지 않은 달입니다.</td></tr>';
+  var nCol=(HOME_STORES.length+1)*3+1;
+  if(!rows.length)h+='<tr><td colspan="'+nCol+'" style="text-align:center;color:#5b6675;padding:14px">아직 지나지 않은 달입니다.</td></tr>';
   rows.forEach(function(w){
     var prev=all[all.indexOf(w)+1];
-    h+='<tr'+(w.cur?' class="ytd-cur"':'')+'><td class="ytd-mon" style="white-space:nowrap">'+md(w.start)+'~'+md(w.end)+'</td>';
-    w.vals.forEach(function(v){h+='<td class="ytd-num" style="'+GB+'">'+_hsWon(v)+'</td>';});
+    h+='<tr'+(w.cur?' class="ytd-cur"':'')+'><td class="ytd-mon" style="white-space:nowrap">'+md(w.start)+'~'+md(w.end)
+      +(w.cur?' <span style="font-size:10px;color:#b45309;font-weight:700">진행중</span>':'')+'</td>';
+    HOME_STORES.forEach(function(x,i){
+      h+='<td class="ytd-num" style="'+GB+'">'+_hsWon(w.vals[i])+'</td>';
+      h+=(w.cur||!prev)?'<td class="ytd-rate ytd-flat">–</td>'
+        :rate(w.vals[i],prev.vals[i],"비교할 앞 주 실적이 없습니다");
+      h+=w.cur?'<td class="ytd-rate ytd-flat" title="진행중이라 비교하지 않습니다">–</td>'
+        :rate(w.vals[i],w.pys[i],"전년 같은 주 실적이 없습니다");
+    });
     h+='<td class="ytd-num" style="'+GB+';color:#0f5c6e">'+_hsWon(w.total)+'</td>';
-    h+=(w.cur||!prev||!prev.total)
-      ? '<td class="ytd-rate ytd-flat" style="'+GB+'">–</td>'
-      : _ytdRateCellS(w.total,prev.total).replace('<td class="ytd-rate','<td style="'+GB+'" class="ytd-rate');
+    h+=(w.cur||!prev)?'<td class="ytd-rate ytd-flat">–</td>'
+      :rate(w.total,prev.total,"비교할 앞 주 실적이 없습니다");
+    h+=w.cur?'<td class="ytd-rate ytd-flat">–</td>'
+      :rate(w.total,w.pyTotal,"전년 같은 주 실적이 없습니다");
     h+='</tr>';
   });
   h+='</tbody></table>'
-    +'<div style="font-size:11px;color:#5b6675;margin-top:6px">주는 <b>월요일~일요일</b> 기준 · 매장별 일별매출의 <b>EDI</b> 칸을 더합니다.</div>';
+    +'<div style="font-size:11px;color:#5b6675;margin-top:6px;line-height:1.6">주는 <b>월요일~일요일</b> 기준 · 매장별 일별매출의 <b>EDI</b> 칸을 더합니다.'
+    +'<br><b>전년비</b>는 <b>364일(52주) 앞</b> 같은 요일 주와 견줍니다 — 그 주 자료가 없으면 <b>–</b>로 둡니다.'
+    +'<br>진행중인 주는 오늘까지만 더하고 비교는 비웁니다.</div>';
   return h;
 }
 /* 주간 보기에서 보고 있는 달 (YYYY-MM).
