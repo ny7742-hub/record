@@ -4805,6 +4805,154 @@ function _chDayMap(chName,key,Y,m){
   if(!mv&&TAB_FIRST[chName])mv=_hsFixed(Y,m)||0;
   return {days:{},monthOnly:mv||0};
 }
+/* ── 홈: 백화점 매장별 (잠실·청량리) ──
+   영업2팀이 이 두 매장만 따로 본다(2026-09 지정). 매장을 늘리려면 `HOME_STORES`에 한 줄 넣으면 된다.
+   매장명 표기가 달마다 다르므로(`롯데 잠실` ↔ `롯데 잠실점`) 지점 이름으로 찾는다.
+   금액은 채널 표와 같은 **EDI 합계**를 쓴다(매장별 일별매출의 EDI 칸). */
+var HOME_STORES=[{lab:"잠실점",re:/잠실/},{lab:"청량리점",re:/청량리/}];
+function _storeDayMap(re,Y,m){
+  var ym=Y+"-"+String(m).padStart(2,"0");
+  var md=(typeof dailySalesDB!=="undefined"&&dailySalesDB.data)?(dailySalesDB.data[ym]||{}):{};
+  var out={};
+  Object.keys(md).forEach(function(day){
+    var sum=0;
+    Object.keys(md[day]).forEach(function(st){
+      if(!re.test(st))return;
+      sum+=Number(String((md[day][st]||{}).edi||0).replace(/,/g,""))||0;
+    });
+    if(sum)out[String(+day)]=sum;
+  });
+  return out;
+}
+function _storeMonth(re,Y,m){
+  var d=_storeDayMap(re,Y,m),s=0;
+  Object.keys(d).forEach(function(k){s+=d[k];});
+  return s;
+}
+/* 매장별 표를 지금 보고 있는 방식(누적/월별/주간)에 맞춰 덧붙인다 */
+function _homeStoreAppend(view,now,wrap){
+  if(!wrap)return;
+  var box=document.createElement("div");
+  box.style.cssText="margin-top:16px;padding-top:14px;border-top:1px dashed #cfe0e5";
+  var ttl=(view==="month")?"월별":(view==="week"?"주간":"누적");
+  box.innerHTML='<div style="font-size:13px;font-weight:800;color:#1b6e82;margin-bottom:8px">🏬 백화점 매장별 '+ttl+' 매출'
+    +'<span style="font-size:11px;font-weight:600;color:#5b6675;margin-left:6px">'
+    +HOME_STORES.map(function(x){return x.lab;}).join(" · ")+' · EDI 기준</span></div>'
+    +(view==="month"?_homeStoreMonthly(now):(view==="week"?_homeStoreWeekly():_homeStoreSum(now)));
+  wrap.appendChild(box);
+}
+function _hsWon(n){return (n||n===0)?Number(n).toLocaleString():"";}
+/* 누적 — 올해 1~현재월 vs 전년 같은 기간 */
+function _homeStoreSum(now){
+  var Y=now.getFullYear(),M=now.getMonth()+1;
+  var h='<table class="ytd-tbl ytd-stbl"><thead><tr><th style="text-align:left">매장</th>'
+    +'<th style="text-align:right">'+Y+'년 1~'+M+'월</th>'
+    +'<th style="text-align:right">'+(Y-1)+'년 1~'+M+'월</th>'
+    +'<th style="text-align:right">전년대비</th></tr></thead><tbody>';
+  var tc=0,tp=0,noPrev=[];
+  for(var mm=1;mm<=M;mm++){
+    var any=0;
+    HOME_STORES.forEach(function(st){any+=_storeMonth(st.re,Y-1,mm);});
+    if(!any)noPrev.push(mm);
+  }
+  HOME_STORES.forEach(function(st){
+    var c=0,p=0;
+    for(var m=1;m<=M;m++){c+=_storeMonth(st.re,Y,m);p+=_storeMonth(st.re,Y-1,m);}
+    tc+=c;tp+=p;
+    h+='<tr><td class="ytd-lab">'+_esc(st.lab)+'</td>'
+      +'<td class="ytd-num">'+_hsWon(c)+'원</td>'
+      +'<td class="ytd-prev">'+(p?_hsWon(p)+"원":"–")+'</td>'
+      +(p?_ytdRateCell(c,p):'<td class="ytd-rate ytd-flat">–</td>')+'</tr>';
+  });
+  h+='<tr class="ytd-total"><td>합계</td><td class="ytd-num">'+_hsWon(tc)+'원</td>'
+    +'<td class="ytd-num" style="color:#5b6675">'+(tp?_hsWon(tp)+"원":"–")+'</td>'
+    +(tp?_ytdRateCell(tc,tp):'<td class="ytd-rate ytd-flat">–</td>')+'</tr></tbody></table>'
+    +'<div style="font-size:11px;color:#5b6675;margin-top:6px">매장별 일별매출 탭의 <b>EDI</b> 칸을 더한 값입니다.</div>'
+    /* 전년 자료가 없는 달이 섞이면 전년대비가 실제보다 훨씬 커 보인다 — 그 사실을 적어 둔다 */
+    +(noPrev.length?'<div style="font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;margin-top:6px;line-height:1.5;font-weight:700">⚠ '
+      +(Y-1)+'년 '+noPrev.join("·")+'월은 매장별 자료가 없습니다 — 전년대비가 실제보다 커 보입니다.'
+      +'<br><span style="font-weight:600;color:#5b6675">같은 기간끼리 보려면 월별 보기에서 자료가 있는 달을 견주세요.</span></div>':"");
+  return h;
+}
+/* 월별 — 매장마다 금년·전년·전년대비 3열, 1~12월 + 누적 */
+function _homeStoreMonthly(now){
+  var Y=now.getFullYear(),M=now.getMonth()+1,PY=Y-1;
+  var GB="border-left:2px solid #4d7f96";
+  var h='<table class="ytd-tbl"><thead><tr><th rowspan="2" style="min-width:52px">월</th>';
+  HOME_STORES.forEach(function(st){h+='<th colspan="3" style="'+GB+'">'+_esc(st.lab)+'</th>';});
+  h+='</tr><tr>';
+  HOME_STORES.forEach(function(){
+    h+='<th style="'+GB+'">'+Y+'</th><th>'+PY+'</th><th class="ytd-rh">전년비</th>';
+  });
+  h+='</tr></thead><tbody>';
+  var sum=HOME_STORES.map(function(){return {c:0,p:0};});
+  for(var m=1;m<=12;m++){
+    h+='<tr><td class="ytd-mon">'+m+'월</td>';
+    HOME_STORES.forEach(function(st,i){
+      var c=_storeMonth(st.re,Y,m),p=_storeMonth(st.re,PY,m);
+      if(m<=M){sum[i].c+=c;sum[i].p+=p;}
+      h+='<td class="ytd-num" style="'+GB+'">'+(m<=M?_hsWon(c):"")+'</td>'
+        +'<td class="ytd-prev">'+_hsWon(p)+'</td>'
+        +(p&&m<=M?_ytdRateCellS(c,p):'<td class="ytd-rate ytd-flat">–</td>');
+    });
+    h+='</tr>';
+  }
+  h+='<tr class="ytd-total"><td>누적<br><span style="font-size:10px;font-weight:600">1~'+M+'월</span></td>';
+  HOME_STORES.forEach(function(st,i){
+    h+='<td class="ytd-num" style="'+GB+'">'+_hsWon(sum[i].c)+'</td>'
+      +'<td class="ytd-num" style="color:#5b6675">'+_hsWon(sum[i].p)+'</td>'
+      +(sum[i].p?_ytdRateCellS(sum[i].c,sum[i].p):'<td class="ytd-rate ytd-flat">–</td>');
+  });
+  h+='</tr></tbody></table>'
+    +'<div style="font-size:11px;color:#5b6675;margin-top:6px">단위: 원 · 매장별 일별매출의 <b>EDI</b> 칸 기준</div>';
+  return h;
+}
+/* 주간 — 위 채널 주간 표와 같은 달·같은 주(월~일) */
+function _homeStoreWeekly(){
+  var ym=homeWeekYm(),Y=+ym.slice(0,4),m=+ym.slice(5,7);
+  var rg=_weeksOfMonth(Y,m);
+  var GB="border-left:2px solid #4d7f96";
+  var md=function(d){return (d.getMonth()+1)+"/"+d.getDate();};
+  var today=new Date();today.setHours(0,0,0,0);
+  /* 그 달에 걸치는 주 + 전주대비용 한 주 앞 */
+  var weeks=[],from=new Date(rg.from);from.setDate(from.getDate()-7);
+  for(var i=0;i<rg.n+1;i++){
+    var st=new Date(from);st.setDate(from.getDate()+i*7);
+    var en=new Date(st);en.setDate(st.getDate()+6);
+    var vals=HOME_STORES.map(function(s2){
+      var v=0,d=new Date(st);
+      while(d<=en){
+        if(d<=today){
+          var mp=_storeDayMap(s2.re,d.getFullYear(),d.getMonth()+1);
+          v+=mp[String(d.getDate())]||0;
+        }
+        d.setDate(d.getDate()+1);
+      }
+      return v;
+    });
+    weeks.push({start:st,end:en,vals:vals,total:vals.reduce(function(a,b){return a+b;},0),
+      cur:(today>=st&&today<=en),future:(st>today)});
+  }
+  var h='<table class="ytd-tbl ytd-wtbl"><thead><tr><th style="min-width:118px">기간</th>';
+  HOME_STORES.forEach(function(st){h+='<th style="'+GB+'">'+_esc(st.lab)+'</th>';});
+  h+='<th style="'+GB+';background:#dbe7ea">합계</th><th style="'+GB+'">전주대비</th></tr></thead><tbody>';
+  var all=weeks.slice().reverse();
+  var rows=all.slice(0,all.length-1).filter(function(w){return !w.future;});
+  if(!rows.length)h+='<tr><td colspan="'+(HOME_STORES.length+3)+'" style="text-align:center;color:#5b6675;padding:14px">아직 지나지 않은 달입니다.</td></tr>';
+  rows.forEach(function(w){
+    var prev=all[all.indexOf(w)+1];
+    h+='<tr'+(w.cur?' class="ytd-cur"':'')+'><td class="ytd-mon" style="white-space:nowrap">'+md(w.start)+'~'+md(w.end)+'</td>';
+    w.vals.forEach(function(v){h+='<td class="ytd-num" style="'+GB+'">'+_hsWon(v)+'</td>';});
+    h+='<td class="ytd-num" style="'+GB+';color:#0f5c6e">'+_hsWon(w.total)+'</td>';
+    h+=(w.cur||!prev||!prev.total)
+      ? '<td class="ytd-rate ytd-flat" style="'+GB+'">–</td>'
+      : _ytdRateCellS(w.total,prev.total).replace('<td class="ytd-rate','<td style="'+GB+'" class="ytd-rate');
+    h+='</tr>';
+  });
+  h+='</tbody></table>'
+    +'<div style="font-size:11px;color:#5b6675;margin-top:6px">주는 <b>월요일~일요일</b> 기준 · 매장별 일별매출의 <b>EDI</b> 칸을 더합니다.</div>';
+  return h;
+}
 /* 주간 보기에서 보고 있는 달 (YYYY-MM).
    저장해 두면 다음 달에 들어와도 옛 달이 열려 헷갈리므로 화면에만 들고 있는다.
    달이 막 시작해 지난 주가 저번 달에 걸쳐 있으면 저번 달을 먼저 보여준다. */
@@ -5048,8 +5196,8 @@ function renderHomeYtd(now){
   var titleEl=document.getElementById("homeYtdTitle");
   if(titleEl)titleEl.textContent=view==="month"?("📊 월별 매출 ("+Y+"년 1~"+M+"월)")
     :(view==="week"?("📊 주간 매출 ("+(+homeWeekYm().slice(0,4))+"년 "+(+homeWeekYm().slice(5,7))+"월 · 월~일)"):("📊 연 누적 매출 (1~"+M+"월)"));
-  if(view==="month")return _renderHomeYtdMonthly(now,wrap);
-  if(view==="week")return _renderHomeYtdWeekly(now,wrap);
+  if(view==="month"){_renderHomeYtdMonthly(now,wrap);return _homeStoreAppend(view,now,wrap);}
+  if(view==="week"){_renderHomeYtdWeekly(now,wrap);return _homeStoreAppend(view,now,wrap);}
   var cur=_homeYtdThisYear(now),prev=_homeYtdPrevYear(now);
   if(!prev.any&&!cur.total){wrap.innerHTML='<div style="font-size:13px;color:#5b6675;padding:6px 2px">표시할 매출 데이터가 없습니다.</div>';return;}
   var won=function(n){return Number(n||0).toLocaleString()+"원";};
@@ -5087,6 +5235,7 @@ function renderHomeYtd(now){
     +'백화점·코스트코는 앱 입력 실적, 홈쇼핑과 '+(Y-1)+'년은 PlayMD 매장판매일보(실판매금액) 기준입니다. '
     +M+'월은 아직 진행중이라 남은 일수만큼 차이가 날 수 있습니다.</div>';
   wrap.innerHTML=h;
+  _homeStoreAppend(view,now,wrap);
 }
 /* ── 추가 채널 매출 업로드/입력 UI (홈) ── */
 function extToggle(){
