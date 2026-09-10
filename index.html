@@ -1506,6 +1506,7 @@ label{font-size:14px!important}
       <button onclick="mgCtDownloadPdf()" class="bg" style="padding:6px 16px;font-size:12px">📄 공문 PDF 다운로드</button>
       <span style="font-size:11px;color:#5b6675">금액은 마진계산 표에서 <b>VAT 제외</b>로, 기간은 맨 위 <b>행사기간</b> 칸에서 자동으로 들어갑니다</span>
       <span id="mgCtMsg" style="font-size:11px;color:#15803d;font-weight:600"></span>
+      <span id="mgCtSealBar" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto"></span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;background:#f5f3ff;border-bottom:1px solid #e1e6ee">
       <span style="font-size:12px;font-weight:700;color:#5b21b6">📎 행사약정서(KO COUPON CONTRACT)</span>
@@ -8243,6 +8244,7 @@ function renderDocPage(){
       var c=mgCt();
       if(c.to!==k.to){c.to=k.to;if(typeof saveMargin==="function")saveMargin();}
     }
+    if(typeof mgRenderSealBar==="function")mgRenderSealBar();
     if(typeof mgRenderContractPreview==="function")mgRenderContractPreview();
     body.innerHTML=box("🛒 "+k.name+" 공문",
       '<div style="font-size:12.5px;color:#5b6675;line-height:1.7">'
@@ -10176,7 +10178,7 @@ function mgCtSetSeal(dataUrl){
     if(dataUrl)localStorage.setItem("mgSealImg",dataUrl);
     else localStorage.removeItem("mgSealImg");
   }catch(e){alert("직인 이미지 저장에 실패했습니다(용량 초과일 수 있습니다).");return;}
-  mgRenderContractForm();mgRenderContractPreview();
+  mgRenderContractForm();mgRenderSealBar();mgRenderContractPreview();
 }
 function mgCtUploadSeal(input){
   var f=input.files&&input.files[0];input.value="";
@@ -10188,6 +10190,23 @@ function mgCtUploadSeal(input){
   r.readAsDataURL(f);
 }
 function mgCtClearSeal(){if(confirm("등록된 직인 이미지를 지울까요?"))mgCtSetSeal("");}
+/* 직인은 공문에 꼭 찍혀야 하는 것이라 **입력값을 접어 둬도 늘 보이게** 카드 머리에 둔다 */
+function mgRenderSealBar(){
+  var el=document.getElementById("mgCtSealBar");if(!el)return;
+  var seal=mgCtSeal();
+  var h='<span style="font-size:11.5px;color:#5b6675;font-weight:700">직인</span>';
+  if(seal){
+    h+='<img src="'+_escX(seal)+'" style="height:30px;width:auto;border:1px solid #e1e6ee;border-radius:5px;background:#fff">';
+    h+='<label style="cursor:pointer"><span class="bs" style="padding:4px 10px;font-size:11px;display:inline-block">변경</span>'
+      +'<input type="file" accept="image/*" style="display:none" onchange="mgCtUploadSeal(this)"></label>';
+    h+='<button onclick="mgCtClearSeal()" class="bs" style="padding:4px 10px;font-size:11px;color:#dc2626">삭제</button>';
+  }else{
+    h+='<span style="font-size:11.5px;color:#dc2626;font-weight:700">미등록 — 서명란이 비어 나갑니다</span>';
+    h+='<label style="cursor:pointer"><span class="bg" style="padding:5px 12px;font-size:11.5px;display:inline-block">📁 직인 등록</span>'
+      +'<input type="file" accept="image/*" style="display:none" onchange="mgCtUploadSeal(this)"></label>';
+  }
+  el.innerHTML=h;
+}
 
 function mgCtSet(k,v){var c=mgCt();c[k]=v;saveMargin();mgRenderContractPreview();}
 function mgCtSetItem(i,k,v){var c=mgCt();if(!c.items[i])return;c.items[i][k]=v;saveMargin();mgRenderContractPreview();}
@@ -10320,9 +10339,13 @@ function mgRenderContractForm(){
 /* ── 미리보기(=PDF로 나갈 실제 지면) ── */
 function _mgCtDocHtml(){
   var c=mgCt(),items=_mgCtItems(),seal=mgCtSeal(),pd=_mgCtPeriod();
-  var f='font-family:\'Batang\',\'바탕\',\'BatangChe\',serif';
+  /* **고정폭 글꼴(BatangChe)을 넣지 말 것** — 바탕이 없는 PC에서 그걸로 그려지면
+     영문·숫자·괄호·마침표까지 한글 한 칸 폭을 차지해 낱말 사이가 훤히 벌어진다.
+     비례 명조 → 고딕 순으로만 물러선다. */
+  var f='font-family:\'Batang\',\'바탕\',\'Nanum Myeongjo\',\'AppleMyungjo\',\'Malgun Gothic\',\'맑은 고딕\',serif';
   var h='<div id="mgCtPage1" style="width:210mm;min-height:297mm;box-sizing:border-box;background:#fff;'
-    +'margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,.12);color:#000;padding:18mm 20mm;'+f+'">';
+    +'margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,.12);color:#000;padding:18mm 20mm;'
+    +'letter-spacing:0;word-spacing:0;'+f+'">';
   h+='<div style="text-align:center;font-size:30px;font-weight:800;letter-spacing:1px;margin-bottom:16px">'+_escX(MG_CT_CO.name)+'</div>';
   h+='<div style="font-size:13.5px;margin-bottom:14px">'+_escX(MG_CT_CO.addr)+'</div>';
   h+='<div style="border-top:2.5px solid #000;margin-bottom:9px"></div>';
