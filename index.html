@@ -10167,9 +10167,16 @@ function _mgCtPeriod(){
   return {start:fmt(a),end:fmt(b)};
 }
 /* 판매처가 공문 제목의 '인라인/온라인 상품'을 정한다 */
+/* 공문에 적는 영문 상품명 — **브랜드는 붙여 쓴다**(`WHITE SANDS` → `WHITESANDS`).
+   약정서에는 띄어 오지만 공문 표기는 붙여 쓰는 것이 영업2팀 방식이다(한글 공문 원본도 `WhiteSands`). */
+function _mgCtEnName(v){
+  return String(v==null?"":v).replace(/WHITE[ \t]+SANDS/gi,function(m){
+    return /[a-z]/.test(m)?"WhiteSands":"WHITESANDS";
+  });
+}
 /* 제목 — 품목이 하나면 상품코드를 앞에 붙인다(약정서 공문 표기: `온라인 상품 694467 … 행사 진행건`) */
 function _mgCtTitle(c,items){
-  var t=String(c.titleEn||"").trim();
+  var t=_mgCtEnName(String(c.titleEn||"").trim());
   var no=(items&&items.length===1)?String(items[0].itemNo||""):"";
   if(no&&t.indexOf(no)<0)t=(no+" "+t).trim();
   return _mgCtChannelWord(c)+" 상품 "+t+" 행사 진행건";
@@ -10381,7 +10388,7 @@ function _mgCtDocHtml(){
   }else{
     items.forEach(function(v,i){
       if(i)h+='<div style="height:6px"></div><div style="padding-left:56px">';
-      h+=_escX(v.itemNo)+' “'+_escX(v.docName||c.titleEn||v.name||"")+'”';
+      h+=_escX(v.itemNo)+' “'+_escX(_mgCtEnName(v.docName||c.titleEn||v.name||""))+'”';
       h+='<div style="padding-left:14px">[ 쿠폰 '+v.coupon.toLocaleString()+'원 적용 (-vat), Vendor fund '
         +v.vendorFund.toLocaleString()+'원 (-vat), Costco Fund '+v.costcoFund.toLocaleString()+'원 (-vat) ]</div>';
       if(i)h+='</div>';
