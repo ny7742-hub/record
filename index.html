@@ -4843,7 +4843,12 @@ function _homeStoreAppend(view,now,wrap){
   var box=document.createElement("div");
   box.style.cssText="margin-top:16px;padding-top:14px;border-top:1px dashed #cfe0e5";
   var ttl=(view==="month")?"월별":(view==="week"?"주간":"누적");
-  box.innerHTML='<div style="font-size:13px;font-weight:800;color:#1b6e82;margin-bottom:8px">🏬 백화점 매장별 '+ttl+' 매출'
+  /* 주간은 **한 달치**만 보여준다 — 어느 달인지 제목에 적어 준다(위 채널 표의 ◀ ▶로 달을 옮긴다) */
+  if(view==="week"){
+    var _wy=homeWeekYm();
+    ttl="주간 매출 <span style=\"color:#0f5c6e\">"+(+_wy.slice(0,4))+"년 "+(+_wy.slice(5,7))+"월</span>";
+  }else ttl+=" 매출";
+  box.innerHTML='<div style="font-size:13px;font-weight:800;color:#1b6e82;margin-bottom:8px">🏬 백화점 매장별 '+ttl
     +'<span style="font-size:11px;font-weight:600;color:#5b6675;margin-left:6px">'
     +HOME_STORES.map(function(x){return x.lab;}).join(" · ")+' · EDI 기준</span></div>'
     +(view==="month"?_homeStoreMonthly(now):(view==="week"?_homeStoreWeekly():_homeStoreSum(now)));
@@ -4979,8 +4984,21 @@ function _homeStoreWeekly(){
       :rate(w.total,w.pyTotal,"전년 같은 주 실적이 없습니다");
     h+='</tr>';
   });
+  /* 그 달 합계 — 주는 달을 걸치므로 **주를 더하지 않고 그 달 날짜만** 다시 더한다 */
+  var mSum=HOME_STORES.map(function(x){return _storeMonth(x.re,Y,m);});
+  var mPrev=HOME_STORES.map(function(x){return _storeMonth(x.re,Y-1,m);});
+  var mTot=mSum.reduce(function(a,b){return a+b;},0),mpTot=mPrev.reduce(function(a,b){return a+b;},0);
+  h+='<tr class="ytd-total"><td>'+m+'월 합계</td>';
+  HOME_STORES.forEach(function(x,i){
+    h+='<td class="ytd-num" style="'+GB+'">'+_hsWon(mSum[i])+'</td>'
+      +'<td class="ytd-rate ytd-flat">–</td>'
+      +(mPrev[i]?_ytdRateCellS(mSum[i],mPrev[i]):'<td class="ytd-rate ytd-flat" title="전년 같은 달 자료가 없습니다">–</td>');
+  });
+  h+='<td class="ytd-num" style="'+GB+'">'+_hsWon(mTot)+'</td><td class="ytd-rate ytd-flat">–</td>'
+    +(mpTot?_ytdRateCellS(mTot,mpTot):'<td class="ytd-rate ytd-flat">–</td>')+'</tr>';
   h+='</tbody></table>'
     +'<div style="font-size:11px;color:#5b6675;margin-top:6px;line-height:1.6">주는 <b>월요일~일요일</b> 기준 · 매장별 일별매출의 <b>EDI</b> 칸을 더합니다.'
+    +'<br><b>'+m+'월 합계</b>는 주를 더한 값이 아니라 <b>그 달 날짜만</b> 다시 더한 값입니다(주가 달을 걸치기 때문) · 전년비는 전년 같은 달과 견줍니다.'
     +'<br><b>전년비</b>는 <b>364일(52주) 앞</b> 같은 요일 주와 견줍니다 — 그 주 자료가 없으면 <b>–</b>로 둡니다.'
     +'<br>진행중인 주는 오늘까지만 더하고 비교는 비웁니다.</div>';
   return h;
