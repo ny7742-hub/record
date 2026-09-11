@@ -5068,45 +5068,61 @@ function _homeWeekly(now,fromMon,n){
   }
   return {weeks:weeks,CH:CH,monthOnly:Object.keys(mOnly)};
 }
-/* 주간 표 — 고른 달에 걸치는 주들, 최신 주가 맨 위.
+/* 주간 표 — **올해 지나온 달을 모두** 보여준다(최신 달이 위).
+   달마다 그 주들을 늘어놓고 아래에 `N월 합계`를 붙이며, 주는 **월요일이 속한 달**로 묶어 한 번씩만 나온다.
    전주대비를 위해 한 주 앞을 더 계산하고 화면에는 안 그린다. */
+function _homeChMonthDaySum(chName,key,Y,m){
+  var mp=_chDayMap(chName,key,Y,m),v=0;
+  Object.keys(mp.days||{}).forEach(function(d){v+=mp.days[d];});
+  return v;
+}
 function _renderHomeYtdWeekly(now,wrap){
-  var ym=homeWeekYm(),Y=+ym.slice(0,4),m=+ym.slice(5,7);
-  var rg=_weeksOfMonth(Y,m);
-  var from=new Date(rg.from);from.setDate(from.getDate()-7);      /* 비교용 한 주 앞 */
-  var W=_homeWeekly(now,from,rg.n+1),CH=W.CH;
+  var Y=now.getFullYear(),M=now.getMonth()+1;
+  var jan=new Date(Y,0,1);
+  var mon=new Date(jan);mon.setDate(jan.getDate()-((jan.getDay()+6)%7));
+  var from=new Date(mon);from.setDate(mon.getDate()-7);          /* 비교용 한 주 앞 */
+  var nWk=Math.floor((now-from)/(7*86400000))+2;
+  var W=_homeWeekly(now,from,nWk),CH=W.CH;
   var won=function(n){return (n||n===0)?Number(n).toLocaleString():"";};
   var GB="border-left:2px solid #4d7f96";
   var md=function(d){return (d.getMonth()+1)+"/"+d.getDate();};
-  var nowYm=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
-  var h='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-   +'<button class="bs" style="padding:4px 11px;font-size:13px" onclick="shiftHomeWeekYm(-1)" title="이전 달">◀</button>'
-   +'<b style="font-size:14px;color:#1b6e82">'+Y+'년 '+m+'월</b>'
-   +'<button class="bs" style="padding:4px 11px;font-size:13px"'+(ym>=nowYm?' disabled':'')
-   +' onclick="shiftHomeWeekYm(1)" title="다음 달">▶</button>'
-   +(ym!==nowYm?'<button class="bs" style="padding:4px 11px;font-size:12px" onclick="setHomeWeekYm(\''+nowYm+'\')">이번 달</button>':'')
-   +'<span style="font-size:11.5px;color:#5b6675">그 달에 걸치는 주를 모두 보여줍니다</span></div>';
-  h+='<table class="ytd-tbl ytd-wtbl"><thead><tr><th style="min-width:118px">기간</th>';
+  var h='<table class="ytd-tbl ytd-wtbl"><thead><tr><th style="min-width:118px">기간</th>';
   CH.forEach(function(c){h+='<th style="'+GB+'">'+_esc(c[0])+'</th>';});
   h+='<th style="'+GB+';background:#dbe7ea">합계</th>'
    +'<th style="'+GB+'" title="바로 앞 주와 비교">전주대비</th></tr></thead><tbody>';
-  var all=W.weeks.slice().reverse();          /* 최신 → 과거, 맨 뒤가 비교용 여분 주 */
-  var rows=all.slice(0,all.length-1).filter(function(wk){return !wk.future;});
-  if(!rows.length)h+='<tr><td colspan="'+(CH.length+3)+'" style="text-align:center;color:#5b6675;padding:14px">아직 지나지 않은 달입니다.</td></tr>';
-  rows.forEach(function(wk,i){
-    var prev=all[all.indexOf(wk)+1];
-    h+='<tr'+(wk.cur?' class="ytd-cur"':'')+'>';
-    h+='<td class="ytd-mon" style="white-space:nowrap">'+md(wk.start)+'~'+md(wk.end)
-      +(wk.cur?' <span style="font-size:10px;color:#b45309;font-weight:700">진행중 '+wk.days+'일</span>':'')+'</td>';
-    CH.forEach(function(c){h+='<td class="ytd-num" style="'+GB+'">'+won(wk[c[0]])+'</td>';});
-    h+='<td class="ytd-num" style="'+GB+';color:#0f5c6e">'+won(wk.total)+'</td>';
-    h+=(wk.cur||!prev||!prev.total)
-      ? '<td class="ytd-rate ytd-flat" style="'+GB+'" title="'+(wk.cur?"진행중이라 비교하지 않습니다":"비교할 앞 주 실적이 없습니다")+'">–</td>'
-      : _ytdRateCellS(wk.total,prev.total).replace('<td class="ytd-rate','<td style="'+GB+'" class="ytd-rate');
-    h+='</tr>';
-  });
+  var any=false;
+  for(var m=M;m>=1;m--){
+    var idxs=[];
+    W.weeks.forEach(function(w,i){
+      if(w.future)return;
+      if(w.start.getFullYear()===Y&&w.start.getMonth()+1===m)idxs.push(i);
+    });
+    /* 그 달 합계 — 주가 달을 걸치므로 날짜로 다시 더한다(주간과 같은 일자 자료 기준) */
+    var mVals=CH.map(function(c){return _homeChMonthDaySum(c[0],c[1],Y,m);});
+    var mTot=mVals.reduce(function(a,b){return a+b;},0);
+    if(!idxs.length&&!mTot)continue;
+    any=true;
+    idxs.slice().reverse().forEach(function(i){
+      var wk=W.weeks[i],prev=W.weeks[i-1];
+      h+='<tr'+(wk.cur?' class="ytd-cur"':'')+'>';
+      h+='<td class="ytd-mon" style="white-space:nowrap">'+md(wk.start)+'~'+md(wk.end)
+        +(wk.cur?' <span style="font-size:10px;color:#b45309;font-weight:700">진행중 '+wk.days+'일</span>':'')+'</td>';
+      CH.forEach(function(c){h+='<td class="ytd-num" style="'+GB+'">'+won(wk[c[0]])+'</td>';});
+      h+='<td class="ytd-num" style="'+GB+';color:#0f5c6e">'+won(wk.total)+'</td>';
+      h+=(wk.cur||!prev||!prev.total)
+        ? '<td class="ytd-rate ytd-flat" style="'+GB+'" title="'+(wk.cur?"진행중이라 비교하지 않습니다":"비교할 앞 주 실적이 없습니다")+'">–</td>'
+        : _ytdRateCellS(wk.total,prev.total).replace('<td class="ytd-rate','<td style="'+GB+'" class="ytd-rate');
+      h+='</tr>';
+    });
+    h+='<tr class="ytd-total"><td>'+m+'월 합계</td>';
+    CH.forEach(function(c,j){h+='<td class="ytd-num" style="'+GB+'">'+won(mVals[j])+'</td>';});
+    h+='<td class="ytd-num" style="'+GB+'">'+won(mTot)+'</td>'
+      +'<td class="ytd-rate ytd-flat" style="'+GB+'">–</td></tr>';
+  }
+  if(!any)h+='<tr><td colspan="'+(CH.length+3)+'" style="text-align:center;color:#5b6675;padding:14px">표시할 주간 자료가 없습니다.</td></tr>';
   h+='</tbody></table>';
   h+='<div style="font-size:11px;color:#5b6675;margin-top:6px;line-height:1.6">단위: 원 · 주는 <b>월요일~일요일</b> 기준입니다.';
+  h+='<br>주는 <b>월요일이 속한 달</b>로 묶습니다 — <b>N월 합계</b>는 주를 더한 값이 아니라 <b>그 달 날짜만</b> 다시 더한 값입니다.';
   if(W.monthOnly.length)
     h+='<br><span style="color:#b45309;font-weight:700">⚠ '+_esc(W.monthOnly.join(" · "))
       +'는 이 기간에 월 단위 자료만 있어 주간으로 나눌 수 없습니다(0으로 표시).</span>';
@@ -5252,7 +5268,7 @@ function renderHomeYtd(now){
   for(var t=0;t<tabs.length;t++)tabs[t].classList.toggle("on",tabs[t].dataset.v===view);
   var titleEl=document.getElementById("homeYtdTitle");
   if(titleEl)titleEl.textContent=view==="month"?("📊 월별 매출 ("+Y+"년 1~"+M+"월)")
-    :(view==="week"?("📊 주간 매출 ("+(+homeWeekYm().slice(0,4))+"년 "+(+homeWeekYm().slice(5,7))+"월 · 월~일)"):("📊 연 누적 매출 (1~"+M+"월)"));
+    :(view==="week"?("📊 주간 매출 ("+Y+"년 1~"+M+"월 · 월~일)"):("📊 연 누적 매출 (1~"+M+"월)"));
   if(view==="month"){_renderHomeYtdMonthly(now,wrap);return _homeStoreAppend(view,now,wrap);}
   if(view==="week"){_renderHomeYtdWeekly(now,wrap);return _homeStoreAppend(view,now,wrap);}
   var cur=_homeYtdThisYear(now),prev=_homeYtdPrevYear(now);
