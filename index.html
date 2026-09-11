@@ -7998,12 +7998,12 @@ function renderOrder(){
   var wrap=document.getElementById("ordTableWrap");if(!wrap)return;
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  [['#',''],['매장',''],['상품명','min-width:300px'],['상품컬러코드','min-width:130px'],['수량',''],['창고재고',''],['상품코드',''],['수령인','min-width:90px'],['받는분연락처','min-width:120px'],['주소','min-width:240px'],['배송메세지','min-width:130px'],['주문번호','min-width:120px'],['삭제','']].forEach(function(c){
+  [['#',''],['매장',''],['상품명','min-width:300px'],['상품컬러코드','min-width:130px'],['수량',''],['결제금액',''],['창고재고',''],['상품코드',''],['수령인','min-width:90px'],['받는분연락처','min-width:120px'],['주소','min-width:240px'],['배송메세지','min-width:130px'],['주문번호','min-width:120px'],['삭제','']].forEach(function(c){
     h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
   if(!orderDB.rows.length){
-    h+='<tr><td colspan="13" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
+    h+='<tr><td colspan="14" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 또는 상품 검색으로 발주 상품을 등록하세요</td></tr>';
   }
   var _ordEd=function(i,key,val,style){
     return '<td contenteditable="true" onblur="ordEdit('+i+',&quot;'+key+'&quot;,this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;'+(style||"")+'">'+_escX(val||"")+'</td>';
@@ -8018,6 +8018,7 @@ function renderOrder(){
       +'<span onmousedown="ordFillStart(event,'+i+')" title="드래그하면 이 상품명·코드를 위/아래 행에 복사합니다" style="position:absolute;right:2px;bottom:2px;width:9px;height:9px;background:#2563eb;border:1px solid #fff;cursor:crosshair;z-index:1"></span></td>';
     h+='<td contenteditable="true" onblur="ordEdit('+i+',\'code\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;font-family:monospace">'+_escX(r.code||"")+'</td>';
     h+='<td contenteditable="true" onblur="ordEdit('+i+',\'qty\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;text-align:right">'+_escX(r.qty||"")+'</td>';
+    h+='<td contenteditable="true" onblur="ordEdit('+i+',&quot;price&quot;,this.textContent.trim())"'+' title="선물세트는 개별등록가가 들어갑니다" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;text-align:right;color:'+(r.price?"#5b21b6;font-weight:700":"#1f2937")+'">'+_escX(r.price?Number(String(r.price).replace(/[^0-9]/g,"")||0).toLocaleString():"")+'</td>';
     h+=whCell(r.code,r.qty);
     h+='<td id="ordPcode_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;color:#6366f1;font-weight:600;font-family:monospace;background:#f8fafc">'+_escX((r.code||"").slice(0,8))+'</td>';
     h+=_ordEd(i,"recv",r.recv,_need?"background:#fff7ed;color:#b45309":"");
@@ -8076,10 +8077,135 @@ function ordFillStart(e,i){
 }
 /* 판매일보식 2단계 검색: 입력→상품명 칩, Enter→색상 결과 나열, Enter→추가 */
 var _ordMatched=[], _ordChips=[], _ordChipSel=-1, _ordResults=[], _ordResSel=-1, _ordStage="chips";
+/* ── 선물세트 MD 개별등록가 (2026-09 영업2팀) ──
+   수기발주 검색창에 `39`·`49`를 넣으면 그 세트가 카드로 뜨고, 누르면 구성품 네 줄이 한 번에 들어간다.
+   금액은 **개별등록가**로 넣는다 — 세트가로 넣으면 정산이 어긋난다.
+   **구성품 여덟 가지가 모두 색이 여러 개**라 카드 안에 색상 드롭다운을 둔다 —
+   자동으로 첫 색을 고르면 엉뚱한 코드가 발주서에 나간다.
+   `49 핑크`처럼 검색어에 색을 붙이면 우양산 색이 미리 골라진다
+   (이리스 핑크=파우더핑크 · 블루=로열블루 · 그린=그린빈).
+   색이 정확히 하나만 걸릴 때만 미리 고른다 — 크로사 `핑크`는 `(핑크&크림)베이지`와
+   `(인디)핑크&베리` 둘이라 비워 두고 직접 고르게 한다. */
+var GIFT_SETS=[
+  {key:"39",price:39000,items:[
+    {find:"크로사",label:"600AIR 우양산",base:49000,reg:21000,colorable:true},
+    {find:"레브르",label:"레브르",base:9000,reg:3600},
+    {find:"아다나",label:"아다나",base:15000,reg:6400},
+    {find:"메르신",label:"메르신",base:19000,reg:8000}]},
+  {key:"49",price:49000,items:[
+    {find:"이리스",label:"650F 우양산",base:59000,reg:22000,colorable:true},
+    {find:"테리오",label:"테리오",base:39000,reg:14500},
+    {find:"린다우",label:"린다우",base:15000,reg:5500},
+    {find:"베니아",label:"베니아",base:19000,reg:7000}]}
+];
+function _gsRows(){
+  if(typeof DB!=="undefined"&&DB.length)
+    return DB.map(function(d){return {name:d["상품명"]||"",color:d["칼라명"]||"",sku:String(d["자사코드"]||"").trim()};});
+  if(typeof DEFAULT_DATA!=="undefined")
+    return DEFAULT_DATA.map(function(r){return {name:r[2]||"",color:r[4]||"",sku:String(r[7]||"").trim()};});
+  return [];
+}
+/* 괄호 안은 색 계열 수식어라 색 이름이 아니다 — `(인디)핑크&베리`의 핵심은 `핑크베리` */
+function _gsKey(v){return String(v||"").replace(/\([^)]*\)/g,"").replace(/[\s&\u00b7\/]/g,"");}
+/* 구성품 한 줄 → 색상 후보 전부 + 미리 고를 sku(없으면 "") */
+function _gsResolve(it,colorWord){
+  var cand=_gsRows().filter(function(x){return x.name.indexOf(it.find)>=0&&x.sku;});
+  var pick="";
+  if(colorWord&&cand.length){
+    var w=_gsKey(colorWord);
+    var hit=cand.filter(function(x){return _gsKey(x.color).indexOf(w)>=0;});
+    if(hit.length===1)pick=hit[0].sku;                 /* 둘 이상이면 비워 둔다 */
+  }
+  if(!pick&&cand.length===1)pick=cand[0].sku;
+  return {cands:cand,sku:pick,base:(cand[0]||{name:it.label}).name};
+}
+var _ordSets=[];
+function _ordFindSets(q){
+  var t=String(q||"").trim().split(/\s+/);
+  var key=t[0].replace(/[^0-9]/g,"");
+  if(!key)return [];
+  var color=t.slice(1).join(" ");
+  var out=[];
+  GIFT_SETS.forEach(function(g){
+    if(g.key!==key)return;
+    out.push({set:g,color:color,items:g.items.map(function(it){
+      var r=_gsResolve(it,it.colorable?color:"");
+      return {it:it,cands:r.cands,sku:r.sku,base:r.base};
+    })});
+  });
+  return out;
+}
+function _gsPick(gi,ii,sku){
+  var g=_ordSets[gi];if(!g||!g.items[ii])return;
+  g.items[ii].sku=sku;
+  var td=document.getElementById("gsWarn_"+gi);
+  if(td)td.textContent=_gsLeft(g)?("색상 "+_gsLeft(g)+"줄 남음"):"";
+}
+function _gsLeft(g){return g.items.filter(function(x){return !x.sku;}).length;}
+function _gsCandOf(x){
+  for(var i=0;i<x.cands.length;i++)if(x.cands[i].sku===x.sku)return x.cands[i];
+  return null;
+}
+function _gsCardHtml(){
+  if(!_ordSets.length)return "";
+  var h="";
+  _ordSets.forEach(function(g,gi){
+    var tot=g.items.reduce(function(a,b){return a+b.it.reg;},0);
+    h+='<div style="border:1.5px solid #7c3aed;background:#f5f3ff;border-radius:10px;padding:8px 10px;margin-bottom:6px">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">'
+      +'<b style="font-size:13px;color:#5b21b6">🎁 선물세트 '+Number(g.set.price).toLocaleString()+'원</b>'
+      +'<span style="font-size:11px;color:#5b6675">구성품 '+g.items.length+'종 · 개별등록가 합계 '+tot.toLocaleString()+'원</span>'
+      +'<span id="gsWarn_'+gi+'" style="font-size:11px;color:#dc2626;font-weight:700">'
+      +(_gsLeft(g)?("색상 "+_gsLeft(g)+"줄 남음"):"")+'</span>'
+      +'<button type="button" onclick="ordAddSet('+gi+')" style="margin-left:auto;background:#7c3aed;border:0;color:#fff;'
+      +'border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;padding:5px 11px">＋ 발주서에 추가</button></div>';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:11.5px">';
+    g.items.forEach(function(x,ii){
+      h+='<tr><td style="padding:2px 4px;color:#334155;white-space:nowrap">'+_escX(x.it.label)+'</td>'
+        +'<td style="padding:2px 4px;color:#5b6675">'+_escX(x.base)+'</td>'
+        +'<td style="padding:2px 4px">';
+      if(x.cands.length){
+        h+='<select onchange="_gsPick('+gi+','+ii+',this.value)" style="font-size:11.5px;padding:2px 4px;'
+          +'border:1px solid '+(x.sku?"#c4b5fd":"#fca5a5")+';border-radius:5px;background:#fff;max-width:150px">'
+          +'<option value="">색상 선택…</option>';
+        x.cands.forEach(function(c){
+          h+='<option value="'+_escX(c.sku)+'"'+(c.sku===x.sku?' selected':'')+'>'+_escX(c.color)+'</option>';
+        });
+        h+='</select>';
+      }else h+='<span style="color:#dc2626;font-weight:700">상품데이터에 없음</span>';
+      h+='</td>'
+        +'<td style="padding:2px 4px;text-align:right;color:#5b6675;white-space:nowrap">기본 '+x.it.base.toLocaleString()+'</td>'
+        +'<td style="padding:2px 4px;text-align:right;font-weight:700;color:#5b21b6;white-space:nowrap">등록 '+x.it.reg.toLocaleString()+'</td></tr>';
+    });
+    h+='</table></div>';
+  });
+  return h;
+}
+/* 색을 안 고른 줄도 **막지 않고** 코드만 비워 넣는다 — 표에서 채워 넣으면 된다 */
+function ordAddSet(gi){
+  var g=_ordSets[gi];if(!g)return;
+  var sel=document.getElementById("ordStore");
+  var oc=sel?sel.value:"",rc=_ordRecvOf(oc);
+  g.items.forEach(function(x){
+    var c=_gsCandOf(x);
+    orderDB.rows.push({store:oc,name:c?(c.name+" "+c.color).trim():x.base,code:c?c.sku:"",
+      qty:"1",price:String(x.it.reg),recv:rc.recv,tel:rc.tel,addr:rc.addr,orderNo:""});
+  });
+  saveOrder();renderOrder();
+  var w=document.getElementById("ordTableWrap");if(w)w.scrollTop=w.scrollHeight;
+  var left=_gsLeft(g);
+  var m=document.getElementById("ordMsg");
+  if(m){
+    m.textContent="✅ 선물세트 "+Number(g.set.price).toLocaleString()+"원 "+g.items.length+"줄 추가"
+      +(left?(" · ❗색상을 안 고른 "+left+"줄은 상품컬러코드를 직접 채워주세요"):"");
+    clearTimeout(m._t);m._t=setTimeout(function(){m.textContent="";},5000);
+  }
+}
 function ordSearchInput(){
   var q=(document.getElementById("ordSearch").value||"").trim();
   var box=document.getElementById("ordSearchResults");if(!box)return;
-  if(!q){box.innerHTML="";_ordMatched=[];_ordChips=[];_ordResults=[];_ordChipSel=-1;_ordResSel=-1;_ordStage="chips";return;}
+  if(!q){box.innerHTML="";_ordMatched=[];_ordChips=[];_ordResults=[];_ordChipSel=-1;_ordResSel=-1;_ordStage="chips";_ordSets=[];return;}
+  _ordSets=_ordFindSets(q);
   var terms=q.split(/\s+/);
   _ordMatched=DB.filter(function(d){var c=norm(d["상품명"])+norm(d["칼라명"]);return terms.every(function(t){return c.indexOf(norm(t))>=0;});});
   var seen={},chips=[];
@@ -8090,8 +8216,12 @@ function ordSearchInput(){
 }
 function ordRenderSearch(){
   var box=document.getElementById("ordSearchResults");if(!box)return;
-  if(!_ordMatched.length){box.innerHTML='<div style="padding:6px;color:#5b6675;font-size:12px">검색 결과 없음</div>';return;}
-  var h='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:5px">';
+  if(!_ordMatched.length){
+    box.innerHTML=_gsCardHtml()||'<div style="padding:6px;color:#5b6675;font-size:12px">검색 결과 없음</div>';
+    return;
+  }
+  var h=_gsCardHtml();
+  h+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:5px">';
   var allOn=(_ordChipSel<0);
   h+='<span onclick="ordPickChip(-1)" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid '+(allOn?"#2563eb":"#cbd5e1")+';background:'+(allOn?"#dbeafe":"#fff")+';color:'+(allOn?"#1e40af":"#334155")+';font-weight:'+(allOn?"700":"500")+'">전체('+_ordMatched.length+')</span>';
   _ordChips.forEach(function(nm,k){
@@ -8227,6 +8357,7 @@ function ordDownload(){
     row[9]=(r.addr!==undefined)?(r.addr||""):(st.addr||"");   /* J 주소 */
     row[11]=r.name||"";              /* L 상품명 */
     row[12]=r.qty||"";               /* M 수량 */
+    row[13]=Number(String(r.price||"").replace(/[^0-9]/g,""))||"";   /* N 결제금액(선물세트 개별등록가) */
     row[17]=(r.code||"").slice(0,8); /* R 상품코드 */
     row[19]=r.code||"";              /* T 상품컬러코드 */
     aoa.push(row);
