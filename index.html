@@ -13155,10 +13155,14 @@ var CC_PDF_CODE_MAP={
   "690567":{base:"WKW40T9H",name:"[화이트샌즈] 25FW 울 헤어 이어머프 캡 오비크"},
   "690568":{base:"WKW21N9S",name:"[화이트샌즈] 25FW 알파카 니트 귀달이퍼 비니 아르고"},
   "690570":{base:"GKW47K9C",name:"[화이트샌즈 그린라벨] 25FW 경량 패딩 버킷 햇+ 넥워머 SET 헬로나"},
-  "691716":{base:"WLW44H5S",name:"울 니트 보닛햇 바르셀"},
+  "691716":{base:"WLW44H5S",name:"울 니트 보닛햇 바르셀",colors:{BG:"BE"}},
   "696151":{base:"GLM104Z9Z",name:"WHITE SANDS 850 UV Protection Parasol (장우산 850)"}
 };
 var CC_PDF_COLOR_MAP={LG:"LGY",SK:"SN",WT:"WH",BK:"BK",BE:"BE",WH:"WH",SGN:"SGN",DG:"DGE"};
+/* 상품마다 다른 컬러 표기는 CC_PDF_CODE_MAP 항목의 `colors`에 둔다 — 공용 표보다 먼저 본다.
+   바르셀 `691716-BG`=베이지(자사 BE)지만, 자사에는 `BG`를 실제 색으로 쓰는 상품(WHFW629DBGX 등)이 있어
+   공용 표에 BG→BE를 넣으면 그 상품들이 깨진다. */
+function _ccPdfColor(cm,c){return (cm&&cm.colors&&cm.colors[c])||CC_PDF_COLOR_MAP[c]||c;}
 /* 아이템 목록 영역의 각 줄은 "상품명 수량 상품코드-컬러" 형태(코드가 맨 뒤)로 나온다.
    예: "화이트샌즈 자외선 쿨링 이어 마스크 2개 - 블랙 1 693953-BK" */
 function _ccPdfExtractItems(itemLines){
@@ -13262,7 +13266,7 @@ function _ccPdfParsePageLines(lines){
   var items=_ccPdfExtractItems(lines.slice(itemStart,itemEnd));
   return items.map(function(it){
     var cm=CC_PDF_CODE_MAP[it.code];
-    var mappedColor=CC_PDF_COLOR_MAP[it.color]||it.color;
+    var mappedColor=_ccPdfColor(cm,it.color);
     var qty=it.qty*((cm&&cm.setQty)||1);
     var dd=cm?_ccPdfResolveFromDefaultData(cm.base,mappedColor):null;
     if(!dd&&cm)dd=_ccPdfResolveByColorName(cm.base,it.name); /* 칼라코드 불일치 시 칼라명으로 재시도 */
@@ -13942,7 +13946,7 @@ function _ccPdfSalesRowsFromTarget(){
     var cm=CC_PDF_CODE_MAP[mm[1]];
     if(!cm)continue;
     var ccColor=mm[2].toUpperCase();
-    var mapped=CC_PDF_COLOR_MAP[ccColor]||ccColor;
+    var mapped=_ccPdfColor(cm,ccColor);
     var q=Number(String(row[cQty]==null?"":row[cQty]).replace(/[^0-9.-]/g,""))||0;
     if(!q)continue;
     var desc=cDesc>=0?String(row[cDesc]==null?"":row[cDesc]).trim():"";
