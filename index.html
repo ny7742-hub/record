@@ -615,6 +615,7 @@ label{font-size:14px!important}
       <button class="tab-btn" id="tab-onlinesale" onclick="switchTab('onlinesale')">🧾 온라인 판매등록</button>
       <button class="tab-btn" id="tab-hsreturn" onclick="switchTab('hsreturn')">↩ 반품등록</button>
       <button class="tab-btn" id="tab-unship" onclick="switchTab('unship')">📮 미출고 반영</button>
+      <button class="tab-btn" id="tab-invcount" onclick="switchTab('invcount')">📦 송장건수</button>
     </div>
   </div>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산 · 공문</button>
@@ -1797,6 +1798,24 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-unship -->
+
+<div id="page-invcount" style="display:none">
+<div class="main" style="max-width:1100px;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="sec-title" style="margin:0;font-size:13px">📦 송장건수</div>
+      <span style="font-size:12px;color:#5b6675">물류에서 <b>운송장번호가 채워져</b> 돌아온 도매발주서를 올리면 송장이 몇 건인지 셉니다</span>
+      <button class="bs" style="padding:5px 12px;font-size:12px;color:#dc2626;margin-left:auto" onclick="icClear()">초기화</button>
+    </div>
+    <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap">
+      <label class="bs" style="cursor:pointer;text-align:center;font-size:13px;font-weight:700;padding:10px 18px;display:flex;align-items:center">📁 도매발주서<input type="file" id="icIn" accept=".xlsx,.xls" style="display:none" onchange="icLoad(this.files[0]);this.value=&quot;&quot;"></label>
+      <div id="icDrop" class="drop-zone" style="flex:1;min-width:220px;border-radius:8px;padding:12px;font-size:12px;font-weight:700">📂 여기로 끌어오기</div>
+    </div>
+    <div id="icMsg" style="font-size:11.5px;color:#15803d;font-weight:700;margin-top:6px"></div>
+  </div>
+  <div id="icResult"></div>
+</div>
+</div><!-- /page-invcount -->
 
 <div id="page-cxorder" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
@@ -5856,6 +5875,10 @@ function switchTab(tab){
   document.getElementById("page-tmorder").style.display=tab==="tmorder"?"block":"none";
   if(tab==="tmorder")renderTmOrder();
   document.getElementById("page-unship").style.display=tab==="unship"?"block":"none";
+  document.getElementById("page-invcount").style.display=tab==="invcount"?"block":"none";
+  document.getElementById("tab-unship").classList.toggle("active",tab==="unship");
+  document.getElementById("tab-invcount").classList.toggle("active",tab==="invcount");
+  if(tab==="invcount")icRender();
   if(tab==="margin")renderDocPage();   /* 공문 작성은 마진계산과 한 화면이다 */
   if(tab==="unship"){
     var _ud=document.getElementById("usDate");
@@ -8611,6 +8634,142 @@ function renderDocPage(){
       +'롯데·현대·신세계 공문을 여기서 만듭니다.</div>'+todo);
   }
 }
+
+/* ── 송장건수 (등록 탭) ──
+   물류에서 운송장번호가 채워져 돌아온 도매발주서(27열)를 올리면 **운송장번호 개수**를 센다.
+   한 매장에 품목이 여러 줄이어도 운송장이 같으면 **송장 1건**이다(0911 발주서: 청량리 21줄·센텀 6줄 → 2건).
+   **시트가 여러 장이면 모두 읽고**(`매장주소록`은 건너뜀), 한 칸에 운송장이 여러 개
+   (`600…773, 600…774`)면 따로 센다. 운송장이 빈 줄은 세지 않고 `운송장 없음`으로 알린다.
+   자료는 한 번 보고 마는 것이라 저장하지 않는다. */
+var icData=null;
+function icClear(){icData=null;var m=document.getElementById("icMsg");if(m)m.textContent="";icRender();}
+function _icInvs(v){
+  return String(v==null?"":v).split(/[,\/\s;|]+/).map(function(t){return t.replace(/[^0-9]/g,"");})
+    .filter(function(t){return t.length>=8;});
+}
+function icLoad(file){
+  if(!file)return;
+  var msg=document.getElementById("icMsg");if(msg){msg.style.color="#15803d";msg.textContent="불러오는 중...";}
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var stores={},order=[],inv={},noInv=0,lines=0,qty=0,sheets=[];
+      wb.SheetNames.forEach(function(sn){
+        if(/주소록/.test(sn))return;
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:""});
+        var hRow=-1;
+        for(var r=0;r<Math.min(8,rows.length);r++){
+          var line=(rows[r]||[]).map(function(c){return String(c).replace(/\s/g,"");});
+          if(line.indexOf("운송장번호")>=0&&line.indexOf("상품명")>=0){hRow=r;break;}
+        }
+        if(hRow<0)return;
+        sheets.push(sn);
+        var H=rows[hRow].map(function(c){return String(c).replace(/\s/g,"");});
+        var iInv=H.indexOf("운송장번호"),iName=H.indexOf("상품명"),iQty=H.indexOf("수량"),
+            iCode=H.indexOf("주문번호(쇼핑몰)"),iShop=H.indexOf("쇼핑몰"),iRecv=H.indexOf("수령인"),iCar=H.indexOf("택배사");
+        for(var r2=hRow+1;r2<rows.length;r2++){
+          var row=rows[r2]||[];
+          if(!String(row[iName]||"").trim())continue;
+          var code=iCode>=0?String(row[iCode]||"").trim():"";
+          var shop=iShop>=0?String(row[iShop]||"").trim():"";
+          var key=code+"|"+shop;
+          if(!stores[key]){stores[key]={code:code,shop:shop,recv:"",car:"",invs:{},lines:0,qty:0,noInv:0};order.push(key);}
+          var st=stores[key];
+          if(iRecv>=0&&!st.recv)st.recv=String(row[iRecv]||"").trim();
+          if(iCar>=0&&!st.car)st.car=String(row[iCar]||"").trim();
+          var q=iQty>=0?(Number(String(row[iQty]).replace(/[^0-9.-]/g,""))||0):0;
+          st.lines++;st.qty+=q;lines++;qty+=q;
+          var ivs=_icInvs(row[iInv]);
+          if(!ivs.length){st.noInv++;noInv++;}
+          ivs.forEach(function(t){st.invs[t]=1;inv[t]=1;});
+        }
+      });
+      if(!sheets.length)throw new Error("도매발주서 형식이 아닙니다 (운송장번호·상품명 열이 필요합니다)");
+      icData={name:file.name,sheets:sheets,stores:order.map(function(k){return stores[k];}),
+        total:Object.keys(inv).length,lines:lines,qty:qty,noInv:noInv};
+      if(msg)msg.textContent="✔ "+file.name+" · "+lines+"줄";
+      icRender();
+    }catch(err){
+      if(msg){msg.style.color="#dc2626";msg.textContent="❌ "+err.message;}
+    }
+  };
+  rd.readAsArrayBuffer(file);
+}
+function _icMd(){
+  var m=icData&&icData.name.match(/\((\d{2})(\d{2})\)/);
+  if(m)return (+m[1])+"/"+(+m[2]);
+  var d=new Date();return (d.getMonth()+1)+"/"+d.getDate();
+}
+function _icCopyText(){
+  if(!icData)return "";
+  var parts=icData.stores.filter(function(s){return Object.keys(s.invs).length;})
+    .map(function(s){return (s.shop||s.code||"매장없음")+" "+Object.keys(s.invs).length+"건";});
+  return _icMd()+" 송장 "+icData.total+"건 ("+parts.join(" · ")+")";
+}
+function icCopy(){
+  var t=_icCopyText();if(!t)return;
+  var done=function(){var b=document.getElementById("icCopyBtn");if(b){b.textContent="✔ 복사됨";setTimeout(function(){b.textContent="📋 복사";},1500);}};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,function(){prompt("복사하세요",t);});
+  else prompt("복사하세요",t);
+}
+function icRender(){
+  var box=document.getElementById("icResult");if(!box)return;
+  if(!icData){
+    box.innerHTML='<div class="card" style="padding:30px;text-align:center;color:#5b6675;font-size:13px">도매발주서를 올리면 송장건수가 나옵니다.</div>';
+    return;
+  }
+  var D=icData,TD="border:1px solid #e1e6ee;padding:7px 10px;";
+  var h='<div class="card" style="padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:22px;flex-wrap:wrap">'
+    +'<div><div style="font-size:12px;color:#5b6675;font-weight:700">총 송장건수</div>'
+    +'<div style="font-size:34px;font-weight:800;color:#0f5c6e;line-height:1.1">'+D.total+'<span style="font-size:16px;margin-left:3px">건</span></div></div>'
+    +'<div style="font-size:13px;color:#334155;line-height:1.8">매장 <b>'+D.stores.length+'</b>곳 · 품목 <b>'+D.lines+'</b>줄 · 수량 <b>'+D.qty.toLocaleString()+'</b>개'
+    +(D.sheets.length>1?'<br><span style="color:#5b6675">시트 '+D.sheets.length+'장: '+_escX(D.sheets.join(", "))+'</span>':'')+'</div>'
+    +(D.noInv?'<div style="font-size:12.5px;color:#dc2626;font-weight:700">⚠ 운송장 없음 '+D.noInv+'줄 — 세지 않았습니다</div>':'')
+    +'<div style="margin-left:auto;display:flex;align-items:center;gap:8px">'
+    +'<code id="icCopyText" style="font-size:12.5px;background:#f1f5f9;border:1px solid #e1e6ee;border-radius:6px;padding:5px 9px;color:#1f2937">'+_escX(_icCopyText())+'</code>'
+    +'<button id="icCopyBtn" class="bs" style="padding:5px 12px;font-size:12px" onclick="icCopy()">📋 복사</button></div></div>';
+  h+='<div class="card" style="padding:0;overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:13px">'
+    +'<thead><tr style="background:#e3eeee;color:#1b6e82">'
+    +['매장','매장코드','택배사','운송장번호','송장건수','품목 줄','수량'].map(function(t){return '<th style="'+TD+'font-weight:700;white-space:nowrap">'+t+'</th>';}).join("")
+    +'</tr></thead><tbody>';
+  D.stores.forEach(function(s){
+    var ivs=Object.keys(s.invs);
+    h+='<tr><td style="'+TD+'font-weight:700;color:#1f2937">'+_escX(s.shop||"(매장명 없음)")+'</td>'
+      +'<td style="'+TD+'font-family:monospace;color:#6366f1;text-align:center">'+_escX(s.code)+'</td>'
+      +'<td style="'+TD+'color:#475569;text-align:center">'+_escX(s.car)+'</td>'
+      +'<td style="'+TD+'font-family:monospace;color:#334155;line-height:1.6">'+(ivs.length?ivs.map(_escX).join("<br>"):'<span style="color:#dc2626;font-weight:700">없음</span>')
+      +(s.noInv&&ivs.length?'<br><span style="color:#dc2626;font-size:11px;font-weight:700">운송장 없는 줄 '+s.noInv+'</span>':'')+'</td>'
+      +'<td style="'+TD+'text-align:center;font-size:16px;font-weight:800;color:#0f5c6e">'+ivs.length+'</td>'
+      +'<td style="'+TD+'text-align:right;color:#475569">'+s.lines+'</td>'
+      +'<td style="'+TD+'text-align:right;color:#475569">'+s.qty.toLocaleString()+'</td></tr>';
+  });
+  h+='<tr style="background:#f8fafc;font-weight:800"><td style="'+TD+'" colspan="4">합계</td>'
+    +'<td style="'+TD+'text-align:center;font-size:16px;color:#0f5c6e">'+D.total+'</td>'
+    +'<td style="'+TD+'text-align:right">'+D.lines+'</td><td style="'+TD+'text-align:right">'+D.qty.toLocaleString()+'</td></tr>';
+  h+='</tbody></table></div>'
+    +'<div style="font-size:11.5px;color:#5b6675;margin-top:6px;line-height:1.6">같은 운송장번호는 품목이 여러 줄이어도 <b>1건</b>으로 셉니다 · 합계는 매장이 달라도 같은 운송장이면 한 번만 셉니다.</div>';
+  box.innerHTML=h;
+}
+(function(){
+  document.addEventListener("dragover",function(e){
+    var z=e.target&&e.target.closest&&e.target.closest("#icDrop");
+    if(!z)return;e.preventDefault();z.classList.add("dragover");
+  });
+  document.addEventListener("dragleave",function(e){
+    var z=e.target&&e.target.closest&&e.target.closest("#icDrop");
+    if(z)z.classList.remove("dragover");
+  });
+  document.addEventListener("drop",function(e){
+    var z=e.target&&e.target.closest&&e.target.closest("#icDrop");
+    if(!z)return;e.preventDefault();z.classList.remove("dragover");
+    icLoad((e.dataTransfer.files||[])[0]);
+  });
+  document.addEventListener("click",function(e){
+    var z=e.target&&e.target.closest&&e.target.closest("#icDrop");
+    if(z)document.getElementById("icIn").click();
+  });
+})();
 
 /* ── 미출고 반영 ──
    물류에서 **운송장번호가 채워져** 돌아온 도매발주서(27열)와, 날짜별 시트로 오는 `미출고` 엑셀을
