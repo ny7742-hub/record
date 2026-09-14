@@ -1810,7 +1810,7 @@ label{font-size:14px!important}
       <button class="bs" style="padding:5px 12px;font-size:12px;color:#dc2626" onclick="icClear()">초기화</button>
     </div>
     <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap">
-      <label class="bs" style="cursor:pointer;text-align:center;font-size:13px;font-weight:700;padding:10px 18px;display:flex;align-items:center">📁 도매발주서 (여러 개 선택)<input type="file" id="icIn" accept=".xlsx,.xls" multiple style="display:none" onchange="icLoadFiles(this.files);this.value=&quot;&quot;"></label>
+      <label class="bs" style="cursor:pointer;text-align:center;font-size:13px;font-weight:700;padding:10px 18px;display:flex;align-items:center">📁 도매발주서 · 코스트코 (여러 개 선택)<input type="file" id="icIn" accept=".xlsx,.xls" multiple style="display:none" onchange="icLoadFiles(this.files);this.value=&quot;&quot;"></label>
       <div id="icDrop" class="drop-zone" style="flex:1;min-width:220px;border-radius:8px;padding:12px;font-size:12px;font-weight:700">📂 여기로 여러 파일 끌어오기</div>
     </div>
     <div id="icMsg" style="font-size:11.5px;color:#15803d;font-weight:700;margin-top:6px;line-height:1.6"></div>
@@ -8676,12 +8676,20 @@ function _icInvs(v){
   return String(v==null?"":v).split(/[,\/\s;|]+/).map(function(t){return t.replace(/[^0-9]/g,"");})
     .filter(function(t){return t.length>=8;});
 }
-/* 파일명 `(0911)` → 0911, 없으면 파일 수정일 */
+/* 파일명 `(0911)` → 0911 · DSS `PurchaseOrderDetail_09_03_2026` → 0903, 없으면 파일 수정일 */
 function _icMmdd(file){
-  var m=String(file.name||"").match(/\((\d{2})(\d{2})\)/);
+  var nm=String(file.name||"");
+  var m=nm.match(/\((\d{2})(\d{2})\)/);
   if(m)return m[1]+m[2];
+  var m2=nm.match(/(\d{2})_(\d{2})_(20\d{2})/);
+  if(m2)return m2[1]+m2[2];
   var d=file.lastModified?new Date(file.lastModified):new Date();
   return String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
+}
+function _icYear(file){
+  var m2=String(file.name||"").match(/\d{2}_\d{2}_(20\d{2})/);
+  if(m2)return +m2[1];
+  return new Date().getFullYear();
 }
 function _icMd(mmdd){return mmdd?((+mmdd.slice(0,2))+"/"+(+mmdd.slice(2,4))):"";}
 function _icReadFile(file){
@@ -8693,12 +8701,31 @@ function _icReadFile(file){
   });
 }
 /* 파일 한 개 → 운송장 줄 목록 */
-function _icParse(buf){
+/* 코스트코 줄인지 — 코스트코 도매발주서는 쇼핑몰 칸이 `코스트코 온라인`이고 파일명에도 `코스트코`가 붙는다 */
+function _icKindOf(shop,fileName){return (/코스트코/.test(shop)||/코스트코/.test(fileName||""))?"cc":"ws";}
+function _icParse(buf,fileName){
   var wb=XLSX.read(buf,{type:"array"});
   var out=[],noInv=0,lines=0,qty=0,sheets=0;
   wb.SheetNames.forEach(function(sn){
     if(/주소록/.test(sn))return;
     var rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:""});
+    /* 코스트코 DSS Export(PurchaseOrderDetail): 1행 표시헤더 · 2행 필드경로 · 3행부터 데이터, 송장번호는 trackingNo 열 */
+    var h0=(rows[0]||[]).map(function(c){return String(c).trim();});
+    var iTr=h0.indexOf("trackingNo");
+    if(iTr>=0&&h0.indexOf("customerOrder")>=0){
+      sheets++;
+      var iQ=h0.indexOf("quantity");
+      for(var d=2;d<rows.length;d++){
+        var rw=rows[d]||[];
+        if(!String(rw[h0.indexOf("customerOrder")]||"").trim())continue;
+        var qq=iQ>=0?(Number(String(rw[iQ]).replace(/[^0-9.-]/g,""))||0):0;
+        lines++;qty+=qq;
+        var tv=_icInvs(rw[iTr]);
+        if(!tv.length){noInv++;continue;}
+        tv.forEach(function(t){out.push({inv:t,code:"",shop:"코스트코 온라인",car:"",qty:qq,kind:"cc"});});
+      }
+      return;
+    }
     var hRow=-1;
     for(var r=0;r<Math.min(8,rows.length);r++){
       var line=(rows[r]||[]).map(function(c){return String(c).replace(/\s/g,"");});
@@ -8717,12 +8744,13 @@ function _icParse(buf){
       var ivs=_icInvs(row[iInv]);
       if(!ivs.length){noInv++;continue;}
       ivs.forEach(function(t){
-        out.push({inv:t,code:iCode>=0?String(row[iCode]||"").trim():"",shop:iShop>=0?String(row[iShop]||"").trim():"",
-          car:iCar>=0?String(row[iCar]||"").trim():"",qty:q});
+        var shop=iShop>=0?String(row[iShop]||"").trim():"";
+        out.push({inv:t,code:iCode>=0?String(row[iCode]||"").trim():"",shop:shop,
+          car:iCar>=0?String(row[iCar]||"").trim():"",qty:q,kind:_icKindOf(shop,fileName)});
       });
     }
   });
-  if(!sheets)throw new Error("도매발주서 형식이 아닙니다 (운송장번호·상품명 열이 필요합니다)");
+  if(!sheets)throw new Error("도매발주서·코스트코 DSS 파일이 아닙니다 (운송장번호 열이 필요합니다)");
   return {items:out,noInv:noInv,lines:lines,qty:qty};
 }
 function icLoadFiles(list){
@@ -8743,20 +8771,20 @@ function icLoadFiles(list){
       return step(i+1);
     }
     _icReadFile(f).then(function(buf){
-      var p=_icParse(buf);
+      var p=_icParse(buf,f.name);
       var id="f"+Date.now().toString(36)+i;
-      var mmdd=_icMmdd(f),added=0,dup=0,seen={};
+      var mmdd=_icMmdd(f),yy=_icYear(f),added=0,dup=0,seen={};
       p.items.forEach(function(it){
         var ex=icData.invs[it.inv];
         if(ex&&ex.fid!==id){if(!seen[it.inv]){seen[it.inv]=1;dup++;}return;}   /* 다른 파일에 이미 있는 운송장 */
         if(!ex){
-          icData.invs[it.inv]={inv:it.inv,fid:id,mmdd:mmdd,code:it.code,shop:it.shop,car:it.car,lines:0,qty:0};
+          icData.invs[it.inv]={inv:it.inv,fid:id,mmdd:mmdd,yy:yy,kind:it.kind,code:it.code,shop:it.shop,car:it.car,lines:0,qty:0};
           added++;
         }
         var e=icData.invs[it.inv];e.lines++;e.qty+=it.qty;
         if(!e.car&&it.car)e.car=it.car;
       });
-      icData.files.push({id:id,sig:sig,name:f.name,mmdd:mmdd,lines:p.lines,qty:p.qty,noInv:p.noInv,added:added,dup:dup});
+      icData.files.push({id:id,sig:sig,name:f.name,mmdd:mmdd,yy:yy,lines:p.lines,qty:p.qty,noInv:p.noInv,added:added,dup:dup});
       report.push('<span style="color:#15803d">✔ '+_escX(f.name)+' — 송장 '+added+'건 등록</span>'
         +(dup?' <span style="color:#b45309">· 중복 운송장 '+dup+'건 제외</span>':'')
         +(p.noInv?' <span style="color:#dc2626">· 운송장 없음 '+p.noInv+'줄</span>':''));
@@ -8779,15 +8807,20 @@ function _icAgg(){
   files.forEach(function(f){
     f._cnt=L.filter(function(e){return e.fid===f.id;}).length;
   });
-  return {list:L,stores:order.map(function(k){return byStore[k];}).sort(function(a,b){return b.cnt-a.cnt;}),files:files};
+  /* 날짜별 도매·코스트코 — 영업2팀 월간 송장건수 양식 칸 */
+  var byDate={};
+  L.forEach(function(e){
+    var k=(e.yy||new Date().getFullYear())+"-"+e.mmdd;
+    if(!byDate[k])byDate[k]={key:k,yy:e.yy||new Date().getFullYear(),mmdd:e.mmdd,ws:0,cc:0};
+    byDate[k][e.kind==="cc"?"cc":"ws"]++;
+  });
+  var dates=Object.keys(byDate).sort().map(function(k){return byDate[k];});
+  return {list:L,stores:order.map(function(k){return byStore[k];}).sort(function(a,b){return b.cnt-a.cnt;}),files:files,dates:dates};
 }
 function _icCopyText(){
   var A=_icAgg();if(!A.list.length)return "";
-  var byDate={};
-  A.list.forEach(function(e){byDate[e.mmdd]=(byDate[e.mmdd]||0)+1;});
-  var ds=Object.keys(byDate).sort();
-  return ds.map(function(d){return _icMd(d)+" "+byDate[d]+"건";}).join(" · ")
-    +(ds.length>1?" / 합계 "+A.list.length+"건":"");
+  return A.dates.map(function(d){return _icMd(d.mmdd)+" 도매 "+d.ws+" · 코스트코 "+d.cc;}).join(" / ")
+    +(A.dates.length>1?" / 합계 "+A.list.length+"건":"");
 }
 function icCopy(){
   var t=_icCopyText();if(!t)return;
@@ -8813,6 +8846,21 @@ function icRender(){
     +'<div style="margin-left:auto;display:flex;align-items:center;gap:8px">'
     +'<code style="font-size:12.5px;background:#f1f5f9;border:1px solid #e1e6ee;border-radius:6px;padding:5px 9px;color:#1f2937">'+_escX(_icCopyText())+'</code>'
     +'<button id="icCopyBtn" class="bs" style="padding:5px 12px;font-size:12px" onclick="icCopy()">📋 복사</button></div></div>';
+  /* 날짜별 — 영업2팀 월간 양식과 같은 칸(날짜 · 도매 · 코스트코 · 합계) */
+  var sumWs=0,sumCc=0;
+  h+='<div class="card" style="padding:0;overflow-x:auto;margin-bottom:12px"><table style="border-collapse:collapse;width:100%;font-size:13px"><thead>'
+    +'<tr><th rowspan="2" style="'+TH+'">날짜</th><th colspan="2" style="'+TH+'">송장건수</th><th rowspan="2" style="'+TH+'">합계</th></tr>'
+    +'<tr><th style="'+TH+'">도매</th><th style="'+TH+'">코스트코</th></tr></thead><tbody>';
+  A.dates.forEach(function(d){
+    sumWs+=d.ws;sumCc+=d.cc;
+    h+='<tr><td style="'+TD+'text-align:center;font-weight:700">'+(+d.mmdd.slice(0,2))+'월 '+(+d.mmdd.slice(2,4))+'일</td>'
+      +'<td style="'+TD+'text-align:center;font-size:15px;font-weight:700;color:#0f5c6e">'+(d.ws||"")+'</td>'
+      +'<td style="'+TD+'text-align:center;font-size:15px;font-weight:700;color:#b45309">'+(d.cc||"")+'</td>'
+      +'<td style="'+TD+'text-align:center;font-size:15px;font-weight:800">'+(d.ws+d.cc)+'</td></tr>';
+  });
+  h+='<tr style="background:#f8fafc;font-weight:800"><td style="'+TD+'text-align:center">합계</td>'
+    +'<td style="'+TD+'text-align:center;color:#0f5c6e">'+sumWs+'</td><td style="'+TD+'text-align:center;color:#b45309">'+sumCc+'</td>'
+    +'<td style="'+TD+'text-align:center">'+(sumWs+sumCc)+'</td></tr></tbody></table></div>';
   /* 파일별 */
   h+='<div class="card" style="padding:0;overflow-x:auto;margin-bottom:12px"><table style="border-collapse:collapse;width:100%;font-size:13px"><thead><tr>'
     +['날짜','파일','송장건수','중복 제외','운송장 없음','품목 줄','수량',''].map(function(t){return '<th style="'+TH+'">'+t+'</th>';}).join("")
@@ -8843,7 +8891,7 @@ function icRender(){
     +'<td style="'+TD+'text-align:center;font-size:16px;color:#0f5c6e">'+A.list.length+'</td>'
     +'<td style="'+TD+'text-align:right">'+totLines+'</td><td style="'+TD+'text-align:right">'+totQty.toLocaleString()+'</td></tr>';
   h+='</tbody></table></div>'
-    +'<div style="font-size:11.5px;color:#5b6675;margin-top:6px;line-height:1.6">같은 운송장번호는 품목이 여러 줄이어도 <b>1건</b> · 같은 파일을 다시 올리거나 다른 파일에 같은 운송장이 있으면 <b>다시 세지 않습니다</b> · 자료는 이 브라우저에 남습니다.</div>';
+    +'<div style="font-size:11.5px;color:#5b6675;margin-top:6px;line-height:1.6"><b>코스트코</b>는 쇼핑몰 칸·파일명에 `코스트코`가 든 줄과 코스트코 DSS 파일(PurchaseOrderDetail)이고, 나머지는 <b>도매</b>로 셉니다 · 같은 운송장번호는 품목이 여러 줄이어도 <b>1건</b> · 같은 파일을 다시 올리거나 다른 파일에 같은 운송장이 있으면 <b>다시 세지 않습니다</b> · 자료는 이 브라우저에 남습니다.</div>';
   box.innerHTML=h;
 }
 /* 엑셀 한 번에 — 파일별 · 매장별 · 운송장목록 세 시트 */
@@ -8858,15 +8906,28 @@ function icDownload(){
   var s2=[["매장","매장코드","송장건수","품목 줄","수량"]];
   A.stores.forEach(function(st){s2.push([st.shop,st.code,st.cnt,st.lines,st.qty]);});
   s2.push(["합계","",A.list.length,"",""]);
-  var s3=[["날짜","매장","매장코드","택배사","운송장번호","품목 줄","수량","파일"]];
+  var s3=[["날짜","구분","매장","매장코드","택배사","운송장번호","품목 줄","수량","파일"]];
   A.list.slice().sort(function(a,b){return (a.mmdd+a.code+a.inv)<(b.mmdd+b.code+b.inv)?-1:1;}).forEach(function(e){
-    s3.push([_icMd(e.mmdd),e.shop,e.code,e.car,e.inv,e.lines,e.qty,(fname[e.fid]||{}).name||""]);
+    s3.push([_icMd(e.mmdd),e.kind==="cc"?"코스트코":"도매",e.shop,e.code,e.car,e.inv,e.lines,e.qty,(fname[e.fid]||{}).name||""]);
   });
   var wb=XLSX.utils.book_new();
   var add=function(aoa,name,w){var ws=XLSX.utils.aoa_to_sheet(aoa);ws["!cols"]=w.map(function(x){return {wch:x};});XLSX.utils.book_append_sheet(wb,ws,name);};
+  /* 영업2팀 월간 송장건수 양식(9월 영업2팀 송장건수.xlsx) — A날짜 · B도매 · C코스트코 · D합계 */
+  var m0=[["날짜","송장건수","","합계"],["","도매","코스트코",""]];
+  A.dates.forEach(function(d){m0.push([null,d.ws,d.cc,d.ws+d.cc]);});
+  var sw=A.dates.reduce(function(a,b){return a+b.ws;},0),sc=A.dates.reduce(function(a,b){return a+b.cc;},0);
+  m0.push(["합계",sw,sc,sw+sc]);
+  var wsM=XLSX.utils.aoa_to_sheet(m0);
+  A.dates.forEach(function(d,i){
+    var serial=Math.round((Date.UTC(d.yy,+d.mmdd.slice(0,2)-1,+d.mmdd.slice(2,4))-Date.UTC(1899,11,30))/86400000);
+    wsM["A"+(i+3)]={t:"n",v:serial,z:'mm"월" dd"일"'};
+  });
+  wsM["!merges"]=[{s:{r:0,c:1},e:{r:0,c:2}},{s:{r:0,c:3},e:{r:1,c:3}}];   /* 원본 양식: B1:C1 · D1:D2만 병합 */
+  wsM["!cols"]=[{wch:11},{wch:9},{wch:9},{wch:9}];
+  XLSX.utils.book_append_sheet(wb,wsM,"송장건수");
   add(s1,"파일별",[8,40,10,10,14,10,10]);
   add(s2,"매장별",[26,12,10,10,10]);
-  add(s3,"운송장목록",[8,26,12,12,16,10,10,40]);
+  add(s3,"운송장목록",[8,8,26,12,12,16,10,10,40]);
   var ds=A.files.map(function(f){return f.mmdd;}).sort();
   var tag=ds.length?(ds[0]===ds[ds.length-1]?ds[0]:ds[0]+"-"+ds[ds.length-1]):"";
   XLSX.writeFile(wb,"화이트샌즈("+tag+") - 송장건수.xlsx");
