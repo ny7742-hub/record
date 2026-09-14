@@ -1,0 +1,47 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "ws": {
+      ".read": "auth != null && root.child('access/members/' + auth.uid).exists()",
+      ".write": "auth != null && root.child('access/members/' + auth.uid).exists()"
+    },
+
+    "access": {
+      "meta": {
+        "bootstrapped": {
+          ".read": "auth != null",
+          ".write": "auth != null && !data.exists() && newData.val() === true"
+        }
+      },
+
+      "admins": {
+        ".read": "auth != null && root.child('access/members/' + auth.uid).exists()",
+        "$uid": {
+          ".read": "auth != null && $uid === auth.uid",
+          ".write": "auth != null && (root.child('access/admins/' + auth.uid).exists() || (!root.child('access/meta/bootstrapped').exists() && $uid === auth.uid))",
+          ".validate": "newData.val() === true"
+        }
+      },
+
+      "members": {
+        ".read": "auth != null && root.child('access/admins/' + auth.uid).exists()",
+        "$uid": {
+          ".read": "auth != null && $uid === auth.uid",
+          ".write": "auth != null && (root.child('access/admins/' + auth.uid).exists() || (!root.child('access/meta/bootstrapped').exists() && $uid === auth.uid))",
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 30"
+        }
+      },
+
+      "pending": {
+        ".read": "auth != null && root.child('access/admins/' + auth.uid).exists()",
+        "$uid": {
+          ".read": "auth != null && $uid === auth.uid",
+          ".write": "auth != null && (($uid === auth.uid && !root.child('access/members/' + auth.uid).exists()) || root.child('access/admins/' + auth.uid).exists())",
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 30"
+        }
+      }
+    }
+  }
+}

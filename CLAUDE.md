@@ -491,6 +491,24 @@
   무판매는 운영 매장에 깔린 것만 주간 목록에 올리고, 창고에만 잠든 재고는 월간 사장재고로 넘긴다.
   자비스에는 SKU별 매장 판매 이력이 없다 — `dailySalesDB`/`deptDB`는 매출액만이고 판매일보 장바구니는 미저장.
 
+## 회원 승인제 (2026-09 영업2팀)
+- **Google 로그인 → 이름 입력(승인 대기) → 관리자 [승인] → 사용**, 나중에 관리자가 [삭제]하면 그 사람은 즉시 닫힌다.
+  헤더 오른쪽 `authChip`에 이름·로그아웃, 관리자면 `👥 사용자 관리`(대기 인원 표시).
+- **화면 게이트만으로는 막히지 않는다** — 페이지 코드에 DB 주소가 있어 누구나 REST로 `ws/` 전체(`quickCreds` 포함)를 읽을 수 있었다.
+  실제 잠금은 저장소의 **`database.rules.json`** 을 Firebase 콘솔 Realtime Database → 규칙에 붙여넣어야 한다.
+  규칙: `ws/`는 `access/members/{uid}`가 있는 사람만 읽기·쓰기, `access/pending/{uid}`는 본인만 요청, 승인·삭제는 `access/admins`만.
+- **켜지는 시점**: `access/meta/bootstrapped`가 생긴 뒤부터 게이트가 뜬다(`_authGateOn`). 그 전엔 예전처럼 쓰고
+  헤더에 `🔐 회원 승인제 시작` 버튼만 있다 — Google 로그인을 콘솔에서 켜기 전에 게이트부터 뜨면 팀 전체가 못 들어오기 때문.
+  규칙을 잠근 뒤에는 로그인 전 `bootstrapped` 읽기가 거부되는데 그것도 켜짐으로 본다.
+  첫 관리자는 `bootstrapped`가 없을 때 한 번만 스스로 등록할 수 있다(`authBootstrap`, 규칙도 같은 조건).
+- **리스너(`fbListen`)는 승인 뒤에 붙인다** — 규칙이 잠긴 상태에서 로그인 전에 `.on()`을 걸면 거부되어 그대로 끊긴다.
+  `wsSetItem`도 `_authState`가 `member`(또는 설정 전 `open`)일 때만 Firebase에 쓴다.
+- 사용 중 삭제되면 `FB_PATH`에 해당하는 localStorage 팀 자료를 지우고 새로고침한다.
+- 로컬(localhost)은 게이트 없이 열리고, `?gate=1`로 확인할 수 있다(로그인 화면의 `로컬 개발: 로그인 없이 계속`).
+- **도입 순서**(콘솔 작업이라 사람이 해야 함): ① Authentication → Google 사용 설정 ② 승인된 도메인에 `ny7742-hub.github.io`
+  ③ 배포 사이트에서 `🔐 회원 승인제 시작` → 로그인 → `👑 첫 관리자로 등록` ④ 팀원 승인 요청·승인
+  ⑤ **`database.rules.json` 붙여넣고 게시** ⑥ `quickCreds`에 있던 사이트 비밀번호 교체(그동안 공개 상태였음).
+
 ## 바로가기
 - **로그인(SSO) 주소를 직접 조립하지 말 것.** 코스트코 DSS 바로가기가 Keycloak `openid-connect/auth?...`를
   직접 만들고 `redirect_uri`에 `#/costcokr/dropship/`(이미 프래그먼트가 있는 주소)를 넣어 두었는데,
