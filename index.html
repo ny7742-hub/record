@@ -2037,7 +2037,7 @@ var FB_PATH={
 
 /* ══════════════════════════════════════════
    회원 승인제 (2026-09 영업2팀)
-   Google 로그인 → 이름 입력(승인 대기) → 관리자가 [승인] → 사용 · 나중에 [삭제].
+   이메일 로그인 링크(비밀번호 없음) → 이름 입력(승인 대기) → 관리자가 [승인] → 사용 · 나중에 [삭제].
    **화면을 가리는 것만으로는 막히지 않는다** — 페이지 코드에 DB 주소가 있어 누구나 직접 읽을 수 있었다.
    실제 잠금은 Firebase 보안 규칙(저장소의 `database.rules.json`)이 `ws/`를 승인된 사용자만 읽고 쓰게 한다.
    경로: access/pending/{uid}={name,email,at} · access/members/{uid}={name,email,at,by} · access/admins/{uid}=true
@@ -2057,26 +2057,83 @@ function _authLocalLink(){
   return WS_LOCAL_ONLY?'<div style="margin-top:14px"><a href="#" onclick="authLocalSkip();return false" style="font-size:11.5px;color:#5b6675">로컬 개발: 로그인 없이 계속</a></div>':"";
 }
 function authLocalSkip(){_authLocalSkip=true;_authState="member";document.getElementById("authGate").style.display="none";fbListen();}
+/* ── 이메일 로그인 링크(비밀번호 없음) ──
+   이메일을 적으면 그 메일함으로 로그인 링크가 가고, 누르면 로그인된다(그 PC에서는 계속 유지).
+   **이메일만 적고 바로 들어가게 하면 안 된다** — 팀원 이메일을 아는 사람이면 누구나 그 사람으로 들어올 수 있다.
+   링크는 메일함 주인만 받으므로 비밀번호 없이도 본인 확인이 된다. 승인 여부는 그 뒤 access/members로 본다. */
+var AUTH_EMAIL_KEY="authEmailForSignIn";
+var _authLinkPending=false;   /* 메일 링크 처리 중 — 그동안 로그아웃 상태 콜백이 화면을 덮어쓰지 않게 */
 function _authRenderOut(){
   _authState="out";
-  _authShow('<button onclick="authSignIn()" style="'+AUTH_BTN+';background:#fff;color:#1f2937;border:1px solid #cbd5e1">'
-    +'<span style="font-weight:800;color:#4285f4">G</span>&nbsp; Google 계정으로 로그인</button>'
-    +'<div style="font-size:11.5px;color:#5b6675;margin-top:12px">처음이면 로그인 후 이름을 적어 승인을 요청하세요.</div>'+_authLocalLink());
+  var saved="";try{saved=localStorage.getItem(AUTH_EMAIL_KEY)||"";}catch(e){}
+  _authShow('<input id="authEmail" type="email" autocomplete="email" placeholder="회사 이메일 (예: name@whitesands.co.kr)" value="'+_authEsc(saved)+'"'
+    +' style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px" onkeydown="if(event.key===\'Enter\')authSendLink()">'
+    +'<button id="authSendBtn" onclick="authSendLink()" style="'+AUTH_BTN+';background:#1b6e82;color:#fff">✉️ 로그인 링크 받기</button>'
+    +'<div style="font-size:11.5px;color:#5b6675;margin-top:12px;line-height:1.6;text-align:left">'
+    +'비밀번호는 없습니다. 적은 이메일로 <b>로그인 링크</b>가 가고, 메일에서 누르면 들어옵니다.<br>'
+    +'처음이면 로그인 후 이름을 적어 <b>승인 요청</b> → 관리자가 승인하면 사용할 수 있습니다.</div>'+_authLocalLink());
+  setTimeout(function(){var i=document.getElementById("authEmail");if(i&&!i.value)i.focus();},50);
 }
-function authSignIn(){
+function _authValidEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);}
+function _authLinkUrl(){return location.origin+location.pathname;}
+function authSendLink(){
   _authErr("");
-  var p=new firebase.auth.GoogleAuthProvider();
-  p.setCustomParameters({prompt:"select_account"});
-  firebase.auth().signInWithPopup(p).catch(function(e){
+  var em=((document.getElementById("authEmail")||{}).value||"").trim().toLowerCase();
+  if(!_authValidEmail(em)){_authErr("이메일 주소를 확인해주세요.");return;}
+  var btn=document.getElementById("authSendBtn");if(btn){btn.disabled=true;btn.textContent="보내는 중...";}
+  firebase.auth().sendSignInLinkToEmail(em,{url:_authLinkUrl(),handleCodeInApp:true}).then(function(){
+    try{localStorage.setItem(AUTH_EMAIL_KEY,em);}catch(e){}
+    _authShow('<div style="font-size:30px">📬</div>'
+      +'<div style="font-weight:800;font-size:15px;margin:4px 0 6px">메일을 확인하세요</div>'
+      +'<div style="font-size:12.5px;color:#5b6675;line-height:1.6"><b>'+_authEsc(em)+'</b> 으로 로그인 링크를 보냈습니다.<br>'
+      +'메일의 링크를 <b>이 PC의 브라우저</b>에서 누르면 들어옵니다.<br>'
+      +'메일이 안 보이면 <b>스팸함</b>도 확인해주세요.</div>'
+      +'<button onclick="_authRenderOut()" style="'+AUTH_BTN+';background:#f1f5f9;color:#475569">이메일 다시 입력</button>');
+  }).catch(function(e){
+    if(btn){btn.disabled=false;btn.textContent="✉️ 로그인 링크 받기";}
     var c=e&&e.code||"";
-    if(c==="auth/popup-blocked"||c==="auth/operation-not-supported-in-this-environment"){
-      firebase.auth().signInWithRedirect(p);return;
-    }
-    if(c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request")return;
-    if(c==="auth/operation-not-allowed")_authErr("Firebase에서 Google 로그인이 아직 켜져 있지 않습니다. 관리자에게 알려주세요.");
-    else if(c==="auth/unauthorized-domain")_authErr("이 주소("+location.hostname+")가 Firebase 로그인 허용 도메인에 없습니다. 관리자에게 알려주세요.");
-    else _authErr("로그인 실패: "+(e&&e.message||c));
+    if(c==="auth/operation-not-allowed")_authErr("Firebase에서 이메일 링크 로그인이 아직 켜져 있지 않습니다. 관리자에게 알려주세요.");
+    else if(c==="auth/unauthorized-continue-uri"||c==="auth/unauthorized-domain")_authErr("이 주소("+location.hostname+")가 Firebase 허용 도메인에 없습니다. 관리자에게 알려주세요.");
+    else if(c==="auth/quota-exceeded")_authErr("오늘 보낼 수 있는 로그인 메일 수를 넘었습니다. 내일 다시 시도하거나 관리자에게 알려주세요.");
+    else if(c==="auth/invalid-email")_authErr("이메일 주소를 확인해주세요.");
+    else _authErr("메일 보내기 실패: "+(e&&e.message||c));
   });
+}
+/* 메일의 링크로 돌아왔을 때 — 다른 PC·브라우저에서 열었으면 이메일을 한 번 더 묻는다 */
+function _authCompleteLink(){
+  var a=firebase.auth();
+  if(!a.isSignInWithEmailLink(location.href))return false;
+  _authLinkPending=true;
+  var em="";try{em=localStorage.getItem(AUTH_EMAIL_KEY)||"";}catch(e){}
+  var finish=function(email){
+    _authShow("로그인 중...");
+    a.signInWithEmailLink(email,location.href).then(function(){
+      _authLinkPending=false;
+      try{localStorage.setItem(AUTH_EMAIL_KEY,email);}catch(e){}
+      history.replaceState(null,"",_authLinkUrl());      /* 주소창의 일회용 코드 지우기 */
+      authStartSetup();
+    }).catch(function(e){
+      _authLinkPending=false;
+      history.replaceState(null,"",_authLinkUrl());
+      _authGateOn=true;_authRenderOut();
+      var c=e&&e.code||"";
+      _authErr(c==="auth/operation-not-allowed"?"Firebase에서 이메일 링크 로그인이 아직 켜져 있지 않습니다. 관리자에게 알려주세요.":
+        c==="auth/invalid-action-code"||c==="auth/expired-action-code"
+        ?"로그인 링크가 만료됐거나 이미 사용됐습니다. 링크를 다시 받아주세요."
+        :(c==="auth/invalid-email"?"링크를 받은 이메일과 다릅니다. 다시 시도해주세요.":"로그인 실패: "+(e&&e.message||c)));
+    });
+  };
+  if(em){finish(em);return true;}
+  _authGateOn=true;
+  _authShow('<div style="font-size:12.5px;color:#5b6675;margin-bottom:10px">다른 브라우저에서 링크를 열었습니다.<br>링크를 받은 <b>이메일</b>을 한 번 더 적어주세요.</div>'
+    +'<input id="authEmail2" type="email" placeholder="이메일" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px">'
+    +'<button id="authFinishBtn" style="'+AUTH_BTN+';background:#1b6e82;color:#fff">로그인</button>');
+  document.getElementById("authFinishBtn").onclick=function(){
+    var v=((document.getElementById("authEmail2")||{}).value||"").trim().toLowerCase();
+    if(!_authValidEmail(v)){_authErr("이메일 주소를 확인해주세요.");return;}
+    _authErr("");finish(v);
+  };
+  return true;
 }
 function authSignOut(){
   if(_authMemberRef){_authMemberRef.off();_authMemberRef=null;}
@@ -2092,7 +2149,7 @@ function _authRenderForm(canBootstrap){
     +(canBootstrap?'<div style="margin-top:16px;padding:10px;border:1px dashed #f59e0b;border-radius:10px;background:#fffbeb;font-size:12px;color:#92400e;text-align:left">'
       +'아직 관리자가 없습니다. <b>자비스 담당자라면</b> 아래 버튼으로 첫 관리자가 되세요(한 번만 가능).'
       +'<button onclick="authBootstrap()" style="'+AUTH_BTN+';background:#f59e0b;color:#fff;margin-top:8px">👑 첫 관리자로 등록</button></div>':'')
-    +'<button onclick="authSignOut()" style="'+AUTH_BTN+';background:#f1f5f9;color:#475569">다른 계정으로 로그인</button>');
+    +'<button onclick="authSignOut()" style="'+AUTH_BTN+';background:#f1f5f9;color:#475569">다른 이메일로 로그인</button>');
   setTimeout(function(){var i=document.getElementById("authName");if(i)i.focus();},50);
 }
 function _authName(){
@@ -2266,18 +2323,20 @@ function _authOpenMode(){
   _authGateOn=false;_authState="open";
   document.getElementById("authGate").style.display="none";
   var c=document.getElementById("authChip");
-  if(c)c.innerHTML='<button onclick="authStartSetup()" title="관리자용: Google 로그인 후 첫 관리자로 등록하면 승인된 팀원만 쓰게 됩니다"'
+  if(c)c.innerHTML='<button onclick="authStartSetup()" title="관리자용: 이메일로 로그인한 뒤 첫 관리자로 등록하면 승인된 팀원만 쓰게 됩니다"'
     +' style="cursor:pointer;border-radius:6px;font-size:11.5px;font-weight:700;padding:3px 9px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#e0f2f1">🔐 회원 승인제 시작</button>';
   fbListen();
 }
 firebase.auth().onAuthStateChanged(function(u){
   _authUser=u;
   if(_authGateOn!==true)return;               /* 게이트가 꺼져 있으면 로그인 상태만 기억 */
-  if(!u){if(!_authLocalSkip){_authMe=null;_authRenderChip();_authRenderOut();}return;}
+  if(!u){if(!_authLocalSkip&&!_authLinkPending){_authMe=null;_authRenderChip();_authRenderOut();}return;}
   _authShow("권한 확인 중...");
   _authCheck(u);
 });
-if(WS_LOCAL_ONLY&&!/[?&]gate=1/.test(location.search)){
+if(_authCompleteLink()){
+  /* 메일 링크로 들어옴 — 로그인 끝나면 authStartSetup()이 이어서 게이트를 연다 */
+}else if(WS_LOCAL_ONLY&&!/[?&]gate=1/.test(location.search)){
   _authOpenMode();                            /* 로컬 개발은 게이트 없이(`?gate=1`로 확인 가능) */
 }else{
   fbDB.ref("access/meta/bootstrapped").once("value").then(function(snap){
@@ -2285,7 +2344,6 @@ if(WS_LOCAL_ONLY&&!/[?&]gate=1/.test(location.search)){
     else _authOpenMode();
   }).catch(function(){authStartSetup();});   /* 규칙이 잠겨 로그인 전 읽기가 거부됨 → 켜짐 */
 }
-firebase.auth().getRedirectResult().catch(function(e){if(e&&e.code)_authErr("로그인 실패: "+e.code);});
 
 /* localStorage + Firebase 동시 저장 */
 /* 로컬(localhost/file) 실행은 개발·테스트 환경이므로 Firebase(팀 공유)에 쓰지 않는다.
