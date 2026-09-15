@@ -1615,7 +1615,8 @@ label{font-size:14px!important}
       <button onclick="onsClear()" class="bs" style="margin-left:auto;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer">🗑 비우기</button>
     </div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.6">
-      롯데 <b>파트너오피스 → 상품 → 단품 재고관리</b>에서 받은 엑셀(<b>ExcelExport</b>, 온라인 재고 열 포함)을 올리면 채널상품별 백화점몰 재고를 확인합니다.
+      롯데 <b>파트너오피스 → 상품 → 단품 재고관리</b>에서 받은 엑셀(<b>ExcelExport</b>, 온라인 재고 열 포함) 또는
+      현대백화점 <b>상품옵션별재고현황</b>(판매상품코드·옵션명·남은수량) 엑셀을 올리면 백화점몰 재고를 확인합니다. <b>몰별로 따로 보관</b>되어 한쪽을 올려도 다른 몰 자료는 남습니다.
       스타일코드의 채널 접미사(<b>_LT</b> 등)를 떼고 상품데이터와 맞춰 <b>자사코드·바코드</b>를 함께 보여줍니다.<br>
       <b>창고재고현황</b>을 같이 올리면 <b>백화점몰 판매상태가 품절인데 창고에 재고가 있는</b> 상품에 <b>♻ 보충가능</b>을 표시합니다 — 바로 채워 넣으면 되는 건입니다.<br>두 파일은 <b>어느 쪽을 먼저 올려도 됩니다</b>. 창고재고를 먼저 올려두면 백화점몰 파일이 올라오는 순간 자동으로 대조됩니다.
     </div>
@@ -1624,6 +1625,7 @@ label{font-size:14px!important}
   <div class="card" style="padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <input id="onsSearch" type="text" placeholder="상품명/색상 검색" oninput="renderOnlineStock()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px;width:240px">
+      <select id="onsMallFilter" onchange="renderOnlineStock()" style="display:none;padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px"></select>
       <select id="onsFilter" onchange="renderOnlineStock()" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
         <option value="">전체</option>
         <option value="out">품절만</option>
@@ -6209,7 +6211,7 @@ function switchTab(tab){
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock"){ initStockTab(); stockWhDropInit(); }
   whInitSlots();          /* 발주 화면들의 창고재고 불러오기 칸 */
-  if(tab==="onstock"){ _onsRefreshMatch(); _onsApplyWh(); renderOnlineStock(); _onsWhMsgRefresh(); onsDropInit(); }
+  if(tab==="onstock"){ _onsRefreshMatch(); _onsApplyWh(); _onsFillMallFilter(); renderOnlineStock(); _onsWhMsgRefresh(); onsDropInit(); }
   if(tab==="transfer") initTransferTab();
   if(tab==="order"){ renderOrder(); ordLotteDropInit(); }
   if(tab==="cxorder") renderCxOrder();
@@ -6826,12 +6828,43 @@ function _onsResolve(code,colorName){
   if(!row)return {prodName:cands[0][2],sku:"",barcode:"",colorCode:""};
   return {prodName:row[2],sku:row[7]||"",barcode:row[8]||"",colorCode:row[3]||""};
 }
+/* 현대백화점 파일은 스타일코드가 없어 **판매상품명으로 상품코드를 찾는다** —
+   `브리즈 니트 쉐이드햇 솔레나 (4 colors)` → `(4 colors)`를 떼고 낱말이 **모두** 든 상품데이터 상품명을 찾는다
+   (`[화이트샌즈] 26SS 브리즈 니트 쉐이드햇 솔레나`). 상품코드가 둘 이상 걸리면 비워 둔다. */
+function _onsCleanMallName(nm){
+  return String(nm||"").replace(/\(\s*\d+\s*colou?rs?\s*\)/ig,"").replace(/\[[^\]]*\]/g,"").replace(/\s+/g," ").trim();
+}
+function _onsCodeByName(nm){
+  var words=_onsCleanMallName(nm).split(" ").map(_onsNorm).filter(Boolean);
+  if(!words.length)return "";
+  var codes={};
+  _wsProductRows().forEach(function(r){
+    if(!r||!r[1])return;
+    var n=_onsNorm(r[2]);
+    if(words.every(function(w){return n.indexOf(w)>=0;}))codes[r[1]]=1;
+  });
+  var ks=Object.keys(codes);
+  if(ks.length===1)return ks[0];
+  if(!ks.length)return "";
+  /* 여럿이면(성인 `누비아` · `키즈 누비아`) 브랜드 괄호·시즌을 뗀 이름이 **그대로 같은** 상품을 고른다 */
+  var want=words.join(""),exact={};
+  _wsProductRows().forEach(function(r){
+    if(!r||!codes[r[1]])return;
+    var core=_onsNorm(String(r[2]||"").replace(/\[[^\]]*\]/g,"").replace(/\b\d{2}(SS|FW|AW|SU|WI)\b/ig,""));
+    if(core===want)exact[r[1]]=1;
+  });
+  var ex=Object.keys(exact);
+  return ex.length===1?ex[0]:"";
+}
+/* 몰 이름 — 옛 자료(롯데 파일만 받던 시절)는 mall이 없으니 롯데로 본다 */
+function _onsMall(r){return r&&r.mall?r.mall:"롯데";}
 /* 저장해 둔 행 중 자사코드가 비어 있는 것만 다시 맞춰 본다 —
    상품데이터를 새로 올렸거나 매칭 규칙이 바뀌었을 때, 파일을 다시 올리지 않아도 채워지게. */
 function _onsRefreshMatch(){
   var rows=(onlineStockDB&&onlineStockDB.rows)||[],ch=0;
   rows.forEach(function(r){
     if(r.sku)return;
+    if(!r.code&&r.byName){var c=_onsCodeByName(r.name);if(c){r.code=c;ch++;}}
     var dd=_onsResolve(r.code,r.color);
     if(dd&&dd.sku){r.sku=dd.sku;r.barcode=dd.barcode;r.colorCode=dd.colorCode;ch++;}
   });
@@ -6863,11 +6896,22 @@ function _onsProcessFile(file){
       var wb=XLSX.read(e.target.result,{type:"array"});
       var ws=wb.Sheets[wb.SheetNames[0]];
       var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      /* 현대백화점 `상품옵션별재고현황_상품옵션별판매가능수량관리` — 판매상품코드·옵션명·남은수량 */
+      for(var hr=0;hr<Math.min(10,rows.length);hr++){
+        if(_onsFindCol(rows[hr],["판매상품코드"])>=0&&_onsFindCol(rows[hr],["남은수량"])>=0){
+          var hy=_onsParseHyundai(rows,hr);
+          if(!hy.rows.length){alert("읽을 수 있는 상품 행이 없습니다.");if(msg)msg.textContent="";return;}
+          _onsPutMall(hy.mall,hy.rows,file.name);
+          if(msg)msg.textContent="✔ "+hy.mall+" "+hy.rows.length+"건 불러옴"
+            +" · 상품 매칭 "+hy.rows.filter(function(x){return x.sku;}).length+"/"+hy.rows.length;
+          return;
+        }
+      }
       var hRow=-1;
       for(var r=0;r<Math.min(10,rows.length);r++){
         if(_onsFindCol(rows[r],["스타일코드"])>=0){hRow=r;break;}
       }
-      if(hRow<0){alert("백화점몰 재고 형식을 인식할 수 없습니다.\n(스타일코드 열이 필요합니다)\n\n파트너오피스에서 받은 ExcelExport 파일을 올려주세요.");if(msg)msg.textContent="";return;}
+      if(hRow<0){alert("백화점몰 재고 형식을 인식할 수 없습니다.\n\n· 롯데: 파트너오피스 단품 재고관리 ExcelExport(스타일코드 열)\n· 현대: 상품옵션별재고현황(판매상품코드·남은수량 열)");if(msg)msg.textContent="";return;}
       var H=rows[hRow];
       var cQty=_onsFindCol(H,["온라인재고","재고","가용재고"]),
           cStyle=_onsFindCol(H,["스타일코드"]),
@@ -6895,19 +6939,73 @@ function _onsProcessFile(file){
           store:cStore>=0?String(row[cStore]||"").trim():"",
           chCode:cChCode>=0?String(row[cChCode]||"").trim():"",
           sku:dd?dd.sku:"",barcode:dd?dd.barcode:"",colorCode:dd?dd.colorCode:"",
-          wh:null
+          wh:null,mall:"롯데"
         });
       }
       if(!out.length){alert("읽을 수 있는 상품 행이 없습니다.");if(msg)msg.textContent="";return;}
-      onlineStockDB={rows:out,date:_onsDateFromName(file.name),fileName:file.name,whDate:"",whApplied:false};
-      _onsApplyWh();   /* 창고재고를 먼저 올려뒀으면 여기서 자동으로 붙는다 */
-      onsSave();
-      if(msg)msg.textContent="✔ "+out.length+"건 불러옴"+(onlineStockDB.date?" ("+onlineStockDB.date+" 기준)":"");
-      _onsWhMsgRefresh();
-      renderOnlineStock();
+      _onsPutMall("롯데",out,file.name);
+      if(msg)msg.textContent="✔ 롯데 "+out.length+"건 불러옴"+(_onsDateFromName(file.name)?" ("+_onsDateFromName(file.name)+" 기준)":"");
     }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
   };
   reader.readAsArrayBuffer(file);
+}
+function _onsParseHyundai(rows,hRow){
+  var H=rows[hRow];
+  var cCode=_onsFindCol(H,["판매상품코드"]),cName=_onsFindCol(H,["판매상품명"]),
+      cOptCode=_onsFindCol(H,["옵션코드"]),cOpt=_onsFindCol(H,["옵션명"]),
+      cQty=_onsFindCol(H,["남은수량"]),cSt=_onsFindCol(H,["옵션판매구분"]),cPSt=_onsFindCol(H,["상품판매구분"]),
+      cStore=_onsFindCol(H,["점명"]);
+  var out=[],mall="현대",byName={};
+  for(var i=hRow+1;i<rows.length;i++){
+    var row=rows[i];if(!row||!String(row[cName]||"").trim())continue;
+    var name=String(row[cName]).trim();
+    /* 점명 `주식회사 현대백화점 천호점` → `현대 천호` */
+    if(cStore>=0&&row[cStore]){
+      var m=String(row[cStore]).match(/현대백화점\s*(\S+?)점?$/);
+      if(m)mall="현대 "+m[1].replace(/점$/,"");
+    }
+    if(byName[name]===undefined)byName[name]=_onsCodeByName(name);
+    var code=byName[name];
+    var color=String(row[cOpt]||"").split(":")[0].trim();
+    var dd=code?_onsResolve(code,color):null;
+    /* 판매 상태 — 상품이 중단이면 옵션도 중단으로 본다 */
+    var st=cSt>=0?String(row[cSt]||"").trim():"";
+    if(cPSt>=0&&String(row[cPSt]||"").trim()&&String(row[cPSt]).trim()!=="진행")st=String(row[cPSt]).trim();
+    out.push({
+      style:"",code:code,name:_onsCleanMallName(name),color:color,
+      qty:Number(row[cQty])||0,price:0,status:st,
+      ch:"현대백화점",store:cStore>=0?String(row[cStore]||"").trim():"",
+      chCode:String(row[cCode]||"").trim()+(cOptCode>=0?"-"+String(row[cOptCode]||"").trim():""),
+      sku:dd?dd.sku:"",barcode:dd?dd.barcode:"",colorCode:dd?dd.colorCode:"",
+      wh:null,byName:true
+    });
+  }
+  out.forEach(function(r){r.mall=mall;});
+  return {mall:mall,rows:out};
+}
+/* 몰별로 나눠 보관한다 — 롯데 파일을 올려도 현대 자료는 그대로, 그 반대도 같다 */
+function _onsPutMall(mall,rows,fileName){
+  var keep=(onlineStockDB.rows||[]).filter(function(r){return _onsMall(r)!==mall;});
+  var files=onlineStockDB.files||{};
+  if(!onlineStockDB.files&&onlineStockDB.fileName)files["롯데"]={name:onlineStockDB.fileName,date:onlineStockDB.date||""};
+  files[mall]={name:fileName,date:_onsDateFromName(fileName)};
+  onlineStockDB={rows:keep.concat(rows),date:_onsDateFromName(fileName),fileName:fileName,files:files,
+    whDate:onlineStockDB.whDate||"",whApplied:false};
+  _onsApplyWh();   /* 창고재고를 먼저 올려뒀으면 여기서 자동으로 붙는다 */
+  onsSave();
+  _onsWhMsgRefresh();
+  _onsFillMallFilter();
+  renderOnlineStock();
+}
+function _onsMalls(){
+  var m={};(onlineStockDB.rows||[]).forEach(function(r){m[_onsMall(r)]=1;});
+  return Object.keys(m).sort();
+}
+function _onsFillMallFilter(){
+  var sel=document.getElementById("onsMallFilter");if(!sel)return;
+  var cur=sel.value,ms=_onsMalls();
+  sel.innerHTML='<option value="">전체 몰</option>'+ms.map(function(m){return '<option'+(m===cur?' selected':'')+'>'+_escX(m)+'</option>';}).join("");
+  sel.style.display=ms.length>1?"":"none";
 }
 function onsLoadWhFile(input){_onsProcessWhFile((input.files||[])[0]);input.value="";}
 /* 올려둔 창고재고 — 백화점몰 파일보다 먼저 올려도 되도록 따로 보관했다가,
@@ -7020,7 +7118,7 @@ function _onsHomeChip(){
   return out?("품절 "+out+"색"):"품절 없음";
 }
 /* 품절 판정 — 백화점몰 파일의 단품판매상태가 정본이고, 상태 열이 없는 파일이면 재고 0으로 본다 */
-function _onsIsOut(r){return String(r.status||"")==="품절"||(r.qty||0)<=0;}
+function _onsIsOut(r){var st=String(r.status||"");return st==="품절"||st==="일시중단"||st==="중단"||(r.qty||0)<=0;}
 /* 보충가능 — 백화점몰이 품절인데 창고에 재고가 있으면 지금 채워 넣을 수 있는 건 */
 function _onsCanFill(r){return _onsIsOut(r)&&r.wh>0;}
 function _onsLowLimit(){
@@ -7041,8 +7139,8 @@ function _onsSorted(list){
 function _onsGroups(list){
   var map={},order=[];
   list.forEach(function(r){
-    var k=r.name||"(이름없음)";
-    if(!map[k]){map[k]={name:k,rows:[]};order.push(k);}
+    var k=_onsMall(r)+"|"+(r.name||"(이름없음)");
+    if(!map[k]){map[k]={name:r.name||"(이름없음)",mall:_onsMall(r),rows:[]};order.push(k);}
     map[k].rows.push(r);
   });
   var gs=order.map(function(k){
@@ -7091,12 +7189,13 @@ function renderOnlineStock(){
     sumEl.innerHTML='<div class="card" style="margin-bottom:12px;padding:12px 16px">'
       +'<div style="display:flex;gap:9px;flex-wrap:wrap">'
       +_onsStatBox("전체",prodCnt.toLocaleString()+"개 상품",all.length.toLocaleString()+"색 · 총 재고 "+total.toLocaleString()+"개","#1b6e82","#f0f9fb","#cfe0e5")
-      +_onsStatBox("품절",nOut.toLocaleString()+"색","백화점몰 판매상태 품절","#dc2626","#fef2f2","#fca5a5")
+      +_onsStatBox("품절",nOut.toLocaleString()+"색","판매상태 품절·일시중단 또는 재고 0","#dc2626","#fef2f2","#fca5a5")
       +_onsStatBox("부족",nLow.toLocaleString()+"색",low+"개 이하","#b45309","#fffbeb","#fcd34d")
       +(onlineStockDB.whApplied?_onsStatBox("보충 가능",nFill.toLocaleString()+"색","품절 + 창고에 재고 있음","#15803d","#f0fdf4","#86efac"):"")
       +'</div>'
       +'<div style="margin-top:8px;font-size:11px;color:#5b6675">'
-      +(onlineStockDB.date?"백화점몰 재고 기준 <b>"+_escX(onlineStockDB.date)+"</b>":"")
+      +(onlineStockDB.files?Object.keys(onlineStockDB.files).sort().map(function(m){var f=onlineStockDB.files[m];return _escX(m)+" 기준 <b>"+_escX(f.date||f.name)+"</b>";}).join(" · ")
+        :(onlineStockDB.date?"백화점몰 재고 기준 <b>"+_escX(onlineStockDB.date)+"</b>":""))
       +(onlineStockDB.whDate?" · 창고재고 기준일 <b>"+_escX(onlineStockDB.whDate)+"</b>":"")
       +(onlineStockDB.whApplied?"":" · 창고재고현황을 올리면 보충 가능 여부를 함께 봅니다")
       +'</div></div>';
@@ -7107,6 +7206,8 @@ function renderOnlineStock(){
     if(f==="out"&&!_onsIsOut(r))return false;
     if(f==="low"&&!(_onsIsOut(r)||r.qty<=low))return false;
     if(f==="fill"&&!_onsCanFill(r))return false;
+    var mf=(document.getElementById("onsMallFilter")||{}).value||"";
+    if(mf&&_onsMall(r)!==mf)return false;
     if(q){
       var hay=_onsNorm((r.name||"")+(r.color||"")+(r.code||"")+(r.sku||"")+(r.barcode||"")+(r.chCode||""));
       if(hay.indexOf(q)<0)return false;
@@ -7136,7 +7237,10 @@ function renderOnlineStock(){
       h+='<tr style="background:'+bg+'">';
       if(i===0){
         h+='<td rowspan="'+g.rows.length+'" style="border:1px solid '+nameBd+';border-top:2px solid #94a3b8;background:'+nameBg
-          +';padding:7px 10px;font-weight:700;color:#0f172a;vertical-align:top;line-height:1.4;word-break:keep-all">'+_escX(g.name)
+          +';padding:7px 10px;font-weight:700;color:#0f172a;vertical-align:top;line-height:1.4;word-break:keep-all">'
+          +'<span style="display:inline-block;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:5px;margin-right:5px;vertical-align:1px;'
+          +(/현대/.test(g.mall)?'background:#dcfce7;color:#166534':'background:#fee2e2;color:#991b1b')+'">'+_escX(g.mall)+'</span>'+_escX(g.name)
+          +(g.rows.some(function(x){return !x.sku;})?'<div style="font-size:10.5px;color:#b45309;font-weight:600">⚠ 상품데이터 매칭 안 된 색 있음</div>':'')
           +'<div style="margin-top:4px;font-weight:600;font-size:11px;color:#5b6675;white-space:nowrap">'
           +g.rows.length+'색'+(g.out?' · <span style="color:#dc2626">품절 '+g.out+'</span>':'')
           +(g.fill?' · <span style="color:#15803d">보충가능 '+g.fill+'</span>':'')
@@ -7158,18 +7262,18 @@ function onsExport(){
   var all=onlineStockDB.rows||[];
   if(!all.length){alert("다운로드할 데이터가 없습니다.\n먼저 백화점몰 재고 파일을 올려주세요.");return;}
   var low=_onsLowLimit();
-  var head=["상품명","컬러","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","보충여부","판매상태","현재가","채널","점포","채널상품코드","스타일코드"];
+  var head=["몰","상품명","컬러","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","보충여부","판매상태","현재가","채널","점포","채널상품코드","스타일코드"];
   var aoa=[head];
   var flat=[];
   _onsGroups(all).forEach(function(g){flat=flat.concat(g.rows);});   /* 같은 상품끼리 붙여서 내려받는다 */
   flat.forEach(function(r){
     var st=_onsIsOut(r)?"품절":(r.qty<=low?"부족":"판매중");
-    aoa.push([r.name,r.color,r.code,r.sku,r.barcode,r.qty,st,
+    aoa.push([_onsMall(r),r.name,r.color,r.code,r.sku,r.barcode,r.qty,st,
       (r.wh===null?"":r.wh),(_onsCanFill(r)?"보충가능":""),
       r.status,r.price,r.ch,r.store,r.chCode,r.style]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[{wch:44},{wch:12},{wch:12},{wch:15},{wch:15},{wch:10},{wch:9},{wch:9},{wch:9},{wch:10},{wch:10},{wch:20},{wch:8},{wch:18},{wch:14}];
+  ws["!cols"]=[{wch:10},{wch:44},{wch:12},{wch:12},{wch:15},{wch:15},{wch:10},{wch:9},{wch:9},{wch:9},{wch:10},{wch:10},{wch:20},{wch:8},{wch:18},{wch:14}];
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"백화점몰재고");
   var n=new Date();
