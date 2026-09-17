@@ -1653,7 +1653,7 @@ label{font-size:14px!important}
     </div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.6">
       롯데 <b>파트너오피스 → 상품 → 단품 재고관리</b>에서 받은 엑셀(<b>ExcelExport</b>, 온라인 재고 열 포함) 또는
-      현대백화점 <b>상품옵션별재고현황</b>(판매상품코드·옵션명·남은수량) 엑셀을 올리면 백화점몰 재고를 확인합니다. <b>몰별로 따로 보관</b>되어 한쪽을 올려도 다른 몰 자료는 남습니다.
+      현대백화점 <b>상품옵션별재고현황</b>(판매상품코드·옵션명·남은수량) 엑셀을 올리면 백화점몰 재고를 확인합니다. 파일의 점포 칸으로 <b>매장별(롯데 본점 · 현대천호점 …)로 따로 보관</b>되어, 한 매장을 올려도 다른 매장 자료는 남고 새 매장은 탭이 저절로 생깁니다.
       스타일코드의 채널 접미사(<b>_LT</b> 등)를 떼고 상품데이터와 맞춰 <b>자사코드·바코드</b>를 함께 보여줍니다.<br>
       <b>창고재고현황</b>을 같이 올리면 <b>백화점몰 판매상태가 품절인데 창고에 재고가 있는</b> 상품에 <b>♻ 보충가능</b>을 표시합니다 — 바로 채워 넣으면 되는 건입니다.<br>두 파일은 <b>어느 쪽을 먼저 올려도 됩니다</b>. 창고재고를 먼저 올려두면 백화점몰 파일이 올라오는 순간 자동으로 대조됩니다.
     </div>
@@ -2525,12 +2525,12 @@ function fbListen(){
   );
   /* 백화점몰 재고확인 완료 체크 (팀 공유) */
   apply("ws/onsStockMarks","onsStockMarks",
-    function(d){if(d&&typeof d==="object")onsStockMarks={c:d.c||{},p:d.p||{}};},
+    function(d){if(d&&typeof d==="object"){onsStockMarks={c:d.c||{},p:d.p||{}};if(typeof _onsFixMarkKeys==="function")_onsFixMarkKeys();}},
     function(){var pg=document.getElementById("page-onstock");if(pg&&pg.style.display!=="none"&&typeof renderOnlineStock==="function")renderOnlineStock();}
   );
   /* 백화점몰 재고확인 결과 (팀 공유) */
   apply("ws/onlineStock","onlineStockDB",
-    function(d){if(d&&d.rows)onlineStockDB=d;},
+    function(d){if(d&&d.rows){onlineStockDB=d;if(typeof _onsMigrateMalls==="function")_onsMigrateMalls();}},
     function(){var pg=document.getElementById("page-onstock");if(pg&&pg.style.display!=="none"&&typeof renderOnlineStock==="function")renderOnlineStock();}
   );
   /* 홈 화면 네이버 스마트플레이스 등록 알림 체크 상태 (팀 공유) */
@@ -6329,7 +6329,7 @@ function switchTab(tab){
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock"){ initStockTab(); stockWhDropInit(); }
   whInitSlots();          /* 발주 화면들의 창고재고 불러오기 칸 */
-  if(tab==="onstock"){ (function(){var e=document.getElementById("onsOutMin");if(e&&e.value===""){e.value=onsOutMin();}})(); _onsRefreshMatch(); _onsApplyWh(); _onsFillMallFilter(); renderOnlineStock(); _onsWhMsgRefresh(); onsDropInit(); }
+  if(tab==="onstock"){ (function(){var e=document.getElementById("onsOutMin");if(e&&e.value===""){e.value=onsOutMin();}})(); if(_onsMigrateMalls()){onsSave();_onsSaveMarks();} _onsRefreshMatch(); _onsApplyWh(); _onsFillMallFilter(); renderOnlineStock(); _onsWhMsgRefresh(); onsDropInit(); }
   if(tab==="transfer") initTransferTab();
   if(tab==="order"){ renderOrder(); ordLotteDropInit(); }
   if(tab==="cxorder") renderCxOrder();
@@ -7070,7 +7070,67 @@ function _onsCodeByName(nm){
   return ex.length===1?ex[0]:"";
 }
 /* 몰 이름 — 옛 자료(롯데 파일만 받던 시절)는 mall이 없으니 롯데로 본다 */
-function _onsMall(r){return r&&r.mall?r.mall:"롯데";}
+/* ── 매장 구분 (2026-09 영업2팀) ──
+   파일의 점포 칸으로 **매장 단위**로 나눈다 — 롯데 `점포=본점` → `롯데 본점`, 현대 `점명=주식회사 현대백화점 천호점` → `현대천호점`.
+   (표기는 영업2팀 지정: 롯데는 띄어 쓰고 현대는 붙여 쓴다) 매장이 늘면 파일만 올리면 탭이 저절로 생긴다.
+   예전에는 `롯데`·`현대 천호`로 저장했다 — `_onsMigrateMalls`가 자료·기준시각·완료 체크·고른 탭의 이름을 옮긴다. */
+function _onsStoreName(brand,store){
+  var st=String(store||"").replace(/^\s*(주식회사|\(주\)|㈜)\s*/,"").replace(/^(롯데|현대)\s*백화점\s*/,"").trim();
+  if(!st)return brand;
+  if(!/점$/.test(st))st+="점";
+  return brand==="현대"?("현대"+st):(brand+" "+st);
+}
+function _onsLegacyMall(r){
+  var m=r&&r.mall;
+  if(!m||m==="롯데")return _onsStoreName("롯데",r&&r.store);
+  var h=/^현대 (\S+)$/.exec(m);
+  if(h)return "현대"+h[1].replace(/점$/,"")+"점";
+  return m;
+}
+function _onsMall(r){return r&&r.mall?r.mall:_onsLegacyMall(r);}
+function _onsFixMallName(k){
+  if(k==="롯데"){
+    /* 옛 '롯데'는 롯데 매장이 하나뿐일 때만 그 매장으로 본다 */
+    var ls={};((onlineStockDB&&onlineStockDB.rows)||[]).forEach(function(r){var m=_onsMall(r);if(/^롯데 /.test(m))ls[m]=1;});
+    var ks=Object.keys(ls);
+    return ks.length===1?ks[0]:(ks.length?k:"롯데 본점");
+  }
+  var h=/^현대 (\S+)$/.exec(k||"");
+  return h?("현대"+h[1].replace(/점$/,"")+"점"):k;
+}
+/* 완료 체크 키(`매장|…`)의 옛 매장 이름 고치기 — 바뀌었으면 true */
+function _onsFixMarkKeys(){
+  if(typeof onsStockMarks==="undefined")return false;
+  var ch=false;
+  ["c","p"].forEach(function(t){
+    var o={};Object.keys(onsStockMarks[t]||{}).forEach(function(k){
+      var i=k.indexOf("|"),nk=_onsFixMallName(k.slice(0,i))+k.slice(i);
+      if(nk!==k)ch=true;
+      o[nk]=onsStockMarks[t][k];
+    });
+    onsStockMarks[t]=o;
+  });
+  return ch;
+}
+/* 옛 몰 이름(롯데 · 현대 천호) → 매장 이름. 바뀐 게 있으면 true */
+function _onsMigrateMalls(){
+  var rows=(onlineStockDB&&onlineStockDB.rows)||[],map={},changed=false;
+  rows.forEach(function(r){
+    var nm=_onsLegacyMall(r);
+    if(r.mall!==nm){map[r.mall||"롯데"]=nm;r.mall=nm;changed=true;}
+  });
+  if(_onsFixMarkKeys())changed=true;
+  try{var _sv=localStorage.getItem("onsMallSel");if(_sv&&_sv!=="*"&&_onsFixMallName(_sv)!==_sv)localStorage.setItem("onsMallSel",_onsFixMallName(_sv));}catch(e){}
+  if(!changed)return false;
+  var ren=function(k){return Object.prototype.hasOwnProperty.call(map,k)?map[k]:k;};
+  if(onlineStockDB.files){
+    var nf={};Object.keys(onlineStockDB.files).forEach(function(k){nf[ren(k)]=onlineStockDB.files[k];});
+    onlineStockDB.files=nf;
+  }else if(onlineStockDB.fileName){
+    onlineStockDB.files={};onlineStockDB.files[ren("롯데")]={name:onlineStockDB.fileName,date:onlineStockDB.date||""};
+  }
+  return true;
+}
 /* 저장해 둔 행 중 자사코드가 비어 있는 것만 다시 맞춰 본다 —
    상품데이터를 새로 올렸거나 매칭 규칙이 바뀌었을 때, 파일을 다시 올리지 않아도 채워지게. */
 function _onsRefreshMatch(){
@@ -7114,8 +7174,8 @@ function _onsProcessFile(file){
         if(_onsFindCol(rows[hr],["판매상품코드"])>=0&&_onsFindCol(rows[hr],["남은수량"])>=0){
           var hy=_onsParseHyundai(rows,hr);
           if(!hy.rows.length){alert("읽을 수 있는 상품 행이 없습니다.");if(msg)msg.textContent="";return;}
-          _onsPutMall(hy.mall,hy.rows,file.name);
-          if(msg)msg.textContent="✔ "+hy.mall+" "+hy.rows.length+"건 불러옴"
+          var _hm=_onsPutMall(hy.rows,file.name);
+          if(msg)msg.textContent="✔ "+_hm.join(" · ")+" "+hy.rows.length+"건 불러옴"
             +" · 상품 매칭 "+hy.rows.filter(function(x){return x.sku;}).length+"/"+hy.rows.length;
           return;
         }
@@ -7152,12 +7212,12 @@ function _onsProcessFile(file){
           store:cStore>=0?String(row[cStore]||"").trim():"",
           chCode:cChCode>=0?String(row[cChCode]||"").trim():"",
           sku:dd?dd.sku:"",barcode:dd?dd.barcode:"",colorCode:dd?dd.colorCode:"",
-          wh:null,mall:"롯데"
+          wh:null,mall:_onsStoreName("롯데",cStore>=0?row[cStore]:"")
         });
       }
       if(!out.length){alert("읽을 수 있는 상품 행이 없습니다.");if(msg)msg.textContent="";return;}
-      _onsPutMall("롯데",out,file.name);
-      if(msg)msg.textContent="✔ 롯데 "+out.length+"건 불러옴"+(_onsDateFromName(file.name)?" ("+_onsDateFromName(file.name)+" 기준)":"");
+      var _ms=_onsPutMall(out,file.name);
+      if(msg)msg.textContent="✔ "+_ms.join(" · ")+" "+out.length+"건 불러옴"+(_onsDateFromName(file.name)?" ("+_onsDateFromName(file.name)+" 기준)":"");
     }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
   };
   reader.readAsArrayBuffer(file);
@@ -7168,15 +7228,12 @@ function _onsParseHyundai(rows,hRow){
       cOptCode=_onsFindCol(H,["옵션코드"]),cOpt=_onsFindCol(H,["옵션명"]),
       cQty=_onsFindCol(H,["남은수량"]),cSt=_onsFindCol(H,["옵션판매구분"]),cPSt=_onsFindCol(H,["상품판매구분"]),
       cStore=_onsFindCol(H,["점명"]);
-  var out=[],mall="현대",byName={};
+  var out=[],byName={};
   for(var i=hRow+1;i<rows.length;i++){
     var row=rows[i];if(!row||!String(row[cName]||"").trim())continue;
     var name=String(row[cName]).trim();
-    /* 점명 `주식회사 현대백화점 천호점` → `현대 천호` */
-    if(cStore>=0&&row[cStore]){
-      var m=String(row[cStore]).match(/현대백화점\s*(\S+?)점?$/);
-      if(m)mall="현대 "+m[1].replace(/점$/,"");
-    }
+    /* 점명 `주식회사 현대백화점 천호점` → `현대천호점` (행마다 — 한 파일에 여러 점이 섞여도 나뉜다) */
+    var mall=_onsStoreName("현대",cStore>=0?row[cStore]:"");
     if(byName[name]===undefined)byName[name]=_onsCodeByName(name);
     var code=byName[name];
     var color=String(row[cOpt]||"").split(":")[0].trim();
@@ -7190,18 +7247,18 @@ function _onsParseHyundai(rows,hRow){
       ch:"현대백화점",store:cStore>=0?String(row[cStore]||"").trim():"",
       chCode:String(row[cCode]||"").trim()+(cOptCode>=0?"-"+String(row[cOptCode]||"").trim():""),
       sku:dd?dd.sku:"",barcode:dd?dd.barcode:"",colorCode:dd?dd.colorCode:"",
-      wh:null,byName:true
+      wh:null,byName:true,mall:mall
     });
   }
-  out.forEach(function(r){r.mall=mall;});
-  return {mall:mall,rows:out};
+  return {rows:out};
 }
-/* 몰별로 나눠 보관한다 — 롯데 파일을 올려도 현대 자료는 그대로, 그 반대도 같다 */
-function _onsPutMall(mall,rows,fileName){
-  var keep=(onlineStockDB.rows||[]).filter(function(r){return _onsMall(r)!==mall;});
+/* 매장별로 나눠 보관한다 — 이 파일에 든 매장만 새 자료로 바꾸고, 다른 매장 자료는 그대로 둔다 */
+function _onsPutMall(rows,fileName){
+  _onsMigrateMalls();
+  var ms={};rows.forEach(function(r){ms[_onsMall(r)]=1;});
+  var keep=(onlineStockDB.rows||[]).filter(function(r){return !ms[_onsMall(r)];});
   var files=onlineStockDB.files||{};
-  if(!onlineStockDB.files&&onlineStockDB.fileName)files["롯데"]={name:onlineStockDB.fileName,date:onlineStockDB.date||""};
-  files[mall]={name:fileName,date:_onsDateFromName(fileName)};
+  Object.keys(ms).forEach(function(m){files[m]={name:fileName,date:_onsDateFromName(fileName)};});
   onlineStockDB={rows:keep.concat(rows),date:_onsDateFromName(fileName),fileName:fileName,files:files,
     whDate:onlineStockDB.whDate||"",whApplied:false};
   _onsApplyWh();   /* 창고재고를 먼저 올려뒀으면 여기서 자동으로 붙는다 */
@@ -7209,6 +7266,7 @@ function _onsPutMall(mall,rows,fileName){
   _onsWhMsgRefresh();
   _onsFillMallFilter();
   renderOnlineStock();
+  return Object.keys(ms).sort();
 }
 function _onsMalls(){
   var m={};(onlineStockDB.rows||[]).forEach(function(r){m[_onsMall(r)]=1;});
@@ -7216,11 +7274,13 @@ function _onsMalls(){
 }
 /* 몰 탭 — 롯데 · 현대 천호를 **따로** 본다(요약·할 일 목록·표가 모두 고른 몰만).
    `전체`를 고르면 표를 몰별 구역으로 나눠 보여준다. 고른 탭은 브라우저에 남긴다. */
-var ONS_MALL_ORDER=["롯데"];     /* 롯데를 맨 앞, 나머지는 이름순 */
+var ONS_MALL_ORDER=["롯데","현대"];     /* 브랜드 순서 — 같은 브랜드 안에서는 매장 이름순 */
+function _onsBrandRank(m){for(var i=0;i<ONS_MALL_ORDER.length;i++)if(String(m).indexOf(ONS_MALL_ORDER[i])===0)return i;return 99;}
+/* 매장 탭·배지 색 — 롯데 빨강 · 현대 초록 · 그 외 청록 */
+function _onsTone(m){return /^롯데/.test(m)?["#b91c1c","#fecaca","#fee2e2","#991b1b"]:(/^현대/.test(m)?["#15803d","#bbf7d0","#dcfce7","#166534"]:["#1b6e82","#cfe0e5","#e0f2f1","#0f5c6e"]);}
 function _onsMallsOrdered(){
   return _onsMalls().sort(function(a,b){
-    var ia=ONS_MALL_ORDER.indexOf(a),ib=ONS_MALL_ORDER.indexOf(b);
-    if(ia<0)ia=99;if(ib<0)ib=99;
+    var ia=_onsBrandRank(a),ib=_onsBrandRank(b);
     return ia!==ib?ia-ib:a.localeCompare(b);
   });
 }
@@ -7250,10 +7310,10 @@ function _onsFillMallFilter(){
       +(onlineStockDB.whApplied?'해제가능 '+fill+' · 품절처리 '+close:'창고재고 대조 전')
       +(f&&f.date?' · '+_escX(f.date.slice(5)):'')+'</div></button>';
   };
-  var TONE={"롯데":["#b91c1c","#fecaca"]};
+
   var h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
   ms.forEach(function(m){
-    h+=tab(m,m,all.filter(function(r){return _onsMall(r)===m;}),TONE[m]||(/현대/.test(m)?["#15803d","#bbf7d0"]:["#1b6e82","#cfe0e5"]));
+    h+=tab(m,m,all.filter(function(r){return _onsMall(r)===m;}),_onsTone(m));
   });
   if(ms.length>1)h+=tab("*","전체",all,["#334155","#cbd5e1"]);
   h+='</div>';
@@ -7600,7 +7660,7 @@ function renderOnlineStock(){
     if(_mSel==="*"&&g.mall!==_lastMall){
       _lastMall=g.mall;
       var _gc=groups.filter(function(x){return x.mall===g.mall;});
-      h+='<tr><td colspan="'+cols.length+'" style="background:'+(/현대/.test(g.mall)?"#15803d":(g.mall==="롯데"?"#b91c1c":"#1b6e82"))
+      h+='<tr><td colspan="'+cols.length+'" style="background:'+_onsTone(g.mall)[0]
         +';color:#fff;font-weight:800;font-size:13.5px;padding:7px 12px;border:1px solid #cbd5e1">'+_escX(g.mall)
         +' <span style="font-size:11.5px;font-weight:700;opacity:.9">'+_gc.length+'개 상품 · '+_gc.reduce(function(a,x){return a+x.rows.length;},0)+'색</span></td></tr>';
     }
@@ -7617,7 +7677,7 @@ function renderOnlineStock(){
         h+='<td rowspan="'+g.rows.length+'" style="border:1px solid '+nameBd+';border-top:2px solid #94a3b8;background:'+nameBg
           +';padding:7px 10px;font-weight:700;color:#0f172a;vertical-align:top;line-height:1.4;word-break:keep-all">'
           +'<span style="display:inline-block;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:5px;margin-right:5px;vertical-align:1px;'
-          +(/현대/.test(g.mall)?'background:#dcfce7;color:#166534':'background:#fee2e2;color:#991b1b')+'">'+_escX(g.mall)+'</span>'+_escX(g.name)
+          +'background:'+_onsTone(g.mall)[2]+';color:'+_onsTone(g.mall)[3]+'">'+_escX(g.mall)+'</span>'+_escX(g.name)
           +(g.rows.some(function(x){return !x.sku;})?'<div style="font-size:10.5px;color:#b45309;font-weight:600">⚠ 상품데이터 매칭 안 된 색 있음</div>':'')
           +'<div style="margin-top:4px;font-weight:600;font-size:11px;color:#5b6675;white-space:nowrap">'
           +g.rows.length+'색'+(g.out?' · <span style="color:#dc2626">품절 '+g.out+'</span>':'')
