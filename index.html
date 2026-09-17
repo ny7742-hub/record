@@ -7033,15 +7033,35 @@ function _onsColorCore(s){
    원문 정확일치 → 핵심 색명 정확일치 → 핵심 색명 부분일치 순서로 찾고,
    어느 단계든 후보가 둘 이상이면 비워 둔다 — 엉뚱한 코드가 나가지 않게. */
 function _onsResolve(code,colorName){
-  var cands=_wsProductRows().filter(function(r){return r&&r[1]===code;});
+  var prods=_wsProductRows();
+  var cands=prods.filter(function(r){return r&&r[1]===code;});
+  /* 스타일코드 뒤에 색 코드가 붙어 오는 상품이 있다(롯데 고양점 `PJF40Z9ZIV` = 상품코드 `PJF40Z9Z` + 색 `IV`) —
+     그대로 못 찾으면 뒤를 한 글자씩 떼며(8자까지) 상품코드를 찾고, 뗀 꼬리를 색 코드로 먼저 맞춰 본다 */
+  var tail="";
+  if(!cands.length&&code&&code.length>8){
+    for(var L=code.length-1;L>=8&&!cands.length;L--){
+      var pre=code.slice(0,L);
+      cands=prods.filter(function(r){return r&&r[1]===pre;});
+      if(cands.length)tail=code.slice(L);
+    }
+  }
   if(!cands.length)return null;
   var want=_onsNorm(colorName),core=_onsColorCore(colorName);
-  var only=function(list){return list.length===1?list[0]:null;};
-  var row=only(cands.filter(function(r){return _onsNorm(r[4])===want;}));
+  var only=function(list){
+    if(list.length===1)return list[0];
+    /* 같은 색인데 사이즈만 다른 경우(카밀 옐로우 S · ONE SIZE) — 몰 옵션이 free라 ONE SIZE/FREE 하나로 정한다 */
+    if(list.length>1&&list.every(function(r){return r[3]===list[0][3];})){
+      var fr=list.filter(function(r){return r[5]==="X"||r[5]==="F";});
+      if(fr.length===1)return fr[0];
+    }
+    return null;
+  };
+  var row=tail?only(cands.filter(function(r){return _onsNorm(r[3])===tail;})):null;
+  if(!row)row=only(cands.filter(function(r){return _onsNorm(r[4])===want;}));
   if(!row&&core)row=only(cands.filter(function(r){return _onsColorCore(r[4])===core;}));
   if(!row&&core)row=only(cands.filter(function(r){return _onsColorCore(r[4]).indexOf(core)>=0;}));
-  if(!row)return {prodName:cands[0][2],sku:"",barcode:"",colorCode:""};
-  return {prodName:row[2],sku:row[7]||"",barcode:row[8]||"",colorCode:row[3]||""};
+  if(!row)return {prodName:cands[0][2],sku:"",barcode:"",colorCode:"",code:cands[0][1]};
+  return {prodName:row[2],sku:row[7]||"",barcode:row[8]||"",colorCode:row[3]||"",code:row[1]};
 }
 /* 현대백화점 파일은 스타일코드가 없어 **판매상품명으로 상품코드를 찾는다** —
    `브리즈 니트 쉐이드햇 솔레나 (4 colors)` → `(4 colors)`를 떼고 낱말이 **모두** 든 상품데이터 상품명을 찾는다
@@ -7076,11 +7096,16 @@ function _onsCodeByName(nm){
    파일의 점포 칸으로 **매장 단위**로 나눈다 — 롯데 `점포=본점` → `롯데 본점`, 현대 `점명=주식회사 현대백화점 천호점` → `현대천호점`.
    (표기는 영업2팀 지정: 롯데는 띄어 쓰고 현대는 붙여 쓴다) 매장이 늘면 파일만 올리면 탭이 저절로 생긴다.
    예전에는 `롯데`·`현대 천호`로 저장했다 — `_onsMigrateMalls`가 자료·기준시각·완료 체크·고른 탭의 이름을 옮긴다. */
+/* 파일의 점포 표기가 영업2팀이 부르는 매장명과 다를 때 — `브랜드 + 파일 표기` → 표시 이름 */
+var ONS_STORE_ALIAS={
+  "롯데 아울렛 고양터미널점":"롯데 고양점"
+};
 function _onsStoreName(brand,store){
   var st=String(store||"").replace(/^\s*(주식회사|\(주\)|㈜)\s*/,"").replace(/^(롯데|현대)\s*백화점\s*/,"").trim();
   if(!st)return brand;
   if(!/점$/.test(st))st+="점";
-  return brand==="현대"?("현대"+st):(brand+" "+st);
+  var nm=brand==="현대"?("현대"+st):(brand+" "+st);
+  return ONS_STORE_ALIAS[nm]||nm;
 }
 function _onsLegacyMall(r){
   var m=r&&r.mall;
@@ -7141,7 +7166,7 @@ function _onsRefreshMatch(){
     if(r.sku)return;
     if(!r.code&&r.byName){var c=_onsCodeByName(r.name);if(c){r.code=c;ch++;}}
     var dd=_onsResolve(r.code,r.color);
-    if(dd&&dd.sku){r.sku=dd.sku;r.barcode=dd.barcode;r.colorCode=dd.colorCode;ch++;}
+    if(dd&&dd.sku){r.sku=dd.sku;r.barcode=dd.barcode;r.colorCode=dd.colorCode;if(dd.code)r.code=dd.code;ch++;}
   });
   if(ch)onsSave();
   return ch;
@@ -7205,7 +7230,7 @@ function _onsProcessFile(file){
         var color=_onsColor(row[cOpt]);
         var dd=_onsResolve(code,color);
         out.push({
-          style:String(row[cStyle]).trim(),code:code,
+          style:String(row[cStyle]).trim(),code:(dd&&dd.code)||code,
           name:String(row[cName]||"").trim(),color:color,
           qty:Number(row[cQty])||0,
           price:Number(row[cPrice])||0,
@@ -7260,7 +7285,10 @@ function _onsPutMall(rows,fileName){
   var ms={};rows.forEach(function(r){ms[_onsMall(r)]=1;});
   var keep=(onlineStockDB.rows||[]).filter(function(r){return !ms[_onsMall(r)];});
   var files=onlineStockDB.files||{};
-  Object.keys(ms).forEach(function(m){files[m]={name:fileName,date:_onsDateFromName(fileName)};});
+  /* 파일명에 시각이 없으면(`롯데 고양점.xlsx`) 올린 시각을 기준으로 적는다 */
+  var _now=new Date(),_p=function(n){return String(n).padStart(2,"0");};
+  var _fd=_onsDateFromName(fileName)||(_now.getFullYear()+"-"+_p(_now.getMonth()+1)+"-"+_p(_now.getDate())+" "+_p(_now.getHours())+":"+_p(_now.getMinutes())+" 업로드");
+  Object.keys(ms).forEach(function(m){files[m]={name:fileName,date:_fd};});
   onlineStockDB={rows:keep.concat(rows),date:_onsDateFromName(fileName),fileName:fileName,files:files,
     whDate:onlineStockDB.whDate||"",whApplied:false};
   _onsApplyWh();   /* 창고재고를 먼저 올려뒀으면 여기서 자동으로 붙는다 */
