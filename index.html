@@ -6231,6 +6231,14 @@ function renderHomeDashboard(){
       }
     });
   }
+  /* 매장판매일보(자동 업로드) 값을 연 누적표와 같은 규칙으로 섞는다 — 업로드한 날은 업로드값, 나머지는 탭 실적.
+     홈쇼핑은 확정 실적표(HS_ACTUAL)가 있는 달만 그 값을 쓰고, 없으면 판매일보 업로드를 쓴다. */
+  if(typeof _chMonthVal==="function"){
+    var _Y=now.getFullYear(),_M=now.getMonth()+1;
+    monthEdi=_chMonthVal("백화점","daily",_Y,_M,monthEdi).v;
+    ccMonthAmt=_chMonthVal("코스트코","costco",_Y,_M,ccMonthAmt).v;
+    if(!(typeof HS_ACTUAL!=="undefined"&&HS_ACTUAL[curYm]!==undefined))hsMonthAmt=_chMonthVal("홈쇼핑","hs",_Y,_M,hsMonthAmt).v;
+  }
 
   var todayStr=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
   function _popupDurDays(p){
