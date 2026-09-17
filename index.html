@@ -1576,9 +1576,19 @@ label{font-size:14px!important}
         <input type="checkbox" id="cpCostVat" onchange="ccPropDB.costVat=this.checked;cpSave();cpRender()"> 비용을 VAT 포함으로 입력</label>
       <button onclick="cpAddRow()" class="bs" style="padding:6px 14px;font-size:12px">+ 상품 추가</button>
       <button onclick="cpExport()" class="bs" style="padding:6px 14px;font-size:12px">📥 엑셀 다운로드</button>
+      <button onclick="cpToggleReport()" class="bs" style="padding:6px 14px;font-size:12px"><span id="cpReportBtn">📝 보고 문구</span></button>
       <button onclick="cpExportPdf()" class="bg" style="padding:6px 14px;font-size:12px">📄 PDF 다운로드</button>
       <span id="cpMsg" style="font-size:11px;color:#15803d;font-weight:700"></span>
       <span style="font-size:11px;color:#5b6675">입력하는 즉시 계산됩니다 · 팀 공유 · <b>상품명만 넣으면 TAG가·사전원가</b>가 상품데이터에서 자동으로 들어갑니다(초록 = 찾음, 노랑 = 여러 개라 이름을 더 적기) · 금액은 <b>VAT 포함</b>으로 적습니다</span>
+    </div>
+    <div id="cpReportBox" style="display:none;margin-top:10px;padding:10px 12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <b style="font-size:12.5px;color:#154f5e">📝 보고 문구</b>
+        <span style="font-size:11px;color:#5b6675">표를 고치면 문구도 바로 바뀝니다 · 고쳐 쓴 뒤 복사해도 됩니다</span>
+        <button onclick="cpCopyReport()" class="bg" style="margin-left:auto;padding:4px 14px;font-size:12px">📋 복사</button>
+        <span id="cpReportMsg" style="font-size:11px;color:#15803d;font-weight:700"></span>
+      </div>
+      <textarea id="cpReportText" rows="12" style="width:100%;box-sizing:border-box;font-size:12.5px;line-height:1.6;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;resize:vertical"></textarea>
     </div>
     <div id="cpWrap" style="overflow:auto;margin-top:10px"></div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.7">
@@ -12197,6 +12207,7 @@ function _cpPaintRow(i){
 function _cpPaintTotal(){
   var t={net:0,total:0,qty:0,ded:0};
   ccPropDB.rows.forEach(function(r){var c=_cpCalc(r);t.net+=c.netSales;t.total+=c.total;t.qty+=_mgNum(r.qty);t.ded+=c.retCost+c.promoCost+c.fixed;});
+  _cpRefreshReport(false);
   var el=document.getElementById("cpTotal");
   if(el)el.innerHTML='합계 · 발주 <b>'+_cpW(t.qty)+'</b>개 · 순매출 <b>'+_cpW(t.net)+'</b>원 · 차감 '+_cpW(t.ded)+'원 · '
     +'최종 예상이익 <b style="color:'+(t.total<0?'#dc2626':'#047857')+';font-size:14px">'+_cpW(t.total)+'</b>원'
@@ -12379,6 +12390,76 @@ function _cpDocHtml(rows,pageNo,pageCnt){
   }
   h+='</div>';
   return h;
+}
+/* ── 간단 보고 문구 ── 금액은 계산과 같은 VAT 제외 기준(공급가·소비자가는 입력한 VAT 포함 금액을 함께 적는다) */
+function cpBuildReport(){
+  var W=_cpW,P=_cpP,n=_mgNum,d=new Date();
+  if(!ccPropDB.rows.length)return "";
+  var cv=ccPropDB.costVat?1.1:1;
+  var L=["[제안 상품 손익 검토] "+(d.getMonth()+1)+"/"+d.getDate(),""];
+  var t={net:0,total:0,qty:0};
+  ccPropDB.rows.forEach(function(r,idx){
+    var c=_cpCalc(r);
+    t.net+=c.netSales;t.total+=c.total;t.qty+=n(r.qty);
+    var title=(String(r.channel||"").trim()?"["+String(r.channel).trim()+"] ":"")+(String(r.name||"").trim()||("상품 "+(idx+1)));
+    L.push((idx+1)+". "+title+(_cpIsSet(r)?" (세트: "+_cpSetLabel(r)+")":""));
+    var tag=_cpIsSet(r)?_cpSetTag(r):n(r.tag);
+    var price=[];
+    if(tag)price.push("TAG가 "+W(tag)+"원");
+    if(n(r.retail))price.push("판매가 "+W(n(r.retail))+"원");
+    if(c.feeMode)price.push("수수료 "+n(r.fee)+"%");
+    var sup=c.feeMode?n(r.retail)*(1-n(r.fee)/100):n(r.supply);
+    price.push("공급가 "+W(sup)+"원"+(c.feeMode||r.supplyVat==="in"?"(VAT포함)":"(VAT별도)"));
+    L.push(" - "+price.join(" / "));
+    var cost=_cpIsSet(r)?_cpSetCost(r):n(r.cost);
+    var extra=n(r.pack)+n(r.wrap)+n(r.ship)+n(r.etc);
+    var costTxt=[];
+    costTxt.push("원가 "+W(cost)+"원");
+    if(extra){
+      var parts=[["패키지",r.pack],["포장",r.wrap],["물류",r.ship],["기타",r.etc]].filter(function(x){return n(x[1]);})
+        .map(function(x){return x[0]+" "+W(n(x[1]));});
+      costTxt.push("부대비용 "+W(extra)+"원("+parts.join("·")+")");
+    }
+    L.push(" - "+costTxt.join(" + "));
+    L.push(" - 개당 공헌이익 "+W(c.contrib)+"원 (공헌이익률 "+P(c.contribRate)+")");
+    var cond=["발주 "+W(n(r.qty))+"개"];
+    if(n(r.retRate))cond.push("반품 "+n(r.retRate)+"%"+(n(r.retLoss)?"(개당 손실 "+W(n(r.retLoss))+"원)":""));
+    if(c.promo){
+      var pp=[n(r.promo)?W(n(r.promo))+"원":"",n(r.promoPct)?n(r.promoPct)+"%":""].filter(Boolean).join("+");
+      cond.push("프로모션 "+pp+" × "+W(c.promoQty)+"개");
+    }
+    if(n(r.fixed))cond.push("고정비 "+W(n(r.fixed))+"원");
+    L.push(" - "+cond.join(" / "));
+    L.push(" → 최종 예상이익 "+W(c.total)+"원 (개당 "+W(c.perUnit)+"원, 이익률 "+P(c.rate)+")"+(c.total<0?" ※ 적자":""));
+    L.push("");
+  });
+  if(ccPropDB.rows.length>1){
+    L.push("■ 합계: 발주 "+W(t.qty)+"개 · 순매출 "+W(t.net)+"원 · 최종 예상이익 "+W(t.total)+"원 (이익률 "+P(t.net?t.total/t.net:0)+")");
+    L.push("");
+  }
+  L.push("※ 이익 금액은 VAT 제외 기준"+(ccPropDB.costVat?"(원가·비용은 VAT 포함 금액을 ÷1.1)":"")+", 반품분은 매출에서 제외");
+  return L.join("\n");
+}
+function cpToggleReport(){
+  var b=document.getElementById("cpReportBox");if(!b)return;
+  var open=b.style.display==="none";
+  b.style.display=open?"block":"none";
+  var t=document.getElementById("cpReportBtn");if(t)t.textContent=open?"📝 보고 문구 닫기":"📝 보고 문구";
+  if(open)_cpRefreshReport(true);
+}
+function _cpRefreshReport(force){
+  var b=document.getElementById("cpReportBox"),ta=document.getElementById("cpReportText");
+  if(!b||!ta||b.style.display==="none")return;
+  if(!force&&document.activeElement===ta)return;   /* 문구를 고치는 중이면 덮지 않는다 */
+  ta.value=ccPropDB.rows.length?cpBuildReport():"상품을 추가하면 보고 문구가 만들어집니다.";
+}
+function cpCopyReport(){
+  var ta=document.getElementById("cpReportText");if(!ta)return;
+  var msg=document.getElementById("cpReportMsg");
+  var done=function(){if(msg){msg.textContent="✔ 복사됨";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},2000);}};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(done,function(){ta.select();document.execCommand("copy");done();});
+  }else{ta.select();document.execCommand("copy");done();}
 }
 function cpExportPdf(){
   if(!ccPropDB.rows.length){alert("상품이 없습니다.");return;}
