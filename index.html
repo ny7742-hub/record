@@ -1586,7 +1586,7 @@ label{font-size:14px!important}
       ① 실질 공급가 = 공급가(VAT 포함이면 ÷1.1) — <b>수수료율을 넣으면</b> 공급가 = 소비자가 × (1 − 수수료율)로 자동 계산되고 수수료 칸에 금액이 나옵니다 · ② 매출총이익 = 실질 공급가 − 제품원가 ·
       ③ 개당 공헌이익 = 실질 공급가 − (제품원가+패키지+포장비+물류비+기타) ·
       ④ 반품수량 = 발주수량 × 반품률 — 반품분은 매출이 없고 제품은 재고로 돌아오지만, 이미 쓴 <b>패키지·포장비·물류·기타</b>와 <b>반품 개당 손실</b>(회수 물류·폐기 등)은 손실 ·
-      ⑤ 프로모션 부담은 <b>행사수량</b>에만 곱합니다(비우면 0) ·
+      ⑤ 프로모션 부담은 <b>행사수량</b>에 곱합니다(비우면 판매수량 전체, 반품분 제외) ·
       ⑥ <b>최종 예상이익</b> = 순판매수량×개당 공헌이익 − 반품 손실 − 행사수량×프로모션 부담 − 고정비(샘플·개발·검품 등 총액) ·
       ⑦ 최종 이익률 = 최종 예상이익 ÷ 순매출(실질 공급가×순판매수량).
       수수료율이 없으면 소비자가는 참고용(거래처 마진율 표시)입니다. 프로모션은 <b>금액(원)</b>과 <b>%(소비자가 대비)</b>를 따로 적고 둘을 더해 개당 부담으로 봅니다.<br>
@@ -12000,7 +12000,7 @@ var CP_FIELDS=[
   ["etc","기타",62,"검품·바코드·조립 등(개당)"],
   ["promo","프로모션(원)",70,"행사 시 당사 부담 금액(개당)"],
   ["promoPct","프로모션%",62,"행사 시 당사 부담 — 소비자가 대비 %"],
-  ["promoQty","행사수량",66,"프로모션이 걸리는 수량"],
+  ["promoQty","행사수량",66,"프로모션이 걸리는 수량 — 비우면 판매수량(발주−반품) 전체"],
   ["qty","발주수량",70,"예상/확정 발주수량"],
   ["retRate","반품률%",56,"예상 반품률"],
   ["retLoss","반품손실",66,"반품 1개당 추가 손실(회수 물류·폐기 등)"],
@@ -12031,15 +12031,17 @@ function _cpCalc(r){
   var promoWon=n(r.promo)/cv,promoByPct=n(r.retail)*promoPct/1.1;   /* 소비자가는 VAT 포함 */
   var promo=promoWon+promoByPct,retLoss=n(r.retLoss)/cv,fixed=n(r.fixed)/cv;
   var qty=n(r.qty),rate=Math.min(Math.max(n(r.retRate),0),100)/100;
-  var promoQty=Math.min(n(r.promoQty),qty);
+  var promoQty;   /* 순판매수량이 나온 뒤 정한다 */
   var V=cost+pack+wrap+ship+etc;
   var gross=S-cost,contrib=S-V;
   var retQty=qty*rate,netQty=qty-retQty;
   var retCost=retQty*(pack+wrap+ship+etc+retLoss);
+  /* 행사수량을 비우면 판매된 수량 전체에 프로모션이 걸린다(반품분은 환불되므로 뺀다) */
+  promoQty=String(r.promoQty==null?"":r.promoQty).trim()===""?netQty:Math.min(n(r.promoQty),netQty);
   var promoCost=promoQty*promo;
   var netSales=S*netQty;
   var total=netQty*contrib-retCost-promoCost-fixed;
-  return {S:S,feeAmt:feeAmt,feeMode:feeMode,promo:promo,promoPctNoRetail:promoPct>0&&!n(r.retail),V:V,gross:gross,contrib:contrib,contribRate:S?contrib/S:0,
+  return {S:S,feeAmt:feeAmt,feeMode:feeMode,promo:promo,promoQty:promoQty,promoPctNoRetail:promoPct>0&&!n(r.retail),V:V,gross:gross,contrib:contrib,contribRate:S?contrib/S:0,
     retQty:retQty,netQty:netQty,retCost:retCost,promoCost:promoCost,fixed:fixed,
     netSales:netSales,total:total,perUnit:qty?total/qty:0,rate:netSales?total/netSales:0,
     ccMargin:n(r.retail)?(n(r.retail)/1.1-S)/(n(r.retail)/1.1):null};
@@ -12253,7 +12255,7 @@ function cpRender(){
         +' oninput="cpEdit('+i+',\''+k+'\',this.value)"'
         +(isNum&&!pct?' onblur="if(this.value!==\'\'&&!this.readOnly)this.value=_cpW(_mgNum(this.value))"':'')
         +(k==="channel"?' list="cpChList"':'')
-        +' placeholder="'+(k==="name"?"상품명":k==="channel"?"거래처":k==="fee"?"필수":pct?"%":"0")+'"></td>';
+        +' placeholder="'+(k==="name"?"상품명":k==="channel"?"거래처":k==="fee"?"필수":k==="promoQty"?"전체":pct?"%":"0")+'"></td>';
     });
     ["S","fee","V","gross","contrib","cr","net","ded","total","pu","rate","cc"].forEach(function(k){
       h+='<td id="cpo_'+i+'_'+k+'" style="'+tdo+(k==="total"?';font-weight:800':'')+'"></td>';
@@ -12335,7 +12337,7 @@ function _cpDocHtml(rows,pageNo,pageCnt){
       +'<td style="'+tdr+'">'+(n(r.retail)?W(n(r.retail)):'-')+'</td>'
       +'<td style="'+tdr+'">'+(c.feeMode?W(c.feeAmt):'-')+'<div style="font-size:9.5px;color:#64748b">'+(String(r.fee==null?"":r.fee).trim()===""?'수수료율 미기재':n(r.fee)+'%')+'</div></td>'
       +'<td style="'+tdr+'">'+W(c.S)+(!c.feeMode&&r.supplyVat==="in"?'<div style="font-size:9.5px;color:#64748b">('+W(n(r.supply))+' VAT포함)</div>':'')+'</td>'
-      +'<td style="'+tdr+'">'+(c.promo?W(c.promo):'-')+((n(r.promo)||n(r.promoPct))?'<div style="font-size:9.5px;color:#64748b">'+[n(r.promo)?W(n(r.promo))+'원':'',n(r.promoPct)?n(r.promoPct)+'%':''].filter(Boolean).join(' + ')+' · '+W(Math.min(n(r.promoQty),n(r.qty)))+'개</div>':'')+'</td>'
+      +'<td style="'+tdr+'">'+(c.promo?W(c.promo):'-')+((n(r.promo)||n(r.promoPct))?'<div style="font-size:9.5px;color:#64748b">'+[n(r.promo)?W(n(r.promo))+'원':'',n(r.promoPct)?n(r.promoPct)+'%':''].filter(Boolean).join(' + ')+' · '+W(c.promoQty)+'개</div>':'')+'</td>'
       +'<td style="'+tdr+'">'+W((_cpIsSet(r)?_cpSetCost(r):n(r.cost))/cv)+'</td>'
       +'<td style="'+tdr+'">'+W(n(r.pack)/cv)+'</td>'
       +'<td style="'+tdr+'">'+W(n(r.wrap)/cv)+'</td>'
@@ -12363,7 +12365,7 @@ function _cpDocHtml(rows,pageNo,pageCnt){
   if(pageNo===pageCnt){
     h+='<div style="margin-top:12px;font-size:10.5px;color:#334155;line-height:1.7;border-top:1px solid #cbd5e1;padding-top:8px">'
       +'<b>계산 기준</b> · 공급가는 VAT 제외 금액(수수료율이 있으면 소비자가 × (1 − 수수료율) ÷ 1.1, 수수료도 VAT 제외) · 개당 공헌이익 = 공급가 − (제품원가+패키지+포장비+물류비+기타) · '
-      +'반품분은 매출에서 빼고 패키지·포장비·물류·기타와 반품 개당 손실을 손실로 반영 · 프로모션 부담(금액 + 소비자가×%, VAT 제외)은 행사수량에만 적용 · '
+      +'반품분은 매출에서 빼고 패키지·포장비·물류·기타와 반품 개당 손실을 손실로 반영 · 프로모션 부담(금액 + 소비자가×%, VAT 제외)은 행사수량(비우면 판매수량 전체)에 적용 · '
       +'최종 예상이익 = 순판매수량×개당 공헌이익 − 반품손실 − 프로모션 부담 − 고정비 · 이익률 = 최종 예상이익 ÷ 순매출 · '
       +'세트 제품원가 = Σ(구성품 개입수 × 원가)</div>';
   }
