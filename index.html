@@ -611,6 +611,14 @@ label{font-size:14px!important}
   #homeQuick .home-quick{padding:7px 3px!important;font-size:11px!important;letter-spacing:-.4px;gap:4px!important;justify-content:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:10px!important}
   #homeQuick .home-quick .hq-dot{display:none}
 }
+.au-item{flex:1 1 320px;min-width:0;border:1px solid #cfe0e5;border-radius:10px;padding:8px 12px;background:#f7fbfc;display:flex;flex-direction:column;gap:4px}
+.au-item.dragover{border-color:#1b6e82;background:#e6f4f6}
+.au-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.au-tag{font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:10px}
+.au-tag.auto{background:#d1fae5;color:#047857}
+.au-tag.manual{background:#e0e7ff;color:#4338ca}
+.au-tag.none{background:#fee2e2;color:#b91c1c}
+.au-sub{font-size:11.5px;color:#5b6675;line-height:1.5}
 </style>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -755,6 +763,18 @@ label{font-size:14px!important}
       <div id="homeKpis" style="display:flex;gap:12px;flex-wrap:wrap"></div>
     </div>
   </div>
+  <div class="card" id="autoUpBar" style="margin-bottom:12px;padding:10px 14px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none;font-size:13px">📤 PlayMD 자료 업로드</div>
+      <span style="font-size:11px;color:#5b6675">평일 오전 8시에 자동으로 올라옵니다 · 급할 때만 여기서 직접 올리세요(끌어다 놓아도 됩니다)</span>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="au-item" id="auWh" data-kind="wh"></div>
+      <div class="au-item" id="auSales" data-kind="sales"></div>
+    </div>
+    <input type="file" id="auWhIn" accept=".xlsx,.xls" style="display:none" onchange="auPick('wh',this)"/>
+    <input type="file" id="auSalesIn" accept=".xlsx,.xls" style="display:none" onchange="auPick('sales',this)"/>
+  </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px">
     <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none" id="homeYtdTitle">📊 연 누적 매출</div>
     <div id="homeYtdTabs" style="display:flex;gap:4px">
@@ -766,7 +786,7 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:14px;padding:12px 16px">
     <div id="homeYtd" style="overflow-x:auto"></div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #cfe0e5">
-      <button onclick="extToggle()" class="bs" style="padding:5px 12px;font-size:12px"><span id="extToggleTxt">▾ 매출 업로드</span></button>
+      <button onclick="extToggle()" class="bs" style="padding:5px 12px;font-size:12px"><span id="extToggleTxt">▾ 채널 매출 직접 입력</span></button>
       <div id="extBox" style="display:none;margin-top:10px;overflow-x:auto"></div>
       <div id="extDupBox" style="display:none;margin-top:10px;padding:10px 12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px"></div>
     </div>
@@ -1619,14 +1639,13 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">🏭 홈쇼핑몰 재고확인</div>
-      <div id="stockWhDrop" class="drop-zone" onclick="document.getElementById('stockWhIn').click()" title="한 번 올리면 발주 · 백화점몰 재고확인에도 함께 들어가고, 재고 확인까지 자동으로 돌아갑니다" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 창고재고현황 업로드/끌어오기 <span style="font-size:10.5px;font-weight:600;color:#0f766e">(발주·백화점몰 함께 반영)</span></div>
-      <input type="file" id="stockWhIn" accept=".xlsx,.xls" style="display:none" onchange="loadWarehouseStockFile(this)"/>
+      <span style="font-size:11px;color:#5b6675;white-space:nowrap">📦 창고재고(홈에서 자동 업로드)</span>
       <span id="stockWhMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <button onclick="startStockCheck()" id="stockCheckBtn" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700">▶ 재고 확인 시작</button>
       <span id="stockCheckLogWrap" style="font-size:11px;color:#1b6e82;font-weight:600;white-space:nowrap"></span>
       <a href="홈쇼핑상품리스트.xlsx" download style="margin-left:auto;font-size:12px;color:#15803d;font-weight:700;text-decoration:none;white-space:nowrap">📥 홈쇼핑 상품리스트 다운로드</a>
     </div>
-    <div style="margin-top:8px;font-size:11px;color:#5b6675">PlayMD 창고재고현황 → 출고관리 → 현황 → 창고재고현황에서 엑셀로 받은 파일을 올리고 "재고 확인 시작"을 누르면, 홈쇼핑 상품리스트 기준으로 상품코드별 재고(전 칼라 합계)를 교차 확인합니다.</div>
+    <div style="margin-top:8px;font-size:11px;color:#5b6675">창고재고현황은 <b>평일 오전 8시에 홈으로 자동 업로드</b>되고, 올라오는 즉시 홈쇼핑 상품리스트 기준으로 재고 확인이 돌아갑니다. 급하면 홈의 <b>📤 PlayMD 자료 업로드</b>에서 직접 올리세요. "재고 확인 시작"은 기준을 바꿔 다시 돌릴 때 씁니다.</div>
   </div>
   <div class="card" style="padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
@@ -1648,13 +1667,12 @@ label{font-size:14px!important}
       <div id="onsDrop" class="drop-zone" onclick="document.getElementById('onsIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px" title="매장 추가 · 몰 상품이 바뀌었을 때만 올리면 됩니다(팀 공유로 저장)">📂 백화점몰 상품리스트 업로드/끌어오기</div>
       <input type="file" id="onsIn" accept=".xlsx,.xls" style="display:none" onchange="onsLoadFile(this)"/>
       <span id="onsMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
-      <div id="onsWhDrop" class="drop-zone" onclick="document.getElementById('onsWhIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 창고재고현황 (순서 무관)</div>
-      <input type="file" id="onsWhIn" accept=".xlsx,.xls" style="display:none" onchange="onsLoadWhFile(this)"/>
+      <span style="font-size:11px;color:#5b6675;white-space:nowrap">📦 창고재고(홈에서 자동 업로드)</span>
       <span id="onsWhMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <button onclick="onsClear()" class="bs" style="margin-left:auto;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer">🗑 비우기</button>
     </div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.6">
-      <b style="color:#1b6e82">평소에는 창고재고현황만 올리면 됩니다</b> — 여기든 홈쇼핑몰 재고확인이든 발주 화면이든 <b>한 곳에만 올리면 세 곳 모두 반영</b>됩니다. 백화점몰 상품리스트는 팀 공유로 저장되어 있어 <b>매장이 추가되거나 몰 상품이 바뀌었을 때만</b> 올립니다.<br>
+      <b style="color:#1b6e82">창고재고현황은 평일 오전 8시에 홈으로 자동 업로드</b>되어 여기·홈쇼핑몰·발주 화면에 함께 반영됩니다(급하면 홈에서 직접 올리기). 백화점몰 상품리스트는 팀 공유로 저장되어 있어 <b>매장이 추가되거나 몰 상품이 바뀌었을 때만</b> 올립니다.<br>
       <b>백화점몰 상품리스트</b> = 롯데 <b>파트너오피스 → 상품 → 단품 재고관리</b> 엑셀(<b>ExcelExport</b>) 또는 현대백화점 <b>상품옵션별재고현황</b> 엑셀 —
       몰에 걸린 상품과 판매상태(판매중·품절)가 들어 있습니다. 파일의 점포 칸으로 <b>매장별(롯데 본점 · 현대천호점 …)로 따로 보관</b>되어, 한 매장을 올려도 다른 매장 자료는 남고 새 매장은 탭이 저절로 생깁니다.<br>
       <b>창고재고현황</b>과 대조해 <b>품절 해제 가능 · 품절 처리 필요</b>를 뽑습니다. 몰에서 처리한 건은 <b>✔ 완료</b>로 체크하면 상품리스트를 다시 올리지 않아도 됩니다.
@@ -1690,8 +1708,7 @@ label{font-size:14px!important}
       <div id="tfSiDrop" class="drop-zone" onclick="document.getElementById('tfSiIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 매장재고현황</div>
       <input type="file" id="tfSiIn" accept=".xlsx,.xls" style="display:none" onchange="tfLoadSi(this)"/>
       <span id="tfSiMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
-      <div id="tfWhDrop" class="drop-zone" onclick="document.getElementById('tfWhIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 창고재고현황</div>
-      <input type="file" id="tfWhIn" accept=".xlsx,.xls" style="display:none" onchange="tfLoadWh(this)"/>
+      <span style="font-size:11px;color:#5b6675;white-space:nowrap">📦 창고재고(홈에서 자동 업로드)</span>
       <span id="tfWhMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <div id="tfSsDrop" class="drop-zone" onclick="document.getElementById('tfSsIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 매장판매일보</div>
       <input type="file" id="tfSsIn" accept=".xlsx,.xls" style="display:none" onchange="tfLoadSs(this)"/>
@@ -2068,6 +2085,8 @@ var FB_PATH={
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
   "extSalesDB":"ws/extSales",
+  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","bestImgDB":"ws/bestImg",
+  "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -2520,6 +2539,30 @@ function fbListen(){
     function(d){if(d&&d.results){stockCheckResults=d.results;stockWarehouseDate=d.date||stockWarehouseDate;}},
     function(){var pg=document.getElementById("page-stock");if(pg&&pg.style.display!=="none"&&typeof renderStockCheckResults==="function")renderStockCheckResults();}
   );
+  /* 홈 자동 업로드 기록 (팀 공유) */
+  apply("ws/uploadLog","uploadLog",
+    function(d){if(d&&typeof d==="object")uploadLog=d;},
+    function(){if(typeof renderAutoUpBar==="function")renderAutoUpBar();}
+  );
+  /* 창고재고현황 원본(필요한 열만) — 누가 올리든 발주·백화점몰·홈쇼핑몰이 같은 자료를 쓴다 */
+  apply("ws/whRaw","whRaw",
+    function(d){if(d&&d.rows&&d.at&&d.at!==_whRawApplied){_whRawApplied=d.at;_whApplyRows(d.rows,d.fileName||"",false);}},
+    function(){}
+  );
+  /* 베스트 TOP10 상품 이미지 (상품코드 → 주소) */
+  apply("ws/bestImg","bestImgDB",
+    function(d){if(d&&typeof d==="object")bestImgDB=d;},
+    function(){var pg=document.getElementById("page-dept");if(pg&&pg.style.display!=="none")renderDeptAllStores();}
+  );
+  /* 매장판매일보 매장·상품별 집계 — 달마다 따로 저장돼 있다 */
+  fbDB.ref("ws/storeSales").on("value",function(snap){
+    var v=snap.val();if(!v||typeof v!=="object")return;
+    var o={};
+    Object.keys(v).forEach(function(ym){try{o[ym]=typeof v[ym]==="string"?JSON.parse(v[ym]):v[ym];}catch(e){}});
+    storeSalesDB=o;
+    try{localStorage.setItem("storeSalesDB",JSON.stringify(o));}catch(e){}
+    var pg=document.getElementById("page-dept");if(pg&&pg.style.display!=="none")renderDeptAllStores();
+  });
   /* 홈쇼핑몰 재고확인 완료 체크 (팀 공유) */
   apply("ws/hsStockMarks","hsStockMarks",
     function(d){if(d&&typeof d==="object")hsStockMarks={c:d.c||{},p:d.p||{}};},
@@ -3672,7 +3715,8 @@ function renderMonthlyUploadSection(y,m){
   var lbl=document.getElementById("monthlyUploadLabel");
   var wrap=document.getElementById("monthlyStoreUploads");
   if(!sec||!wrap)return;
-  sec.style.display="block";
+  /* 매출은 매장판매일보·일별매출에서 자동으로 채우므로 매장별 업로드 칸은 쓰지 않는다 */
+  sec.style.display="none";return;
   if(lbl)lbl.textContent=y+"년 "+m+"월";
   var h="";
   deptStores.forEach(function(store,si){
@@ -3870,7 +3914,10 @@ function _deptDsAgg(store,ps,pe){
     Object.keys(md[day]).forEach(function(sn){
       if(_dsNormStoreName(sn)===normTarget){
         out.found=true;
-        out.dept+=Number(String(md[day][sn].dept||0).replace(/,/g,""))||0;
+        var _r=md[day][sn],_n=function(v){return Number(String(v||0).replace(/,/g,""))||0;};
+        /* 2025년 자료는 백화점 칸 없이 EDI(합계)·온라인만 있다 → 백화점 = EDI − 온라인 */
+        if(_r.dept===undefined&&_r.edi!==undefined){out.dept+=_n(_r.edi)-_n(_r.online);}
+        else out.dept+=_n(_r.dept);
         out.online+=Number(String(md[day][sn].online||0).replace(/,/g,""))||0;
         out.deptQ+=Number(String(md[day][sn].deptQ||0).replace(/,/g,""))||0;
         out.onlineQ+=Number(String(md[day][sn].onlineQ||0).replace(/,/g,""))||0;
@@ -3890,21 +3937,39 @@ function renderDeptAllStores(){
     var sd=new Date(_ps+"T00:00:00"),ed=new Date(_pe+"T00:00:00");
     return sd.getDate()===1&&ed.getDate()===new Date(ed.getFullYear(),ed.getMonth()+1,0).getDate()&&sd.getMonth()===ed.getMonth();
   })();
+  /* 대비기간 — 진행 중인 기간이면 오늘까지 지난 날수만큼만 견준다(작년 동기간) */
+  var _cs=(document.getElementById("dCompStart")||{}).value||"",_ce=(document.getElementById("dCompEnd")||{}).value||"";
+  (function(){
+    if(!_cs||!_ce||!_ps||!_pe)return;
+    var ps=new Date(_ps+"T00:00:00"),pe=new Date(_pe+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);
+    if(pe<t||ps>t)return;
+    var n=Math.round((t-ps)/86400000)-1;   /* 판매 자료는 어제까지 */
+    if(n<0)return;
+    var c=new Date(_cs+"T00:00:00");c.setDate(c.getDate()+n);
+    var cy=c.getFullYear()+"-"+String(c.getMonth()+1).padStart(2,"0")+"-"+String(c.getDate()).padStart(2,"0");
+    if(cy<_ce)_ce=cy;
+  })();
+  _bestLegacyImg=null;
   var h='<div class="dept-grid-wrap"><div class="dept-grid">';
   deptStores.forEach(function(store,si){
     var data=(deptDB[curDeptKey]&&deptDB[curDeptKey][store])||{};
     var s=data.sales||{};
     var prods=data.products||[];
     var dsAgg=_deptDsAgg(store,_ps,_pe);
-    var hasSales=Object.keys(s).filter(function(k){return k!=="target"&&k!=="cumul";}).length>0||dsAgg.found;
-    var thisDept=dsAgg.found?dsAgg.dept:(Number(s.thisDept)||0);
-    var thisOnline=dsAgg.found?dsAgg.online:(Number(s.thisOnline)||0);
-    var lastDept=Number(s.lastDept)||0,lastOnline=Number(s.lastOnline)||0;
+    var ssAgg=_ssAgg(store,_ps,_pe);                       /* 매장판매일보(자동 업로드) */
+    var cmpDs=_deptDsAgg(store,_cs,_ce),cmpSs=_ssAgg(store,_cs,_ce);   /* 작년 동기간 */
+    var hasSales=Object.keys(s).filter(function(k){return k!=="target"&&k!=="cumul";}).length>0||dsAgg.found||ssAgg.found||cmpDs.found||cmpSs.found;
+    var thisDept=dsAgg.found?dsAgg.dept:ssAgg.found?ssAgg.amt:(Number(s.thisDept)||0);
+    var thisOnline=dsAgg.found?dsAgg.online:ssAgg.found?0:(Number(s.thisOnline)||0);
+    /* 대비매출 = 작년 같은 기간 — 일별매출 → 매장판매일보 → 예전 업로드 값 순 */
+    var lastDept=cmpDs.found?cmpDs.dept:cmpSs.found?cmpSs.amt:(Number(s.lastDept)||0);
+    var lastOnline=cmpDs.found?cmpDs.online:cmpSs.found?0:(Number(s.lastOnline)||0);
     var thisTotal=thisDept+thisOnline,lastTotal=lastDept+lastOnline;
     var growth=lastTotal?((thisTotal-lastTotal)/lastTotal*100).toFixed(1):"-";
-    var thisQtyDept=dsAgg.found?dsAgg.deptQ:(Number(s.thisQtyDept)||0);
-    var thisQtyOnline=dsAgg.found?dsAgg.onlineQ:(Number(s.thisQtyOnline)||0);
-    var lastQtyDept=Number(s.lastQtyDept)||0,lastQtyOnline=Number(s.lastQtyOnline)||0;
+    var thisQtyDept=dsAgg.found?dsAgg.deptQ:ssAgg.found?ssAgg.qty:(Number(s.thisQtyDept)||0);
+    var thisQtyOnline=dsAgg.found?dsAgg.onlineQ:ssAgg.found?0:(Number(s.thisQtyOnline)||0);
+    var lastQtyDept=cmpDs.found?cmpDs.deptQ:cmpSs.found?cmpSs.qty:(Number(s.lastQtyDept)||0);
+    var lastQtyOnline=cmpDs.found?cmpDs.onlineQ:cmpSs.found?0:(Number(s.lastQtyOnline)||0);
     var thisQtyTotal=thisQtyDept+thisQtyOnline,lastQtyTotal=lastQtyDept+lastQtyOnline;
     var avgPrice=thisQtyTotal?Math.round(thisTotal/thisQtyTotal):0;
     function fmt(n){return n?Number(n).toLocaleString():"-";}
@@ -3951,18 +4016,17 @@ function renderDeptAllStores(){
     // ── 매출 현황 ──
     var _periodTxt=(_ps&&_pe)?(_ps.slice(5).replace('-','/')+"~"+_pe.slice(5).replace('-','/')):"";
     h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
-    h+='<div class="m-sec-title" style="margin-bottom:0;display:flex;align-items:center;gap:5px">📊 매출 현황'+(_periodTxt?'<span style="font-size:11px;color:#5b6675;font-weight:600">'+_periodTxt+'</span>':'')+(dsAgg.found?'<span style="font-size:10px;color:#059669;font-weight:700">✔ 일별매출 자동반영</span>':'')+'</div>';
-    h+='<label style="font-size:10px;color:#6366f1;cursor:pointer;font-weight:600;white-space:nowrap">📂 업로드<input type="file" accept=".xlsx,.xls" style="display:none" id="si'+si+'_sales" onchange="loadStoreSales(this,'+si+')"/></label>';
+    h+='<div class="m-sec-title" style="margin-bottom:0;display:flex;align-items:center;gap:5px">📊 매출 현황'+(_periodTxt?'<span style="font-size:11px;color:#5b6675;font-weight:600">'+_periodTxt+'</span>':'')+(dsAgg.found?'<span style="font-size:10px;color:#059669;font-weight:700">✔ 일별매출 자동반영</span>':ssAgg.found?'<span style="font-size:10px;color:#059669;font-weight:700">✔ 판매일보 자동반영</span>':'')+'</div>';
     h+='</div>';
     if(!hasSales){
-      h+='<label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#5b6675;cursor:pointer;padding:14px 0;border:1.5px dashed #e5e7eb;border-radius:8px;background:#fafafa" for="si'+si+'_sales">📂 매출 파일을 클릭하여 업로드</label>';
+      h+='<div style="text-align:center;font-size:11px;color:#5b6675;padding:14px 0;border:1.5px dashed #e5e7eb;border-radius:8px;background:#fafafa">매출 자료 없음 · 매장판매일보가 올라오면 자동 반영</div>';
     }else{
       var hasOnlineCol=!(isNoOnlineStore(store)||(_meta.popup));
       h+='<table class="s-tbl"><thead><tr>';
       h+='<th style="width:56px"></th><th>백화점</th>'+(hasOnlineCol?'<th>온라인</th>':'')+'<th>합계</th>';
       h+='</tr></thead><tbody>';
       h+='<tr><td class="row-label">영업매출</td><td class="calc neutral">'+fmt(thisDept)+'</td>'+(hasOnlineCol?'<td class="calc neutral">'+fmt(thisOnline)+'</td>':'')+'<td class="calc" style="font-weight:700">'+fmt(thisTotal)+'</td></tr>';
-      h+='<tr><td class="row-label">대비매출</td><td class="calc neutral">'+fmt(lastDept)+'</td>'+(hasOnlineCol?'<td class="calc neutral">'+fmt(lastOnline)+'</td>':'')+'<td class="calc" style="font-weight:700">'+fmt(lastTotal)+'</td></tr>';
+      h+='<tr><td class="row-label" title="작년 같은 기간 '+(_cs&&_ce?_cs+' ~ '+_ce:'')+'">대비매출</td><td class="calc neutral">'+fmt(lastDept)+'</td>'+(hasOnlineCol?'<td class="calc neutral">'+fmt(lastOnline)+'</td>':'')+'<td class="calc" style="font-weight:700">'+fmt(lastTotal)+'</td></tr>';
       h+='<tr><td class="row-label">영업수량</td><td class="calc neutral">'+fmt(thisQtyDept)+'</td>'+(hasOnlineCol?'<td class="calc neutral">'+fmt(thisQtyOnline)+'</td>':'')+'<td class="calc" style="font-weight:700">'+fmt(thisQtyTotal)+'</td></tr>';
       h+='</tbody></table>';
       h+='<div class="dept-info-row">';
@@ -3987,14 +4051,40 @@ function renderDeptAllStores(){
       h+='<span style="color:#475569;font-weight:700">누적</span><span style="font-weight:800;color:#4338ca;white-space:nowrap">'+(cumul?fmt(cumul):"-")+'</span>';
     }
     h+='</div>';
-    // ── 베스트 TOP10 ──
+    // ── 베스트 TOP10 ── 매장판매일보 판매수량 순(자동). 자료가 없는 기간만 예전 업로드 값을 보여준다
     var realProds=prods.filter(function(p){return p.name;});
+    var autoBest=Object.keys(ssAgg.prods).map(function(pc){
+      var p=ssAgg.prods[pc],nm=ssAgg.names[pc]||pc;
+      var cols=Object.keys(p.colors).filter(function(c){return p.colors[c];}).sort(function(x,y){return p.colors[y]-p.colors[x];})
+        .map(function(c){return (ssAgg.cn[pc+"|"+c]||c)+" "+p.colors[c];});
+      return {code:pc,name:nm,qty:p.q,amt:p.a,colors:cols,img:_bestImgFor(pc,nm)};
+    }).filter(function(p){return p.qty>0;}).sort(function(x,y){return y.qty-x.qty||y.amt-x.amt;}).slice(0,10);
     h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;margin-bottom:6px">';
-    h+='<div class="m-sec-title" style="margin-bottom:0">🏆 베스트 TOP10</div>';
-    h+='<label style="font-size:10px;color:#0891b2;cursor:pointer;font-weight:600;white-space:nowrap">📂 업로드<input type="file" accept=".xlsx,.xls" style="display:none" id="si'+si+'_best" onchange="loadStoreBest(this,'+si+')"/></label>';
+    h+='<div class="m-sec-title" style="margin-bottom:0">🏆 베스트 TOP10'+(autoBest.length?'<span style="font-size:10px;color:#059669;font-weight:700;margin-left:5px">판매수량 기준</span>':'')+'</div>';
     h+='</div>';
-    if(!realProds.length){
-      h+='<label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:#5b6675;cursor:pointer;padding:14px 0;border:1.5px dashed #e5e7eb;border-radius:8px;background:#fafafa" for="si'+si+'_best">📂 베스트 파일을 클릭하여 업로드</label>';
+    if(autoBest.length){
+      h+='<table class="b-tbl"><thead><tr>';
+      h+='<th style="width:42px">이미지</th><th style="width:22px">#</th><th>상품명</th><th style="width:44px">판매수량</th><th style="width:64px">판매금액</th>';
+      h+='</tr></thead><tbody>';
+      autoBest.forEach(function(p,pi){
+        var rn=pi+1;
+        var rnCls=rn===1?"r1":rn===2?"r2":rn===3?"r3":"";
+        var pcq=escH(p.code).replace(/'/g,"");
+        var imgCell=p.img
+          ?'<img class="b-img" src="'+escH(p.img)+'" title="클릭하여 변경" onclick="setBestImgCode(\''+pcq+'\')" onerror="this.style.opacity=0.25">'
+          :'<div class="b-img-ph" onclick="setBestImgCode(\''+pcq+'\')" title="클릭하여 이미지 추가">📷</div>';
+        h+='<tr>';
+        h+='<td style="text-align:center;padding:2px 3px">'+imgCell+'</td>';
+        h+='<td style="text-align:center"><span class="rnk '+rnCls+'">'+rn+'</span></td>';
+        h+='<td style="font-size:14px;color:#374151;padding:3px 4px;line-height:1.3" title="'+escH(p.name+" ("+p.code+")\n"+p.colors.join("\n"))+'">'+escH(shortenBestName(p.name))
+          +(p.colors.length?'<div style="font-size:10.5px;color:#5b6675;line-height:1.3">'+escH(p.colors.slice(0,3).join(" · ")+(p.colors.length>3?" 외 "+(p.colors.length-3):""))+'</div>':'')+'</td>';
+        h+='<td style="text-align:center;font-size:14px;font-weight:700">'+fmt(p.qty)+'</td>';
+        h+='<td style="text-align:right;font-size:11px">'+fmt(p.amt)+'</td>';
+        h+='</tr>';
+      });
+      h+='</tbody></table>';
+    }else if(!realProds.length){
+      h+='<div style="text-align:center;font-size:11px;color:#5b6675;padding:14px 0;border:1.5px dashed #e5e7eb;border-radius:8px;background:#fafafa">판매 자료 없음 · 매장판매일보가 올라오면 자동 반영</div>';
     }else{
       h+='<table class="b-tbl"><thead><tr>';
       h+='<th style="width:42px">이미지</th><th style="width:22px">#</th><th>상품명</th><th style="width:44px">판매수량</th><th style="width:36px">재고</th><th style="width:48px">상태</th>';
@@ -4973,6 +5063,133 @@ function _chMonthVal(chName,key,Y,m,tabMonthVal){
 
 /* 업로드 파싱 — 헤더에서 월/날짜·금액(·채널) 열을 찾는다.
    채널 열이 없으면 화면에서 고른 채널로 전부 넣는다. */
+/* ── 매장판매일보 매장·상품별 집계 (storeSalesDB) ──
+   {YYYY-MM:{stores:{매장코드:{name,ch,d:{일:{"상품코드|칼라":[수량,금액]}}}},names:{상품코드:상품명},cn:{"상품코드|칼라":칼라명},at}}
+   백화점 탭(대비매출·베스트 TOP10)에 쓰므로 백화점·팩토리 매장만 담는다.
+   고객명·수취인 같은 개인정보 열은 읽지 않는다. 달마다 ws/storeSales/YYYY-MM 에 따로 저장한다. */
+var SS_CHANNELS=["백화점","팩토리"];
+var storeSalesDB=(function(){try{var d=JSON.parse(localStorage.getItem("storeSalesDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+function _ssSave(ym){
+  try{localStorage.setItem("storeSalesDB",JSON.stringify(storeSalesDB));}catch(e){}
+  if(WS_LOCAL_ONLY)return;
+  if(_authState!=="member"&&_authState!=="open")return;
+  try{fbDB.ref("ws/storeSales/"+ym).set(JSON.stringify(storeSalesDB[ym]));}catch(e){console.warn("매장판매 저장 오류",e);}
+}
+function _ssIngest(rows){
+  var hRow=-1,H=null;
+  for(var r=0;r<Math.min(10,rows.length);r++){
+    var h=(rows[r]||[]).map(function(c){return String(c).replace(/\s/g,"");});
+    if(h.indexOf("판매일자")>=0&&h.indexOf("매장코드")>=0&&h.indexOf("상품코드")>=0){hRow=r;H=h;break;}
+  }
+  if(hRow<0)return null;
+  var ci=function(n){return H.indexOf(n);};
+  var cD=ci("판매일자"),cCh=ci("매장구분"),cSc=ci("매장코드"),cSn=ci("매장명"),cPc=ci("상품코드"),cPn=ci("상품명"),
+      cCo=ci("칼라"),cCn=ci("칼라명"),cQ=ci("판매수량"),cA=ci("판매금액");
+  if(cQ<0||cCh<0)return null;
+  var Y=new Date().getFullYear(),months={},files={};
+  for(var i=hRow+1;i<rows.length;i++){
+    var row=rows[i];if(!row)continue;
+    var day=_extKey(row[cD],Y);
+    if(!day||day.length<10)continue;
+    var ch=String(row[cCh]||"").trim();
+    files[ch]=1;
+    if(SS_CHANNELS.indexOf(ch)<0)continue;
+    var sc=String(row[cSc]||"").trim(),pc=String(row[cPc]||"").trim();
+    if(!sc||!pc)continue;
+    var co=cCo>=0?String(row[cCo]||"").trim():"";
+    var q=_extNum(row[cQ])||0,a=cA>=0?(_extNum(row[cA])||0):0;
+    var ym=day.slice(0,7),d=String(+day.slice(8));
+    var M=months[ym]||(months[ym]={stores:{},names:{},cn:{},days:{}});
+    M.days[d]=1;
+    var st=M.stores[sc]||(M.stores[sc]={name:cSn>=0?String(row[cSn]||"").trim():sc,ch:ch,d:{}});
+    var dd=st.d[d]||(st.d[d]={});
+    var k=pc+"|"+co,v=dd[k]||(dd[k]=[0,0]);
+    v[0]+=q;v[1]+=a;
+    if(cPn>=0&&!M.names[pc])M.names[pc]=String(row[cPn]||"").trim();
+    if(cCn>=0&&!M.cn[k])M.cn[k]=String(row[cCn]||"").trim();
+  }
+  var nStores=0;
+  Object.keys(months).forEach(function(ym){
+    var M=months[ym],cur=storeSalesDB[ym]||{stores:{},names:{},cn:{}};
+    /* 파일에 든 날짜는 통째로 새 값으로 바꾼다(같은 채널 매장만) — 다시 올려도 두 번 더해지지 않는다 */
+    Object.keys(cur.stores||{}).forEach(function(sc){
+      var st=cur.stores[sc];
+      if(!files[st.ch])return;
+      Object.keys(M.days).forEach(function(d){delete st.d[d];});
+      if(!Object.keys(st.d).length)delete cur.stores[sc];
+    });
+    Object.keys(M.stores).forEach(function(sc){
+      var ns=M.stores[sc],os=cur.stores[sc];
+      if(!os){cur.stores[sc]=ns;}
+      else{os.name=ns.name;os.ch=ns.ch;Object.keys(ns.d).forEach(function(d){os.d[d]=ns.d[d];});}
+    });
+    cur.names=Object.assign(cur.names||{},M.names);
+    cur.cn=Object.assign(cur.cn||{},M.cn);
+    cur.at=new Date().toISOString();
+    storeSalesDB[ym]=cur;
+    nStores+=Object.keys(M.stores).length;
+    _ssSave(ym);
+  });
+  return {months:Object.keys(months),stores:nStores};
+}
+/* PlayMD 매장명 → 백화점 탭 매장 (이름이 달라 tfMatchDept로 맞춘다) */
+var _ssMatchCache={sig:"",map:{}};
+function _ssDeptOf(name){
+  var sig=(typeof deptStores!=="undefined"?deptStores.join("|"):"");
+  if(_ssMatchCache.sig!==sig)_ssMatchCache={sig:sig,map:{}};
+  if(!(name in _ssMatchCache.map))_ssMatchCache.map[name]=(typeof tfMatchDept==="function"?tfMatchDept(name):null);
+  return _ssMatchCache.map[name];
+}
+/* 백화점 탭 매장의 기간 합계 + 상품별 수량 */
+function _ssAgg(store,ps,pe){
+  var out={found:false,amt:0,qty:0,prods:{},names:{},cn:{}};
+  if(!store||!ps||!pe)return out;
+  var d0=new Date(ps+"T00:00:00"),d1=new Date(pe+"T00:00:00");
+  if(isNaN(d0)||isNaN(d1)||d0>d1)return out;
+  for(var d=new Date(d0);d<=d1;d.setDate(d.getDate()+1)){
+    var ym=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+    var M=storeSalesDB[ym];if(!M||!M.stores)continue;
+    var day=String(d.getDate());
+    Object.keys(M.stores).forEach(function(sc){
+      var st=M.stores[sc];
+      if(_ssDeptOf(st.name)!==store)return;
+      out.found=true;
+      var dd=st.d&&st.d[day];if(!dd)return;
+      Object.keys(dd).forEach(function(k){
+        var v=dd[k],q=Number(v[0])||0,a=Number(v[1])||0;
+        out.amt+=a;out.qty+=q;
+        var pc=k.split("|")[0],co=k.slice(pc.length+1);
+        var p=out.prods[pc]||(out.prods[pc]={q:0,a:0,colors:{}});
+        p.q+=q;p.a+=a;p.colors[co]=(p.colors[co]||0)+q;
+        if(!out.names[pc]&&M.names)out.names[pc]=M.names[pc];
+        if(M.cn&&M.cn[k])out.cn[k]=M.cn[k];
+      });
+    });
+  }
+  return out;
+}
+/* 베스트 이미지 — 상품코드별(팀 공유). 예전 베스트 업로드에 있던 이미지는 상품명으로 찾아 쓴다 */
+var bestImgDB=(function(){try{var d=JSON.parse(localStorage.getItem("bestImgDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+var _bestLegacyImg=null;
+function _bestNameKey(n){return String(n||"").replace(/\[[^\]]*\]/g,"").replace(/\b\d{2}(SS|FW)\b/g,"").replace(/[\s()]/g,"");}
+function _bestImgFor(pc,name){
+  if(bestImgDB[pc])return bestImgDB[pc];
+  if(!_bestLegacyImg){
+    _bestLegacyImg={};
+    try{Object.keys(deptDB||{}).forEach(function(k){Object.keys(deptDB[k]||{}).forEach(function(sn){
+      ((deptDB[k][sn]||{}).products||[]).forEach(function(p){if(p&&p.img&&p.name)_bestLegacyImg[_bestNameKey(p.name)]=p.img;});
+    });});}catch(e){}
+  }
+  return _bestLegacyImg[_bestNameKey(name)]||"";
+}
+function setBestImgCode(pc){
+  var url=prompt("이미지 URL을 입력하세요 (비워두면 삭제)",bestImgDB[pc]||"");
+  if(url===null)return;
+  url=url.trim();
+  if(url)bestImgDB[pc]=url;else delete bestImgDB[pc];
+  wsSetItem("bestImgDB",JSON.stringify(bestImgDB));
+  renderDeptAllStores();
+}
 function _extParseRows(rows,fallbackCh){
   var Y=new Date().getFullYear();
   var hRow=-1,cYm=-1,cAmt=-1,cCh=-1;
@@ -5731,7 +5948,7 @@ function extToggle(){
   if(!b)return;
   var open=b.style.display==="none";
   b.style.display=open?"block":"none";
-  if(t)t.textContent=open?"▴ 접기":"▾ 매출 업로드";
+  if(t)t.textContent=open?"▴ 접기":"▾ 채널 매출 직접 입력";
   if(open)renderExtSales();
 }
 /* 직접 입력 — 표의 칸에서 수정 */
@@ -5832,18 +6049,12 @@ function renderExtSales(){
   var el=document.getElementById("extBox");if(!el)return;
   var Y=new Date().getFullYear(),M=new Date().getMonth()+1;
   var h='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
-  h+='<label style="cursor:pointer"><span class="bs" style="padding:5px 12px;font-size:12px;display:inline-block">📁 엑셀 업로드</span>'
-    +'<input type="file" id="extFileIn" accept=".xlsx,.xls" style="display:none" onchange="extLoadFile(this)"></label>';
-  h+='<div id="extDropZone" class="drop-zone" onclick="document.getElementById(\'extFileIn\').click()"'
-    +' style="padding:5px 14px;font-size:11.5px;gap:6px;min-height:0" title="엑셀을 여기로 끌어다 놓으세요">'
-    +'<span style="font-size:15px;line-height:1">⬇</span><span>여기로 <u>끌어다 놓기</u></span></div>';
-  h+='<span id="extMsg" style="font-size:12px;color:#15803d;font-weight:600"></span>';
+  h+='<span style="font-size:12px;color:#1b6e82;font-weight:700">매장판매일보는 위 <b>📤 PlayMD 자료 업로드</b>로 올라옵니다(평일 8시 자동) · 아래 표는 직접 고칠 때만 씁니다</span>';
   (function(){
     var dn=_extFindShifted().length;
     if(dn)h+='<button class="bs" style="padding:5px 12px;font-size:12px;background:#fef3c7;border-color:#fbbf24;color:#92400e"'
       +' onclick="extShowDupPreview()" title="날짜가 하루 앞당겨 저장된 옛 값을 찾아 지웁니다">🧹 중복 정리 '+dn+'건</button>';
   })();
-  h+='<span style="font-size:11px;color:#5b6675;margin-left:auto">파일의 <b>매장구분</b> 열로 채널을 <b>자동 분류</b>합니다 · 그 열이 없는 파일이면 올릴 때 한 번 물어봅니다</span>';
   h+='<div style="width:100%;font-size:11px;color:#5b6675;margin-top:2px">'
     +'<b>올린 날</b>은 업로드 값, <b>안 올린 날</b>은 각 탭(일별매출·코스트코) 실적으로 <b>일자 단위로 섞어</b> 계산합니다. '
     +'월 단위로 적으면 그 달은 통째로 그 값을 씁니다. '
@@ -5902,9 +6113,14 @@ function renderExtSales(){
 }
 function extLoadFile(input){
   var f=input.files&&input.files[0];input.value="";
+  salesIngestFile(f);
+}
+/* 매장판매일보 올리기 — 채널 일자 매출(extSales) + 매장·상품별 집계(storeSales, 백화점 탭 대비매출·베스트) */
+function salesIngestFile(f){
   if(!f)return;
   if(!/\.(xlsx|xls)$/i.test(f.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
-  var msg0=document.getElementById("extMsg");
+  var auto=!!window.__jarvisAuto;
+  var msg0=document.getElementById("auSalesMsg");
   if(msg0){msg0.style.color="#b45309";msg0.textContent="읽는 중… 큰 파일은 30초 정도 걸릴 수 있습니다";}
   var reader=new FileReader();
   reader.onload=function(e){
@@ -5917,6 +6133,7 @@ function extLoadFile(input){
       var wb=XLSX.read(e.target.result,{type:"array",cellDates:false,cellText:false,cellNF:false,cellStyles:false,cellFormula:false});
       var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
       var res=_extParseRows(rows,"");
+      if(res&&res.needCh&&auto){alert("매장판매일보에 '매장구분' 열이 없습니다.");return;}
       if(res&&res.needCh){
         /* '매장구분' 열이 없는 파일 — 어느 채널인지 한 번만 묻는다 */
         var pick=prompt("이 파일에는 '매장구분' 열이 없습니다.\n어느 채널의 매출인가요?\n\n"+UPLOAD_CHANNELS.join(" / "),UPLOAD_CHANNELS[0]);
@@ -5936,20 +6153,25 @@ function extLoadFile(input){
         var unit=(ms[0]||"").length>7?"일":"개월";
         return "  "+c+" : "+ms.length.toLocaleString()+unit+"치 · "+sum.toLocaleString()+"원 ("+ms[0]+" ~ "+ms[ms.length-1]+")";
       });
-      if(!confirm("아래 내용으로 등록할까요? (같은 날짜·같은 달은 덮어씁니다)\n올린 날은 이 값을 쓰고, 안 올린 날은 각 탭 실적으로 채웁니다.\n\n"+lines.join("\n")
+      if(!auto&&!confirm("아래 내용으로 등록할까요? (같은 날짜·같은 달은 덮어씁니다)\n올린 날은 이 값을 쓰고, 안 올린 날은 각 탭 실적으로 채웁니다.\n\n"+lines.join("\n")
         +(res.skip?"\n\n※ 금액이 0이거나 날짜를 못 읽은 "+res.skip.toLocaleString()+"줄은 제외됩니다.":"")))return;
       chs.forEach(function(c){
         Object.keys(res.map[c]).forEach(function(ym){_extSet(c,ym,res.map[c][ym]);});
       });
       saveExtSales();
+      var ss=_ssIngest(rows);
+      var allKeys=[];chs.forEach(function(c){allKeys=allKeys.concat(Object.keys(res.map[c]));});
+      allKeys.sort();
+      _auLog("sales",{fileName:f.name,from:allKeys[0]||"",to:allKeys[allKeys.length-1]||"",rows:res.rows,chs:chs,stores:ss?ss.stores:0},auto);
       renderExtSales();
       if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
-      var msg=document.getElementById("extMsg");
-      if(msg){msg.style.color="";msg.textContent="✔ "+res.rows.toLocaleString()+"줄 반영됨";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},3000);}
+      var pgd=document.getElementById("page-dept");if(pgd&&pgd.style.display!=="none")renderDeptAllStores();
+      var msg=document.getElementById("auSalesMsg");
+      if(msg){msg.style.color="#15803d";msg.textContent="✔ "+res.rows.toLocaleString()+"줄 반영됨";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},4000);}
     }catch(err){
       alert("파일 오류: "+err.message);
     }finally{
-      var mz=document.getElementById("extMsg");
+      var mz=document.getElementById("auSalesMsg");
       if(mz&&/읽는 중/.test(mz.textContent)){mz.style.color="";mz.textContent="";}
     }
    },50);
@@ -5958,6 +6180,7 @@ function extLoadFile(input){
 }
 
 function renderHomeDashboard(){
+  try{renderAutoUpBar();}catch(e){}
   var now=new Date();
   var todayEl=document.getElementById("homeToday");
   if(todayEl)todayEl.textContent=now.getFullYear()+"년 "+(now.getMonth()+1)+"월 "+now.getDate()+"일 · 영업2팀";
@@ -6673,16 +6896,9 @@ function loadWarehouseStockFile(input){
   input.value="";
 }
 /* 창고재고현황 엑셀 처리 — 업로드 버튼과 끌어오기(드래그&드롭) 양쪽이 같은 경로를 쓴다 */
-function _stockProcessWhFileOnly(file,autoRun){
-  if(!file)return;
-  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
-  var msg=document.getElementById("stockWhMsg");if(msg)msg.textContent="불러오는 중...";
-  var reader=new FileReader();
-  reader.onload=function(e){
+function _stockWhRows(rows,autoRun){
+  var msg=document.getElementById("stockWhMsg");
     try{
-      var wb=XLSX.read(e.target.result,{type:"array"});
-      var ws=wb.Sheets[wb.SheetNames[0]];
-      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
       /* 헤더는 셀 값이 키워드와 "정확히" 같아야 한다.
          (1행 메타 문구 " 재고일자 : ... 조회구분 : 상품 + 칼라 ... 상품코드 : "가 헤더로 오인되던 문제 방지) */
       var findCol=function(H,keywords){
@@ -6711,16 +6927,14 @@ function _stockProcessWhFileOnly(file,autoRun){
       stockWarehouseRows=whRows;
       var m=/재고일자\s*:\s*(\d{8})/.exec(String((rows[0]&&rows[0][0])||""));
       stockWarehouseDate=m?(m[1].slice(0,4)+"-"+m[1].slice(4,6)+"-"+m[1].slice(6,8)):"";
-      stockCheckResults=null;
+      if(autoRun){stockCheckResults=null;}
       if(msg)msg.textContent="✔ "+whRows.length+"행 불러옴"+(stockWarehouseDate?" (재고일자 "+stockWarehouseDate+")":"");
       var btn=document.getElementById("stockCheckBtn");if(btn)btn.disabled=false;
-      var wrap=document.getElementById("stockResultWrap");if(wrap)wrap.innerHTML="";
-      var sm=document.getElementById("stockResultSummary");if(sm)sm.textContent="";
+      if(autoRun){var wrap=document.getElementById("stockResultWrap");if(wrap)wrap.innerHTML="";}
+      if(autoRun){var sm=document.getElementById("stockResultSummary");if(sm)sm.textContent="";}
       /* 공용 업로드에서 왔으면 '재고 확인 시작'까지 바로 돌린다 */
       if(autoRun)startStockCheck();
-    }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
-  };
-  reader.readAsArrayBuffer(file);
+    }catch(err){alert("창고재고 자료 오류: "+err.message);if(msg)msg.textContent="";}
 }
 /* 창고재고현황 끌어오기 배선 */
 function stockWhDropInit(){
@@ -7385,16 +7599,9 @@ function _onsWhMsgRefresh(){
 }
 /* 창고재고현황(선택) — 백화점몰이 품절인데 창고에 재고가 있는지 보려고 붙인다.
    백화점몰 파일보다 먼저 올려도 된다 (보관해 뒀다가 나중에 자동 대조). */
-function _onsProcessWhFileOnly(file){
-  if(!file)return;
-  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
-  var msg=document.getElementById("onsWhMsg");if(msg)msg.textContent="불러오는 중...";
-  var reader=new FileReader();
-  reader.onload=function(e){
+function _onsWhRows(rows,fileName,save){
+  var msg=document.getElementById("onsWhMsg");
     try{
-      var wb=XLSX.read(e.target.result,{type:"array"});
-      var ws=wb.Sheets[wb.SheetNames[0]];
-      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
       var hRow=-1;
       for(var r=0;r<Math.min(10,rows.length);r++){
         if(_onsFindCol(rows[r],["상품코드"])>=0){hRow=r;break;}
@@ -7421,15 +7628,13 @@ function _onsProcessWhFileOnly(file){
       onsWhPending={
         pairs:byPair,
         date:m2?(m2[1].slice(0,4)+"-"+m2[1].slice(4,6)+"-"+m2[1].slice(6,8)):"",
-        fileName:file.name
+        fileName:fileName
       };
       try{localStorage.setItem("onsWhPending",JSON.stringify(onsWhPending));}catch(e){}
-      if(_onsApplyWh())onsSave();
+      if(_onsApplyWh()&&save)onsSave();
       _onsWhMsgRefresh();
       renderOnlineStock();
-    }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
-  };
-  reader.readAsArrayBuffer(file);
+    }catch(err){alert("창고재고 자료 오류: "+err.message);if(msg)msg.textContent="";}
 }
 function onsSave(){wsSetItem("onlineStockDB",JSON.stringify(onlineStockDB));}
 function onsClear(){
@@ -8683,17 +8888,16 @@ function whCell(sku,qty,tdStyle){
 }
 /* 화면마다 넣는 업로드 칸 — 어디서 올리든 같은 자료를 쓴다 */
 function whBoxHtml(){
+  /* 업로드는 홈에서만 한다(평일 8시 자동) — 여기서는 기준 창고 선택과 상태만 보여준다 */
   return '<span class="wh-box" style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap">'
-    +'<label class="bs" style="cursor:pointer;padding:5px 12px;font-size:12px;font-weight:700;white-space:nowrap" title="PlayMD 출고관리 > 현황 > 창고재고현황 엑셀">📦 창고재고 불러오기'
-    +'<input type="file" accept=".xlsx,.xls" style="display:none" onchange="whLoadFile(this.files[0]);this.value=&quot;&quot;"></label>'
-    +'<span class="wh-drop drop-zone" style="border-radius:8px;padding:5px 14px;font-size:12px;font-weight:700;gap:5px">📂 끌어오기</span>'
+    +'<span style="font-size:12px;font-weight:700;color:#1b6e82;white-space:nowrap">📦 창고재고</span>'
     +'<select class="wh-scope" onchange="whSetScope(this.value)" title="발주 가능 재고로 볼 창고" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:11.5px;color:#334155">'
     +'<option value="ship"'+(whScope==="ship"?" selected":"")+'>주희물류 기준</option>'
     +'<option value="all"'+(whScope==="all"?" selected":"")+'>전체 창고 기준</option></select>'
     +'<span class="wh-msg" style="font-size:11.5px;color:#5b6675;font-weight:600"></span></span>';
 }
 function whStatusText(){
-  if(!whStock.n)return "창고재고 없음 — 파일을 올리면 발주 가능 여부가 보입니다";
+  if(!whStock.n)return "창고재고 없음 — 홈에서 창고재고현황이 올라오면 발주 가능 여부가 보입니다";
   var n=Object.keys(_whFlat()).length;
   return "✔ "+(whScope==="all"?"전체 창고":"주희물류")+" "+n.toLocaleString()+"품목"
     +(whStock.date?" · 기준일 "+whStock.date:"")+(whStock.at?" · "+whStock.at+" 불러옴":"")
@@ -8710,6 +8914,78 @@ function whRefresh(){
   });
 }
 /* 화면마다 둔 자리(.wh-slot)에 업로드 칸을 한 번씩 채워 넣는다 */
+(function(){
+  try{
+    var d=JSON.parse(localStorage.getItem("whRaw")||"null");
+    if(d&&d.rows&&d.at){
+      _whRawApplied=d.at;
+      setTimeout(function(){try{_whApplyRows(d.rows,d.fileName||"",false);}catch(e){}},0);
+    }
+  }catch(e){}
+})();
+/* ── 홈 PlayMD 자료 업로드 (2026-09 영업2팀) ──
+   창고재고현황·매장판매일보를 평일 8시 예약 작업이 올린다(window.__jarvisAuto=true로 표시).
+   누가·언제·자동/수동으로 올렸는지 팀 공유(ws/uploadLog)로 남겨 홈에 보여준다. */
+var uploadLog=(function(){try{var d=JSON.parse(localStorage.getItem("uploadLog")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+function _auLog(kind,info,auto,at){
+  info.at=at||new Date().toISOString();
+  info.mode=auto?"auto":"manual";
+  try{if(_authMe&&_authMe.name)info.by=String(_authMe.name);else if(_authUser&&_authUser.email)info.by=String(_authUser.email).split("@")[0];}catch(e){}
+  uploadLog[kind]=info;
+  wsSetItem("uploadLog",JSON.stringify(uploadLog));
+  renderAutoUpBar();
+}
+function _auMsg(kind,t){
+  var el=document.getElementById(kind==="wh"?"auWhMsg":"auSalesMsg");
+  if(el)el.textContent=t||"";
+}
+function _auFmtAt(iso){
+  var d=new Date(iso);if(isNaN(d))return "";
+  var p=function(n){return String(n).padStart(2,"0");};
+  var wk="일월화수목금토"[d.getDay()];
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"("+wk+") "+p(d.getHours())+":"+p(d.getMinutes());
+}
+function auPick(kind,input){
+  var f=input.files&&input.files[0];input.value="";
+  if(!f)return;
+  if(kind==="wh")whIngestFile(f);else salesIngestFile(f);
+}
+function renderAutoUpBar(){
+  [["wh","auWh","📦 창고재고현황","auWhIn"],["sales","auSales","🧾 매장판매일보","auSalesIn"]].forEach(function(c){
+    var box=document.getElementById(c[1]);if(!box)return;
+    var L=uploadLog[c[0]]||null;
+    var tag,sub="";
+    if(!L){tag='<span class="au-tag none">기록 없음</span>';}
+    else{
+      tag='<span class="au-tag '+(L.mode==="auto"?"auto":"manual")+'">'+(L.mode==="auto"?"자동":"수동")+'</span>';
+      /* 평일 오늘 8시 이후인데 오늘 올라온 게 없으면 경고 */
+      var now=new Date(),la=new Date(L.at);
+      var stale=now.getDay()>0&&now.getDay()<6&&now.getHours()>=9&&la.toDateString()!==now.toDateString();
+      sub='<b style="color:'+(stale?"#b91c1c":"#0f172a")+'">'+_auFmtAt(L.at)+'</b> 업로드'+(L.by?' · '+_esc(L.by):'')+(stale?' <b style="color:#b91c1c">· 오늘 자동 업로드 안 됨</b>':'');
+      if(c[0]==="wh"){
+        sub+='<br>재고일자 '+(L.date||"-")+' · 전체 '+(L.n||0).toLocaleString()+'품목 · 주희물류 '+(L.ship||0).toLocaleString()+'품목';
+      }else{
+        sub+='<br>기간 '+(L.from||"-")+' ~ '+(L.to||"-")+' · '+(L.rows||0).toLocaleString()+'줄'
+          +(L.chs&&L.chs.length?' · '+L.chs.map(function(x){return _esc(x);}).join("·"):'');
+      }
+    }
+    box.innerHTML='<div class="au-hd"><b style="font-size:13px;color:#154f5e">'+c[2]+'</b>'+tag
+      +'<button class="bs" style="margin-left:auto;padding:3px 10px;font-size:11.5px" onclick="window.__jarvisAuto=false;document.getElementById(\''+c[3]+'\').click()">📤 직접 올리기</button></div>'
+      +'<div class="au-sub">'+(sub||'아직 올라온 자료가 없습니다')+'</div>'
+      +'<div id="'+(c[0]==="wh"?"auWhMsg":"auSalesMsg")+'" style="font-size:11.5px;color:#b45309;font-weight:700"></div>';
+    if(!box._wired){
+      box._wired=true;
+      box.addEventListener("dragover",function(e){e.preventDefault();box.classList.add("dragover");});
+      box.addEventListener("dragleave",function(){box.classList.remove("dragover");});
+      box.addEventListener("drop",function(e){
+        e.preventDefault();box.classList.remove("dragover");
+        var f=(e.dataTransfer.files||[])[0];if(!f)return;
+        window.__jarvisAuto=false;
+        if(c[0]==="wh")whIngestFile(f);else salesIngestFile(f);
+      });
+    }
+  });
+}
 function whInitSlots(){
   var els=document.querySelectorAll(".wh-slot");
   for(var i=0;i<els.length;i++){
@@ -8726,26 +9002,62 @@ function whInitSlots(){
    발주 공용 · 백화점몰 재고확인 · 홈쇼핑몰 재고확인이 **같은 파일**을 쓰므로, 어디서 올리든 세 곳에 모두 넣는다.
    홈쇼핑몰은 '재고 확인 시작'까지 자동으로 돌려 결과(팀 공유)를 갱신한다.
    세 곳의 업로드 입구(whLoadFile · _onsProcessWhFile · _stockProcessWhFile)는 모두 여기로 모인다. */
-function whShareFile(file){
-  if(!file)return;
-  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
-  whLoadFileOnly(file);
-  _onsProcessWhFileOnly(file);
-  _stockProcessWhFileOnly(file,true);
+function whShareFile(file){whIngestFile(file);}
+function whLoadFile(file){whIngestFile(file);}
+function _onsProcessWhFile(file){whIngestFile(file);}
+function _stockProcessWhFile(file){whIngestFile(file);}
+/* 세 곳에 같은 행 배열을 넣는다. owner=true(직접 올린 브라우저)만 팀 결과를 저장하고 홈쇼핑 재고 확인을 돌린다 —
+   다른 PC는 받은 자료로 화면만 맞추고, 결과는 올린 쪽이 저장한 팀 공유본을 받는다. */
+var _whRawApplied="";
+function _whApplyRows(rows,fileName,owner){
+  whLoadRows(rows);
+  _onsWhRows(rows,fileName,owner);
+  _stockWhRows(rows,owner);
+  try{_tfWhFromRows(rows);}catch(e){}   /* 재고이관 분석 */
 }
-function whLoadFile(file){whShareFile(file);}
-function _onsProcessWhFile(file){whShareFile(file);}
-function _stockProcessWhFile(file){whShareFile(file);}
-function whLoadFileOnly(file){
+/* 필요한 열만 남긴다 — 1행(재고일자 문구) + 머리글 + 데이터 */
+var WH_KEEP_COLS=["창고코드","창고명","상품코드","상품명","품목","TAG가","칼라","칼라코드","칼라명","재고합계","가용재고","현재고","재고수량","재고"];
+function _whCompact(rows){
+  var hRow=-1;
+  for(var r=0;r<Math.min(10,rows.length);r++){
+    if((rows[r]||[]).some(function(c){return String(c||"").replace(/\s/g,"")==="상품코드";})){hRow=r;break;}
+  }
+  if(hRow<0)return null;
+  var H=rows[hRow],keep=[];
+  H.forEach(function(h,i){if(WH_KEEP_COLS.indexOf(String(h||"").replace(/\s/g,""))>=0)keep.push(i);});
+  var cCode=H.map(function(h){return String(h||"").replace(/\s/g,"");}).indexOf("상품코드");
+  var out=[[String((rows[0]&&rows[0][0])||"")],keep.map(function(i){return H[i];})];
+  for(var i=hRow+1;i<rows.length;i++){
+    var row=rows[i];if(!row||!String(row[cCode]||"").trim())continue;
+    out.push(keep.map(function(k){var v=row[k];return v==null?"":v;}));
+  }
+  return out;
+}
+/* 창고재고현황 올리기 — 홈 버튼·자동 업로드가 여기로 온다 */
+function whIngestFile(file){
   if(!file)return;
   if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
-  var els=document.querySelectorAll(".wh-msg");
-  for(var i=0;i<els.length;i++)els[i].textContent="불러오는 중...";
+  var auto=!!window.__jarvisAuto;
+  _auMsg("wh","불러오는 중...");
   var reader=new FileReader();
   reader.onload=function(e){
     try{
       var wb=XLSX.read(e.target.result,{type:"array"});
       var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+      var cp=_whCompact(rows);
+      if(!cp||cp.length<3){_auMsg("wh","");alert("창고재고현황 형식이 아닙니다 (상품코드 열이 필요합니다)");return;}
+      var at=new Date().toISOString();
+      _whRawApplied=at;
+      _whApplyRows(cp,file.name,true);
+      wsSetItem("whRaw",JSON.stringify({rows:cp,fileName:file.name,at:at}));
+      _auLog("wh",{fileName:file.name,date:whStock.date||"",n:whStock.n||0,ship:Object.keys(whStock.ship||{}).length},auto,at);
+      _auMsg("wh","✔ 반영됨");
+    }catch(err){_auMsg("wh","");alert("창고재고 파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function whLoadRows(rows){
+    try{
       /* 헤더 칸은 키워드와 **정확히** 같아야 한다 —
          1행 메타 문구(" 재고일자 : … 상품코드 : ")를 헤더로 오인하지 않게. */
       var findCol=function(H,keys){
@@ -8786,11 +9098,9 @@ function whLoadFileOnly(file){
         date:m?(m[1].slice(0,4)+"-"+m[1].slice(4,6)+"-"+m[1].slice(6,8)):""};
       _whKeys=null;_whSave();whRefresh();
     }catch(err){
-      alert("창고재고 파일 오류: "+err.message);
+      alert("창고재고 자료 오류: "+err.message);
       whRefresh();
     }
-  };
-  reader.readAsArrayBuffer(file);
 }
 /* 끌어오기 — 화면마다 배선하지 않고 문서 한 곳에서 받는다 */
 document.addEventListener("dragover",function(e){
@@ -17938,8 +18248,9 @@ function _tfProcSi(file){
 
 /* ── 창고재고현황 (물류창고 = 보충 공급원) ── */
 function tfLoadWh(input){_tfProcWh((input.files||[])[0]);input.value="";}
-function _tfProcWh(file){
-  _tfRead(file,function(rows){
+function _tfProcWh(file){_tfRead(file,_tfWhFromRows);}
+function _tfWhFromRows(rows){
+  (function(){
     var hr=_tfHeaderRow(rows,["상품코드"]);
     if(hr<0){_tfMsg("tfWhMsg","형식 인식 실패 (상품코드 열 없음)",1);return;}
     var H=rows[hr];
@@ -17968,7 +18279,7 @@ function _tfProcWh(file){
     _tfMsg("tfWhMsg","✔ "+out.length+"행 · 창고 "+Object.keys(seen).length+"곳"
       +(bujaN?" · 부자재 "+bujaN+"품목 제외":"")+(tfWhDate?" ("+tfWhDate+")":""));
     tfRenderChips();
-  });
+  })();
 }
 
 /* ── 매장판매일보 (매장별 SKU 실판매 — 반품은 음수로 들어와 그대로 상계된다) ── */
