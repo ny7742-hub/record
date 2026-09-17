@@ -1645,7 +1645,7 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">🏬 백화점몰 재고확인</div>
-      <div id="onsDrop" class="drop-zone" onclick="document.getElementById('onsIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 백화점몰 재고 업로드/끌어오기</div>
+      <div id="onsDrop" class="drop-zone" onclick="document.getElementById('onsIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px" title="매장 추가 · 몰 상품이 바뀌었을 때만 올리면 됩니다(팀 공유로 저장)">📂 백화점몰 상품리스트 업로드/끌어오기</div>
       <input type="file" id="onsIn" accept=".xlsx,.xls" style="display:none" onchange="onsLoadFile(this)"/>
       <span id="onsMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <div id="onsWhDrop" class="drop-zone" onclick="document.getElementById('onsWhIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 창고재고현황 (순서 무관)</div>
@@ -1654,10 +1654,10 @@ label{font-size:14px!important}
       <button onclick="onsClear()" class="bs" style="margin-left:auto;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer">🗑 비우기</button>
     </div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.6">
-      롯데 <b>파트너오피스 → 상품 → 단품 재고관리</b>에서 받은 엑셀(<b>ExcelExport</b>, 온라인 재고 열 포함) 또는
-      현대백화점 <b>상품옵션별재고현황</b>(판매상품코드·옵션명·남은수량) 엑셀을 올리면 백화점몰 재고를 확인합니다. 파일의 점포 칸으로 <b>매장별(롯데 본점 · 현대천호점 …)로 따로 보관</b>되어, 한 매장을 올려도 다른 매장 자료는 남고 새 매장은 탭이 저절로 생깁니다.
-      스타일코드의 채널 접미사(<b>_LT</b> 등)를 떼고 상품데이터와 맞춰 <b>자사코드·바코드</b>를 함께 보여줍니다.<br>
-      <b>창고재고현황</b>을 같이 올리면 <b>백화점몰 판매상태가 품절인데 창고에 재고가 있는</b> 상품에 <b>♻ 보충가능</b>을 표시합니다 — 바로 채워 넣으면 되는 건입니다.<br>두 파일은 <b>어느 쪽을 먼저 올려도 됩니다</b>. 창고재고를 먼저 올려두면 백화점몰 파일이 올라오는 순간 자동으로 대조됩니다.
+      <b style="color:#1b6e82">평소에는 창고재고현황만 올리면 됩니다.</b> 백화점몰 상품리스트는 팀 공유로 저장되어 있어 <b>매장이 추가되거나 몰 상품이 바뀌었을 때만</b> 올립니다.<br>
+      <b>백화점몰 상품리스트</b> = 롯데 <b>파트너오피스 → 상품 → 단품 재고관리</b> 엑셀(<b>ExcelExport</b>) 또는 현대백화점 <b>상품옵션별재고현황</b> 엑셀 —
+      몰에 걸린 상품과 판매상태(판매중·품절)가 들어 있습니다. 파일의 점포 칸으로 <b>매장별(롯데 본점 · 현대천호점 …)로 따로 보관</b>되어, 한 매장을 올려도 다른 매장 자료는 남고 새 매장은 탭이 저절로 생깁니다.<br>
+      <b>창고재고현황</b>과 대조해 <b>품절 해제 가능 · 품절 처리 필요</b>를 뽑습니다. 몰에서 처리한 건은 <b>✔ 완료</b>로 체크하면 상품리스트를 다시 올리지 않아도 됩니다.
     </div>
   </div>
   <div id="onsMallTabs"></div>
@@ -7211,7 +7211,7 @@ function _onsProcessFile(file){
       for(var r=0;r<Math.min(10,rows.length);r++){
         if(_onsFindCol(rows[r],["스타일코드"])>=0){hRow=r;break;}
       }
-      if(hRow<0){alert("백화점몰 재고 형식을 인식할 수 없습니다.\n\n· 롯데: 파트너오피스 단품 재고관리 ExcelExport(스타일코드 열)\n· 현대: 상품옵션별재고현황(판매상품코드·남은수량 열)");if(msg)msg.textContent="";return;}
+      if(hRow<0){alert("백화점몰 상품리스트 형식을 인식할 수 없습니다.\n\n· 롯데: 파트너오피스 단품 재고관리 ExcelExport(스타일코드 열)\n· 현대: 상품옵션별재고현황(판매상품코드·남은수량 열)");if(msg)msg.textContent="";return;}
       var H=rows[hRow];
       var cQty=_onsFindCol(H,["온라인재고","재고","가용재고"]),
           cStyle=_onsFindCol(H,["스타일코드"]),
@@ -7377,7 +7377,7 @@ function _onsWhMsgRefresh(){
   var msg=document.getElementById("onsWhMsg");if(!msg)return;
   if(!onsWhPending.pairs){msg.textContent="";return;}
   var d=onsWhPending.date?" (재고일자 "+onsWhPending.date+")":"";
-  if(!(onlineStockDB.rows||[]).length){msg.textContent="✔ 창고재고 불러옴"+d+" · 백화점몰 재고 파일을 올리면 대조됩니다";return;}
+  if(!(onlineStockDB.rows||[]).length){msg.textContent="✔ 창고재고 불러옴"+d+" · 백화점몰 상품리스트를 올리면 대조됩니다";return;}
   var matched=onlineStockDB.rows.filter(function(r){return r.wh!==null;}).length;
   msg.textContent="✔ 창고재고 "+matched+"/"+onlineStockDB.rows.length+"건 대조"+d;
 }
@@ -7592,8 +7592,8 @@ function renderOnlineStock(){
   if(!(onlineStockDB.rows||[]).length){
     if(sumEl)sumEl.innerHTML="";
     if(cntEl)cntEl.textContent="";
-    wrap.innerHTML='<div style="padding:28px;text-align:center;color:#5b6675;font-size:12px">백화점몰 재고 파일을 올리면 여기에 표시됩니다.'
-      +(onsWhPending.pairs?'<br><span style="color:#15803d;font-weight:600">창고재고는 이미 올라와 있습니다 — 백화점몰 파일만 올리면 바로 대조됩니다.</span>':'')
+    wrap.innerHTML='<div style="padding:28px;text-align:center;color:#5b6675;font-size:12px">백화점몰 상품리스트를 올리면 여기에 표시됩니다.'
+      +(onsWhPending.pairs?'<br><span style="color:#15803d;font-weight:600">창고재고는 이미 올라와 있습니다 — 백화점몰 상품리스트만 올리면 바로 대조됩니다.</span>':'')
       +'</div>';
     return;
   }
@@ -7612,8 +7612,8 @@ function renderOnlineStock(){
       +(onlineStockDB.whApplied?_onsStatBox("품절 해제 가능",nFill.toLocaleString()+"색","품절 + 창고재고 "+onsOutMin()+"개 이상","#15803d","#f0fdf4","#86efac"):"")
       +'</div>'
       +'<div style="margin-top:8px;font-size:11px;color:#5b6675">'
-      +(onlineStockDB.files?Object.keys(onlineStockDB.files).sort().filter(function(m){return _mSel==="*"||m===_mSel;}).map(function(m){var f=onlineStockDB.files[m];return _escX(m)+" 기준 <b>"+_escX(f.date||f.name)+"</b>";}).join(" · ")
-        :(onlineStockDB.date?"백화점몰 재고 기준 <b>"+_escX(onlineStockDB.date)+"</b>":""))
+      +(onlineStockDB.files?Object.keys(onlineStockDB.files).sort().filter(function(m){return _mSel==="*"||m===_mSel;}).map(function(m){var f=onlineStockDB.files[m];return _escX(m)+" 상품리스트 <b>"+_escX(f.date||f.name)+"</b>";}).join(" · ")
+        :(onlineStockDB.date?"상품리스트 기준 <b>"+_escX(onlineStockDB.date)+"</b>":""))
       +(onlineStockDB.whDate?" · 창고재고 기준일 <b>"+_escX(onlineStockDB.whDate)+"</b>":"")
       +(onlineStockDB.whApplied?"":" · 창고재고현황을 올리면 보충 가능 여부를 함께 봅니다")
       +'</div></div>';
@@ -7652,7 +7652,7 @@ function renderOnlineStock(){
       +actBox("⛔ 품절 처리 필요","백화점몰에는 판매중인데 창고재고가 "+OUTMIN+"개 미만입니다 — 품절로 거세요",mustClose,"#dc2626","#fef2f2","#fca5a5","out","품절 완료")
       +'</div>';
     var _omN=Object.keys(onsStockMarks.c).length+Object.keys(onsStockMarks.p).length;
-    sumEl.innerHTML+='<div style="font-size:11px;color:#5b6675;margin:-6px 0 10px">처리한 건은 <b>✔ 완료</b>를 누르면 목록에서 빠집니다(팀 공유) · 상품을 통째로 내렸으면 표의 상품명 칸에서 <b>전체 품절</b>을 누르세요 · 백화점몰 파일을 새로 올려 상태가 바뀌면 체크는 저절로 풀립니다'
+    sumEl.innerHTML+='<div style="font-size:11px;color:#5b6675;margin:-6px 0 10px">처리한 건은 <b>✔ 완료</b>를 누르면 목록에서 빠집니다(팀 공유) · 상품을 통째로 내렸으면 표의 상품명 칸에서 <b>전체 품절</b>을 누르세요 · 백화점몰 상품리스트를 새로 올려 상태가 바뀌면 체크는 저절로 풀립니다'
       +(_omN?' · <a href="#" onclick="onsClearMarks();return false" style="color:#b45309">완료 체크 '+_omN+'건 모두 지우기</a>':'')+'</div>';
   }
   var q=_onsNorm((document.getElementById("onsSearch")||{}).value||"");
@@ -7738,7 +7738,7 @@ function renderOnlineStock(){
 }
 function onsExport(){
   var all=onlineStockDB.rows||[];
-  if(!all.length){alert("다운로드할 데이터가 없습니다.\n먼저 백화점몰 재고 파일을 올려주세요.");return;}
+  if(!all.length){alert("다운로드할 데이터가 없습니다.\n먼저 백화점몰 상품리스트를 올려주세요.");return;}
   var low=_onsLowLimit();
   var head=["몰","상품명","컬러","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","할 일","판매상태","현재가","채널","점포","채널상품코드","스타일코드"];
   var aoa=[head];
