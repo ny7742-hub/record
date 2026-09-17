@@ -2063,7 +2063,7 @@ var FB_PATH={
   "meetingDB":"ws/meeting","deptDB":"ws/dept",
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
-  "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults",
+  "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock",
   "extSalesDB":"ws/extSales",
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -2516,6 +2516,11 @@ function fbListen(){
   /* 홈쇼핑몰 재고확인 결과 (팀 공유) */
   apply("ws/stockCheckResults","stockCheckResults",
     function(d){if(d&&d.results){stockCheckResults=d.results;stockWarehouseDate=d.date||stockWarehouseDate;}},
+    function(){var pg=document.getElementById("page-stock");if(pg&&pg.style.display!=="none"&&typeof renderStockCheckResults==="function")renderStockCheckResults();}
+  );
+  /* 홈쇼핑몰 재고확인 완료 체크 (팀 공유) */
+  apply("ws/hsStockMarks","hsStockMarks",
+    function(d){if(d&&typeof d==="object")hsStockMarks={c:d.c||{},p:d.p||{}};},
     function(){var pg=document.getElementById("page-stock");if(pg&&pg.style.display!=="none"&&typeof renderStockCheckResults==="function")renderStockCheckResults();}
   );
   /* 백화점몰 재고확인 결과 (팀 공유) */
@@ -6773,6 +6778,84 @@ function setHsOutMin(){
   if(el){try{localStorage.setItem("hsOutMin",String(hsOutMin()));}catch(e){}}
   renderStockCheckResults();
 }
+/* ── 완료 체크 (2026-09 영업2팀) ──
+   할 일 목록에서 처리한 건을 체크하면 다음부터 뜨지 않게 한다.
+   · 색상 체크: `c["채널|자사코드"] = {st:"out"|"sale", note:체크할 때의 품절표시}`
+     — 품절 처리 완료면 몰 품절로, 해제 완료면 몰 판매중으로 본다.
+   · 상품 체크(전체 품절): `p["채널|상품명"] = {sig:체크할 때 그 상품 색상들의 품절표시}`
+     — 남은 색이 하나뿐이라 상품을 통째로 내린 경우(나바르 코랄 등). 모든 색을 몰 품절로 보고
+       **해제 가능 목록에도 올리지 않는다**(일부러 내린 것이므로).
+   **상품리스트의 품절표시가 바뀌면 그 체크는 저절로 풀린다** — 목록을 새로 받았으면 그게 정본이다.
+   팀 공유(`ws/hsStockMarks`). */
+var hsStockMarks=(function(){
+  try{var d=JSON.parse(localStorage.getItem("hsStockMarks")||"null");if(d)return {c:d.c||{},p:d.p||{}};}catch(e){}
+  return {c:{},p:{}};
+})();
+function _hsNote(r){return String(r&&r.note||"").trim();}
+function _hsColorKey(r){return (r.ch||"")+"|"+(r.sku||((r.name||"")+"/"+(r.color||"")));}
+function _hsProdKey(ch,name){return (ch||"")+"|"+(name||"");}
+function _hsProdRows(ch,name){
+  return (stockCheckResults||[]).filter(function(x){return (x.ch||"")===(ch||"")&&(x.name||"")===(name||"");});
+}
+function _hsProdSig(ch,name){return _hsProdRows(ch,name).map(function(x){return (x.sku||x.color)+"="+_hsNote(x);}).sort().join(";");}
+/* 상품 전체 품절 체크가 지금도 유효한가 */
+function _hsProdMarked(ch,name){
+  var m=hsStockMarks.p[_hsProdKey(ch,name)];
+  return !!(m&&m.sig===_hsProdSig(ch,name));
+}
+/* 색상 체크 — 유효하면 "out"/"sale", 아니면 "" */
+function _hsColorMark(r){
+  var m=hsStockMarks.c[_hsColorKey(r)];
+  return (m&&m.note===_hsNote(r))?m.st:"";
+}
+/* 몰에서 지금 품절인가(체크 반영) */
+function _hsMallOut(r){
+  if(_hsProdMarked(r.ch,r.name))return true;
+  var mk=_hsColorMark(r);
+  if(mk)return mk==="out";
+  return _hsNote(r)==="품절";
+}
+function _hsSaveMarks(){
+  /* 풀린(더는 맞지 않는) 체크는 정리해서 저장 크기를 줄인다 */
+  if(stockCheckResults){
+    var live={};stockCheckResults.forEach(function(r){live[_hsColorKey(r)]=r;});
+    Object.keys(hsStockMarks.c).forEach(function(k){var r=live[k];if(!r||hsStockMarks.c[k].note!==_hsNote(r))delete hsStockMarks.c[k];});
+    Object.keys(hsStockMarks.p).forEach(function(k){
+      var i=k.indexOf("|"),ch=k.slice(0,i),nm=k.slice(i+1);
+      if(hsStockMarks.p[k].sig!==_hsProdSig(ch,nm))delete hsStockMarks.p[k];
+    });
+  }
+  wsSetItem("hsStockMarks",JSON.stringify(hsStockMarks));
+}
+function hsMarkColor(idx,st){
+  var r=(stockCheckResults||[])[idx];if(!r)return;
+  hsStockMarks.c[_hsColorKey(r)]={st:st,note:_hsNote(r),at:Date.now()};
+  _hsSaveMarks();renderStockCheckResults();
+}
+function hsUnmarkColor(idx){
+  var r=(stockCheckResults||[])[idx];if(!r)return;
+  delete hsStockMarks.c[_hsColorKey(r)];
+  _hsSaveMarks();renderStockCheckResults();
+}
+function hsToggleProdOut(idx){
+  var r0=(stockCheckResults||[])[idx];if(!r0)return;
+  var ch=r0.ch,name=r0.name,k=_hsProdKey(ch,name);
+  if(_hsProdMarked(ch,name)){
+    if(!confirm("'"+name+"' 전체 품절 체크를 풀까요?"))return;
+    delete hsStockMarks.p[k];
+  }else{
+    if(!confirm("'"+name+"'\n상품 전체를 몰에서 품절 처리했다고 체크할까요?\n\n모든 색상이 품절로 보이고, 품절 해제 가능 목록에도 뜨지 않습니다."))return;
+    hsStockMarks.p[k]={sig:_hsProdSig(ch,name),at:Date.now()};
+  }
+  _hsSaveMarks();renderStockCheckResults();
+}
+function hsClearMarks(){
+  var n=Object.keys(hsStockMarks.c).length+Object.keys(hsStockMarks.p).length;
+  if(!n)return;
+  if(!confirm("완료 체크 "+n+"건을 모두 지울까요? (팀 전체에 반영됩니다)"))return;
+  hsStockMarks={c:{},p:{}};
+  _hsSaveMarks();renderStockCheckResults();
+}
 function renderStockCheckResults(){
   /* 저장해 둔 기준값을 입력칸에 한 번 되살린다(HTML 기본값은 30) */
   var _thEl=document.getElementById("stockOutMin");
@@ -6798,8 +6881,8 @@ function renderStockCheckResults(){
   var soldOut=stockCheckResults.filter(function(r){return isOutQ(r.qty);}).length;
   var sm=document.getElementById("stockResultSummary");
   if(sm){
-    var _op=stockCheckResults.filter(function(r){return String(r.note||"").trim()==="품절"&&!isOutQ(r.qty);}).length;
-    var _cl=stockCheckResults.filter(function(r){return String(r.note||"").trim()!=="품절"&&isOutQ(r.qty);}).length;
+    var _op=stockCheckResults.filter(function(r){return _hsMallOut(r)&&!isOutQ(r.qty)&&!_hsProdMarked(r.ch,r.name);}).length;
+    var _cl=stockCheckResults.filter(function(r){return !_hsMallOut(r)&&isOutQ(r.qty);}).length;
     sm.textContent="전체 "+stockCheckResults.length+"건(컬러별) · 품절("+OUTMIN+"개 미만) "+soldOut+"건 · 해제 가능 "+_op+"건 · 품절 처리 "+_cl+"건"
       +(stockWarehouseDate?" · 창고재고 기준일 "+stockWarehouseDate:"");
   }
@@ -6834,12 +6917,13 @@ function renderStockCheckResults(){
      ① 몰은 품절인데 창고에 재고가 있으면 → 다시 등록(판매재개)할 수 있다
      ② 몰은 판매중인데 창고가 비었으면 → 품절로 걸어야 한다
      검색·필터와 무관하게 전체 기준으로 뽑는다(해야 할 일이 필터에 가려지면 안 되므로). */
-  var _isOut=function(r){return String(r.note||"").trim()==="품절";};
-  var canOpen=stockCheckResults.filter(function(r){return _isOut(r)&&!isOutQ(r.qty);})
+  var _idx=new Map();stockCheckResults.forEach(function(r,i){_idx.set(r,i);});
+  var canOpen=stockCheckResults.filter(function(r){return _hsMallOut(r)&&!isOutQ(r.qty)&&!_hsProdMarked(r.ch,r.name);})
     .sort(function(a,b){return b.qty-a.qty;});
-  var mustClose=stockCheckResults.filter(function(r){return !_isOut(r)&&isOutQ(r.qty);})
+  var mustClose=stockCheckResults.filter(function(r){return !_hsMallOut(r)&&isOutQ(r.qty);})
     .sort(function(a,b){return String(a.ch+a.name).localeCompare(String(b.ch+b.name));});
-  var actBox=function(title,sub,rows,color,bg,bd){
+  var _markN=Object.keys(hsStockMarks.c).filter(function(k){return true;}).length+Object.keys(hsStockMarks.p).length;
+  var actBox=function(title,sub,rows,color,bg,bd,doneSt,doneLabel){
     var b='<div style="border:1px solid '+bd+';background:'+bg+';border-radius:10px;overflow:hidden">'
       +'<div style="padding:7px 12px;border-bottom:1px solid '+bd+'">'
       +'<span style="font-size:13px;font-weight:800;color:'+color+'">'+title+' '+rows.length+'건</span>'
@@ -6855,15 +6939,19 @@ function renderStockCheckResults(){
         +'<span style="font-size:10px;font-weight:700;color:#5b6675;width:58px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escX(r.ch)+'</span>'
         +'<span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escX(r.name)+' <span style="color:#5b6675">'+_escX(r.color)+'</span></span>'
         +'<span style="font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;color:'+color+'">'+r.qty.toLocaleString()+'</span>'
+        +'<button onclick="hsMarkColor('+_idx.get(r)+',\''+doneSt+'\')" title="처리했으면 누르세요 — 다음부터 이 목록에 뜨지 않습니다"'
+        +' style="flex:none;cursor:pointer;border:1px solid '+bd+';background:#fff;color:'+color+';border-radius:6px;font-size:10.5px;font-weight:800;padding:1px 7px">✔ '+doneLabel+'</button>'
         +'</div>';
     });
     b+='</div></div>';
     return b;
   };
   var h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px;margin-bottom:6px">'
-    +actBox("✅ 품절 해제 가능","몰에는 품절인데 창고재고가 "+OUTMIN+"개 이상입니다 — 다시 등록하세요",canOpen,"#15803d","#f0fdf4","#86efac")
-    +actBox("⛔ 품절 처리 필요","몰에는 판매중인데 창고재고가 "+OUTMIN+"개 미만입니다 — 품절로 거세요",mustClose,"#dc2626","#fef2f2","#fca5a5")
-    +'</div>';
+    +actBox("✅ 품절 해제 가능","몰에는 품절인데 창고재고가 "+OUTMIN+"개 이상입니다 — 다시 등록하세요",canOpen,"#15803d","#f0fdf4","#86efac","sale","해제 완료")
+    +actBox("⛔ 품절 처리 필요","몰에는 판매중인데 창고재고가 "+OUTMIN+"개 미만입니다 — 품절로 거세요",mustClose,"#dc2626","#fef2f2","#fca5a5","out","품절 완료")
+    +'</div>'
+    +'<div style="font-size:11px;color:#5b6675;margin:2px 0 4px">처리한 건은 <b>✔ 완료</b>를 누르면 목록에서 빠집니다(팀 공유) · 상품을 통째로 내렸으면 카드의 <b>전체 품절</b>을 누르세요 · 상품리스트의 품절표시가 바뀌면 체크는 저절로 풀립니다'
+    +(_markN?' · <a href="#" onclick="hsClearMarks();return false" style="color:#b45309">완료 체크 '+_markN+'건 모두 지우기</a>':'')+'</div>';
   chGroups.forEach(function(g){
     h+='<div style="display:flex;align-items:center;gap:8px;margin:14px 0 8px">'
       +'<span style="background:#1b6e82;color:#fff;font-weight:800;font-size:13px;border-radius:8px;padding:3px 12px;white-space:nowrap">'+_escX(g.ch)+'</span>'
@@ -6872,13 +6960,19 @@ function renderStockCheckResults(){
       +'<span style="flex:1;height:1px;background:#e2e8f0"></span></div>';
     h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;align-items:start">';
     g.prods.forEach(function(p){
+      var pAll=_hsProdMarked(p.rows[0].ch,p.name);   /* g.ch는 빈 채널을 '(채널없음)'으로 바꿔 둔 값이라 원래 값을 쓴다 */
       var nm=_escX(p.name);
       if(p.url)nm='<a href="'+_escX(p.url)+'" target="_blank" rel="noopener" style="color:#0f172a;text-decoration:none">'+nm+' <span style="font-size:11px;color:#2563eb">↗</span></a>';
-      h+='<div style="border:1px solid #e1e6ee;border-radius:10px;overflow:hidden;background:#fff">';
-      h+='<div style="background:#f8fafc;border-bottom:1px solid #e1e6ee;padding:6px 10px">'
-        +'<div style="font-size:12.5px;font-weight:700;color:#0f172a;line-height:1.35;word-break:keep-all">'+nm+'</div>'
+      h+='<div style="border:1px solid '+(pAll?'#cbd5e1':'#e1e6ee')+';border-radius:10px;overflow:hidden;background:#fff'+(pAll?';opacity:.72':'')+'">';
+      h+='<div style="background:'+(pAll?'#e2e8f0':'#f8fafc')+';border-bottom:1px solid #e1e6ee;padding:6px 10px;display:flex;gap:8px;align-items:flex-start">'
+        +'<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;color:#0f172a;line-height:1.35;word-break:keep-all">'+nm+'</div>'
         +'<div style="font-size:10.5px;color:#5b6675;font-weight:600;margin-top:1px">'+p.rows.length+'색'
-        +(p.out?' · <span style="color:#dc2626;font-weight:800">품절 '+p.out+'</span>':'')+'</div></div>';
+        +(p.out?' · <span style="color:#dc2626;font-weight:800">품절 '+p.out+'</span>':'')
+        +(pAll?' · <span style="color:#475569;font-weight:800">🔒 전체 품절 처리됨</span>':'')+'</div></div>'
+        +'<button onclick="hsToggleProdOut('+_idx.get(p.rows[0])+')" title="'+(pAll?'전체 품절 체크 풀기':'상품을 통째로 몰에서 품절 처리했으면 누르세요')+'"'
+        +' style="flex:none;cursor:pointer;border-radius:6px;font-size:10.5px;font-weight:800;padding:2px 7px;'
+        +(pAll?'background:#475569;border:1px solid #475569;color:#fff':'background:#fff;border:1px solid #cbd5e1;color:#475569')+'">'
+        +(pAll?'✔ 전체 품절':'전체 품절')+'</button></div>';
       p.rows.forEach(function(r,ri){
         var out=isOutQ(r.qty);
         h+='<div title="'+_escX(r.sku)+'" style="display:flex;align-items:center;gap:8px;padding:3px 10px;'
@@ -6886,6 +6980,12 @@ function renderStockCheckResults(){
           +'<span style="flex:1;min-width:0;font-size:12px;font-weight:600;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escX(r.color)+'</span>'
           +'<span style="font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums;color:'+(out?"#dc2626":"#15803d")+'">'+r.qty.toLocaleString()+'</span>'
           +'<span style="width:30px;text-align:right;font-size:10.5px;font-weight:800;color:#dc2626">'+(out?"품절":"")+'</span>'
+          +(function(){
+            var mk=pAll?"":_hsColorMark(r);
+            if(!mk)return "";
+            return '<span onclick="hsUnmarkColor('+_idx.get(r)+')" title="완료 체크 풀기" style="cursor:pointer;font-size:9.5px;font-weight:800;border-radius:4px;padding:0 4px;'
+              +(mk==="out"?'background:#f1f5f9;color:#475569">몰품절✔':'background:#dcfce7;color:#15803d">몰판매✔')+'</span>';
+          })()
           +'</div>';
       });
       h+='</div>';
