@@ -1619,7 +1619,7 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">🏭 홈쇼핑몰 재고확인</div>
-      <div id="stockWhDrop" class="drop-zone" onclick="document.getElementById('stockWhIn').click()" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 창고재고현황 업로드/끌어오기</div>
+      <div id="stockWhDrop" class="drop-zone" onclick="document.getElementById('stockWhIn').click()" title="한 번 올리면 발주 · 백화점몰 재고확인에도 함께 들어가고, 재고 확인까지 자동으로 돌아갑니다" style="border-radius:8px;padding:6px 16px;font-size:12px;font-weight:700;gap:5px">📂 창고재고현황 업로드/끌어오기 <span style="font-size:10.5px;font-weight:600;color:#0f766e">(발주·백화점몰 함께 반영)</span></div>
       <input type="file" id="stockWhIn" accept=".xlsx,.xls" style="display:none" onchange="loadWarehouseStockFile(this)"/>
       <span id="stockWhMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <button onclick="startStockCheck()" id="stockCheckBtn" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700">▶ 재고 확인 시작</button>
@@ -1654,7 +1654,7 @@ label{font-size:14px!important}
       <button onclick="onsClear()" class="bs" style="margin-left:auto;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer">🗑 비우기</button>
     </div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.6">
-      <b style="color:#1b6e82">평소에는 창고재고현황만 올리면 됩니다.</b> 백화점몰 상품리스트는 팀 공유로 저장되어 있어 <b>매장이 추가되거나 몰 상품이 바뀌었을 때만</b> 올립니다.<br>
+      <b style="color:#1b6e82">평소에는 창고재고현황만 올리면 됩니다</b> — 여기든 홈쇼핑몰 재고확인이든 발주 화면이든 <b>한 곳에만 올리면 세 곳 모두 반영</b>됩니다. 백화점몰 상품리스트는 팀 공유로 저장되어 있어 <b>매장이 추가되거나 몰 상품이 바뀌었을 때만</b> 올립니다.<br>
       <b>백화점몰 상품리스트</b> = 롯데 <b>파트너오피스 → 상품 → 단품 재고관리</b> 엑셀(<b>ExcelExport</b>) 또는 현대백화점 <b>상품옵션별재고현황</b> 엑셀 —
       몰에 걸린 상품과 판매상태(판매중·품절)가 들어 있습니다. 파일의 점포 칸으로 <b>매장별(롯데 본점 · 현대천호점 …)로 따로 보관</b>되어, 한 매장을 올려도 다른 매장 자료는 남고 새 매장은 탭이 저절로 생깁니다.<br>
       <b>창고재고현황</b>과 대조해 <b>품절 해제 가능 · 품절 처리 필요</b>를 뽑습니다. 몰에서 처리한 건은 <b>✔ 완료</b>로 체크하면 상품리스트를 다시 올리지 않아도 됩니다.
@@ -6673,7 +6673,7 @@ function loadWarehouseStockFile(input){
   input.value="";
 }
 /* 창고재고현황 엑셀 처리 — 업로드 버튼과 끌어오기(드래그&드롭) 양쪽이 같은 경로를 쓴다 */
-function _stockProcessWhFile(file){
+function _stockProcessWhFileOnly(file,autoRun){
   if(!file)return;
   if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
   var msg=document.getElementById("stockWhMsg");if(msg)msg.textContent="불러오는 중...";
@@ -6716,6 +6716,8 @@ function _stockProcessWhFile(file){
       var btn=document.getElementById("stockCheckBtn");if(btn)btn.disabled=false;
       var wrap=document.getElementById("stockResultWrap");if(wrap)wrap.innerHTML="";
       var sm=document.getElementById("stockResultSummary");if(sm)sm.textContent="";
+      /* 공용 업로드에서 왔으면 '재고 확인 시작'까지 바로 돌린다 */
+      if(autoRun)startStockCheck();
     }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
   };
   reader.readAsArrayBuffer(file);
@@ -7383,7 +7385,7 @@ function _onsWhMsgRefresh(){
 }
 /* 창고재고현황(선택) — 백화점몰이 품절인데 창고에 재고가 있는지 보려고 붙인다.
    백화점몰 파일보다 먼저 올려도 된다 (보관해 뒀다가 나중에 자동 대조). */
-function _onsProcessWhFile(file){
+function _onsProcessWhFileOnly(file){
   if(!file)return;
   if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
   var msg=document.getElementById("onsWhMsg");if(msg)msg.textContent="불러오는 중...";
@@ -8720,7 +8722,21 @@ function whInitSlots(){
   var sels=document.querySelectorAll(".wh-scope");
   for(var k=0;k<sels.length;k++)sels[k].value=whScope;
 }
-function whLoadFile(file){
+/* ── 창고재고현황 한 번에 (2026-09 영업2팀) ──
+   발주 공용 · 백화점몰 재고확인 · 홈쇼핑몰 재고확인이 **같은 파일**을 쓰므로, 어디서 올리든 세 곳에 모두 넣는다.
+   홈쇼핑몰은 '재고 확인 시작'까지 자동으로 돌려 결과(팀 공유)를 갱신한다.
+   세 곳의 업로드 입구(whLoadFile · _onsProcessWhFile · _stockProcessWhFile)는 모두 여기로 모인다. */
+function whShareFile(file){
+  if(!file)return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
+  whLoadFileOnly(file);
+  _onsProcessWhFileOnly(file);
+  _stockProcessWhFileOnly(file,true);
+}
+function whLoadFile(file){whShareFile(file);}
+function _onsProcessWhFile(file){whShareFile(file);}
+function _stockProcessWhFile(file){whShareFile(file);}
+function whLoadFileOnly(file){
   if(!file)return;
   if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
   var els=document.querySelectorAll(".wh-msg");
