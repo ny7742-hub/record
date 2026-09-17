@@ -1568,6 +1568,29 @@ label{font-size:14px!important}
     <div id="marginTableWrap" style="overflow:auto;max-height:74vh;padding:0"></div>
   </div>
 
+  <!-- 코스트코 제안 상품 손익 계산서 (2026-09 영업2팀) — 행사 마진 계산서와 별개 -->
+  <div class="card" style="margin-top:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">📦 코스트코 제안 상품 손익 계산서</div>
+      <label style="font-size:12px;color:#1b6e82;font-weight:600;display:flex;align-items:center;gap:4px" title="제품원가·패키지·물류·기타·프로모션·반품손실·고정비를 VAT 포함 금액으로 적었으면 켭니다(모두 ÷1.1)">
+        <input type="checkbox" id="cpCostVat" onchange="ccPropDB.costVat=this.checked;cpSave();cpRender()"> 비용을 VAT 포함으로 입력</label>
+      <button onclick="cpAddRow()" class="bs" style="padding:6px 14px;font-size:12px">+ 상품 추가</button>
+      <button onclick="cpExport()" class="bs" style="padding:6px 14px;font-size:12px">📥 엑셀</button>
+      <span style="font-size:11px;color:#5b6675">입력하는 즉시 계산됩니다 · 팀 공유 · 상품명을 적으면 <b>제품원가</b>는 판매일보 상품리스트의 사전원가로 채워집니다</span>
+    </div>
+    <div id="cpWrap" style="overflow:auto;margin-top:10px"></div>
+    <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.7">
+      <b>계산 기준</b> — 모든 금액은 <b>VAT 제외</b>로 맞춰 계산합니다(공급가는 행마다 VAT 포함/별도 선택).<br>
+      ① 실질 공급가 = 공급가(VAT 포함이면 ÷1.1) · ② 매출총이익 = 실질 공급가 − 제품원가 ·
+      ③ 개당 공헌이익 = 실질 공급가 − (제품원가+패키지+물류비+기타) ·
+      ④ 반품수량 = 발주수량 × 반품률 — 반품분은 매출이 없고 제품은 재고로 돌아오지만, 이미 쓴 <b>패키지·물류·기타</b>와 <b>반품 개당 손실</b>(회수 물류·폐기 등)은 손실 ·
+      ⑤ 프로모션 부담은 <b>행사수량</b>에만 곱합니다(비우면 0) ·
+      ⑥ <b>최종 예상이익</b> = 순판매수량×개당 공헌이익 − 반품 손실 − 행사수량×프로모션 부담 − 고정비(샘플·개발·검품 등 총액) ·
+      ⑦ 최종 이익률 = 최종 예상이익 ÷ 순매출(실질 공급가×순판매수량).
+      소비자가는 참고용(코스트코 마진율 표시)이고 계산에는 쓰지 않습니다.
+    </div>
+  </div>
+
 
   <!-- 공문 작성 — 마진계산과 한 화면에서 쓴다(2026-09 영업2팀) -->
 
@@ -2084,7 +2107,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
-  "extSalesDB":"ws/extSales",
+  "extSalesDB":"ws/extSales","ccPropDB":"ws/ccProp",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","bestImgDB":"ws/bestImg",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -2489,6 +2512,10 @@ function fbListen(){
     function(){if(document.getElementById("page-homeshopping")&&document.getElementById("page-homeshopping").style.display!=="none"&&typeof renderHsPre==="function")renderHsPre();}
   );
   /* 마진계산 */
+  apply("ws/ccProp","ccPropDB",
+    function(d){if(d&&Array.isArray(d.rows))ccPropDB=d;},
+    function(){var pg=document.getElementById("page-margin");if(pg&&pg.style.display!=="none"&&!_cpEditing())cpRender();}
+  );
   apply("ws/margin","marginDB",
     function(d){if(d&&typeof d==="object")marginDB=d;},
     function(){if(document.getElementById("page-margin")&&document.getElementById("page-margin").style.display!=="none")renderMargin();}
@@ -6558,7 +6585,7 @@ function switchTab(tab){
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); ccPdfPairDropZoneInit(); }
   if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
   _tabDropSync();
-  if(tab==="margin"){ renderMargin(); mgRenderContractPreview(); }
+  if(tab==="margin"){ renderMargin(); mgRenderContractPreview(); cpRender(); }
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock"){ initStockTab(); stockWhDropInit(); }
   whInitSlots();          /* 발주 화면들의 창고재고 불러오기 칸 */
@@ -11949,6 +11976,151 @@ function renderHsPre(){
 var marginDB=(function(){try{var d=JSON.parse(localStorage.getItem("marginDB")||"null");return d&&typeof d==="object"?d:{fee:0.139,deliv:0,period:"",rows:[]};}catch(e){return {fee:0.139,deliv:0,period:"",rows:[]};}})();
 if(!marginDB.rows)marginDB.rows=[];
 function saveMargin(){wsSetItem("marginDB",JSON.stringify(marginDB));}
+/* ── 코스트코 제안 상품 손익 계산서 (2026-09 영업2팀) ──
+   행사 마진 계산서(판매가−수수료 구조)와 별개로, 코스트코가 사가는 **공급가**에서 출발해
+   제품원가·패키지·물류·기타·프로모션·반품·고정비까지 뺀 최종 예상이익을 본다. 팀 공유 ws/ccProp. */
+var ccPropDB=(function(){try{var d=JSON.parse(localStorage.getItem("ccPropDB")||"null");if(d&&Array.isArray(d.rows))return d;}catch(e){}return {costVat:false,rows:[]};})();
+var CP_FIELDS=[
+  /* key, 머리글, 폭, 설명 */
+  ["name","상품명",170,"제안 상품명"],
+  ["retail","소비자가",78,"코스트코 매장 판매가(참고)"],
+  ["supply","공급가",78,"코스트코에서 받는 금액"],
+  ["supplyVat","공급가 VAT",70,""],
+  ["cost","제품원가",72,"제작·매입 원가"],
+  ["pack","패키지",62,"케이스·택·스티커 등"],
+  ["ship","물류비",62,"코스트코 물류센터 납품비(개당)"],
+  ["etc","기타",62,"검품·바코드·조립 등(개당)"],
+  ["promo","프로모션",66,"행사 시 당사 부담(개당)"],
+  ["promoQty","행사수량",66,"프로모션이 걸리는 수량"],
+  ["qty","발주수량",70,"예상/확정 발주수량"],
+  ["retRate","반품률%",56,"예상 반품률"],
+  ["retLoss","반품손실",66,"반품 1개당 추가 손실(회수 물류·폐기 등)"],
+  ["fixed","고정비",80,"샘플·개발·검품 등 총액"]
+];
+function cpSave(){wsSetItem("ccPropDB",JSON.stringify(ccPropDB));}
+function _cpEditing(){var a=document.activeElement;return !!(a&&a.closest&&a.closest("#cpWrap"));}
+function cpAddRow(){ccPropDB.rows.push({supplyVat:"ex"});cpSave();cpRender();}
+function cpDelRow(i){if(!confirm("이 상품을 삭제할까요?"))return;ccPropDB.rows.splice(i,1);cpSave();cpRender();}
+function _cpCalc(r){
+  var n=_mgNum,cv=ccPropDB.costVat?1.1:1;
+  var S=n(r.supply)/(r.supplyVat==="in"?1.1:1);
+  var cost=n(r.cost)/cv,pack=n(r.pack)/cv,ship=n(r.ship)/cv,etc=n(r.etc)/cv;
+  var promo=n(r.promo)/cv,retLoss=n(r.retLoss)/cv,fixed=n(r.fixed)/cv;
+  var qty=n(r.qty),rate=Math.min(Math.max(n(r.retRate),0),100)/100;
+  var promoQty=Math.min(n(r.promoQty),qty);
+  var V=cost+pack+ship+etc;
+  var gross=S-cost,contrib=S-V;
+  var retQty=qty*rate,netQty=qty-retQty;
+  var retCost=retQty*(pack+ship+etc+retLoss);
+  var promoCost=promoQty*promo;
+  var netSales=S*netQty;
+  var total=netQty*contrib-retCost-promoCost-fixed;
+  return {S:S,V:V,gross:gross,contrib:contrib,contribRate:S?contrib/S:0,
+    retQty:retQty,netQty:netQty,retCost:retCost,promoCost:promoCost,fixed:fixed,
+    netSales:netSales,total:total,perUnit:qty?total/qty:0,rate:netSales?total/netSales:0,
+    ccMargin:n(r.retail)?(n(r.retail)/1.1-S)/(n(r.retail)/1.1):null};
+}
+function _cpW(n){return Math.round(n).toLocaleString();}
+function _cpP(x){return x==null?"-":(x*100).toFixed(1)+"%";}
+function cpEdit(i,key,val){
+  var r=ccPropDB.rows[i];if(!r)return;
+  r[key]=val;
+  if(key==="name"&&!String(r.cost||"").trim()&&typeof _mgCostFromProductList==="function"){
+    var pn=(typeof ccMatchProd==="function"&&ccMatchProd(val))||val;
+    var c=_mgCostFromProductList(pn);
+    if(c){r.cost=String(c);var el=document.getElementById("cp_"+i+"_cost");if(el)el.value=_cpW(_mgNum(c));}
+  }
+  cpSave();
+  _cpPaintRow(i);_cpPaintTotal();
+}
+function _cpPaintRow(i){
+  var r=ccPropDB.rows[i];if(!r)return;
+  var c=_cpCalc(r),set=function(k,v,neg){var el=document.getElementById("cpo_"+i+"_"+k);if(el){el.textContent=v;if(neg!==undefined)el.style.color=neg?"#dc2626":"";}};
+  set("S",_cpW(c.S));set("V",_cpW(c.V));
+  set("gross",_cpW(c.gross),c.gross<0);
+  set("contrib",_cpW(c.contrib),c.contrib<0);set("cr",_cpP(c.contribRate),c.contrib<0);
+  set("net",_cpW(c.netSales));
+  set("ded",_cpW(c.retCost+c.promoCost+c.fixed));
+  set("total",_cpW(c.total),c.total<0);set("pu",_cpW(c.perUnit),c.total<0);set("rate",_cpP(c.rate),c.total<0);
+  set("cc",c.ccMargin==null?"-":_cpP(c.ccMargin));
+}
+function _cpPaintTotal(){
+  var t={net:0,total:0,qty:0,ded:0};
+  ccPropDB.rows.forEach(function(r){var c=_cpCalc(r);t.net+=c.netSales;t.total+=c.total;t.qty+=_mgNum(r.qty);t.ded+=c.retCost+c.promoCost+c.fixed;});
+  var el=document.getElementById("cpTotal");
+  if(el)el.innerHTML='합계 · 발주 <b>'+_cpW(t.qty)+'</b>개 · 순매출 <b>'+_cpW(t.net)+'</b>원 · 차감 '+_cpW(t.ded)+'원 · '
+    +'최종 예상이익 <b style="color:'+(t.total<0?'#dc2626':'#047857')+';font-size:14px">'+_cpW(t.total)+'</b>원'
+    +' · 이익률 <b>'+_cpP(t.net?t.total/t.net:0)+'</b>';
+}
+function cpRender(){
+  var wrap=document.getElementById("cpWrap");if(!wrap)return;
+  var vc=document.getElementById("cpCostVat");if(vc)vc.checked=!!ccPropDB.costVat;
+  if(!ccPropDB.rows.length){
+    wrap.innerHTML='<div style="padding:18px;text-align:center;color:#5b6675;font-size:12px;border:1.5px dashed #cfe0e5;border-radius:8px">＋ 상품 추가를 눌러 제안 상품을 넣으세요</div>';
+    return;
+  }
+  var th='position:sticky;top:0;background:#e6f0f3;color:#154f5e;font-size:11.5px;padding:6px 4px;border:1px solid #cfdde3;white-space:nowrap';
+  var thc=th.replace('#e6f0f3','#fef3c7').replace('#154f5e','#92400e');
+  var h='<table style="border-collapse:collapse;font-size:12px;min-width:100%"><thead><tr>';
+  CP_FIELDS.forEach(function(f){h+='<th style="'+th+';min-width:'+f[2]+'px" title="'+f[3]+'">'+f[1]+'</th>';});
+  [["실질공급가","① VAT 제외 공급가"],["변동원가","제품원가+패키지+물류+기타"],["매출총이익","② 개당"],["공헌이익","③ 개당"],["공헌이익률",""],
+   ["순매출","실질공급가 × 순판매수량"],["차감","반품손실+프로모션+고정비"],["최종 예상이익","⑥"],["개당","최종 예상이익 ÷ 발주수량"],["최종 이익률","⑦"],["코스트코 마진","(소비자가÷1.1 − 실질공급가) ÷ (소비자가÷1.1)"],["",""]]
+    .forEach(function(x){h+='<th style="'+thc+'" title="'+x[1]+'">'+x[0]+'</th>';});
+  h+='</tr></thead><tbody>';
+  var td='border:1px solid #e1e6ee;padding:2px 3px';
+  var tdo='border:1px solid #e1e6ee;padding:4px 6px;text-align:right;white-space:nowrap;background:#fffbeb';
+  ccPropDB.rows.forEach(function(r,i){
+    h+='<tr>';
+    CP_FIELDS.forEach(function(f){
+      var k=f[0],v=r[k]==null?"":r[k];
+      if(k==="supplyVat"){
+        h+='<td style="'+td+'"><select onchange="cpEdit('+i+',\'supplyVat\',this.value)" style="font-size:11.5px;padding:3px;width:100%">'
+          +'<option value="ex"'+(v!=="in"?" selected":"")+'>별도</option><option value="in"'+(v==="in"?" selected":"")+'>포함</option></select></td>';
+        return;
+      }
+      var isNum=k!=="name";
+      var shown=isNum&&v!==""?(k==="retRate"?String(v):_cpW(_mgNum(v))):String(v);
+      h+='<td style="'+td+'"><input id="cp_'+i+'_'+k+'" value="'+escH(shown)+'"'
+        +(isNum?' inputmode="decimal" style="width:100%;text-align:right;font-size:12px;padding:3px 4px;border:1px solid #d1d5db;border-radius:4px"'
+               :' style="width:100%;font-size:12px;padding:3px 4px;border:1px solid #d1d5db;border-radius:4px"')
+        +' oninput="cpEdit('+i+',\''+k+'\',this.value)"'
+        +(isNum&&k!=="retRate"?' onblur="if(this.value!==\'\')this.value=_cpW(_mgNum(this.value))"':'')
+        +' placeholder="'+(k==="name"?"상품명":"0")+'"></td>';
+    });
+    ["S","V","gross","contrib","cr","net","ded","total","pu","rate","cc"].forEach(function(k){
+      h+='<td id="cpo_'+i+'_'+k+'" style="'+tdo+(k==="total"?';font-weight:800':'')+'"></td>';
+    });
+    h+='<td style="'+td+';text-align:center"><button onclick="cpDelRow('+i+')" title="삭제" style="border:1px solid #fca5a5;background:#fff;color:#dc2626;border-radius:4px;cursor:pointer;padding:1px 6px">✕</button></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table><div id="cpTotal" style="margin-top:8px;font-size:12.5px;color:#0f172a;padding:8px 10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px"></div>';
+  wrap.innerHTML=h;
+  ccPropDB.rows.forEach(function(r,i){_cpPaintRow(i);});
+  _cpPaintTotal();
+}
+function cpExport(){
+  if(!ccPropDB.rows.length){alert("상품이 없습니다.");return;}
+  var head=CP_FIELDS.map(function(f){return f[1];}).concat(["실질공급가","변동원가","매출총이익(개당)","공헌이익(개당)","공헌이익률","반품수량","순판매수량","순매출","반품손실","프로모션부담","고정비","최종 예상이익","개당 최종이익","최종 이익률","코스트코 마진"]);
+  var aoa=[head];
+  ccPropDB.rows.forEach(function(r){
+    var c=_cpCalc(r);
+    var row=CP_FIELDS.map(function(f){
+      if(f[0]==="name")return r.name||"";
+      if(f[0]==="supplyVat")return r.supplyVat==="in"?"VAT 포함":"VAT 별도";
+      return _mgNum(r[f[0]]);
+    });
+    var rd=function(x){return Math.round(x);};
+    aoa.push(row.concat([rd(c.S),rd(c.V),rd(c.gross),rd(c.contrib),+(c.contribRate*100).toFixed(1),+c.retQty.toFixed(1),+c.netQty.toFixed(1),
+      rd(c.netSales),rd(c.retCost),rd(c.promoCost),rd(c.fixed),rd(c.total),rd(c.perUnit),+(c.rate*100).toFixed(1),c.ccMargin==null?"":+(c.ccMargin*100).toFixed(1)]));
+  });
+  aoa.push([]);
+  aoa.push(["비용 입력 기준",ccPropDB.costVat?"VAT 포함(÷1.1 적용)":"VAT 별도"]);
+  var wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=head.map(function(h,i){return {wch:i===0?28:12};});
+  XLSX.utils.book_append_sheet(wb,ws,"제안상품 손익");
+  var d=new Date(),p=function(x){return String(x).padStart(2,"0");};
+  XLSX.writeFile(wb,"코스트코 제안상품 손익계산서("+p(d.getMonth()+1)+p(d.getDate())+").xlsx");
+}
 function mgAddRow(){
   marginDB.rows.push({code:"",name:"",color:"",cost:"",price:"",sale:"",costcoBear:"",ourBear:"",qty:""});
   saveMargin();renderMargin();
