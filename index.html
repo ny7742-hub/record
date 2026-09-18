@@ -689,6 +689,7 @@ label{font-size:14px!important}
     <div class="tab-drop-menu">
       <button class="tab-btn" id="tab-onstock" onclick="switchTab('onstock')">🏬 백화점몰 재고확인</button>
       <button class="tab-btn" id="tab-stock" onclick="switchTab('stock')">🏭 홈쇼핑몰 재고확인</button>
+      <button class="tab-btn" id="tab-ccstock" onclick="switchTab('ccstock')">🛒 코스트코 재고확인</button>
     </div>
   </div>
   <button class="tab-btn" id="tab-transfer" onclick="switchTab('transfer')">🔄 재고이관</button>
@@ -1740,6 +1741,28 @@ label{font-size:14px!important}
 </div>
 </div><!-- /page-onstock -->
 
+<div id="page-ccstock" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">🛒 코스트코 재고확인</div>
+      <span id="ccsInfo" style="font-size:11.5px;color:#5b6675;font-weight:600"></span>
+      <label style="font-size:12px;color:#1b6e82;font-weight:700;margin-left:auto">품절 기준 CSTC 재고 <input type="number" id="ccsOutMin" min="0" onchange="ccsSetMin(this.value)" style="width:60px;font-size:12px;padding:3px 6px;text-align:right"> 개 미만</label>
+      <button onclick="ccsExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.6">
+      창고재고현황(<b>평일 8시 자동</b>, 전체 창고)에서 <b>[CSTC] 코스트코</b> 창고 재고와 <b>[NH] 주희물류</b> 재고를 코스트코 탭 상품·색상별로 봅니다.
+      <b>몰 상태</b>는 칸을 눌러 <b>판매중 ↔ 품절</b>로 바꿔 두면 팀이 같이 봅니다. CSTC 재고가 기준보다 적은데 몰이 판매중이면 <b>품절 처리 필요</b>,
+      몰이 품절인데 CSTC 재고가 기준 이상이면 <b>품절 해제 가능</b>, CSTC가 부족하면 <b>NH에서 보충 가능 수량</b>(NH 10개 이하는 보충 불가)을 적습니다.
+    </div>
+  </div>
+  <div id="ccsTodo" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin-bottom:12px"></div>
+  <div class="card" style="padding:0;overflow:auto">
+    <div id="ccsWrap"></div>
+  </div>
+</div>
+</div><!-- /page-ccstock -->
+
 <div id="page-transfer" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
@@ -2124,7 +2147,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
-  "extSalesDB":"ws/extSales","ccPropDB":"ws/ccProp",
+  "extSalesDB":"ws/extSales","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","bestImgDB":"ws/bestImg",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -2582,6 +2605,11 @@ function fbListen(){
   apply("ws/stockCheckResults","stockCheckResults",
     function(d){if(d&&d.results){stockCheckResults=d.results;stockWarehouseDate=d.date||stockWarehouseDate;}},
     function(){var pg=document.getElementById("page-stock");if(pg&&pg.style.display!=="none"&&typeof renderStockCheckResults==="function")renderStockCheckResults();}
+  );
+  /* 코스트코 재고확인 몰 상태(판매중/품절) */
+  apply("ws/ccsMall","ccsMallDB",
+    function(d){if(d&&typeof d==="object")ccsMallDB=d;},
+    function(){var pg=document.getElementById("page-ccstock");if(pg&&pg.style.display!=="none")ccsRender();}
   );
   /* 홈 자동 업로드 기록 (팀 공유) */
   apply("ws/uploadLog","uploadLog",
@@ -6551,6 +6579,7 @@ function switchTab(tab){
   document.getElementById("page-homeshopping").style.display=tab==="homeshopping"?"block":"none";
   document.getElementById("page-stock").style.display=tab==="stock"?"block":"none";
   document.getElementById("page-onstock").style.display=tab==="onstock"?"block":"none";
+  document.getElementById("page-ccstock").style.display=tab==="ccstock"?"block":"none";
   document.getElementById("page-transfer").style.display=tab==="transfer"?"block":"none";
   document.getElementById("page-order").style.display=tab==="order"?"block":"none";
   document.getElementById("page-cxorder").style.display=tab==="cxorder"?"block":"none";
@@ -6585,6 +6614,7 @@ function switchTab(tab){
   document.getElementById("tab-homeshopping").classList.toggle("active",tab==="homeshopping");
   document.getElementById("tab-stock").classList.toggle("active",tab==="stock");
   document.getElementById("tab-onstock").classList.toggle("active",tab==="onstock");
+  document.getElementById("tab-ccstock").classList.toggle("active",tab==="ccstock");
   document.getElementById("tab-transfer").classList.toggle("active",tab==="transfer");
   document.getElementById("tab-order").classList.toggle("active",tab==="order");
   document.getElementById("tab-cxorder").classList.toggle("active",tab==="cxorder");
@@ -6606,6 +6636,7 @@ function switchTab(tab){
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock"){ initStockTab(); stockWhDropInit(); }
   whInitSlots();          /* 발주 화면들의 창고재고 불러오기 칸 */
+  if(tab==="ccstock"){ var _ce=document.getElementById("ccsOutMin");if(_ce)_ce.value=ccsOutMin(); ccsRender(); }
   if(tab==="onstock"){ (function(){var e=document.getElementById("onsOutMin");if(e&&e.value===""){e.value=onsOutMin();}})(); if(_onsMigrateMalls()){onsSave();_onsSaveMarks();} _onsRefreshMatch(); _onsApplyWh(); _onsFillMallFilter(); renderOnlineStock(); _onsWhMsgRefresh(); onsDropInit(); }
   if(tab==="transfer") initTransferTab();
   if(tab==="order"){ renderOrder(); ordLotteDropInit(); }
@@ -6969,11 +7000,13 @@ function _stockWhRows(rows,autoRun){
       }
       if(hRow<0){alert("창고재고현황 형식을 인식할 수 없습니다.\n(상품코드 열이 필요합니다)");if(msg)msg.textContent="";return;}
       var H=rows[hRow];
+      var _shipOK=_whShipFilter(H);
       var cCode=findCol(H,["상품코드"]),cColor=findCol(H,["칼라","칼라코드","칼라명"]),cQty=findCol(H,["재고합계","가용재고","현재고","재고수량","재고"]),cWh=findCol(H,["창고명","창고"]);
       if(cQty<0){alert("창고재고현황에서 재고수량 열을 찾을 수 없습니다.\n(열 이름: "+H.join(", ")+")");if(msg)msg.textContent="";return;}
       var whRows=[];
       for(var r=hRow+1;r<rows.length;r++){
         var row=rows[r];if(!row||!row[cCode])continue;
+        if(!_shipOK(row))continue;                       /* 전체 창고 파일이어도 출고 창고(주희물류)만 */
         whRows.push({code:String(row[cCode]).trim(),color:String(row[cColor]||"").trim(),qty:Number(row[cQty])||0,wh:cWh>=0?String(row[cWh]||"").trim():""});
       }
       stockWarehouseRows=whRows;
@@ -7665,9 +7698,10 @@ function _onsWhRows(rows,fileName,save){
           cCN=_onsFindCol(H,["칼라명"]),
           cQty=_onsFindCol(H,["재고합계","가용재고","현재고","재고수량","재고"]);
       if(cQty<0){alert("창고재고현황에서 재고수량 열을 찾을 수 없습니다.\n(열 이름: "+H.join(", ")+")");if(msg)msg.textContent="";return;}
-      var byPair={};
+      var byPair={},_shipOK=_whShipFilter(H);
       for(var i=hRow+1;i<rows.length;i++){
         var row=rows[i];if(!row||!String(row[cCode]||"").trim())continue;
+        if(!_shipOK(row))continue;                       /* 전체 창고 파일이어도 출고 창고(주희물류)만 */
         var code=String(row[cCode]).trim(),q=Number(row[cQty])||0;
         [cCC>=0?row[cCC]:"",cCN>=0?row[cCN]:""].forEach(function(cv){
           var cvn=_onsNorm(cv);
@@ -9038,6 +9072,177 @@ function renderAutoUpBar(){
     }
   });
 }
+/* ── 코스트코 재고확인 (2026-09 영업2팀) ──
+   창고재고현황(전체 창고)에서 [CSTC] 코스트코 창고와 [NH] 주희물류 재고를 상품코드·칼라별로 모은다(메모리).
+   상품·색상은 코스트코 탭(costcoDB.products)을 그대로 쓰고, 코스트코 코드 → 자사 상품코드는 발주 매칭표(CC_PDF_CODE_MAP).
+   몰 상태(판매중/품절)는 파일이 없어 화면에서 눌러 두는 방식 — 팀 공유 ws/ccsMall. */
+var ccsWh={date:"",at:"",byCode:{},hasCstc:false,extra:[]};
+var ccsMallDB=(function(){try{var d=JSON.parse(localStorage.getItem("ccsMallDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+function ccsOutMin(){var v=parseInt((function(){try{return localStorage.getItem("ccsOutMin");}catch(e){return null;}})(),10);return isNaN(v)?30:v;}
+function ccsSetMin(v){var n=parseInt(v,10);if(isNaN(n)||n<0)n=30;try{localStorage.setItem("ccsOutMin",String(n));}catch(e){}ccsRender();}
+function _ccsFromRows(rows){
+  var hRow=-1;
+  for(var r=0;r<Math.min(10,rows.length);r++){if((rows[r]||[]).some(function(c){return String(c||"").replace(/\s/g,"")==="상품코드";})){hRow=r;break;}}
+  if(hRow<0)return;
+  var H=rows[hRow].map(function(h){return String(h||"").replace(/\s/g,"");});
+  var ix=function(a){for(var i=0;i<a.length;i++){var k=H.indexOf(a[i]);if(k>=0)return k;}return -1;};
+  var cW=ix(["창고코드"]),cWn=ix(["창고명"]),cC=ix(["상품코드"]),cCc=ix(["칼라","칼라코드"]),cCn=ix(["칼라명"]),cQ=ix(["재고합계","가용재고","현재고","재고수량","재고"]),cNm=ix(["상품명"]);
+  var by={},has=false,names={};
+  for(var i=hRow+1;i<rows.length;i++){
+    var row=rows[i];if(!row)continue;
+    var code=String(row[cC]||"").trim();if(!code)continue;
+    var wc=cW>=0?String(row[cW]||"").trim().toUpperCase():"",wn=cWn>=0?String(row[cWn]||""):"";
+    var isC=wc==="CSTC"||/코스트코/.test(wn),isN=_whIsShip(wc,wn);
+    if(!isC&&!isN)continue;
+    if(isC)has=true;
+    var cc=cCc>=0?String(row[cCc]||"").trim():"",cn=cCn>=0?String(row[cCn]||"").trim():"";
+    var o=(by[code]=by[code]||{}),k=cc||cn;
+    var e=o[k]||(o[k]={cc:cc,cn:cn,cstc:0,nh:0});
+    var q=Number(row[cQ])||0;
+    if(isC)e.cstc+=q;else e.nh+=q;
+    if(cNm>=0&&!names[code])names[code]=String(row[cNm]||"").trim();
+  }
+  var m=/재고일자\s*:\s*(\d{8})/.exec(String((rows[0]&&rows[0][0])||""));
+  ccsWh={date:m?(m[1].slice(0,4)+"-"+m[1].slice(4,6)+"-"+m[1].slice(6,8)):"",at:new Date().toISOString(),byCode:by,hasCstc:has,names:names};
+  var pg=document.getElementById("page-ccstock");if(pg&&pg.style.display!=="none")ccsRender();
+}
+/* 코스트코 탭 상품 목록(진열 순서) — 직매입 줄은 같은 상품이면 한 번만 */
+function _ccsProducts(){
+  var list=(costcoDB.products||[]).filter(function(p){
+    return p&&p.name&&(CC_PROD_ORDER.indexOf(p.name)>=0||_ccProdHasAnySales(p));
+  });
+  list.sort(function(a,b){
+    var ia=CC_PROD_ORDER.indexOf(a.name),ib=CC_PROD_ORDER.indexOf(b.name);
+    return (ia<0?999:ia)-(ib<0?999:ib);
+  });
+  var seen={},out=[];
+  list.forEach(function(p){
+    var key=String(p.code||p.name);
+    if(seen[key])return;            /* 바르셀 직매입 = 바르셀과 같은 코드 */
+    seen[key]=1;out.push(p);
+  });
+  return out;
+}
+/* 코스트코 색상명 → 창고의 칼라(코드·이름). 이름 핵심이 같으면 그 색, 여럿이면 못 맞춤 */
+function _ccsColor(byColor,colorName){
+  if(!byColor)return null;
+  var ks=Object.keys(byColor),core=_onsColorCore(colorName),nm=_onsNorm(colorName);
+  var hit=ks.filter(function(k){return _onsNorm(byColor[k].cn)===nm;});
+  if(hit.length!==1)hit=ks.filter(function(k){return _onsColorCore(byColor[k].cn)===core;});
+  if(hit.length!==1)hit=ks.filter(function(k){var c=_onsColorCore(byColor[k].cn);return c&&core&&(c.indexOf(core)>=0||core.indexOf(c)>=0);});
+  return hit.length===1?byColor[hit[0]]:null;
+}
+function _ccsMallKey(p,color){return String(p.code||p.name)+"|"+color;}
+function _ccsIsOut(p,color){var m=ccsMallDB[_ccsMallKey(p,color)];return !!(m&&m.out);}
+function ccsToggleMall(i,j){
+  var rows=_ccsRows(),r=rows.filter(function(x){return x.pi===i&&x.ci===j;})[0];if(!r)return;
+  var k=_ccsMallKey(r.p,r.color),cur=!!(ccsMallDB[k]&&ccsMallDB[k].out);
+  if(cur)delete ccsMallDB[k];else ccsMallDB[k]={out:true,at:new Date().toISOString()};
+  wsSetItem("ccsMallDB",JSON.stringify(ccsMallDB));
+  ccsRender();
+}
+function _ccsRows(){
+  var min=ccsOutMin(),rows=[];
+  _ccsProducts().forEach(function(p,pi){
+    var cm=CC_PDF_CODE_MAP[String(p.code||"")],base=cm&&cm.base;
+    var byColor=base?ccsWh.byCode[base]:null;
+    (p.colors||[]).forEach(function(color,ci){
+      var w=_ccsColor(byColor,color);
+      /* 창고에 그 색 재고가 아예 없으면 파일에 줄이 없다 — 상품데이터에서 색상코드를 찾아 재고 0으로 본다 */
+      if(!w&&base){
+        var pr={};_wsProductRows().forEach(function(x){if(x&&x[1]===base&&x[3])pr[x[3]]={cc:x[3],cn:x[4]||"",cstc:0,nh:0};});
+        w=_ccsColor(pr,color);
+      }
+      var cstc=w?w.cstc:null,nh=w?w.nh:null,out=_ccsIsOut(p,color);
+      var todo="";
+      if(w&&ccsWh.hasCstc){
+        if(!out&&cstc<min)todo="close";
+        else if(out&&cstc>=min)todo="open";
+      }
+      var refill=(w&&cstc<min)?(nh>WH_MIN_ORDER?nh:0):null;
+      rows.push({pi:pi,ci:ci,p:p,color:color,base:base||"",cc:w?w.cc:"",cstc:cstc,nh:nh,out:out,todo:todo,refill:refill,
+        why:!base?"발주 매칭표에 코드 없음":(!w?(byColor?"색상을 못 맞춤":"창고재고·상품데이터에 없음"):"")});
+    });
+  });
+  return rows;
+}
+function ccsRender(){
+  var wrap=document.getElementById("ccsWrap");if(!wrap)return;
+  var info=document.getElementById("ccsInfo");
+  var min=ccsOutMin();
+  if(info)info.textContent=ccsWh.at?("재고일자 "+(ccsWh.date||"-")+(ccsWh.hasCstc?"":" · ⚠ 파일에 CSTC 창고가 없습니다(창고명 전체로 받아야 합니다)")):"창고재고현황이 아직 없습니다 — 홈에서 올라오면 표시됩니다";
+  var rows=_ccsRows(),W=function(n){return n==null?"-":Number(n).toLocaleString();};
+  var esc=function(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});};
+  /* 할 일 세 목록 */
+  var close=rows.filter(function(r){return r.todo==="close";}),open=rows.filter(function(r){return r.todo==="open";}),
+      refill=rows.filter(function(r){return r.refill!=null&&r.cstc!=null&&r.cstc<min;});
+  var box=function(title,color,bg,list,fn){
+    return '<div style="border:1px solid '+color+';background:'+bg+';border-radius:10px;padding:10px 12px">'
+      +'<div style="font-weight:800;color:'+color+';font-size:13px;margin-bottom:6px">'+title+' '+list.length+'건</div>'
+      +(list.length?list.map(fn).join(""):'<div style="font-size:12px;color:#5b6675">없음</div>')+'</div>';
+  };
+  var line=function(r,tail){return '<div style="font-size:12.5px;padding:2px 0;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b>'+esc(r.p.name)+'</b> '+esc(r.color)+' <span style="color:#5b6675">CSTC '+W(r.cstc)+'</span>'+(tail||"")+'</div>';};
+  var todoEl=document.getElementById("ccsTodo");
+  if(todoEl)todoEl.innerHTML=!ccsWh.hasCstc?"":
+    box("⛔ 품절 처리 필요","#b91c1c","#fef2f2",close,function(r){return line(r,' <button class="bs" style="padding:1px 8px;font-size:11px" onclick="ccsToggleMall('+r.pi+','+r.ci+')">✔ 품절 완료</button>');})
+   +box("✅ 품절 해제 가능","#047857","#f0fdf4",open,function(r){return line(r,' <button class="bs" style="padding:1px 8px;font-size:11px" onclick="ccsToggleMall('+r.pi+','+r.ci+')">✔ 해제 완료</button>');})
+   +box("📦 CSTC 보충 필요","#1d4ed8","#eff6ff",refill,function(r){return line(r,' → <b style="color:'+(r.refill?'#1d4ed8':'#b91c1c')+'">'+(r.refill?'NH '+W(r.refill)+'개 보충 가능':'NH '+W(r.nh)+'개 · 보충 불가')+'</b>');});
+  /* 표 */
+  var th='position:sticky;top:0;background:#e6f0f3;color:#154f5e;font-size:12px;padding:7px 8px;border:1px solid #cfdde3;white-space:nowrap';
+  var td='border:1px solid #e1e6ee;padding:5px 8px;font-size:13px';
+  var h='<table style="border-collapse:collapse;width:100%"><thead><tr>'
+    +['묶음','상품','색상','자사코드','CSTC 재고','NH 재고','몰 상태','할 일'].map(function(x){return '<th style="'+th+'">'+x+'</th>';}).join('')
+    +'</tr></thead><tbody>';
+  var byP={};rows.forEach(function(r){(byP[r.pi]=byP[r.pi]||[]).push(r);});
+  Object.keys(byP).forEach(function(pi){
+    var list=byP[pi];
+    list.forEach(function(r,k){
+      var low=r.cstc!=null&&r.cstc<min;
+      h+='<tr'+(r.why?' style="background:#f8fafc;color:#8a95a6"':'')+'>';
+      if(k===0){
+        h+='<td rowspan="'+list.length+'" style="'+td+';text-align:center;color:#5b6675;font-weight:700">'+esc(_ccGroupOf(r.p.name))+'</td>';
+        h+='<td rowspan="'+list.length+'" style="'+td+';font-weight:700">'+esc(r.p.name)+'<div style="font-size:11px;color:#5b6675;font-weight:500">'+esc(r.p.code||"")+(r.base?' · '+esc(r.base):'')+'</div></td>';
+      }
+      h+='<td style="'+td+'">'+esc(r.color)+'</td>';
+      h+='<td style="'+td+';font-family:monospace;font-size:12px;color:#475569" title="'+esc(r.why)+'">'+(r.base&&r.cc?esc(r.base+r.cc):'<span style="color:#b45309">'+esc(r.why||"-")+'</span>')+'</td>';
+      h+='<td style="'+td+';text-align:right;font-weight:800;'+(low?'color:#dc2626;background:#fef2f2':'')+'">'+W(r.cstc)+'</td>';
+      h+='<td style="'+td+';text-align:right;'+(r.nh!=null&&r.nh<=WH_MIN_ORDER?'color:#b91c1c':'')+'">'+W(r.nh)+'</td>';
+      h+='<td style="'+td+';text-align:center"><button onclick="ccsToggleMall('+r.pi+','+r.ci+')" title="눌러서 판매중 ↔ 품절" style="border-radius:12px;padding:2px 10px;font-size:11.5px;font-weight:700;cursor:pointer;'
+        +(r.out?'border:1px solid #fca5a5;background:#fef2f2;color:#b91c1c">몰 품절':'border:1px solid #86efac;background:#f0fdf4;color:#047857">판매중')+'</button></td>';
+      var t=r.todo==="close"?'<b style="color:#b91c1c">품절 처리 필요</b>':r.todo==="open"?'<b style="color:#047857">품절 해제 가능</b>':"";
+      if(low)t+=(t?"<br>":"")+(r.refill?'<span style="color:#1d4ed8;font-weight:700">NH '+W(r.refill)+'개 보충 가능</span>':'<span style="color:#b91c1c">NH 보충 불가</span>');
+      h+='<td style="'+td+'">'+(t||'<span style="color:#5b6675">-</span>')+'</td></tr>';
+    });
+  });
+  h+='</tbody></table>';
+  /* 코스트코 탭에 없는 CSTC 재고 */
+  var used={};rows.forEach(function(r){if(r.base&&r.cc)used[r.base+"|"+r.cc]=1;});
+  var extra=[];
+  Object.keys(ccsWh.byCode||{}).forEach(function(code){
+    var o=ccsWh.byCode[code];
+    Object.keys(o).forEach(function(k){var e=o[k];if(e.cstc&&!used[code+"|"+e.cc])extra.push({code:code,e:e});});
+  });
+  if(extra.length){
+    h+='<div style="padding:10px 12px;font-size:12px;color:#5b6675;border-top:1px dashed #cbd5e1">'
+      +'<b style="color:#b45309">코스트코 탭에 없는 CSTC 재고 '+extra.length+'건</b> — 코스트코 탭 상품·발주 매칭표에 없는 상품이거나 색상 이름이 다릅니다: '
+      +extra.map(function(x){return esc((ccsWh.names[x.code]||x.code).replace(/\[[^\]]*\]\s*/g,""))+" "+esc(x.e.cn||x.e.cc)+" "+W(x.e.cstc)+"개";}).join(" · ")+'</div>';
+  }
+  wrap.innerHTML=h;
+}
+function ccsExport(){
+  var rows=_ccsRows();if(!rows.length){alert("상품이 없습니다.");return;}
+  var min=ccsOutMin();
+  var aoa=[["묶음","상품","코스트코코드","자사 상품컬러코드","색상","CSTC 재고","NH 재고","몰 상태","할 일","NH 보충 가능"]];
+  rows.forEach(function(r){
+    aoa.push([_ccGroupOf(r.p.name),r.p.name,r.p.code||"",r.base&&r.cc?r.base+r.cc:"",r.color,r.cstc==null?"":r.cstc,r.nh==null?"":r.nh,r.out?"품절":"판매중",
+      r.todo==="close"?"품절 처리 필요":r.todo==="open"?"품절 해제 가능":(r.why||""),(r.cstc!=null&&r.cstc<min)?(r.refill||0):""]);
+  });
+  var wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=[{wch:8},{wch:14},{wch:10},{wch:16},{wch:12},{wch:10},{wch:10},{wch:8},{wch:16},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,"코스트코 재고");
+  var d=new Date(),p=function(x){return String(x).padStart(2,"0");};
+  XLSX.writeFile(wb,"코스트코 재고확인("+p(d.getMonth()+1)+p(d.getDate())+").xlsx");
+}
 function whInitSlots(){
   var els=document.querySelectorAll(".wh-slot");
   for(var i=0;i<els.length;i++){
@@ -9061,11 +9266,25 @@ function _stockProcessWhFile(file){whIngestFile(file);}
 /* 세 곳에 같은 행 배열을 넣는다. owner=true(직접 올린 브라우저)만 팀 결과를 저장하고 홈쇼핑 재고 확인을 돌린다 —
    다른 PC는 받은 자료로 화면만 맞추고, 결과는 올린 쪽이 저장한 팀 공유본을 받는다. */
 var _whRawApplied="";
+/* 출고 창고 = 주희물류(NH·NH3). 창고재고현황을 **전체 창고**로 받아도 발주·홈쇼핑몰·백화점몰은 이 창고만 쓴다.
+   (코스트코 재고확인은 CSTC만 따로 본다) */
+function _whIsShip(code,name){
+  var c=String(code||"").trim().toUpperCase(),nm=String(name||"");
+  if(/불량|샘플/.test(nm))return false;
+  return /^NH\d*$/.test(c)||/주희물류/.test(nm);
+}
+function _whShipFilter(H){
+  var n=(H||[]).map(function(h){return String(h||"").replace(/\s/g,"");});
+  var ic=n.indexOf("창고코드"),inm=n.indexOf("창고명");
+  if(ic<0&&inm<0)return function(){return true;};        /* 창고 열이 없는 파일은 거르지 않는다 */
+  return function(row){return _whIsShip(ic>=0?row[ic]:"",inm>=0?row[inm]:"");};
+}
 function _whApplyRows(rows,fileName,owner){
   whLoadRows(rows);
   _onsWhRows(rows,fileName,owner);
   _stockWhRows(rows,owner);
   try{_tfWhFromRows(rows);}catch(e){}   /* 재고이관 분석 */
+  try{_ccsFromRows(rows);}catch(e){}    /* 코스트코 재고확인(CSTC) */
 }
 /* 필요한 열만 남긴다 — 1행(재고일자 문구) + 머리글 + 데이터 */
 var WH_KEEP_COLS=["창고코드","창고명","상품코드","상품명","품목","TAG가","칼라","칼라코드","칼라명","재고합계","가용재고","현재고","재고수량","재고"];

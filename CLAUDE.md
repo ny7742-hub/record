@@ -299,7 +299,18 @@
 - **창고재고현황은 한 곳에만 올리면 세 곳 모두 반영된다**(`whShareFile`, 2026-09 영업2팀) — 발주 공용(`whLoadFileOnly`) ·
   백화점몰 재고확인(`_onsProcessWhFileOnly`) · 홈쇼핑몰 재고확인(`_stockProcessWhFileOnly(file,true)`)에 같은 파일을 넣고,
   홈쇼핑몰은 `재고 확인 시작`(`startStockCheck`)까지 자동으로 돌린다. 세 입구 함수(`whLoadFile`·`_onsProcessWhFile`·`_stockProcessWhFile`)는 모두 `whShareFile`로 모인다.
-  플레이엠디에서 받을 때는 **창고명 [NH] 주희물류**로 조회하고 셀 병합 해제로 받는다(영업2팀 지정).
+  플레이엠디에서 받을 때는 **창고명을 비우고 전체 창고**로 조회해 셀 병합 해제로 받는다(2026-09-18 변경 — 코스트코 재고확인에 [CSTC]가 필요).
+  전체 파일이어도 발주·홈쇼핑몰(`_stockWhRows`)·백화점몰(`_onsWhRows`)은 **주희물류만** 쓴다(`_whIsShip`·`_whShipFilter`: 창고코드 `NH\d*`·이름 `주희물류`, 불량·샘플 제외).
+  이 필터 없이 전체 파일을 넣으면 창고를 전부 더해 재고가 부풀려진다. 발주 공용 `whStock`은 원래 ship/all을 나눠 둔다.
+  전체 파일은 약 8,400줄 → `whRaw` 약 750KB(localStorage·Firebase 모두 괜찮은 크기).
+- **코스트코 재고확인** (`📦 재고확인` → `🛒 코스트코 재고확인`, `page-ccstock`, 2026-09 영업2팀): 코스트코 탭 상품·색상(`costcoDB.products`,
+  진열 순서 `CC_PROD_ORDER`, 같은 코스트코 코드의 `바르셀 직매입`은 한 번만)을 **발주 매칭표(`CC_PDF_CODE_MAP`)로 자사 상품코드**에 잇고,
+  창고재고현황의 **[CSTC] 코스트코 창고**와 **[NH] 주희물류** 재고를 상품코드·칼라별로 모아(`_ccsFromRows`, `_whApplyRows`에서 호출, 메모리 `ccsWh`)
+  색상명 핵심(`_onsColorCore`)으로 맞춘다(`_ccsColor`). 창고에 그 색 줄이 아예 없으면 상품데이터에서 색상코드를 찾아 **재고 0**으로 본다.
+  **몰 상태는 파일이 없어 화면에서 눌러 둔다**(판매중 ↔ 몰 품절, 팀 공유 `ccsMallDB` / `ws/ccsMall`, 키 `코스트코코드|색상명`).
+  할 일 세 목록: ⛔ 품절 처리 필요(판매중 + CSTC < 기준) · ✅ 품절 해제 가능(몰 품절 + CSTC ≥ 기준) · 📦 CSTC 보충 필요(CSTC < 기준 → NH 재고, `WH_MIN_ORDER` 10개 이하는 보충 불가).
+  기준은 `ccsOutMin`(기본 30, localStorage). 목록의 `✔ 품절 완료`/`✔ 해제 완료`는 몰 상태를 바꾼다.
+  매칭표에 없는 상품(`우양산 2종`·`센토`·`해피트리`)은 `발주 매칭표에 코드 없음`으로, 코스트코 탭에 없는 CSTC 재고는 표 아래에 따로 적는다.
 - **홈 `📤 PlayMD 자료 업로드`** (2026-09 영업2팀): 창고재고현황·매장판매일보는 **홈에서만** 올린다 —
   다른 탭(발주 6곳·홈쇼핑몰·백화점몰·재고이관)의 창고재고 업로드 칸은 모두 없앴고 상태 문구만 남겼다.
   평일 8시 예약 작업(`playmd-daily-stock-sales`, `~/.claude/scheduled-tasks/.../SKILL.md`)이
