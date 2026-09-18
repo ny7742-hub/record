@@ -1130,7 +1130,7 @@ label{font-size:14px!important}
         </div>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:12.5px;color:#334155;line-height:1.5">
           <b>처리완료부터 결제가까지</b> 복사<br>
-          <span style="color:#15803d;font-weight:700">물류입고일이 적힌 건만 등록 대상</span><br>
+          <span style="color:#15803d;font-weight:700">처리완료 + 입고일·처리일·해체일<br>+ 민트색 음영 건만 등록 대상</span><br>
           <span style="color:#b45309;font-weight:700">처리보류 · 확인요청 · 출고예정은 자동 제외</span>
           <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">쇼핑몰·날짜·상품명·수량·결제가만 읽습니다<br>(수취인·연락처·주소는 저장하지 않습니다)</div>
         </div>
@@ -14071,7 +14071,16 @@ var CCR_SKIP=["처리보류","확인요청","출고예정"];
    입고일이 비면 처리일·해체일로 물러선다. */
 function _ccrRowDate(r){return r["in"]||r.proc||r.open||null;}
 /* 다운로드 대상·정렬 모두 **물류입고일** 기준이다(반품일자도 입고일). */
-function _ccrReady(r){return !!r["in"];}
+/* 등록 조건(2026-09 영업2팀 지정): **처리완료 + 입고일·처리일·해체일 모두 + 민트색 음영**.
+   음영은 시트에서 읽을 수 있을 때만 판단한다(r.shade: true/false, 모르면 undefined → 날짜·상태로만 본다). */
+function _ccrWhyNot(r){
+  if(r.status&&r.status!=="처리완료")return "처리완료가 아님("+r.status+")";
+  var miss=[];if(!r["in"])miss.push("입고일");if(!r.proc)miss.push("처리일");if(!r.open)miss.push("해체일");
+  if(miss.length)return miss.join("·")+" 없음";
+  if(r.shade===false)return "민트색 음영 아님";
+  return "";
+}
+function _ccrReady(r){return !_ccrWhyNot(r);}
 /* 입고일 오름차순 — 파일이 날짜순으로 정리돼 나오게 */
 function _ccrSortByIn(rows){
   return rows.slice().sort(function(a,b){
@@ -14242,7 +14251,7 @@ function renderCcrTable(){
     var d=_ccrRowDate(r);
     var off=!_ccrReady(r);                             /* 입고일 없음 = 이번 등록 대상 아님 */
     var bad=!off&&(!r.colorCode||r.price===""||!d);
-    h+='<tr style="'+(off?"background:#f1f5f9;color:#8a95a6":(bad?"background:#fffbeb":""))+'" title="'+(off?"입고일이 없어 이번 등록 대상이 아닙니다":"")+'">';
+    h+='<tr style="'+(off?"background:#f1f5f9;color:#8a95a6":(bad?"background:#fffbeb":""))+'" title="'+(off?_escX("등록 대상 아님: "+_ccrWhyNot(r)):"")+'">';
     h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:center;font-weight:700;color:#15803d">'+_escX(r.status||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:center'+(d?'':';color:#dc2626')+'">'+(d?_hsrYmd(d):"날짜없음")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:4px 8px;text-align:center">'+_escX(r.shop||"")+'</td>';
@@ -14271,7 +14280,7 @@ function _ccrSummary(){
   var badN=ccrRows.filter(function(r){return r.bad;}).length;
   el.innerHTML=ccrRows.length+'건'
     +(badN?' · <span style="color:#b45309;font-weight:700">불량 '+badN+'건</span>':'')
-    +(noOpen?' · <span style="color:#5b6675">입고일 없어 제외 '+noOpen+'건</span>':'')
+    +(noOpen?' · <span style="color:#5b6675" title="처리완료 + 입고일·처리일·해체일 + 민트색 음영이 모두 있어야 등록">등록 조건 미충족 '+noOpen+'건 제외</span>':'')
     +(noCode?' · <span style="color:#dc2626;font-weight:700">미매칭 '+noCode+'건</span>':' · <span style="color:#15803d;font-weight:700">코드 매칭 완료</span>')
     +(noPrice?' · <span style="color:#dc2626;font-weight:700">공급가 없음 '+noPrice+'건</span>':'')
     +(noDate?' · <span style="color:#dc2626;font-weight:700">날짜 없음 '+noDate+'건</span>':'');
@@ -14460,6 +14469,40 @@ function _retSheetRows(gid){
     });
   });
 }
+/* 셀 배경색 읽기 — CSV에는 색이 없어서 Sheets API(v4)로 A열(처리상태) 배경만 가져온다.
+   Firebase 프로젝트의 API 키를 쓰므로 그 프로젝트에서 'Google Sheets API'를 켜야 동작한다.
+   실패하면 null(음영 미확인)을 돌려주고 호출하는 쪽은 날짜·상태로만 고른다.
+   CSV 줄과 맞는지 A열 글자(처리상태)로 한 줄씩 대조하고, 어긋나면 그 줄은 미확인으로 둔다. */
+function _retIsMint(c){
+  if(!c)return false;
+  var r=c.red==null?0:c.red,g=c.green==null?0:c.green,b=c.blue==null?0:c.blue;
+  if(r>=0.99&&g>=0.99&&b>=0.99)return false;            /* 흰색 */
+  return g>=0.6&&g-Math.max(r,b)>=0.04;                  /* 연두·민트 계열(#d9ead3·#b7e1cd·#93c47d …) */
+}
+function _retSheetShades(gid,csvRows){
+  var key="AIzaSyBn-99rhrGPEB80laHnp2rHaI23y9dvDNU";
+  var base="https://sheets.googleapis.com/v4/spreadsheets/"+RET_SHEET_ID;
+  return fetch(base+"?fields=sheets.properties(sheetId,title)&key="+key).then(function(r){return r.ok?r.json():null;}).then(function(meta){
+    if(!meta)return null;
+    var sh=(meta.sheets||[]).filter(function(x){return String(x.properties.sheetId)===String(gid);})[0];
+    if(!sh)return null;
+    var range="'"+sh.properties.title.replace(/'/g,"''")+"'!A1:A"+Math.max(csvRows.length+5,50);
+    return fetch(base+"?includeGridData=true&ranges="+encodeURIComponent(range)
+      +"&fields=sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)&key="+key)
+      .then(function(r){return r.ok?r.json():null;}).then(function(g){
+        if(!g)return null;
+        var rd=((((g.sheets||[])[0]||{}).data||[])[0]||{}).rowData||[];
+        var out={};
+        for(var i=1;i<csvRows.length;i++){
+          var cell=((rd[i]||{}).values||[])[0]||{};
+          var txt=String(cell.formattedValue||"").replace(/\s+/g," ").trim();
+          if(txt!==String(csvRows[i][0]||"").trim())continue;       /* 줄이 어긋나면 미확인 */
+          out[i]=_retIsMint(cell.effectiveFormat&&cell.effectiveFormat.backgroundColor);
+        }
+        return out;
+      });
+  }).catch(function(){return null;});
+}
 function _retSheetMsg(id,t,err){var el=document.getElementById(id);if(el){el.style.color=err?"#b91c1c":"#15803d";el.textContent=t;}}
 function hsrLoadSheet(){
   if(hsrRows.length&&!confirm("지금 표에 있는 "+hsrRows.length+"건을 지우고 시트에서 다시 불러올까요?"))return;
@@ -14479,20 +14522,31 @@ function ccrLoadSheet(){
   _retSheetMsg("ccrSheetMsg","불러오는 중...");
   _retSheetRows(RET_SHEET_GID.online).then(function(rows){
     /* 온라인 탭에는 모든 온라인몰 반품이 섞여 있다 — 코스트코 · 처리완료(초록 표시) 건만 가져온다 */
-    var pick=[],other=0,notDone=0;
-    rows.slice(1).forEach(function(r){
-      var m=_ccrMapRow(r);if(!m)return;
-      if(!/코스트코/.test(m.shop)){other++;return;}
-      if(m.status!=="처리완료"){notDone++;return;}
-      pick.push(r.join("\t"));
+    return _retSheetShades(RET_SHEET_GID.online,rows).then(function(shade){
+      var pick=[],skip={};
+      var add=function(k){skip[k]=(skip[k]||0)+1;};
+      rows.slice(1).forEach(function(r,i){
+        var m=_ccrMapRow(r);if(!m)return;
+        if(!/코스트코/.test(m.shop))return;
+        m.shade=shade?shade[i+1]:undefined;
+        var why=_ccrWhyNot(m);
+        if(why){add(/음영/.test(why)?"음영 없음":(/처리완료/.test(why)?"미완료":"날짜 빠짐"));return;}
+        pick.push({line:r.join("\t"),shade:m.shade});
+      });
+      ccrRows=[];
+      var d=new Date(),tm=" ("+d.getHours()+":"+String(d.getMinutes()).padStart(2,"0")+")";
+      var sk=Object.keys(skip).map(function(k){return k+" "+skip[k];}).join(" · ");
+      var shadeNote=shade?"":" · ⚠ 음영은 확인 못 함";
+      if(!pick.length){renderCcrTable();_retSheetMsg("ccrSheetMsg","등록할 건이 없습니다"+(sk?" (제외: "+sk+")":"")+shadeNote+tm);return;}
+      var ta=document.getElementById("ccrPasteArea");
+      ta.value=pick.map(function(p){return p.line;}).join("\n");
+      ccrPasteRows();
+      /* 붙여넣기 경로가 만든 행에 음영 결과를 붙인다(같은 순서) */
+      pick.forEach(function(p,k){if(ccrRows[k])ccrRows[k].shade=p.shade;});
+      renderCcrTable();
+      _retSheetMsg("ccrSheetMsg","✔ 등록 대상 "+pick.length+"건"+(sk?" · 제외 "+sk:"")+shadeNote+tm);
+      if(!shade)_retSheetMsg("ccrSheetMsg","✔ 등록 대상 "+pick.length+"건"+(sk?" · 제외 "+sk:"")+" · ⚠ 민트색 음영은 확인 못 함(처리완료·날짜 3개로만 골랐습니다)"+tm);
     });
-    ccrRows=[];
-    if(!pick.length){renderCcrTable();_retSheetMsg("ccrSheetMsg","코스트코 처리완료 건이 없습니다"+(notDone?" (미완료 "+notDone+"건)":""));return;}
-    var ta=document.getElementById("ccrPasteArea");
-    ta.value=pick.join("\n");
-    ccrPasteRows();
-    var d=new Date();
-    _retSheetMsg("ccrSheetMsg","✔ 코스트코 처리완료 "+pick.length+"건"+(notDone?" · 미완료 "+notDone+"건 제외":"")+" ("+d.getHours()+":"+String(d.getMinutes()).padStart(2,"0")+")");
   }).catch(function(e){_retSheetMsg("ccrSheetMsg","",true);alert("반품리스트를 불러오지 못했습니다.\n\n"+e.message);});
 }
 function hsrPasteRows(){
