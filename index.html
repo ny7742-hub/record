@@ -1046,7 +1046,7 @@ label{font-size:14px!important}
         <button class="bg" onclick="hsrLoadSheet()" style="width:100%;padding:10px;font-size:13px;font-weight:700">📥 시트에서 바로 불러오기</button><span id="hsrSheetMsg" style="font-size:11.5px;color:#15803d;font-weight:700;text-align:center"></span>
         <a href="https://docs.google.com/spreadsheets/d/1Cjoo-x9lBA5pFtGoxftdAxdoKrzt770XcPGeXOidPiI/edit?gid=36451127#gid=36451127" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:5px;padding:6px;background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;font-size:13px;font-weight:700;color:#1b6e82;text-decoration:none">📄 반품리스트 열기 <span style="font-size:11px;color:#2563eb">↗</span></a>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5;flex:1">
-          <b>시트에서 바로 불러오기</b>를 누르면<br>CX팀_반품리스트 <b>홈쇼핑</b> 탭을<br>읽어 2·3단계까지 자동으로 채웁니다
+          <b>시트에서 바로 불러오기</b>를 누르면<br>CX팀_반품리스트 <b>홈쇼핑</b> 탭에서<br><b style="color:#15803d">처리완료 + 입고일·처리일·해체일</b>이<br>모두 적힌 건만 읽어 2·3단계까지 채웁니다
           <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">붙여넣기(2단계)는 필요할 때만</div>
         </div>
       </div>
@@ -14508,13 +14508,28 @@ function hsrLoadSheet(){
   if(hsrRows.length&&!confirm("지금 표에 있는 "+hsrRows.length+"건을 지우고 시트에서 다시 불러올까요?"))return;
   _retSheetMsg("hsrSheetMsg","불러오는 중...");
   _retSheetRows(RET_SHEET_GID.hs).then(function(rows){
-    /* 1행이 머리글(입고일·해체일·쇼핑몰·주문번호(사방넷)·상품명·수량) — 붙여넣기와 같은 경로로 읽는다 */
+    /* 등록 조건(2026-09-18 영업2팀 지정): 결과 = 처리완료 + 입고일·처리일·해체일이 모두 적힌 건만 불러온다(코스트코와 같은 기준).
+       1행이 머리글(결과·입고일·처리일·해체일·쇼핑몰·주문번호(사방넷)·상품명·수량) — 걸러낸 뒤 붙여넣기와 같은 경로로 읽는다. */
+    var H=(rows[0]||[]).map(function(h){return String(h).replace(/\s/g,"");});
+    var ci=function(re){for(var i=0;i<H.length;i++)if(re.test(H[i]))return i;return -1;};
+    var cSt=ci(/^(결과|처리상태|상태)$/),cIn=ci(/^입고일$/),cPr=ci(/^처리일$/),cOp=ci(/^해체일$/),cPd=ci(/^상품명$/);
+    if(cSt<0||cIn<0||cPr<0||cOp<0){throw new Error("홈쇼핑 탭 머리글(결과·입고일·처리일·해체일)을 찾지 못했습니다");}
+    var keep=[rows[0]],skip={};
+    var add=function(k){skip[k]=(skip[k]||0)+1;};
+    rows.slice(1).forEach(function(r){
+      if(cPd>=0&&!String(r[cPd]||"").trim())return;                 /* 빈 줄 */
+      var st=String(r[cSt]||"").trim();
+      if(st!=="처리완료"){add(st?st:"결과 빈칸");return;}
+      var miss=[];if(!String(r[cIn]||"").trim())miss.push("입고일");if(!String(r[cPr]||"").trim())miss.push("처리일");if(!String(r[cOp]||"").trim())miss.push("해체일");
+      if(miss.length){add(miss.join("·")+" 없음");return;}
+      keep.push(r);
+    });
     hsrRows=[];
-    var n0=hsrRows.length;
-    _hsrProcessRows(rows);
-    var n=hsrRows.length-n0,ready=hsrRows.filter(_hsrReady).length;
-    var d=new Date();
-    _retSheetMsg("hsrSheetMsg","✔ "+n+"건 · 해체일 기재 "+ready+"건 ("+d.getHours()+":"+String(d.getMinutes()).padStart(2,"0")+")");
+    var d=new Date(),tm=" ("+d.getHours()+":"+String(d.getMinutes()).padStart(2,"0")+")";
+    var sk=Object.keys(skip).map(function(k){return k+" "+skip[k];}).join(" · ");
+    if(keep.length<2){renderHsrTable();_retSheetMsg("hsrSheetMsg","등록할 건이 없습니다"+(sk?" (제외: "+sk+")":"")+tm);return;}
+    _hsrProcessRows(keep);
+    _retSheetMsg("hsrSheetMsg","✔ 등록 대상 "+hsrRows.length+"건"+(sk?" · 제외 "+sk:"")+tm);
   }).catch(function(e){_retSheetMsg("hsrSheetMsg","",true);alert("반품리스트를 불러오지 못했습니다.\n\n"+e.message);});
 }
 function ccrLoadSheet(){
