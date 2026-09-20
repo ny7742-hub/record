@@ -1688,7 +1688,9 @@ label{font-size:14px!important}
       <button onclick="stockTodoGo('hs')" id="stockCheckBtn" class="bg" style="padding:5px 14px;font-size:12px;font-weight:700" title="창고재고와 대조해 지금 해야 할 일(품절 처리·해제)을 보여줍니다">▶ 재고 확인</button>
       <span id="hsTodoMsg" style="font-size:11.5px;font-weight:700;color:#1b6e82"></span>
       <span id="stockCheckLogWrap" style="font-size:11px;color:#1b6e82;font-weight:600;white-space:nowrap"></span>
-      <a href="홈쇼핑상품리스트.xlsx" download style="margin-left:auto;font-size:12px;color:#15803d;font-weight:700;text-decoration:none;white-space:nowrap">📥 홈쇼핑 상품리스트 다운로드</a>
+      <span id="hsListMsg" style="font-size:11px;color:#5b6675;font-weight:700;white-space:nowrap"></span>
+      <label class="bs" style="margin-left:auto;cursor:pointer;padding:5px 12px;font-size:12px;font-weight:700;white-space:nowrap" title="채널·상품명·칼라명·자사코드·품절표시 열이 있는 엑셀 — 올리면 팀 전체가 같이 씁니다">📤 상품리스트 업데이트<input type="file" id="hsListIn" accept=".xlsx,.xls" style="display:none" onchange="hsListUpload(this)"></label>
+      <a href="홈쇼핑상품리스트.xlsx" download style="font-size:12px;color:#15803d;font-weight:700;text-decoration:none;white-space:nowrap">📥 기본 상품리스트</a>
     </div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675">창고재고현황은 <b>평일 오전 8시에 홈으로 자동 업로드</b>되고, 올라오는 즉시 홈쇼핑 상품리스트 기준으로 재고 확인이 돌아갑니다. 급하면 홈의 <b>📤 PlayMD 자료 업로드</b>에서 직접 올리세요. "재고 확인 시작"은 기준을 바꿔 다시 돌릴 때 씁니다.</div>
   </div>
@@ -1738,7 +1740,8 @@ label{font-size:14px!important}
       </select>
       <label style="font-size:11px;color:#5b6675;font-weight:600" title="창고재고가 이 수량보다 적으면 품절로 봅니다 — 몇 개 안 남은 색은 몰에 걸어둬도 곧 결품">품절 기준 창고재고 <input id="onsOutMin" type="number" min="0" max="9999" oninput="onsSetOutMin()" style="width:56px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right">개 미만</label>
       <label style="font-size:11px;color:#5b6675;font-weight:600" title="백화점몰 재고가 이 수량 이하면 '부족'으로 봅니다">부족 기준 <input id="onsLow" type="number" min="1" max="999" value="5" oninput="renderOnlineStock()" style="width:52px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right">개 이하</label>
-      <button onclick="onsExport()" class="bs" style="padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer">📥 엑셀</button>
+      <button onclick="onsExport()" class="bs" style="padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer" title="화면 기준 전체 내역">📥 엑셀</button>
+      <button onclick="onsExportByMall()" class="bs" style="padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer" title="매장(몰)마다 시트를 나눠 상품리스트를 내려받습니다">📥 몰별 상품리스트</button>
       <span id="onsCount" style="font-size:11px;color:#1b6e82;font-weight:700;margin-left:auto"></span>
     </div>
     <div id="onsWrap" style="overflow:auto;max-height:calc(100vh - 300px)"></div>
@@ -2153,7 +2156,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
-  "extSalesDB":"ws/extSales","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp",
+  "extSalesDB":"ws/extSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","bestImgDB":"ws/bestImg",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -2616,6 +2619,12 @@ function fbListen(){
   apply("ws/ccsMall","ccsMallDB",
     function(d){if(d&&typeof d==="object")ccsMallDB=d;},
     function(){var pg=document.getElementById("page-ccstock");if(pg&&pg.style.display!=="none")ccsRender();}
+  );
+  /* 홈쇼핑 상품리스트 (팀 공유) */
+  apply("ws/hsProdList","hsProdListDB",
+    function(d){if(d&&Array.isArray(d.rows)){hsProdListDB=d;hsProductList=d.rows;}},
+    function(){if(typeof _hsListMsgRefresh==="function")_hsListMsgRefresh();
+      var pg=document.getElementById("page-stock");if(pg&&pg.style.display!=="none"&&typeof renderStockCheckResults==="function"&&stockCheckResults)renderStockCheckResults();}
   );
   /* 홈 자동 업로드 기록 (팀 공유) */
   apply("ws/uploadLog","uploadLog",
@@ -6925,6 +6934,9 @@ function renderStockCheckLog(){
   el.textContent="최근 확인: "+stockCheckLog.map(fmt).join(" · ");
 }
 var HS_PRODUCT_LIST_URL="홈쇼핑상품리스트.xlsx";
+/* 홈쇼핑 상품리스트는 파일로 들고 다니던 것을 **올려서 팀 공유**로 바꿨다(2026-09 영업2팀).
+   올린 게 있으면 그걸 쓰고, 없으면 예전처럼 저장소의 기본 파일을 읽는다. */
+var hsProdListDB=(function(){try{var d=JSON.parse(localStorage.getItem("hsProdListDB")||"null");if(d&&Array.isArray(d.rows))return d;}catch(e){}return null;})();
 var hsProductList=[];       /* {ch,name,color,sku,note,url} — 컬러별 */
 var stockWarehouseRows=[];  /* {code,color,qty,wh} */
 var stockWarehouseDate="";
@@ -6937,15 +6949,12 @@ var stockCheckResults=null; /* {sku,name,color,ch,url,note,qty}[] */
 })();
 function initStockTab(){
   loadHsProductList();
+  _hsListMsgRefresh();
   renderStockCheckLog();
   if(stockCheckResults)renderStockCheckResults();
 }
-function loadHsProductList(){
-  if(hsProductList.length)return;
-  fetch(HS_PRODUCT_LIST_URL,{cache:"no-store"}).then(function(r){return r.arrayBuffer();}).then(function(buf){
-    var wb=XLSX.read(buf,{type:"array"});
-    var ws=wb.Sheets[wb.SheetNames[0]];
-    var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+/* 상품리스트 엑셀 → {ch,name,color,sku,note,url}[] — 업로드본과 기본 파일이 같은 규칙을 쓴다 */
+function _hsParseProductList(rows){
     /* 컬러별 상품리스트: 채널 | 상품명 | 칼라명 | 자사코드 | (품절표시) | (상품URL)
        앞쪽 빈 열이 잘려 열 위치가 밀릴 수 있어, 자사코드 칸을 찾아 상대 위치로 읽는다 */
     var list=[];
@@ -6962,8 +6971,57 @@ function loadHsProductList(){
         sku:at(si), note:at(si+1), url:at(si+2)
       });
     });
-    hsProductList=list;
+  return list;
+}
+function _hsListMsgRefresh(){
+  var el=document.getElementById("hsListMsg");if(!el)return;
+  if(hsProdListDB&&hsProdListDB.at){
+    var d=new Date(hsProdListDB.at),p=function(n){return String(n).padStart(2,"0");};
+    el.style.color="#15803d";
+    el.textContent="상품리스트 "+(d.getMonth()+1)+"/"+d.getDate()+" "+p(d.getHours())+":"+p(d.getMinutes())+" 업데이트 · "+(hsProdListDB.rows||[]).length.toLocaleString()+"색"+(hsProdListDB.by?" ("+hsProdListDB.by+")":"");
+  }else{
+    el.style.color="#5b6675";
+    el.textContent="기본 상품리스트 사용 중"+(hsProductList.length?" · "+hsProductList.length.toLocaleString()+"색":"");
+  }
+}
+function loadHsProductList(){
+  if(hsProdListDB&&hsProdListDB.rows&&hsProdListDB.rows.length){hsProductList=hsProdListDB.rows;_hsListMsgRefresh();return;}
+  if(hsProductList.length){_hsListMsgRefresh();return;}
+  fetch(HS_PRODUCT_LIST_URL,{cache:"no-store"}).then(function(r){return r.arrayBuffer();}).then(function(buf){
+    var wb=XLSX.read(buf,{type:"array"});
+    var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+    hsProductList=_hsParseProductList(rows);
+    _hsListMsgRefresh();
   }).catch(function(e){console.warn("홈쇼핑 상품리스트 로드 실패",e);});
+}
+/* 상품리스트 업데이트 — 올린 파일이 팀 공유본이 되고, 바로 재고 확인까지 다시 돌린다 */
+function hsListUpload(input){
+  var f=input.files&&input.files[0];input.value="";
+  if(!f)return;
+  if(!/\.(xlsx|xls)$/i.test(f.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
+  var msg=document.getElementById("hsListMsg");
+  if(msg){msg.style.color="#b45309";msg.textContent="읽는 중...";}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+      var list=_hsParseProductList(rows);
+      if(!list.length){alert("상품리스트를 읽지 못했습니다.\n\n채널 · 상품명 · 칼라명 · 자사코드(영문+숫자) 순서의 열이 필요합니다.");_hsListMsgRefresh();return;}
+      var was=hsProductList.length;
+      if(!confirm("홈쇼핑 상품리스트를 바꿉니다.\n\n  "+f.name+"\n  "+list.length.toLocaleString()+"색"
+        +(was?" (지금 "+was.toLocaleString()+"색)":"")+"\n\n팀 전체가 이 목록을 쓰게 됩니다. 계속할까요?"))
+        {_hsListMsgRefresh();return;}
+      var by="";
+      try{if(_authMe&&_authMe.name)by=String(_authMe.name);else if(_authUser&&_authUser.email)by=String(_authUser.email).split("@")[0];}catch(err){}
+      hsProdListDB={rows:list,at:new Date().toISOString(),fileName:f.name,by:by};
+      hsProductList=list;
+      wsSetItem("hsProdListDB",JSON.stringify(hsProdListDB));
+      _hsListMsgRefresh();
+      if(stockWarehouseRows.length)startStockCheck();   /* 새 목록으로 바로 다시 확인 */
+    }catch(err){alert("파일 오류: "+err.message);_hsListMsgRefresh();}
+  };
+  reader.readAsArrayBuffer(f);
 }
 /* 자사코드 → {상품코드, 칼라코드} (사내 상품데이터 기준). 없으면 null */
 function _hsSkuParts(sku){
@@ -8056,6 +8114,34 @@ function onsExport(){
   var n=new Date();
   var d=n.getFullYear()+String(n.getMonth()+1).padStart(2,"0")+String(n.getDate()).padStart(2,"0");
   XLSX.writeFile(wb,"백화점몰재고확인_"+d+".xlsx");
+}
+
+/* 몰별 상품리스트 다운로드 — 매장(몰)마다 시트를 하나씩 만든다(2026-09 영업2팀).
+   시트 이름에 쓸 수 없는 글자(: \ / ? * [ ])는 빼고 31자로 자른다. */
+function _onsSheetName(m){return String(m||"몰").replace(/[:\\\/?*\[\]]/g," ").trim().slice(0,31)||"몰";}
+function onsExportByMall(){
+  var all=onlineStockDB.rows||[];
+  if(!all.length){alert("다운로드할 상품리스트가 없습니다.\n먼저 백화점몰 상품리스트를 올려주세요.");return;}
+  var low=_onsLowLimit(),wb=XLSX.utils.book_new(),ms=_onsMallsOrdered(),made=0;
+  var head=["상품명","컬러","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","할 일","판매상태","현재가","채널상품코드","스타일코드"];
+  ms.forEach(function(m){
+    var rows=[];
+    _onsGroups(all.filter(function(r){return _onsMall(r)===m;})).forEach(function(g){rows=rows.concat(g.rows);});
+    if(!rows.length)return;
+    var aoa=[head];
+    rows.forEach(function(r){
+      var st=_onsIsOut(r)?"품절":(r.qty<=low?"부족":"판매중");
+      aoa.push([r.name,r.color,r.code,r.sku,r.barcode,r.qty,st,(r.wh===null?"":r.wh),
+        (_onsCanFill(r)?"품절 해제 가능":(_onsMustClose(r)?"품절 처리 필요":"")),r.status,r.price,r.chCode,r.style]);
+    });
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"]=[{wch:44},{wch:12},{wch:12},{wch:15},{wch:15},{wch:11},{wch:9},{wch:9},{wch:13},{wch:10},{wch:10},{wch:18},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws,_onsSheetName(m));
+    made++;
+  });
+  if(!made){alert("내려받을 매장이 없습니다.");return;}
+  var n=new Date(),d=n.getFullYear()+String(n.getMonth()+1).padStart(2,"0")+String(n.getDate()).padStart(2,"0");
+  XLSX.writeFile(wb,"백화점몰 상품리스트_"+(made===1?_onsSheetName(ms[0])+"_":"")+d+".xlsx");
 }
 
 /* ── 매장별 일별매출 (시트 전 항목) ── */
