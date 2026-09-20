@@ -2857,6 +2857,11 @@ function getCat(nm){
 }
 
 var STORE_MAP=[
+  /* 백화점몰(온라인) 매장 — 오프라인 매장과 코드가 다르다. `본점`이 LDA로 먼저 걸리지 않게 맨 앞에 둔다
+     (2026-09 영업2팀: (백)롯데본점 LTOA · (백)현대천호 HDOC · (백)롯데고양 LGY) */
+  {keys:["(백)롯데본점","백)롯데본점","ltoa"],code:"LTOA",name:"(백)롯데본점"},
+  {keys:["(백)현대천호","백)현대천호","hdoc"],code:"HDOC",name:"(백)현대천호"},
+  {keys:["(백)롯데고양","백)롯데고양","lgy"],code:"LGY",name:"(백)롯데고양"},
   {keys:["센텀","sentum","lsc"],code:"LSC",name:"센텀시티점"},
   {keys:["동부산","동부","ldb"],code:"LDB",name:"동부산점"},
   /* 목동 지하행사(별관 지하2층, HDMB)는 "목동"보다 먼저 둬야 함 — 목동 본관은 HDMD */
@@ -7465,22 +7470,29 @@ function _onsCodeByName(nm){
 var ONS_STORE_ALIAS={
   "롯데 아울렛 고양터미널점":"롯데 고양점"
 };
+/* 매장 표기·매장코드 (2026-09 영업2팀 지정) — 화면·엑셀 모두 `(백)…` 표기를 쓰고 코드를 함께 보여준다.
+   예전 이름으로 저장된 자료·완료 체크·고른 탭은 `_onsFixMallName`이 옮긴다. */
+var ONS_STORE_RENAME={"롯데 본점":"(백)롯데본점","현대천호점":"(백)현대천호","현대 천호점":"(백)현대천호","롯데 고양점":"(백)롯데고양"};
+var ONS_STORE_CODE={"(백)롯데본점":"LTOA","(백)현대천호":"HDOC","(백)롯데고양":"LGY"};
+function _onsStoreCode(m){return ONS_STORE_CODE[m]||"";}
 function _onsStoreName(brand,store){
   var st=String(store||"").replace(/^\s*(주식회사|\(주\)|㈜)\s*/,"").replace(/^(롯데|현대)\s*백화점\s*/,"").trim();
   if(!st)return brand;
   if(!/점$/.test(st))st+="점";
   var nm=brand==="현대"?("현대"+st):(brand+" "+st);
-  return ONS_STORE_ALIAS[nm]||nm;
+  nm=ONS_STORE_ALIAS[nm]||nm;
+  return ONS_STORE_RENAME[nm]||nm;
 }
 function _onsLegacyMall(r){
   var m=r&&r.mall;
   if(!m||m==="롯데")return _onsStoreName("롯데",r&&r.store);
   var h=/^현대 (\S+)$/.exec(m);
-  if(h)return "현대"+h[1].replace(/점$/,"")+"점";
-  return m;
+  if(h)m="현대"+h[1].replace(/점$/,"")+"점";
+  return ONS_STORE_RENAME[m]||m;
 }
 function _onsMall(r){return r&&r.mall?r.mall:_onsLegacyMall(r);}
 function _onsFixMallName(k){
+  if(ONS_STORE_RENAME[k])return ONS_STORE_RENAME[k];
   if(k==="롯데"){
     /* 옛 '롯데'는 롯데 매장이 하나뿐일 때만 그 매장으로 본다 */
     var ls={};((onlineStockDB&&onlineStockDB.rows)||[]).forEach(function(r){var m=_onsMall(r);if(/^롯데 /.test(m))ls[m]=1;});
@@ -7670,9 +7682,9 @@ function _onsMalls(){
 /* 몰 탭 — 롯데 · 현대 천호를 **따로** 본다(요약·할 일 목록·표가 모두 고른 몰만).
    `전체`를 고르면 표를 몰별 구역으로 나눠 보여준다. 고른 탭은 브라우저에 남긴다. */
 var ONS_MALL_ORDER=["롯데","현대"];     /* 브랜드 순서 — 같은 브랜드 안에서는 매장 이름순 */
-function _onsBrandRank(m){for(var i=0;i<ONS_MALL_ORDER.length;i++)if(String(m).indexOf(ONS_MALL_ORDER[i])===0)return i;return 99;}
+function _onsBrandRank(m){for(var i=0;i<ONS_MALL_ORDER.length;i++)if(String(m).indexOf(ONS_MALL_ORDER[i])>=0)return i;return 99;}
 /* 매장 탭·배지 색 — 롯데 빨강 · 현대 초록 · 그 외 청록 */
-function _onsTone(m){return /^롯데/.test(m)?["#b91c1c","#fecaca","#fee2e2","#991b1b"]:(/^현대/.test(m)?["#15803d","#bbf7d0","#dcfce7","#166534"]:["#1b6e82","#cfe0e5","#e0f2f1","#0f5c6e"]);}
+function _onsTone(m){return /롯데/.test(m)?["#b91c1c","#fecaca","#fee2e2","#991b1b"]:(/현대/.test(m)?["#15803d","#bbf7d0","#dcfce7","#166534"]:["#1b6e82","#cfe0e5","#e0f2f1","#0f5c6e"]);}
 function _onsMallsOrdered(){
   return _onsMalls().sort(function(a,b){
     var ia=_onsBrandRank(a),ib=_onsBrandRank(b);
@@ -7700,7 +7712,7 @@ function _onsFillMallFilter(){
     var f=(onlineStockDB.files||{})[key];
     return '<button onclick="onsPickMall(\''+_escX(key)+'\')" style="cursor:pointer;text-align:left;border-radius:10px;padding:8px 16px;min-width:150px;'
       +(on?'background:'+tone[0]+';border:2px solid '+tone[0]+';color:#fff':'background:#fff;border:2px solid '+tone[1]+';color:'+tone[0])+'">'
-      +'<div style="font-size:14px;font-weight:800">'+_escX(label)+' <span style="font-size:11.5px;font-weight:700;opacity:.85">'+rows.length+'색</span></div>'
+      +'<div style="font-size:14px;font-weight:800">'+_escX(label)+(_onsStoreCode(key)?' <span style="font-size:10.5px;font-weight:800;opacity:.75">'+_onsStoreCode(key)+'</span>':'')+' <span style="font-size:11.5px;font-weight:700;opacity:.85">'+rows.length+'색</span></div>'
       +'<div style="font-size:11px;font-weight:700;margin-top:2px;'+(on?'color:rgba(255,255,255,.92)':'color:#5b6675')+'">'
       +(onlineStockDB.whApplied?'해제가능 '+fill+' · 품절처리 '+close:'창고재고 대조 전')
       +(f&&f.date?' · '+_escX(f.date.slice(5)):'')+'</div></button>';
@@ -8097,18 +8109,18 @@ function onsExport(){
   var all=onlineStockDB.rows||[];
   if(!all.length){alert("다운로드할 데이터가 없습니다.\n먼저 백화점몰 상품리스트를 올려주세요.");return;}
   var low=_onsLowLimit();
-  var head=["몰","상품명","컬러","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","할 일","판매상태","현재가","채널","점포","채널상품코드","스타일코드"];
+  var head=["몰","매장코드","상품명","컬러","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","할 일","판매상태","현재가","채널","점포","채널상품코드","스타일코드"];
   var aoa=[head];
   var flat=[];
   _onsGroups(all).forEach(function(g){flat=flat.concat(g.rows);});   /* 같은 상품끼리 붙여서 내려받는다 */
   flat.forEach(function(r){
     var st=_onsIsOut(r)?"품절":(r.qty<=low?"부족":"판매중");
-    aoa.push([_onsMall(r),r.name,r.color,r.code,r.sku,r.barcode,r.qty,st,
+    aoa.push([_onsMall(r),_onsStoreCode(_onsMall(r)),r.name,r.color,r.code,r.sku,r.barcode,r.qty,st,
       (r.wh===null?"":r.wh),(_onsCanFill(r)?"품절 해제 가능":(_onsMustClose(r)?"품절 처리 필요":"")),
       r.status,r.price,r.ch,r.store,r.chCode,r.style]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[{wch:10},{wch:44},{wch:12},{wch:12},{wch:15},{wch:15},{wch:10},{wch:9},{wch:9},{wch:9},{wch:10},{wch:10},{wch:20},{wch:8},{wch:18},{wch:14}];
+  ws["!cols"]=[{wch:13},{wch:9},{wch:44},{wch:12},{wch:12},{wch:15},{wch:15},{wch:10},{wch:9},{wch:9},{wch:9},{wch:10},{wch:10},{wch:20},{wch:8},{wch:18},{wch:14}];
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"백화점몰재고");
   var n=new Date();
@@ -8123,7 +8135,7 @@ function onsExportByMall(){
   var all=onlineStockDB.rows||[];
   if(!all.length){alert("다운로드할 상품리스트가 없습니다.\n먼저 백화점몰 상품리스트를 올려주세요.");return;}
   var low=_onsLowLimit(),wb=XLSX.utils.book_new(),ms=_onsMallsOrdered(),made=0;
-  var head=["상품명","컬러","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","할 일","판매상태","현재가","채널상품코드","스타일코드"];
+  var head=["매장","매장코드","상품명","컬러","상품코드","자사코드","바코드","백화점몰재고","상태","창고재고","할 일","판매상태","현재가","채널상품코드","스타일코드"];
   ms.forEach(function(m){
     var rows=[];
     _onsGroups(all.filter(function(r){return _onsMall(r)===m;})).forEach(function(g){rows=rows.concat(g.rows);});
@@ -8131,11 +8143,11 @@ function onsExportByMall(){
     var aoa=[head];
     rows.forEach(function(r){
       var st=_onsIsOut(r)?"품절":(r.qty<=low?"부족":"판매중");
-      aoa.push([r.name,r.color,r.code,r.sku,r.barcode,r.qty,st,(r.wh===null?"":r.wh),
+      aoa.push([m,_onsStoreCode(m),r.name,r.color,r.code,r.sku,r.barcode,r.qty,st,(r.wh===null?"":r.wh),
         (_onsCanFill(r)?"품절 해제 가능":(_onsMustClose(r)?"품절 처리 필요":"")),r.status,r.price,r.chCode,r.style]);
     });
     var ws=XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"]=[{wch:44},{wch:12},{wch:12},{wch:15},{wch:15},{wch:11},{wch:9},{wch:9},{wch:13},{wch:10},{wch:10},{wch:18},{wch:14}];
+    ws["!cols"]=[{wch:13},{wch:9},{wch:44},{wch:12},{wch:12},{wch:15},{wch:15},{wch:11},{wch:9},{wch:9},{wch:13},{wch:10},{wch:10},{wch:18},{wch:14}];
     XLSX.utils.book_append_sheet(wb,ws,_onsSheetName(m));
     made++;
   });
