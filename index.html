@@ -1685,7 +1685,8 @@ label{font-size:14px!important}
       <div class="sec-title" style="margin:0;font-size:13px">🏭 홈쇼핑몰 재고확인</div>
       <span style="font-size:11px;color:#5b6675;white-space:nowrap">📦 창고재고(홈에서 자동 업로드)</span>
       <span id="stockWhMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
-      <button onclick="startStockCheck()" id="stockCheckBtn" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700">▶ 재고 확인 시작</button>
+      <button onclick="stockTodoGo('hs')" id="stockCheckBtn" class="bg" style="padding:5px 14px;font-size:12px;font-weight:700" title="창고재고와 대조해 지금 해야 할 일(품절 처리·해제)을 보여줍니다">▶ 재고 확인</button>
+      <span id="hsTodoMsg" style="font-size:11.5px;font-weight:700;color:#1b6e82"></span>
       <span id="stockCheckLogWrap" style="font-size:11px;color:#1b6e82;font-weight:600;white-space:nowrap"></span>
       <a href="홈쇼핑상품리스트.xlsx" download style="margin-left:auto;font-size:12px;color:#15803d;font-weight:700;text-decoration:none;white-space:nowrap">📥 홈쇼핑 상품리스트 다운로드</a>
     </div>
@@ -1713,6 +1714,7 @@ label{font-size:14px!important}
       <span id="onsMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <span style="font-size:11px;color:#5b6675;white-space:nowrap">📦 창고재고(홈에서 자동 업로드)</span>
       <span id="onsWhMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+      <button onclick="stockTodoGo('ons')" class="bg" style="padding:5px 14px;font-size:12px;font-weight:700" title="창고재고와 대조해 지금 해야 할 일(품절 처리·해제)을 보여줍니다">▶ 재고 확인</button><span id="onsTodoMsg" style="font-size:11.5px;font-weight:700;color:#1b6e82"></span>
       <button onclick="onsClear()" class="bs" style="margin-left:auto;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer">🗑 비우기</button>
     </div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.6">
@@ -1751,6 +1753,7 @@ label{font-size:14px!important}
       <div class="sec-title" style="margin:0;font-size:13px">🛒 코스트코 재고확인</div>
       <span id="ccsInfo" style="font-size:11.5px;color:#5b6675;font-weight:600"></span>
       <label style="font-size:12px;color:#1b6e82;font-weight:700;margin-left:auto">품절 기준 CSTC 재고 <input type="number" id="ccsOutMin" min="0" onchange="ccsSetMin(this.value)" style="width:60px;font-size:12px;padding:3px 6px;text-align:right"> 개 미만</label>
+      <button onclick="stockTodoGo('ccs')" class="bg" style="padding:5px 14px;font-size:12px;font-weight:700" title="창고재고와 대조해 지금 해야 할 일(품절 처리·해제)을 보여줍니다">▶ 재고 확인</button><span id="ccsTodoMsg" style="font-size:11.5px;font-weight:700;color:#1b6e82"></span>
       <button onclick="ccsExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
     </div>
     <div style="margin-top:8px;font-size:11px;color:#5b6675;line-height:1.6">
@@ -9245,6 +9248,58 @@ function ccsExport(){
   XLSX.utils.book_append_sheet(wb,ws,"코스트코 재고");
   var d=new Date(),p=function(x){return String(x).padStart(2,"0");};
   XLSX.writeFile(wb,"코스트코 재고확인("+p(d.getMonth()+1)+p(d.getDate())+").xlsx");
+}
+/* ── 재고확인 세 탭 공통 '재고 확인' 버튼 (2026-09 영업2팀) ──
+   누르면 최신 창고재고로 다시 계산한 뒤 **할 일 목록**(품절 처리 필요 · 해제 가능 · 보충 필요)으로 내려가 잠깐 강조한다.
+   할 일 칸은 탭마다 그리는 곳이 달라(홈쇼핑몰은 결과 영역 맨 위, 백화점몰은 요약, 코스트코는 전용 칸) 자리만 찾아 준다. */
+function _stockTodoFlash(el){
+  if(!el)return;
+  try{el.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){el.scrollIntoView();}
+  el.style.transition="box-shadow .25s";
+  el.style.boxShadow="0 0 0 3px #fbbf24";
+  clearTimeout(el._flashT);
+  el._flashT=setTimeout(function(){el.style.boxShadow="";},1600);
+}
+function _stockTodoMsg(id,t,err){
+  var el=document.getElementById(id);if(!el)return;
+  el.style.color=err?"#b91c1c":"#1b6e82";el.textContent=t||"";
+  clearTimeout(el._t);if(t)el._t=setTimeout(function(){el.textContent="";},6000);
+}
+function stockTodoGo(kind){
+  if(kind==="hs"){
+    if(!stockWarehouseRows.length){_stockTodoMsg("hsTodoMsg","창고재고현황이 없습니다 — 홈에서 올라오면 확인됩니다",1);return;}
+    _stockTodoMsg("hsTodoMsg","확인 중...");
+    startStockCheck();
+    setTimeout(function(){
+      var wrap=document.getElementById("stockResultWrap");
+      var n=(stockCheckResults||[]).length;
+      if(!n){_stockTodoMsg("hsTodoMsg","결과가 없습니다 — 홈쇼핑 상품리스트를 확인해주세요",1);return;}
+      var OUT=(typeof hsOutMin==="function")?hsOutMin():30;
+      var canOpen=stockCheckResults.filter(function(r){return _hsMallOut(r)&&!(r.qty<OUT)&&!_hsProdMarked(r.ch,r.name);}).length;
+      var mustClose=stockCheckResults.filter(function(r){return !_hsMallOut(r)&&r.qty<OUT;}).length;
+      _stockTodoMsg("hsTodoMsg","품절 처리 "+mustClose+"건 · 해제 가능 "+canOpen+"건");
+      _stockTodoFlash(wrap&&wrap.firstElementChild);
+    },900);
+    return;
+  }
+  if(kind==="ons"){
+    if(!(onlineStockDB.rows||[]).length){_stockTodoMsg("onsTodoMsg","백화점몰 상품리스트를 먼저 올려주세요",1);return;}
+    _onsApplyWh();renderOnlineStock();
+    var rows=onlineStockDB.rows||[];
+    var can=rows.filter(_onsCanFill).length,must=rows.filter(_onsMustClose).length;
+    _stockTodoMsg("onsTodoMsg",onlineStockDB.whApplied?("품절 처리 "+must+"건 · 해제 가능 "+can+"건"):"창고재고가 아직 없습니다 — 홈에서 올라오면 확인됩니다",!onlineStockDB.whApplied);
+    _stockTodoFlash(document.getElementById("onsSummary"));
+    return;
+  }
+  /* 코스트코 */
+  ccsRender();
+  if(!ccsWh.hasCstc){_stockTodoMsg("ccsTodoMsg","창고재고현황에 [CSTC] 코스트코 창고가 없습니다 — 전체 창고로 받아야 합니다",1);return;}
+  var cr=_ccsRows(),min=ccsOutMin();
+  var close=cr.filter(function(r){return r.todo==="close";}).length,
+      open=cr.filter(function(r){return r.todo==="open";}).length,
+      refill=cr.filter(function(r){return r.refill!=null&&r.cstc!=null&&r.cstc<min;}).length;
+  _stockTodoMsg("ccsTodoMsg","품절 처리 "+close+"건 · 해제 가능 "+open+"건 · 보충 "+refill+"건");
+  _stockTodoFlash(document.getElementById("ccsTodo"));
 }
 function whInitSlots(){
   var els=document.querySelectorAll(".wh-slot");
