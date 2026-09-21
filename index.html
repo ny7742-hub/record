@@ -8859,15 +8859,35 @@ function _dsFldsOf(name,mk){
   for(var d in md){var c=md[d][name];if(c&&(_dsN(c.online)||_dsN(c.onlineQ))){on=true;break;}}
   return on?DS_FIELDS:noOnline;
 }
+/* 표 위쪽의 가로 스크롤바(그림자 스크롤) — 안쪽 div 폭을 표 폭에 맞춰야 움직인다.
+   **한 번만 재보면 안 된다**(2026-09-21 영업2팀): 탭을 열자마자 그리면 표가 아직 자리를 잡기 전이라
+   폭이 안 잡히는 때가 있고, 그러면 위 스크롤바가 죽어 **맨 오른쪽 매장의 PLAY MD 칸까지 갈 수 없다**
+   (표 자체 스크롤바는 30줄 아래에 있어 화면 밖이다). 그래서 rAF + 200ms + 800ms로 다시 맞추고
+   창 크기가 바뀔 때도 다시 맞춘다. */
+function _dsMirrorSync(){
+  var wrap=document.getElementById("dailyTableWrap"),inner=document.getElementById("dailyScrollMirrorInner"),
+      mirror=document.getElementById("dailyScrollMirror");
+  if(!wrap||!inner||!mirror)return;
+  var sw=wrap.scrollWidth;
+  if(!sw)sw=wrap.offsetWidth+1;
+  /* 위 스크롤바와 표의 보이는 폭이 다르면(카드 테두리 때문에 38px쯤) 위 바를 끝까지 밀어도 표는 그만큼 덜 간다
+     — 맨 오른쪽 매장의 PLAY MD 칸이 반쯤 잘려 보이던 원인이다. 폭 차이를 더해 **끝까지 갈 수 있게** 맞춘다. */
+  var w=sw+(mirror.clientWidth-wrap.clientWidth);
+  if(inner.style.width!==w+"px")inner.style.width=w+"px";
+}
 function initDailyScroll(){
-  requestAnimationFrame(function(){
-    var mirror=document.getElementById("dailyScrollMirror"),wrap=document.getElementById("dailyTableWrap"),inner=document.getElementById("dailyScrollMirrorInner");
-    if(!mirror||!wrap||!inner)return;
-    var sw=wrap.scrollWidth;inner.style.width=(sw>0?sw:wrap.offsetWidth+1)+"px";
-    var syncing=false;
-    mirror.onscroll=function(){if(syncing)return;syncing=true;wrap.scrollLeft=mirror.scrollLeft;syncing=false;};
-    wrap.onscroll=function(){if(syncing)return;syncing=true;mirror.scrollLeft=wrap.scrollLeft;syncing=false;};
-  });
+  var mirror=document.getElementById("dailyScrollMirror"),wrap=document.getElementById("dailyTableWrap");
+  if(!mirror||!wrap)return;
+  var syncing=false;
+  mirror.onscroll=function(){if(syncing)return;syncing=true;wrap.scrollLeft=mirror.scrollLeft;syncing=false;};
+  wrap.onscroll=function(){if(syncing)return;syncing=true;mirror.scrollLeft=wrap.scrollLeft;syncing=false;};
+  requestAnimationFrame(_dsMirrorSync);
+  setTimeout(_dsMirrorSync,200);
+  setTimeout(_dsMirrorSync,800);
+  if(!window.__dsMirrorResize){
+    window.__dsMirrorResize=1;
+    window.addEventListener("resize",function(){setTimeout(_dsMirrorSync,120);});
+  }
 }
 /* ── 매장별 파일 업로드 (롯데 형식: 판매수량·총매출만 반영, PLAY MD 등 수기값 보존) ── */
 function dsParseDate(v){
