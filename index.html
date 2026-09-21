@@ -5317,10 +5317,25 @@ function _allRate(cur,prev){
    매장명 표기가 달마다 달라(`롯데 잠실`↔`롯데 잠실점`, `커넥트현대 청주`↔`커넥트현대 청주점`)
    공백을 없애고 **끝의 `점`만** 떼어 묶는다(`_pmdKey`) — 가운데 글자는 건드리지 않는다(`롯데 본점`↔`롯데 부산본점`이 겹치면 안 된다).
    화면에 쓰는 이름은 그 묶음에서 금액이 가장 큰 표기를 고른다(`_pmdLabel`). */
-function _pmdKey(n){return String(n||"").replace(/\s/g,"").replace(/점$/,"");}
+/* 매장별 일별매출의 표기 → 영업2팀이 쓰는 정식 이름 (2026-09-21 지정).
+   `현대 천호점(온라인)`·`현대백화점 천호점(온라인)`처럼 표기가 둘로 갈린 매장은 여기서 한 이름으로 모인다.
+   `현대 본사`는 `현대 상본`과 같은 곳인지 확인받지 못해 그대로 둔다 — 같은 곳이면 여기에 한 줄 넣으면 합쳐진다. */
+var PMD_STORE_NAME={
+  "롯데 본점":"롯데백화점 온라인 본점",
+  "현대 천호점(온라인)":"현대백화점 온라인 천호점",
+  "현대백화점 천호점(온라인)":"현대백화점 온라인 천호점",
+  "현대 상본":"현대백화점 본사"
+};
+function _pmdName(n){
+  var v=String(n||"").trim();
+  return PMD_STORE_NAME[v]||v;
+}
+function _pmdKey(n){return _pmdName(n).replace(/\s/g,"").replace(/점$/,"");}
 function _pmdNum(v){return Number(String(v==null?0:v).replace(/,/g,""))||0;}
+/* PLAY MD와 **EDI를 함께** 모은다 — 이 표는 둘이 맞는지 보는 자리다(2026-09-21 영업2팀).
+   PLAY MD 칸을 아직 안 적은 매장은 차이가 그대로 드러난다. */
 function _pmdSum(from,to){
-  var by={},lab={},tot=0;
+  var by={},byE={},lab={},tot=0;
   var D=(typeof dailySalesDB!=="undefined"&&dailySalesDB.data)?dailySalesDB.data:{};
   Object.keys(D).forEach(function(ym){
     if(ym+"-31"<from||ym+"-01">to)return;
@@ -5330,20 +5345,20 @@ function _pmdSum(from,to){
       if(d<from||d>to)return;
       var row=md[day]||{};
       Object.keys(row).forEach(function(st){
-        var v=_pmdNum((row[st]||{}).playmd);
-        if(!v)return;
+        var c=row[st]||{},v=_pmdNum(c.playmd),e=_pmdNum(c.edi);
+        if(!v&&!e)return;
         var k=_pmdKey(st);
-        by[k]=(by[k]||0)+v;tot+=v;
-        (lab[k]=lab[k]||{})[st]=(lab[k][st]||0)+v;
+        by[k]=(by[k]||0)+v;byE[k]=(byE[k]||0)+e;tot+=v;
+        (lab[k]=lab[k]||{})[st]=(lab[k][st]||0)+Math.abs(v)+Math.abs(e);
       });
     });
   });
-  return {by:by,lab:lab,total:tot};
+  return {by:by,byE:byE,lab:lab,total:tot};
 }
 function _pmdLabel(lab,k){
   var o=lab[k]||{},best="",bv=-Infinity;   /* 반품이 더 큰 매장은 합계가 음수라 -1로 시작하면 이름을 못 고른다 */
   Object.keys(o).forEach(function(n){if(o[n]>bv){bv=o[n];best=n;}});
-  return best||k;
+  return _pmdName(best||k);
 }
 /* 위 표에서 고른 보기(누적/월별/주간)를 그대로 따라간다.
    매장이 40곳 가까이 되므로 **줄이 매장**이고 칸이 기간이다(월별로 칸을 매장으로 두면 40열이 된다). */
@@ -5357,8 +5372,16 @@ function _homeAllStoreTbl(view,now,Y,M){
   var p2=function(n){return String(n).padStart(2,"0");},
       ymd=function(d){return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());};
   var to=ymd(now),cur=_pmdSum(Y+"-01-01",to);
-  if(!cur.total)return "";
-  var keys=Object.keys(cur.by).sort(function(a,b){return cur.by[b]-cur.by[a];});
+  if(!cur.total&&!Object.keys(cur.byE).length)return "";
+  /* 올해 PLAY MD도 EDI도 0인 매장은 줄을 만들지 않는다(반품으로 상계돼 0이 된 줄까지 늘어놓을 필요는 없다) */
+  var keys=Object.keys(cur.byE).filter(function(k){return (cur.by[k]||0)!==0||(cur.byE[k]||0)!==0;})
+    .sort(function(a,b){return (cur.byE[b]||0)-(cur.byE[a]||0);});
+  /* PLAY MD와 EDI 차이 — 0이 아니면 빨갛게(아직 안 맞춘 칸) */
+  var gap=function(pm,edi){
+    var d=Math.round(pm-edi);
+    if(!d)return '<td class="ytd-num" style="color:#15803d">0</td>';
+    return '<td class="ytd-num" style="color:#b91c1c;font-weight:700">'+(d>0?"+":"")+d.toLocaleString()+'</td>';
+  };
   var name=function(k){return _esc(_pmdLabel(cur.lab,k));};
   var num=function(v){return v?Number(Math.round(v)).toLocaleString():"–";};
   var h="";
@@ -5367,19 +5390,23 @@ function _homeAllStoreTbl(view,now,Y,M){
     /* 올해는 없고 전년에만 있는 매장 — 이름도 전년 표기에서 가져온다(안 그러면 띄어쓰기 없는 키가 그대로 보인다) */
     Object.keys(prev.by).forEach(function(k){
       if(keys.indexOf(k)>=0)return;
+      if(!(prev.by[k]||0))return;   /* 전년 PLAY MD도 0이면 줄을 만들지 않는다 — 전년 칸은 PLAY MD만 보여준다 */
       keys.push(k);
       if(!cur.lab[k])cur.lab[k]=prev.lab[k];
     });
-    h+='<table class="ytd-tbl ytd-stbl"><thead><tr><th style="text-align:left">매장</th>'
-     +'<th style="text-align:right">'+Y+'년 1~'+M+'월</th><th style="text-align:right">'+(Y-1)+'년 1~'+M+'월</th>'
+    h+='<table class="ytd-tbl"><thead><tr><th style="text-align:left">매장</th>'
+     +'<th style="text-align:right">PLAY MD</th><th style="text-align:right">EDI</th><th style="text-align:right">차이</th>'
+     +'<th style="text-align:right">'+(Y-1)+'년 1~'+M+'월</th>'
      +'<th style="text-align:right">전년대비</th></tr></thead><tbody>';
-    var ct=0,pt=0;
+    var ct=0,et=0,pt=0;
     keys.forEach(function(k){
-      var c=cur.by[k]||0,p=prev.by[k]||0;ct+=c;pt+=p;
+      var c=cur.by[k]||0,e=cur.byE[k]||0,p=prev.by[k]||0;ct+=c;et+=e;pt+=p;
       h+='<tr><td class="ytd-lab">'+name(k)+'</td><td class="ytd-num">'+num(c)+'</td>'
+       +'<td class="ytd-num">'+num(e)+'</td>'+gap(c,e)
        +'<td class="ytd-num">'+(p?num(p):"–")+'</td><td class="ytd-num">'+_allRate(c,p)+'</td></tr>';
     });
     h+='<tr class="ytd-total"><td>합계</td><td class="ytd-num">'+num(ct)+'</td>'
+     +'<td class="ytd-num">'+num(et)+'</td>'+gap(ct,et)
      +'<td class="ytd-num">'+(pt?num(pt):"–")+'</td><td class="ytd-num">'+_allRate(ct,pt)+'</td></tr></tbody></table>';
   }else if(view==="month"){
     var ms=[],mo={};
@@ -5390,17 +5417,19 @@ function _homeAllStoreTbl(view,now,Y,M){
     }
     h+='<table class="ytd-tbl ytd-mtbl" style="min-width:0"><thead><tr><th style="text-align:left">매장</th>'
      +ms.map(function(m){return '<th style="text-align:right">'+m+'월</th>';}).join("")
-     +'<th style="text-align:right;background:#dbe7ea">합계</th></tr></thead><tbody>';
+     +'<th style="text-align:right;background:#dbe7ea">합계</th>'
+     +'<th style="text-align:right">EDI</th><th style="text-align:right">차이</th></tr></thead><tbody>';
     var ctot={};ms.forEach(function(m){ctot[m]=0;});
-    var gt=0;
+    var gt=0,get=0;
     keys.forEach(function(k){
-      var rs=0;
+      var rs=0,e=cur.byE[k]||0;
       var tds=ms.map(function(m){var v=mo[m].by[k]||0;rs+=v;ctot[m]+=v;return '<td class="ytd-num">'+num(v)+'</td>';}).join("");
-      gt+=rs;
-      h+='<tr><td class="ytd-lab">'+name(k)+'</td>'+tds+'<td class="ytd-num" style="font-weight:700">'+num(rs)+'</td></tr>';
+      gt+=rs;get+=e;
+      h+='<tr><td class="ytd-lab">'+name(k)+'</td>'+tds+'<td class="ytd-num" style="font-weight:700">'+num(rs)+'</td>'
+       +'<td class="ytd-num">'+num(e)+'</td>'+gap(rs,e)+'</tr>';
     });
     h+='<tr class="ytd-total"><td>합계</td>'+ms.map(function(m){return '<td class="ytd-num">'+num(ctot[m])+'</td>';}).join("")
-     +'<td class="ytd-num">'+num(gt)+'</td></tr></tbody></table>';
+     +'<td class="ytd-num">'+num(gt)+'</td><td class="ytd-num">'+num(get)+'</td>'+gap(gt,get)+'</tr></tbody></table>';
   }else{
     var mon=new Date(now);mon.setDate(mon.getDate()-((mon.getDay()+6)%7));
     var wks=[];
@@ -5414,21 +5443,25 @@ function _homeAllStoreTbl(view,now,Y,M){
     if(!wks.length)return _pmdWrap('<div style="font-size:12px;color:#5b6675;padding:4px 2px">최근 12주에 적힌 PLAY MD 매출이 없습니다.</div>',keys.length);
     h+='<table class="ytd-tbl ytd-mtbl" style="min-width:0"><thead><tr><th style="text-align:left">매장</th>'
      +wks.map(function(x){return '<th style="text-align:right">'+x.lab+(x.cur?'~':'')+'</th>';}).join("")
-     +'<th style="text-align:right;background:#dbe7ea">합계</th></tr></thead><tbody>';
-    var ct2=wks.map(function(){return 0;}),gt2=0;
+     +'<th style="text-align:right;background:#dbe7ea">합계</th>'
+     +'<th style="text-align:right">EDI</th><th style="text-align:right">차이</th></tr></thead><tbody>';
+    var ct2=wks.map(function(){return 0;}),gt2=0,ge2=0;
     keys.forEach(function(k){
-      var rs=0;
-      var tds=wks.map(function(x,i){var v=x.r.by[k]||0;rs+=v;ct2[i]+=v;return '<td class="ytd-num">'+num(v)+'</td>';}).join("");
-      gt2+=rs;
-      h+='<tr><td class="ytd-lab">'+name(k)+'</td>'+tds+'<td class="ytd-num" style="font-weight:700">'+num(rs)+'</td></tr>';
+      var rs=0,es=0;
+      var tds=wks.map(function(x,i){var v=x.r.by[k]||0;rs+=v;es+=(x.r.byE[k]||0);ct2[i]+=v;return '<td class="ytd-num">'+num(v)+'</td>';}).join("");
+      gt2+=rs;ge2+=es;
+      h+='<tr><td class="ytd-lab">'+name(k)+'</td>'+tds+'<td class="ytd-num" style="font-weight:700">'+num(rs)+'</td>'
+       +'<td class="ytd-num">'+num(es)+'</td>'+gap(rs,es)+'</tr>';
     });
     h+='<tr class="ytd-total"><td>합계</td>'+ct2.map(function(v){return '<td class="ytd-num">'+num(v)+'</td>';}).join("")
-     +'<td class="ytd-num">'+num(gt2)+'</td></tr></tbody></table>'
+     +'<td class="ytd-num">'+num(gt2)+'</td><td class="ytd-num">'+num(ge2)+'</td>'+gap(gt2,ge2)+'</tr></tbody></table>'
      +'<div style="font-size:11px;color:#5b6675;margin-top:4px">최근 12주(월~일) 시작일 · 마지막 칸(~)은 진행중인 주로 오늘까지</div>';
   }
   h+='<div style="font-size:11px;color:#5b6675;margin-top:6px">'
-   +'<b>매장별 일별매출</b>의 <b>PLAY MD</b> 칸을 매장별로 더한 값입니다 — 위 표의 <b>백화점</b>(판매일보 판매금액)과 금액이 조금 다를 수 있습니다.<br>'
-   +'매장명이 달마다 달라도(<code>롯데 잠실</code>↔<code>롯데 잠실점</code>) 한 매장으로 묶습니다. 전년 열은 <b>전년 자료를 적은 달만</b> 나옵니다.'
+   +'<b>매장별 일별매출</b>의 <b>PLAY MD</b> 칸과 <b>EDI</b> 칸을 매장별로 더한 값입니다. '
+   +'<b style="color:#b91c1c">차이</b>가 빨갛게 나오면 그 매장은 <b>PLAY MD 칸이 아직 EDI와 안 맞은 것</b>입니다(안 적었거나 금액이 다름).<br>'
+   +'매장명이 달마다 달라도(<code>롯데 잠실</code>↔<code>롯데 잠실점</code>) 한 매장으로 묶고, 정식 이름으로 보여줍니다. '
+   +'전년 열은 <b>전년 자료를 적은 달만</b> 나옵니다. 위 표의 <b>백화점</b>(판매일보 판매금액)과는 금액이 조금 다를 수 있습니다.'
    +'</div>';
   return _pmdWrap(h,keys.length);
 }
