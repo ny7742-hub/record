@@ -792,6 +792,18 @@ label{font-size:14px!important}
       <div id="extDupBox" style="display:none;margin-top:10px;padding:10px 12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px"></div>
     </div>
   </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px">
+    <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none" id="homeAllTitle">🧾 전체 매출</div>
+    <div id="homeAllTabs" style="display:flex;gap:4px">
+      <button class="ytd-tab" data-v="sum" onclick="setHomeAllView('sum')">누적</button>
+      <button class="ytd-tab" data-v="month" onclick="setHomeAllView('month')">월별</button>
+      <button class="ytd-tab" data-v="week" onclick="setHomeAllView('week')">주간</button>
+    </div>
+    <span style="font-size:11px;color:#5b6675">매장판매일보의 <b>모든 매장구분</b>(온라인·면세점·홀세일 포함) 판매금액</span>
+  </div>
+  <div class="card" style="margin-bottom:14px;padding:12px 16px">
+    <div id="homeAll" style="overflow-x:auto"></div>
+  </div>
   <div class="sec-title" style="margin-top:4px">🛍️ 카테고리</div>
   <div id="homeShelfRev" class="home-shelf-rev"></div>
   <div id="homeShelf" class="home-shelf"></div>
@@ -2156,7 +2168,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
-  "extSalesDB":"ws/extSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp",
+  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","bestImgDB":"ws/bestImg",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -2625,6 +2637,11 @@ function fbListen(){
     function(d){if(d&&Array.isArray(d.rows)){hsProdListDB=d;hsProductList=d.rows;}},
     function(){if(typeof _hsListMsgRefresh==="function")_hsListMsgRefresh();
       var pg=document.getElementById("page-stock");if(pg&&pg.style.display!=="none"&&typeof renderStockCheckResults==="function"&&stockCheckResults)renderStockCheckResults();}
+  );
+  /* 매장구분 전체 매출 (팀 공유) */
+  apply("ws/allSales","allSalesDB",
+    function(d){if(d&&typeof d==="object")allSalesDB=d;},
+    function(){var pg=document.getElementById("page-home");if(pg&&pg.style.display!=="none"&&typeof renderHomeAll==="function")renderHomeAll(new Date());}
   );
   /* 홈 자동 업로드 기록 (팀 공유) */
   apply("ws/uploadLog","uploadLog",
@@ -5160,6 +5177,143 @@ function _chMonthVal(chName,key,Y,m,tabMonthVal){
    백화점 탭(대비매출·베스트 TOP10)에 쓰므로 백화점·팩토리 매장만 담는다.
    고객명·수취인 같은 개인정보 열은 읽지 않는다. 달마다 ws/storeSales/YYYY-MM 에 따로 저장한다. */
 var SS_CHANNELS=["백화점","팩토리"];
+/* ── 매장구분 전체 매출 (2026-09-21 영업2팀) ──
+   홈 `연 누적 매출`은 영업2팀 6개 채널만 본다. 이건 판매일보에 찍힌 **모든 매장구분**(온라인·면세점·홀세일 …)을
+   일자별로 그대로 담아 둔 것이다. {매장구분:{"YYYY-MM-DD":판매금액}} · 팀 공유 ws/allSales. */
+var allSalesDB=(function(){try{var d=JSON.parse(localStorage.getItem("allSalesDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+function _allSalesSave(){wsSetItem("allSalesDB",JSON.stringify(allSalesDB));}
+/* 파일에 든 날짜·매장구분은 통째로 바꿔 넣는다 — 다시 올려도 두 번 더해지지 않는다 */
+function _allSalesIngest(rows){
+  var hRow=-1,H=null;
+  for(var r=0;r<Math.min(10,rows.length);r++){
+    var h=(rows[r]||[]).map(function(c){return String(c).replace(/\s/g,"");});
+    if(h.indexOf("판매일자")>=0&&h.indexOf("매장구분")>=0){hRow=r;H=h;break;}
+  }
+  if(hRow<0)return null;
+  var cD=H.indexOf("판매일자"),cC=H.indexOf("매장구분"),cA=H.indexOf("판매금액");
+  if(cA<0)cA=H.indexOf("실판매금액");
+  if(cA<0)return null;
+  var Y=new Date().getFullYear(),add={},days={},chs={};
+  for(var i=hRow+1;i<rows.length;i++){
+    var row=rows[i];if(!row)continue;
+    var day=_extKey(row[cD],Y);if(!day||day.length<10)continue;
+    var ch=String(row[cC]||"").trim()||"(구분없음)";
+    var amt=_extNum(row[cA]);
+    days[day]=1;chs[ch]=1;
+    (add[ch]=add[ch]||{})[day]=(add[ch][day]||0)+amt;
+  }
+  if(!Object.keys(days).length)return null;
+  Object.keys(chs).forEach(function(ch){
+    var cur=allSalesDB[ch]||{};
+    Object.keys(days).forEach(function(d){delete cur[d];});
+    Object.keys(add[ch]||{}).forEach(function(d){cur[d]=add[ch][d];});
+    allSalesDB[ch]=cur;
+  });
+  _allSalesSave();
+  return {chs:Object.keys(chs),days:Object.keys(days).length};
+}
+/* 기간 합계 {ch:금액} — from/to는 YYYY-MM-DD */
+function _allSalesSum(from,to){
+  var out={},tot=0;
+  Object.keys(allSalesDB).forEach(function(ch){
+    var o=allSalesDB[ch]||{},v=0;
+    Object.keys(o).forEach(function(d){if(d>=from&&d<=to)v+=Number(o[d])||0;});
+    if(v){out[ch]=v;tot+=v;}
+  });
+  return {by:out,total:tot};
+}
+function _allSalesChannels(){
+  var now=new Date(),Y=now.getFullYear();
+  var cur=_allSalesSum(Y+"-01-01",Y+"-12-31").by,prev=_allSalesSum((Y-1)+"-01-01",(Y-1)+"-12-31").by;
+  var ks={};Object.keys(cur).forEach(function(k){ks[k]=1;});Object.keys(prev).forEach(function(k){ks[k]=1;});
+  return Object.keys(ks).sort(function(a,b){return (cur[b]||0)-(cur[a]||0)||a.localeCompare(b);});
+}
+function homeAllView(){try{var v=localStorage.getItem("homeAllView");return (v==="month"||v==="week")?v:"sum";}catch(e){return "sum";}}
+function setHomeAllView(v){try{localStorage.setItem("homeAllView",v);}catch(e){}renderHomeAll(new Date());}
+function _allWon(n){return Number(n||0).toLocaleString()+"원";}
+function _allRate(cur,prev){
+  if(!prev)return '<span style="color:#5b6675">–</span>';
+  var r=(cur-prev)/Math.abs(prev)*100;
+  var up=r>=0;
+  return '<span style="color:'+(up?"#dc2626":"#2563eb")+';font-weight:700">'+(up?"▲ +":"▼ ")+r.toFixed(1)+'%</span>';
+}
+function renderHomeAll(now){
+  var wrap=document.getElementById("homeAll");if(!wrap)return;
+  now=now||new Date();
+  var Y=now.getFullYear(),M=now.getMonth()+1,view=homeAllView();
+  var tabs=document.querySelectorAll("#homeAllTabs .ytd-tab");
+  for(var t=0;t<tabs.length;t++)tabs[t].classList.toggle("on",tabs[t].dataset.v===view);
+  var title=document.getElementById("homeAllTitle");
+  if(title)title.textContent=view==="month"?("🧾 전체 매출 · 월별 ("+Y+"년)"):(view==="week"?"🧾 전체 매출 · 주간 (월~일)":("🧾 전체 매출 · 누적 (1~"+M+"월)"));
+  var chs=_allSalesChannels();
+  if(!chs.length){
+    wrap.innerHTML='<div style="font-size:13px;color:#5b6675;padding:6px 2px">매장판매일보가 올라오면 매장구분별 전체 매출이 여기에 나옵니다.</div>';
+    return;
+  }
+  var p2=function(n){return String(n).padStart(2,"0");},ymd=function(d){return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());};
+  var h="";
+  if(view==="sum"){
+    var to=ymd(now),cur=_allSalesSum(Y+"-01-01",to).by;
+    var pTo=(Y-1)+to.slice(4),prev=_allSalesSum((Y-1)+"-01-01",pTo).by;
+    var ct=0,pt=0;
+    h='<table class="ytd-tbl ytd-stbl"><thead><tr><th style="text-align:left">매장구분</th>'
+     +'<th style="text-align:right">'+Y+'년 1~'+M+'월</th><th style="text-align:right">'+(Y-1)+'년 1~'+M+'월</th>'
+     +'<th style="text-align:right">전년대비</th></tr></thead><tbody>';
+    chs.forEach(function(ch){
+      var c=cur[ch]||0,p=prev[ch]||0;ct+=c;pt+=p;
+      h+='<tr><td class="ytd-lab">'+_esc(ch)+'</td><td class="ytd-num">'+_allWon(c)+'</td>'
+       +'<td class="ytd-num">'+(p?_allWon(p):"–")+'</td><td class="ytd-num">'+_allRate(c,p)+'</td></tr>';
+    });
+    h+='<tr class="ytd-total"><td>합계</td><td class="ytd-num">'+_allWon(ct)+'</td><td class="ytd-num">'+(pt?_allWon(pt):"–")+'</td><td class="ytd-num">'+_allRate(ct,pt)+'</td></tr>';
+    h+='</tbody></table><div style="font-size:11px;color:#5b6675;margin-top:6px">판매일보 <b>판매금액</b> 기준 · 전년은 그 해 판매일보를 올린 기간만 나옵니다 · 올해는 오늘까지, 전년은 같은 날짜까지 더했습니다.</div>';
+  }else if(view==="month"){
+    var tot=[],by={};
+    chs.forEach(function(ch){by[ch]=[];});
+    for(var m=1;m<=12;m++){
+      var f=Y+"-"+p2(m)+"-01",l=Y+"-"+p2(m)+"-31",sum=_allSalesSum(f,l);
+      chs.forEach(function(ch){by[ch][m]=sum.by[ch]||0;});
+      tot[m]=sum.total;
+    }
+    h='<table class="ytd-tbl ytd-mtbl" style="min-width:0"><thead><tr><th style="text-align:left">월</th>'
+     +chs.map(function(c){return '<th style="text-align:right">'+_esc(c)+'</th>';}).join("")
+     +'<th style="text-align:right;background:#dbe7ea">합계</th></tr></thead><tbody>';
+    var gt=0,gby={};chs.forEach(function(c){gby[c]=0;});
+    for(var m2=1;m2<=12;m2++){
+      if(!tot[m2]&&m2>M)continue;
+      h+='<tr><td class="ytd-lab">'+m2+'월</td>'
+       +chs.map(function(c){gby[c]+=by[c][m2];return '<td class="ytd-num">'+(by[c][m2]?Number(by[c][m2]).toLocaleString():"–")+'</td>';}).join("")
+       +'<td class="ytd-num" style="font-weight:700">'+(tot[m2]?Number(tot[m2]).toLocaleString():"–")+'</td></tr>';
+      gt+=tot[m2];
+    }
+    h+='<tr class="ytd-total"><td>합계</td>'+chs.map(function(c){return '<td class="ytd-num">'+Number(gby[c]).toLocaleString()+'</td>';}).join("")
+     +'<td class="ytd-num">'+Number(gt).toLocaleString()+'</td></tr></tbody></table>'
+     +'<div style="font-size:11px;color:#5b6675;margin-top:6px">금액은 원 단위 · 자료가 없는 달은 –</div>';
+  }else{
+    /* 최근 12주(월~일) */
+    var mon=new Date(now);mon.setDate(mon.getDate()-((mon.getDay()+6)%7));
+    var weeks=[];
+    for(var w=0;w<12;w++){
+      var st=new Date(mon);st.setDate(mon.getDate()-7*w);
+      var en=new Date(st);en.setDate(st.getDate()+6);
+      weeks.push({from:ymd(st),to:ymd(en),lab:(st.getMonth()+1)+"/"+st.getDate()+"~"+(en.getMonth()+1)+"/"+en.getDate(),cur:w===0});
+    }
+    h='<table class="ytd-tbl ytd-mtbl" style="min-width:0"><thead><tr><th style="text-align:left">기간</th>'
+     +chs.map(function(c){return '<th style="text-align:right">'+_esc(c)+'</th>';}).join("")
+     +'<th style="text-align:right;background:#dbe7ea">합계</th></tr></thead><tbody>';
+    var any=false;
+    weeks.forEach(function(wk){
+      var to=wk.cur?ymd(now):wk.to,sum=_allSalesSum(wk.from,to);
+      if(!sum.total)return;
+      any=true;
+      h+='<tr><td class="ytd-lab">'+wk.lab+(wk.cur?' <span style="font-size:10px;color:#b45309">진행중</span>':'')+'</td>'
+       +chs.map(function(c){return '<td class="ytd-num">'+(sum.by[c]?Number(sum.by[c]).toLocaleString():"–")+'</td>';}).join("")
+       +'<td class="ytd-num" style="font-weight:700">'+Number(sum.total).toLocaleString()+'</td></tr>';
+    });
+    h+='</tbody></table><div style="font-size:11px;color:#5b6675;margin-top:6px">최근 12주(월~일) · 자료가 있는 주만 · 진행중인 주는 오늘까지</div>';
+    if(!any)h='<div style="font-size:13px;color:#5b6675;padding:6px 2px">최근 12주에 올라온 판매일보 자료가 없습니다.</div>';
+  }
+  wrap.innerHTML=h;
+}
 var storeSalesDB=(function(){try{var d=JSON.parse(localStorage.getItem("storeSalesDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 function _ssSave(ym){
   try{localStorage.setItem("storeSalesDB",JSON.stringify(storeSalesDB));}catch(e){}
@@ -6252,14 +6406,16 @@ function salesIngestFile(f){
       });
       saveExtSales();
       var ss=_ssIngest(rows);
+      var allS=_allSalesIngest(rows);   /* 매장구분 전체(온라인·면세점·홀세일 포함) */
       var allKeys=[];chs.forEach(function(c){allKeys=allKeys.concat(Object.keys(res.map[c]));});
       allKeys.sort();
       _auLog("sales",{fileName:f.name,from:allKeys[0]||"",to:allKeys[allKeys.length-1]||"",rows:res.rows,chs:chs,stores:ss?ss.stores:0},auto);
       renderExtSales();
       if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());
       var pgd=document.getElementById("page-dept");if(pgd&&pgd.style.display!=="none")renderDeptAllStores();
+      try{renderHomeAll(new Date());}catch(e2){}
       var msg=document.getElementById("auSalesMsg");
-      if(msg){msg.style.color="#15803d";msg.textContent="✔ "+res.rows.toLocaleString()+"줄 반영됨";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},4000);}
+      if(msg){msg.style.color="#15803d";msg.textContent="✔ "+res.rows.toLocaleString()+"줄 반영됨"+(allS?" · 전체 매출 "+allS.chs.length+"구분":"");clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},4000);}
     }catch(err){
       alert("파일 오류: "+err.message);
     }finally{
@@ -6273,6 +6429,7 @@ function salesIngestFile(f){
 
 function renderHomeDashboard(){
   try{renderAutoUpBar();}catch(e){}
+  try{renderHomeAll(new Date());}catch(e){}
   var now=new Date();
   var todayEl=document.getElementById("homeToday");
   if(todayEl)todayEl.textContent=now.getFullYear()+"년 "+(now.getMonth()+1)+"월 "+now.getDate()+"일 · 영업2팀";
