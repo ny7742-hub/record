@@ -996,6 +996,8 @@ label{font-size:14px!important}
       <button onclick="dsAddStore()" class="bs" style="padding:5px 12px;font-size:12px">+ 매장</button>
       <button onclick="openDsFocusModal()" class="bs" style="padding:5px 12px;font-size:12px;background:#fef3c7;border-color:#fbbf24;color:#92400e" title="기간·매장을 지정하면 온라인 칸이 노랗게 표시됩니다">🟡 온라인 주력주차</button>
       <span id="dsFocusBadges" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></span>
+      <button onclick="dsFillPlaymd()" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700" title="이 달 매장판매일보에서 매장코드가 같은 매장을 찾아 PLAY MD 칸을 채웁니다">📥 판매일보 → PLAY MD</button>
+      <datalist id="dsCodeList"></datalist>
       <span id="dsMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <span style="margin-left:auto;font-size:11px;color:#5b6675">EDI·PLAY MD는 금액, 수량은 개수 · 셀 클릭 후 입력</span>
     </div>
@@ -8548,7 +8550,8 @@ var DS_DEFAULT_STORES=["롯데 잠실점","롯데 청량리점","롯데 평촌�
 var DS_FIELDS=[{k:"dept",t:"백화점"},{k:"deptQ",t:"수량"},{k:"online",t:"온라인"},{k:"onlineQ",t:"수량"},{k:"edi",t:"EDI"},{k:"ediQ",t:"수량"},{k:"playmd",t:"PLAY MD"}];
 function dsMigrate(d){
   if(!d||!d.stores||!d.data)return null;
-  d.stores=d.stores.map(function(s){return (typeof s==="string")?{name:s,target:"",prevYear:"",period:""}:s;});
+  d.stores=d.stores.map(function(s){return (typeof s==="string")?{name:s,target:"",prevYear:"",period:"",code:""}:s;});
+  d.stores.forEach(function(s){if(s.code==null)s.code="";});
   return d;
 }
 var dailySalesDB=(function(){
@@ -8556,6 +8559,106 @@ var dailySalesDB=(function(){
   return {stores:DS_DEFAULT_STORES.map(function(n){return {name:n,target:"",prevYear:"",period:""};}),data:{}};
 })();
 function saveDaily(){wsSetItem("dailySalesDB",JSON.stringify(dailySalesDB));}
+/* ── 매장코드로 판매일보 맞추기 (2026-09-22 영업2팀) ──
+   일별매출 매장명과 판매일보 매장명은 표기가 달라(`현대 상본` ↔ `현대백화점 본사`) 이름으로는 못 맞춘다.
+   그래서 매장마다 **플레이엠디 매장코드**를 적어 두고 그 코드로 `storeSalesDB`(판매일보 매장·상품별 집계)를 찾아
+   `PLAY MD` 칸을 채운다. 판매일보 매장코드는 대소문자가 섞여 오므로(`LTOA`·`ltoa`) 대문자로 맞춰 비교한다.
+   storeSalesDB는 **백화점·팩토리 매장만**(`SS_CHANNELS`) 담으므로 그 밖의 매장은 여기서 안 나온다. */
+/* 매장코드는 **매장명 끝에 붙여 적어도 된다**(2026-09-22 영업2팀이 그렇게 적었다) — `롯데 센텀 LSC` · `현대 천호점(온라인) HDOC`.
+   따로 적은 코드 칸이 있으면 그것을 먼저 쓰고, 없으면 이름 끝의 영문·숫자 덩어리를 코드로 본다.
+   한글로 끝나는 이름(`스타필드 고양 팝업`)은 걸리지 않는다. */
+function _dsStoreCode(st){
+  if(!st)return "";
+  var c=String(st.code||"").trim();
+  if(c)return c.toUpperCase();
+  var m=/\s([A-Za-z][A-Za-z0-9]{1,7})$/.exec(String(st.name||"").trim());
+  return m?m[1].toUpperCase():"";
+}
+function _dsSalesByCode(mk){
+  var ss=storeSalesDB[mk];
+  if(!ss||!ss.stores)return null;
+  var out={};
+  Object.keys(ss.stores).forEach(function(c){
+    var st=ss.stores[c]||{},k=String(c).trim().toUpperCase();
+    if(!k)return;
+    var t=out[k]||(out[k]={name:st.name||k,d:{}});
+    Object.keys(st.d||{}).forEach(function(day){
+      var sum=0,pd=st.d[day]||{};
+      Object.keys(pd).forEach(function(pk){sum+=Number(pd[pk][1])||0;});
+      t.d[day]=(t.d[day]||0)+sum;
+    });
+  });
+  return out;
+}
+/* 매장코드 칸의 자동완성 — 그 달 판매일보에 있는 코드·매장명 */
+function dsSyncCodeList(){
+  var dl=document.getElementById("dsCodeList");if(!dl)return;
+  var by=_dsSalesByCode(dsKey())||{};
+  dl.innerHTML=Object.keys(by).sort().map(function(c){
+    return '<option value="'+_esc(c)+'">'+_esc(by[c].name)+'</option>';
+  }).join("");
+}
+function _dsMsg(t,err){
+  var el=document.getElementById("dsMsg");if(!el)return;
+  el.style.color=err?"#b91c1c":"#059669";el.textContent=t||"";
+  clearTimeout(el._t);if(t)el._t=setTimeout(function(){el.textContent="";},8000);
+}
+function dsFillPlaymd(){
+  var mk=dsKey(),by=_dsSalesByCode(mk);
+  if(!by){
+    _dsMsg(mk+" 매장판매일보 자료가 없습니다 — 홈에서 판매일보를 올려주세요",1);
+    alert(mk+" 매장판매일보 자료가 없습니다.\n\n홈 `📤 PlayMD 자료 업로드`의 매장판매일보 칸에 그 달 파일을 올리면 이 버튼으로 채울 수 있습니다.");
+    return;
+  }
+  var list=dsStores(mk),fill=[],diff=[],noCode=[],noMatch=[];
+  list.forEach(function(st){
+    var c=_dsStoreCode(st);
+    if(!c){noCode.push(st.name);return;}
+    var t=by[c];
+    if(!t){noMatch.push(st.name+"("+c+")");return;}
+    Object.keys(t.d).forEach(function(day){
+      var v=Math.round(t.d[day]);
+      var cell=(((dailySalesDB.data[mk]||{})[day]||{})[st.name])||null;
+      var cur=cell?cell.playmd:undefined;
+      if(cur===""||cur==null)fill.push([day,st.name,v]);
+      else if(_dsN(cur)!==v)diff.push([day,st.name,_dsN(cur),v]);
+    });
+  });
+  if(!fill.length&&!diff.length){
+    _dsMsg("채울 칸이 없습니다"+(noCode.length?" · 코드 미입력 "+noCode.length+"곳":"")+(noMatch.length?" · 판매일보에 없는 코드 "+noMatch.length+"곳":""),!!(noCode.length||noMatch.length));
+    return;
+  }
+  var sum=0;fill.forEach(function(f){sum+=f[2];});
+  var msg="["+mk+"] 판매일보에서 PLAY MD 칸을 채웁니다.\n\n  빈 칸 "+fill.length+"개 · 합계 "+sum.toLocaleString()+"원";
+  if(diff.length)msg+="\n  이미 적힌 값과 다른 칸 "+diff.length+"개 (먼저 채운 뒤 따로 여쭙니다)";
+  if(noCode.length)msg+="\n\n※ 매장코드를 안 적은 매장: "+noCode.join(", ");
+  if(noMatch.length)msg+="\n※ 판매일보에 그 코드가 없는 매장: "+noMatch.join(", ");
+  if(!confirm(msg+"\n\n계속할까요?"))return;
+  fill.forEach(function(f){
+    var day=f[0],nm=f[1];
+    if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
+    if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
+    var c=dailySalesDB.data[mk][day][nm]||(dailySalesDB.data[mk][day][nm]={});
+    c.playmd=String(f[2]);
+  });
+  saveDaily();renderDaily();
+  try{renderHomeAll(new Date());}catch(e){}
+  var tail="";
+  if(diff.length){
+    var lines=diff.slice(0,12).map(function(d){return "  "+d[0]+"일 "+d[1]+" : 지금 "+d[2].toLocaleString()+" → 판매일보 "+d[3].toLocaleString();});
+    if(diff.length>12)lines.push("  … 외 "+(diff.length-12)+"건");
+    if(confirm("빈 칸 "+fill.length+"개를 채웠습니다.\n\n아래 "+diff.length+"개는 이미 값이 있는데 판매일보와 다릅니다.\n\n"+lines.join("\n")+"\n\n판매일보 값으로 덮어쓸까요?")){
+      diff.forEach(function(d){
+        var c=dailySalesDB.data[mk][d[0]][d[1]];
+        if(c)c.playmd=String(d[3]);
+      });
+      saveDaily();renderDaily();
+      try{renderHomeAll(new Date());}catch(e){}
+      tail=" · 덮어쓴 칸 "+diff.length+"개";
+    }else tail=" · 다른 값 "+diff.length+"개는 그대로";
+  }
+  _dsMsg("✔ PLAY MD "+fill.length+"칸 기재"+tail);
+}
 /* ── 온라인 주력주차 ────────────────────────────────────────────
    매장별로 돌아가며 진행하므로 기간마다 대상 매장을 고른다.
    dailySalesDB.onlineFocus=[{start:"YYYY-MM-DD",end:"YYYY-MM-DD",stores:["매장명",...]}]
@@ -8790,9 +8893,12 @@ function dsStores(mk){
     var md=dailySalesDB.data[mk]||{},wd={};
     Object.keys(md).forEach(function(d){Object.keys(md[d]).forEach(function(n){wd[n]=1;});});
     var master=dailySalesDB.stores||[];
-    var list=master.filter(function(s){return wd[s.name];}).map(function(s){return {name:s.name,target:s.target||"",prevYear:s.prevYear||"",period:s.period||""};});
-    Object.keys(wd).forEach(function(n){if(!list.some(function(s){return s.name===n;}))list.push({name:n,target:"",prevYear:"",period:""});});
-    if(!list.length)list=master.map(function(s){return {name:s.name,target:"",prevYear:"",period:""};});
+    var list=master.filter(function(s){return wd[s.name];}).map(function(s){return {name:s.name,target:s.target||"",prevYear:s.prevYear||"",period:s.period||"",code:s.code||""};});
+    Object.keys(wd).forEach(function(n){if(!list.some(function(s){return s.name===n;})){
+      var mm=master.filter(function(x){return x.name===n;})[0];
+      list.push({name:n,target:"",prevYear:"",period:"",code:(mm&&mm.code)||""});
+    }});
+    if(!list.length)list=master.map(function(s){return {name:s.name,target:"",prevYear:"",period:"",code:s.code||""};});
     dailySalesDB.monthStores[mk]=list;
   }
   return dailySalesDB.monthStores[mk];
@@ -8832,6 +8938,13 @@ function dsMeta(si,key,val){
     saveDaily();dsRecalc();return _dsFmt(num);
   }
   if(key==="prevYear"){var num=_dsN(val);s[key]=(String(val).trim()===""?"":String(num));saveDaily();dsRecalc();return _dsFmt(num);}
+  if(key==="code"){
+    /* 매장코드는 달마다 달라질 값이 아니라 매장의 성질이다 — 그 달 목록과 전체 목록 둘 다에 적는다 */
+    var cd=String(val||"").trim().toUpperCase();
+    s.code=cd;
+    (dailySalesDB.stores||[]).forEach(function(m){if(m.name===s.name)m.code=cd;});
+    saveDaily();renderDaily();return cd;
+  }
   s[key]=val;saveDaily();
   if(key==="period"){renderDaily();return val;}
   return val;
@@ -8859,8 +8972,8 @@ function dsAddStore(){
   var nm=prompt("추가할 매장명 (이 달에만 추가됩니다):","");if(nm===null)return;nm=nm.trim();if(!nm)return;
   var mk=dsKey();
   if(dsStores(mk).some(function(s){return s.name===nm;})){alert("이미 있는 매장입니다.");return;}
-  dsStores(mk).push({name:nm,target:"",prevYear:"",period:""});
-  if(dailySalesDB.stores&&!dailySalesDB.stores.some(function(s){return s.name===nm;}))dailySalesDB.stores.push({name:nm,target:"",prevYear:"",period:""});
+  dsStores(mk).push({name:nm,target:"",prevYear:"",period:"",code:""});
+  if(dailySalesDB.stores&&!dailySalesDB.stores.some(function(s){return s.name===nm;}))dailySalesDB.stores.push({name:nm,target:"",prevYear:"",period:"",code:""});
   saveDaily();renderDaily();
 }
 function dsDelStore(i){
@@ -9113,7 +9226,9 @@ function renderDaily(){
     var _dsPopupBanner=s.period?'<span style="font-size:12px;color:#ea580c;font-weight:700;white-space:nowrap;cursor:pointer" onclick="var el=document.getElementById(\'dsPeriod_'+si+'\');if(el){el.focus();el.select();}" title="클릭하여 팝업기간 수정">🎪'+_esc(s.period)+'</span>':'';
     var _dsUpBtn='<label title="파일 업로드 (판매수량·총매출) — 매장 이름칸에 파일을 끌어다 놓아도 됩니다" style="cursor:pointer;font-size:12px;line-height:1;user-select:none">📁<input type="file" accept=".xlsx,.xls" style="display:none" onchange="dsLoadStoreFile(event,'+si+')"></label>';
     /* 삭제(✕)는 업로드(📁) 바로 옆이면 잘못 눌러 매장이 지워지므로, 헤더 오른쪽 끝으로 떼어 놓는다 */
-    h+='<div style="position:relative;display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px;padding:0 18px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span>'+_dsPopupBanner+_dsUpBtn+'<button onclick="dsDelStore('+si+')" title="매장 삭제" style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0 2px;line-height:1">✕</button></div>';
+    h+='<div style="position:relative;display:flex;align-items:center;gap:4px;justify-content:center;margin-bottom:3px;padding:0 18px"><span contenteditable="true" onblur="dsRenameStore('+si+',this.textContent)" style="outline:none;min-width:40px;font-weight:700;font-size:13px">'+_esc(s.name)+'</span>'
+      +'<input value="'+_esc(s.code||"")+'" list="dsCodeList" placeholder="'+_esc(_dsStoreCode(s)||"코드")+'" onblur="dsMeta('+si+',\'code\',this.value)" title="플레이엠디 매장코드 — 판매일보를 이 코드로 맞춰 PLAY MD 칸을 채웁니다" style="width:56px;border:1px solid '+(_dsStoreCode(s)?"#93c5fd":"#e2b980")+';background:'+(_dsStoreCode(s)?"#eff6ff":"#fffbeb")+';border-radius:4px;font-size:10.5px;text-align:center;padding:1px 2px;outline:none;font-weight:700;color:#1b6e82">'
+      +_dsPopupBanner+_dsUpBtn+'<button onclick="dsDelStore('+si+')" title="매장 삭제" style="position:absolute;right:0;top:50%;transform:translateY(-50%);border:none;background:none;color:#dc2626;cursor:pointer;font-size:11px;padding:0 2px;line-height:1">✕</button></div>';
     h+='<div class="ds-meta">';
     /* 1줄: 목표 · 달성금액(강조) · 달성률 */
     h+='<div class="ds-row">';
@@ -9182,6 +9297,7 @@ function renderDaily(){
   dsRecalc();
   dsSyncHeadOffset();
   initDailyScroll();
+  dsSyncCodeList();
   renderDsFocusBadges();
 }
 /* 매장 헤더가 2줄이 되어 높이가 달라진다 — 아래 항목행의 sticky top을 실제 높이로 맞춘다.
