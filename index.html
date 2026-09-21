@@ -5229,11 +5229,14 @@ function _allSalesSum(from,to){
   });
   return {by:out,total:tot};
 }
+/* 판매일보에 나오는 매장구분 — 이 순서로 **늘 보여준다**(그 기간에 판매가 없어도 줄은 남긴다, 2026-09-21 영업2팀).
+   목록에 없는 구분이 파일에 있으면 뒤에 붙인다. */
+var ALL_SALES_CHANNELS=["백화점","팩토리","온라인","면세점","홈쇼핑","홀세일","코스트코","트래블메이트","아난티","약국"];
 function _allSalesChannels(){
-  var now=new Date(),Y=now.getFullYear();
-  var cur=_allSalesSum(Y+"-01-01",Y+"-12-31").by,prev=_allSalesSum((Y-1)+"-01-01",(Y-1)+"-12-31").by;
-  var ks={};Object.keys(cur).forEach(function(k){ks[k]=1;});Object.keys(prev).forEach(function(k){ks[k]=1;});
-  return Object.keys(ks).sort(function(a,b){return (cur[b]||0)-(cur[a]||0)||a.localeCompare(b);});
+  var seen={},out=ALL_SALES_CHANNELS.slice();
+  out.forEach(function(k){seen[k]=1;});
+  Object.keys(allSalesDB).forEach(function(k){if(!seen[k]){seen[k]=1;out.push(k);}});
+  return out;
 }
 function homeAllView(){try{var v=localStorage.getItem("homeAllView");return (v==="month"||v==="week")?v:"sum";}catch(e){return "sum";}}
 function setHomeAllView(v){try{localStorage.setItem("homeAllView",v);}catch(e){}renderHomeAll(new Date());}
