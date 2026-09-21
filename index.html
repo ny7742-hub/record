@@ -8571,7 +8571,7 @@ function _dsStoreCode(st){
   if(!st)return "";
   var c=String(st.code||"").trim();
   if(c)return c.toUpperCase();
-  var m=/\s([A-Za-z][A-Za-z0-9]{1,7})$/.exec(String(st.name||"").trim());
+  var m=/\s([A-Za-z][A-Za-z0-9]{1,7})$/.exec(String(st.name||"").replace(/\u00a0/g," ").trim());
   return m?m[1].toUpperCase():"";
 }
 function _dsSalesByCode(mk){
@@ -8986,7 +8986,10 @@ function dsDelStore(i){
 }
 function dsRenameStore(i,val){
   var mk=dsKey(),list=dsStores(mk),st=list[i];if(!st){renderDaily();return;}
-  val=(val||"").trim();var old=st.name;if(!val||val===old){renderDaily();return;}
+  /* 이름은 contenteditable로 고치는데, 거기서 띄어쓰기를 하면 **줄바꿈 없는 공백(U+00A0)**이 들어간다.
+     그대로 두면 `롯데 센텀 LSC`가 보기엔 같아도 글자로는 달라 이름으로 찾는 곳이 전부 빗나간다(2026-09-22). */
+  val=String(val||"").replace(/\u00a0/g," ").replace(/\s+/g," ").trim();
+  var old=st.name;if(!val||val===old){renderDaily();return;}
   st.name=val;
   var md=dailySalesDB.data[mk]||{};
   Object.keys(md).forEach(function(d){if(md[d][old]){md[d][val]=md[d][old];delete md[d][old];}});
