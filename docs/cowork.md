@@ -5,6 +5,7 @@
 - 파일: `cowork.html` (자비스 `index.html`과 분리된 단일 파일)
 - 주소: https://ny7742-hub.github.io/record/cowork.html
 - 외부 라이브러리 없음 (Firebase SDK 8.10.1만)
+- 들어가는 길: 자비스 홈 `⚡ 바로가기` **첫 칸의 진한 `상품개발 협업` 버튼**(새 탭). `renderQuickLaunch`의 `pcTwoCol` 맨 앞에 `strong:true`로 넣어 다른 바로가기와 구분했다 — 링크는 상대경로 `cowork.html`.
 
 ## 왜 별도 페이지인가
 자비스(`index.html`)의 팀원 승인(`access/members`)은 **`ws/` 전체 — 매출·마진·원가까지** 열어준다.
