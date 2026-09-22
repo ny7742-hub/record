@@ -13207,7 +13207,8 @@ function _cpCalc(r){
   /* 수수료 방식: 제안가(VAT 포함) × 수수료율이 수수료, 나머지가 정산금(공급가) */
   var feeRate=Math.min(Math.max(n(r.fee),0),100)/100,feeMode=_cpFeeMode(r);
   var S=feeMode?n(r.retail)*(1-feeRate)/1.1:n(r.supply)/(r.supplyVat==="in"?1.1:1);
-  var feeAmt=feeMode?n(r.retail)*feeRate/1.1:0;
+  /* 공급가를 직접 적은 경우에도 제안가가 있으면 그 차액이 수수료다(2026-09-22 영업2팀) */
+  var feeAmt=feeMode?n(r.retail)*feeRate/1.1:(n(r.retail)>0&&S>0?Math.max(n(r.retail)/1.1-S,0):0);
   var cost=(_cpIsSet(r)?_cpSetCost(r):n(r.cost))/cv,pack=n(r.pack)/cv,wrap=n(r.wrap)/cv,ship=n(r.ship)/cv,etc=n(r.etc)/cv;
   var promoPct=Math.min(Math.max(n(r.promoPct),0),100)/100;
   var promoWon=n(r.promo)/cv,promoByPct=n(r.retail)*promoPct/1.1;   /* 제안가는 VAT 포함 */
@@ -13234,7 +13235,24 @@ function _cpCalc(r){
 function _cpW(n){return Math.round(n).toLocaleString();}
 function _cpK(){return ccPropDB.basis==="ex"?1:1.1;}
 function _cpBasisTxt(){return ccPropDB.basis==="ex"?"VAT 제외":"VAT 포함";}
-function _cpFeeMode(r){return !!r&&String(r.fee==null?"":r.fee).trim()!==""&&_mgNum(r.retail)>0;}   /* 0%도 적은 것 — 그때 공급가 = 제안가 */
+/* 수수료 방식 = **사람이 적은** 수수료율이 있고 제안가가 있을 때(0%도 적은 것) — 그때 공급가를 자동으로 계산해 잠근다.
+   공급가를 적어 수수료율이 **자동으로 역산된 경우**(`feeAuto`)는 반대 방향이므로 공급가를 잠그지 않는다(2026-09-22 영업2팀). */
+function _cpFeeMode(r){return !!r&&!r.feeAuto&&String(r.fee==null?"":r.fee).trim()!==""&&_mgNum(r.retail)>0;}
+/* 공급가 ↔ 수수료율은 **양방향**이다. 수수료율을 비워 두고 제안가·공급가를 적으면 수수료율을 역산해 채운다. */
+function _cpFeeFromSupply(i){
+  var r=ccPropDB.rows[i];if(!r)return;
+  if(String(r.fee==null?"":r.fee).trim()!==""&&!r.feeAuto)return;   /* 사람이 적은 수수료율은 건드리지 않는다 */
+  var retail=_mgNum(r.retail),supply=_mgNum(r.supply);
+  if(!(retail>0)||!(supply>0)){
+    if(r.feeAuto){r.fee="";r.feeAuto=0;var e0=document.getElementById("cp_"+i+"_fee");if(e0)e0.value="";}
+    return;
+  }
+  var sIn=supply*(r.supplyVat==="in"?1:1.1);            /* 제안가가 VAT 포함이라 공급가도 포함으로 맞춰 비교 */
+  var pct=Math.round((1-sIn/retail)*1000)/10;           /* 소수 첫째 자리까지 */
+  r.fee=String(pct);r.feeAuto=1;
+  var el=document.getElementById("cp_"+i+"_fee");
+  if(el){el.value=String(pct);el.style.color="#1b6e82";el.title="공급가에서 자동 계산된 수수료율 — 직접 적으면 그 값이 우선입니다";}
+}
 /* 수수료 방식이면 공급가 칸을 자동값(VAT 포함 정산금)으로 잠근다 */
 function _cpSyncSupply(i){
   var r=ccPropDB.rows[i];if(!r)return;
@@ -13328,8 +13346,14 @@ function cpEdit(i,key,val){
     }
     _cpMarkHit(document.getElementById("cp_"+i+"_name"),f);
   }
+  if(key==="fee"){
+    r.feeAuto=0;
+    var _fe=document.getElementById("cp_"+i+"_fee");
+    if(_fe){_fe.style.color="";_fe.title="";}
+  }
+  if(key==="supply"||key==="supplyVat"||key==="retail")_cpFeeFromSupply(i);
   cpSave();
-  if(key==="fee"||key==="retail"||key==="promoPct")_cpSyncSupply(i);
+  if(key==="fee"||key==="retail"||key==="promoPct"||key==="supply"||key==="supplyVat")_cpSyncSupply(i);
   if(key==="qty"&&_cpIsSet(r)){
     var ps=document.getElementById("cpset_"+i+"_sum");
     if(ps)ps.textContent="구성 "+_cpSetPieces(r)+"개 · 세트 원가 "+_cpW(_cpSetCost(r))+"원 · 발주 "+_cpW(_mgNum(r.qty))+"세트 → 구성품 총 "+_cpW(_cpSetPieces(r)*_mgNum(r.qty))+"개 필요";
