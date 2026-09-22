@@ -8,6 +8,17 @@
       ".write": "auth != null && root.child('access/members/' + auth.uid).exists()"
     },
 
+    "cowork": {
+      ".read": "auth != null && (root.child('access/members/' + auth.uid).exists() || root.child('access/cowork/' + auth.uid).exists())",
+      ".write": "auth != null && (root.child('access/members/' + auth.uid).exists() || root.child('access/cowork/' + auth.uid).exists())",
+
+      "files": {
+        "$fid": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 1500000)"
+        }
+      }
+    },
+
     "access": {
       "meta": {
         "bootstrapped": {
@@ -40,6 +51,28 @@
           ".read": "auth != null && $uid === auth.uid",
           ".write": "auth != null && (($uid === auth.uid && !root.child('access/members/' + auth.uid).exists()) || root.child('access/admins/' + auth.uid).exists())",
           ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 30"
+        }
+      },
+
+      "cowork": {
+        ".read": "auth != null && root.child('access/admins/' + auth.uid).exists()",
+        "$uid": {
+          ".read": "auth != null && $uid === auth.uid",
+          ".write": "auth != null && root.child('access/admins/' + auth.uid).exists()",
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 30",
+          "team": {
+            ".write": "auth != null && ($uid === auth.uid || root.child('access/admins/' + auth.uid).exists())",
+            ".validate": "newData.isString() && newData.val().length <= 20"
+          }
+        }
+      },
+
+      "coworkPending": {
+        ".read": "auth != null && root.child('access/admins/' + auth.uid).exists()",
+        "$uid": {
+          ".read": "auth != null && $uid === auth.uid",
+          ".write": "auth != null && (($uid === auth.uid && !root.child('access/cowork/' + auth.uid).exists()) || root.child('access/admins/' + auth.uid).exists())",
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 30 && newData.child('team').isString() && newData.child('team').val().length <= 20"
         }
       }
     }

@@ -3,7 +3,7 @@
 ## 프로젝트 개요
 화이트샌즈 매장 판매일보 등록용 단일 HTML 웹앱.
 
-- **파일**: `index.html` 단일 파일
+- **파일**: `index.html` 단일 파일 (+ 타팀 협업용 별도 페이지 `cowork.html` — 데이터·권한이 분리돼 있다, `docs/cowork.md`)
 - **GitHub**: https://github.com/ny7742-hub/record
 - **배포 URL**: https://ny7742-hub.github.io/record/
 - **외부 라이브러리**: SheetJS CDN (`xlsx.full.min.js` v0.18.5)
@@ -34,6 +34,7 @@
 - [`docs/margin.md`](docs/margin.md) — 행사 마진 계산서, 제안 상품 손익계산서, 코스트코·백화점 공문, 행사약정서 PDF
 - [`docs/returns.md`](docs/returns.md) — 홈쇼핑·코스트코 반품등록(시트 불러오기 · 코드매칭 · 창고간이동)
 - [`docs/auth.md`](docs/auth.md) — 회원 승인제(이메일 링크 로그인 · 승인 · Firebase 규칙)
+- [`docs/cowork.md`](docs/cowork.md) — **별도 페이지** `cowork.html`: 디자인·생산·웹디자인·영업2팀 코스트코 상품개발 협업(단계·일정·시안·코멘트)
 
 ## 바로가기
 - **로그인(SSO) 주소를 직접 조립하지 말 것.** 코스트코 DSS 바로가기가 Keycloak `openid-connect/auth?...`를
