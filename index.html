@@ -798,7 +798,7 @@ label{font-size:14px!important}
           </table>
           <div style="margin-top:7px">
             이 셋만 되어 있으면 <b>플레이엠디 접속 → 조회 → 엑셀 다운로드 → 자비스 업로드</b>까지 전부 자동입니다.
-            받는 자료는 <b>창고재고현황(전일 기준 · 주희물류 NH + 코스트코 CSTC)</b>과 <b>매장판매일보(당월 1일~현재일 · 매장구분 전체)</b>입니다.<br>
+            받는 자료는 <b>창고재고현황(전일 · 주희물류 NH + 코스트코 CSTC)</b> · <b>매장재고현황(당일 · 4개 매장)</b> · <b>매장판매일보(당월 1일~현재일 · 매장구분 전체)</b>입니다.<br>
             <b style="color:#154f5e">안 됐을 때</b> — 9시가 지나도 아래 두 칸이 빨갛게 <b>오늘 자동 업로드 안 됨</b>이면 플레이엠디에서 직접 받아 <b>직접 올리기</b>로 올리시면 됩니다.<br>
             <b style="color:#154f5e">자동으로 안 되는 것</b> — 매장별 일별매출의 <b>PLAY MD</b> 칸은 그 탭의 <b>📥 판매일보 → PLAY MD</b> 버튼을 눌러야 채워집니다.
           </div>
@@ -843,9 +843,11 @@ label{font-size:14px!important}
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <div class="au-item" id="auWh" data-kind="wh"></div>
       <div class="au-item" id="auSales" data-kind="sales"></div>
+      <div class="au-item" id="auSi" data-kind="si"></div>
     </div>
     <input type="file" id="auWhIn" accept=".xlsx,.xls" style="display:none" onchange="auPick('wh',this)"/>
     <input type="file" id="auSalesIn" accept=".xlsx,.xls" style="display:none" onchange="auPick('sales',this)"/>
+    <input type="file" id="auSiIn" accept=".xlsx,.xls" style="display:none" onchange="auPick('si',this)"/>
   </div>
   <!-- 연 누적 매출(영업2팀 6채널)과 전체 매출(모든 매장구분)을 좌우로 나란히 본다(2026-09-21 영업2팀) -->
   <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
@@ -926,6 +928,9 @@ label{font-size:14px!important}
         <tr><td style="border:1px solid #d6dfea;padding:6px 9px"><b style="color:#154f5e">매장판매일보</b></td>
           <td style="border:1px solid #d6dfea;padding:6px 9px">당월 1일 ~ 현재일 · 매장구분 전체</td>
           <td style="border:1px solid #d6dfea;padding:6px 9px">홈 연 누적·전체 매출 · 백화점 탭 영업매출/대비매출·베스트 · 매장별 일별매출 <b>PLAY MD</b> 칸 · 재고이관 판매자료</td></tr>
+        <tr><td style="border:1px solid #d6dfea;padding:6px 9px"><b style="color:#154f5e">매장재고현황</b></td>
+          <td style="border:1px solid #d6dfea;padding:6px 9px">당일 기준 · 매장 전체로 받아 <b>청량리 AVE · 잠실 LJS · 센텀 LSC · 동부산 LDB</b>만 반영</td>
+          <td style="border:1px solid #d6dfea;padding:6px 9px">재고이관 분석(매장별 재고)</td></tr>
         <tr><td style="border:1px solid #d6dfea;padding:6px 9px"><b style="color:#154f5e">상품코드리스트</b><br><span style="color:#5b6675">(상품데이터)</span></td>
           <td style="border:1px solid #d6dfea;padding:6px 9px">그날 안 올라왔으면</td>
           <td style="border:1px solid #d6dfea;padding:6px 9px">판매일보 등록 · 발주 전체 · 마진계산·공문 · 등록 탭 — 상품데이터를 쓰는 모든 화면</td></tr>
@@ -935,8 +940,7 @@ label{font-size:14px!important}
     <div style="margin-top:10px;font-size:11.5px;color:#5b6675;line-height:1.75">
       <b style="color:#154f5e">안 됐을 때</b> — 9시가 지나도 맨 위 <b>📤 PlayMD 자료 업로드</b> 두 칸이 빨갛게 <b>오늘 자동 업로드 안 됨</b>이면,
       플레이엠디에서 직접 받아 <b>직접 올리기</b>로 올리시면 됩니다. 위 조건 그대로 받으면 됩니다.<br>
-      <b style="color:#154f5e">아직 손으로 해야 하는 것</b> — <b>재고이관 분석의 매장재고현황</b>은 아직 자동이 아닙니다(그 탭에서 직접 올립니다).
-      매장별 일별매출의 <b>백화점·온라인·EDI</b> 칸은 백화점 EDI 자료라 직접 적습니다(PLAY MD 칸은 자동).
+      <b style="color:#154f5e">아직 손으로 해야 하는 것</b> — 매장별 일별매출의 <b>백화점·온라인·EDI</b> 칸은 백화점 EDI 자료라 직접 적습니다(PLAY MD 칸은 자동).
     </div>
   </div>
 </div>
@@ -2303,7 +2307,7 @@ var FB_PATH={
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp",
-  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","bestImgDB":"ws/bestImg",
+  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
@@ -2627,7 +2631,11 @@ if(_authCompleteLink()){
 var WS_LOCAL_ONLY=(location.protocol==="file:"||/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname));
 if(WS_LOCAL_ONLY)console.warn("[로컬 실행] Firebase 동기화 비활성화 — 변경사항이 팀에 공유되지 않습니다");
 function wsSetItem(key,value){
-  localStorage.setItem(key,value);
+  /* 저장 공간이 꽉 차면 setItem이 예외를 던진다. 그걸 그대로 두면 부르는 쪽 try/catch가
+     alert를 띄우고 **화면이 통째로 멈춘다**(2026-09-22 매장재고 업로드에서 실제로 그랬다).
+     이 브라우저에 못 남겨도 팀 공유(Firebase)는 계속하고, 새로고침하면 공유본으로 다시 채워진다. */
+  try{localStorage.setItem(key,value);}
+  catch(e){console.warn("localStorage 저장 실패(용량) — 팀 공유는 계속합니다:",key,e&&e.name);}
   if(WS_LOCAL_ONLY)return;
   if(_authState!=="member"&&_authState!=="open")return;   /* 승인 전·삭제된 사용자는 팀 데이터에 쓰지 않는다(설정 전 open은 예전처럼 씀) */
   if(FB_PATH[key]){
@@ -2765,6 +2773,18 @@ function fbListen(){
   apply("ws/ccsMall","ccsMallDB",
     function(d){if(d&&typeof d==="object")ccsMallDB=d;},
     function(){var pg=document.getElementById("page-ccstock");if(pg&&pg.style.display!=="none")ccsRender();}
+  );
+  /* 매장재고현황 (팀 공유) — 재고이관 분석이 쓴다 */
+  apply("ws/siRaw","siRaw",
+    function(d){
+      if(!d||!d.rows||!d.rows.length)return;
+      if(_siRawApplied===d.at)return;
+      _siRawApplied=d.at;
+      try{_siApplyRows(d.rows);}catch(e){}
+      var pg=document.getElementById("page-transfer");
+      if(pg&&pg.style.display!=="none"){try{tfRenderChips();}catch(e){}}
+    },
+    function(){}
   );
   /* 홈쇼핑 상품리스트 (팀 공유) */
   apply("ws/hsProdList","hsProdListDB",
@@ -9823,7 +9843,7 @@ function _auLog(kind,info,auto,at){
   renderAutoUpBar();
 }
 function _auMsg(kind,t){
-  var el=document.getElementById(kind==="wh"?"auWhMsg":"auSalesMsg");
+  var el=document.getElementById(kind==="wh"?"auWhMsg":(kind==="si"?"auSiMsg":"auSalesMsg"));
   if(el)el.textContent=t||"";
 }
 function _auFmtAt(iso){
@@ -9835,10 +9855,12 @@ function _auFmtAt(iso){
 function auPick(kind,input){
   var f=input.files&&input.files[0];input.value="";
   if(!f)return;
-  if(kind==="wh")whIngestFile(f);else salesIngestFile(f);
+  if(kind==="wh")whIngestFile(f);
+  else if(kind==="si")siIngestFile(f);
+  else salesIngestFile(f);
 }
 function renderAutoUpBar(){
-  [["wh","auWh","📦 창고재고현황","auWhIn"],["sales","auSales","🧾 매장판매일보","auSalesIn"]].forEach(function(c){
+  [["wh","auWh","📦 창고재고현황","auWhIn"],["sales","auSales","🧾 매장판매일보","auSalesIn"],["si","auSi","🏬 매장재고현황","auSiIn"]].forEach(function(c){
     var box=document.getElementById(c[1]);if(!box)return;
     var L=uploadLog[c[0]]||null;
     var tag,sub="";
@@ -9851,6 +9873,8 @@ function renderAutoUpBar(){
       sub='<b style="color:'+(stale?"#b91c1c":"#0f172a")+'">'+_auFmtAt(L.at)+'</b> 업로드'+(L.by?' · '+_esc(L.by):'')+(stale?' <b style="color:#b91c1c">· 오늘 자동 업로드 안 됨</b>':'');
       if(c[0]==="wh"){
         sub+='<br>재고일자 '+(L.date||"-")+' · 전체 '+(L.n||0).toLocaleString()+'품목 · 주희물류 '+(L.ship||0).toLocaleString()+'품목';
+      }else if(c[0]==="si"){
+        sub+='<br>재고일자 '+(L.date||"-")+' · '+(L.n||0).toLocaleString()+'줄 · 매장 '+(L.stores||0)+'곳('+SI_STORES.join("·")+')';
       }else{
         sub+='<br>기간 '+(L.from||"-")+' ~ '+(L.to||"-")+' · '+(L.rows||0).toLocaleString()+'줄'
           +(L.chs&&L.chs.length?' · '+L.chs.map(function(x){return _esc(x);}).join("·"):'');
@@ -9859,7 +9883,7 @@ function renderAutoUpBar(){
     box.innerHTML='<div class="au-hd"><b style="font-size:13px;color:#154f5e">'+c[2]+'</b>'+tag
       +'<button class="bs" style="margin-left:auto;padding:3px 10px;font-size:11.5px" onclick="window.__jarvisAuto=false;document.getElementById(\''+c[3]+'\').click()">📤 직접 올리기</button></div>'
       +'<div class="au-sub">'+(sub||'아직 올라온 자료가 없습니다')+'</div>'
-      +'<div id="'+(c[0]==="wh"?"auWhMsg":"auSalesMsg")+'" style="font-size:11.5px;color:#b45309;font-weight:700"></div>';
+      +'<div id="'+(c[0]==="wh"?"auWhMsg":(c[0]==="si"?"auSiMsg":"auSalesMsg"))+'" style="font-size:11.5px;color:#b45309;font-weight:700"></div>';
     if(!box._wired){
       box._wired=true;
       box.addEventListener("dragover",function(e){e.preventDefault();box.classList.add("dragover");});
@@ -9868,7 +9892,7 @@ function renderAutoUpBar(){
         e.preventDefault();box.classList.remove("dragover");
         var f=(e.dataTransfer.files||[])[0];if(!f)return;
         window.__jarvisAuto=false;
-        if(c[0]==="wh")whIngestFile(f);else salesIngestFile(f);
+        if(c[0]==="wh")whIngestFile(f);else if(c[0]==="si")siIngestFile(f);else salesIngestFile(f);
       });
     }
   });
@@ -10170,6 +10194,61 @@ function _whCompact(rows){
   return out;
 }
 /* 창고재고현황 올리기 — 홈 버튼·자동 업로드가 여기로 온다 */
+/* ── 매장재고현황 (2026-09-22 영업2팀) ──
+   플레이엠디 `매장재고현황`을 **매장명 전체**로 받아 올리고, 자비스가 **분석 대상 매장만** 남긴다.
+   매장을 화면에서 하나씩 고르는 것보다 전체로 받는 쪽이 자동화에 훨씬 안전하다(ui-select를 안 건드린다).
+   대상 매장을 바꾸려면 `SI_STORES`에 매장코드를 넣으면 된다. */
+var SI_STORES=["AVE","LJS","LSC","LDB"];   /* 청량리 · 잠실 · 센텀 · 동부산 */
+var SI_KEEP_COLS=["매장명","매장코드","상품코드","상품코드명","상품명","칼라","칼라코드","칼라명","재고수량","TAG가","기획구분","행사구분"];
+function _siCompact(rows){
+  var hRow=-1;
+  for(var r=0;r<Math.min(10,rows.length);r++){
+    if((rows[r]||[]).some(function(c){return String(c||"").replace(/\s/g,"")==="상품코드";})){hRow=r;break;}
+  }
+  if(hRow<0)return null;
+  var H=rows[hRow],keep=[];
+  H.forEach(function(h,i){if(SI_KEEP_COLS.indexOf(String(h||"").replace(/\s/g,""))>=0)keep.push(i);});
+  var HN=H.map(function(h){return String(h||"").replace(/\s/g,"");});
+  var cCode=HN.indexOf("상품코드"),cSc=HN.indexOf("매장코드");
+  var out=[[String((rows[0]&&rows[0][0])||"")],keep.map(function(i){return H[i];})];
+  var seen={};
+  for(var i=hRow+1;i<rows.length;i++){
+    var row=rows[i];if(!row||!String(row[cCode]||"").trim())continue;
+    var sc=cSc>=0?String(row[cSc]||"").trim().toUpperCase():"";
+    if(cSc>=0&&SI_STORES.indexOf(sc)<0)continue;   /* 분석 대상 매장만 */
+    seen[sc]=1;
+    out.push(keep.map(function(k){var v=row[k];return v==null?"":v;}));
+  }
+  out._stores=Object.keys(seen);
+  return out;
+}
+function _siApplyRows(rows){
+  try{_tfSiFromRows(rows,true);}catch(e){}
+}
+function siIngestFile(file){
+  if(!file)return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
+  var auto=!!window.__jarvisAuto;
+  _auMsg("si","불러오는 중...");
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+      var cp=_siCompact(rows);
+      if(!cp||cp.length<3){_auMsg("si","");alert("매장재고현황 형식이 아닙니다 (상품코드·매장코드 열이 필요합니다)");return;}
+      var at=new Date().toISOString();
+      _siRawApplied=at;
+      _siApplyRows(cp);
+      try{wsSetItem("siRaw",JSON.stringify({rows:cp,fileName:file.name,at:at}));}catch(e2){console.warn("매장재고 공유 실패",e2);}
+      _auLog("si",{fileName:file.name,date:(typeof tfSiDate!=="undefined"?tfSiDate:"")||"",
+        n:cp.length-2,stores:(cp._stores||[]).length},auto,at);
+      _auMsg("si","✔ 반영됨");
+    }catch(err){_auMsg("si","");alert("매장재고 파일 오류: "+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+var _siRawApplied="";
 function whIngestFile(file){
   if(!file)return;
   if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
@@ -20044,8 +20123,9 @@ function _tfMsg(id,txt,err){
 
 /* ── 매장재고현황 (매장별 SKU 재고 — 이관 판단의 핵심) ── */
 function tfLoadSi(input){_tfProcSi((input.files||[])[0]);input.value="";}
-function _tfProcSi(file){
-  _tfRead(file,function(rows){
+function _tfProcSi(file){_tfRead(file,_tfSiFromRows);}
+function _tfSiFromRows(rows,quiet){
+  (function(){
     var hr=_tfHeaderRow(rows,["상품코드"]);
     if(hr<0){_tfMsg("tfSiMsg","형식 인식 실패 (상품코드 열 없음)",1);return;}
     var H=rows[hr];
@@ -20067,9 +20147,11 @@ function _tfProcSi(file){
       seen[st]=1;
     }
     tfSiRows=out;tfSiDate=_tfMetaDate(rows);
-    _tfMsg("tfSiMsg","✔ "+out.length+"행 · 매장 "+Object.keys(seen).length+"곳"+(tfSiDate?" ("+tfSiDate+")":""));
-    tfRenderChips();
-  });
+    if(!quiet){
+      _tfMsg("tfSiMsg","✔ "+out.length+"행 · 매장 "+Object.keys(seen).length+"곳"+(tfSiDate?" ("+tfSiDate+")":""));
+      try{tfRenderChips();}catch(e){}
+    }
+  })();
 }
 
 /* ── 창고재고현황 (물류창고 = 보충 공급원) ── */
@@ -20194,8 +20276,14 @@ function _tfSsFromStoreSales(quiet){
 }
 /* ── 끌어오기 배선 ── */
 function tfAutoFill(){
-  /* 홈에서 올린 판매일보가 있으면 재고이관 판매자료를 자동으로 채운다(직접 올린 게 있으면 그대로 둔다) */
+  /* 홈에서 올린 자료가 있으면 재고이관 자료를 자동으로 채운다(직접 올린 게 있으면 그대로 둔다) */
   try{if(!tfSsRows||!tfSsRows.length)_tfSsFromStoreSales();}catch(e){}
+  try{
+    if(!tfSiRows||!tfSiRows.length){
+      var d=JSON.parse(localStorage.getItem("siRaw")||"null");
+      if(d&&d.rows&&d.rows.length)_tfSiFromRows(d.rows);
+    }
+  }catch(e){}
 }
 function tfDropInit(){
   [["tfSiDrop",_tfProcSi],["tfWhDrop",_tfProcWh],["tfSsDrop",_tfProcSs]].forEach(function(p){
