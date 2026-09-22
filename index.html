@@ -5345,10 +5345,10 @@ var PMD_STORE_NAME={
   "현대 본사":"현대백화점 본사"
 };
 function _pmdName(n){
-  var v=String(n||"").trim();
+  var v=_storeNoCode(n);
   return PMD_STORE_NAME[v]||v;
 }
-function _pmdKey(n){return _pmdName(n).replace(/\s/g,"").replace(/점$/,"");}
+function _pmdKey(n){return _pmdName(_storeNoCode(n)).replace(/\s/g,"").replace(/점$/,"");}
 function _pmdNum(v){return Number(String(v==null?0:v).replace(/,/g,""))||0;}
 /* PLAY MD와 **EDI를 함께** 모은다 — 이 표는 둘이 맞는지 보는 자리다(2026-09-21 영업2팀).
    PLAY MD 칸을 아직 안 적은 매장은 차이가 그대로 드러난다. */
@@ -8879,7 +8879,13 @@ function dsKey(){
 function dsCell(mk,day,name){return (((dailySalesDB.data[mk]||{})[day]||{})[name])||{};}
 /* 백화점 탭의 매장 순서(deptStores)와 동일하게 일별매출 매장 순서 자동 동기화
    (일별매출 매장명은 "롯데 잠실"처럼 "점"이 없거나 "커넥트현대"처럼 표기가 달라 정규화 후 매칭) */
-function _dsNormStoreName(n){return String(n||"").replace(/\s+/g,"").replace(/점$/,"").replace(/^커넥트현대/,"현대");}
+/* 매장명 끝에 붙여 쓰는 플레이엠디 매장코드(`롯데 잠실점 LJS`)는 **이름을 맞출 때 뗀다**
+   — 2026-09-22 영업2팀이 코드를 이름에 적으면서 백화점 탭 대비매출·판매일보 매칭이 전부 빗나갔다.
+   (코드 자체가 필요한 곳은 `_dsStoreCode`가 따로 읽는다.) */
+function _storeNoCode(n){
+  return String(n||"").replace(/\u00a0/g," ").replace(/\s+[A-Za-z][A-Za-z0-9]{1,7}\s*$/,"").trim();
+}
+function _dsNormStoreName(n){return _storeNoCode(n).replace(/\s+/g,"").replace(/점$/,"").replace(/^커넥트현대/,"현대");}
 function dsSyncOrderFromDept(){
   if(!dailySalesDB.stores||!dailySalesDB.stores.length||typeof deptStores==="undefined"||!deptStores.length)return;
   var rank={};deptStores.forEach(function(n,i){rank[_dsNormStoreName(n)]=i;});
@@ -18970,9 +18976,13 @@ function ccToggleDisc(name,color){
   if(!costcoDB.discontinued)costcoDB.discontinued={};
   if(!costcoDB.discontinued[name])costcoDB.discontinued[name]={};
   if(costcoDB.discontinued[name][color]){
+    /* 단종 해제도 팀 전체에 보이는 값이라 한 번 묻는다 */
+    if(!confirm("'"+name+" "+color+"'\n\n단종을 해제할까요?"))return;
     delete costcoDB.discontinued[name][color];
     if(!Object.keys(costcoDB.discontinued[name]).length)delete costcoDB.discontinued[name];
   }else{
+    /* 잘못 눌러 단종되는 일이 있어 한 번 더 묻는다(2026-09-22 영업2팀) — 팀 공유 값이다 */
+    if(!confirm("'"+name+" "+color+"'\n\n단종 처리할까요?\n표에서 회색으로 바뀌고 팀 전체에 반영됩니다."))return;
     costcoDB.discontinued[name][color]=1;
   }
   saveCostcoDB();
@@ -19755,7 +19765,7 @@ function tfToggleCfg(){
    아예 없는 매장은 종료로 본다. 종료 매장은 재고를 받지 않고 회수 대상이 된다.
    PlayMD와 백화점 탭은 매장명 표기가 달라("롯데백화점 잠실점" vs "롯데 잠실점") 정규화해 맞춘다. */
 function _tfNormStore(n){
-  var s=String(n||"").replace(/[\s()·]/g,"");
+  var s=_storeNoCode(n).replace(/[\s()·]/g,"");
   s=s.replace(/커넥트현대/g,"현대");
   s=s.replace(/백화점|아울렛|프리미엄|팩토리|아웃렛/g,"");
   return s.replace(/점$/,"");
