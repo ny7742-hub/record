@@ -1267,7 +1267,7 @@ label{font-size:14px!important}
         </div>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:12.5px;color:#334155;line-height:1.5">
           <b>처리완료부터 결제가까지</b> 복사<br>
-          <span style="color:#15803d;font-weight:700">처리완료 + 입고일·처리일·해체일<br>+ 민트색 음영 건만 등록 대상</span><br>
+          <span style="color:#15803d;font-weight:700">처리완료 + 입고일·처리일·해체일<br>이 있는 건만 등록 대상</span><br>
           <span style="color:#b45309;font-weight:700">처리보류 · 확인요청 · 출고예정은 자동 제외</span>
           <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">쇼핑몰·날짜·상품명·수량·결제가만 읽습니다<br>(수취인·연락처·주소는 저장하지 않습니다)</div>
         </div>
@@ -15274,13 +15274,13 @@ var CCR_SKIP=["처리보류","확인요청","출고예정"];
    입고일이 비면 처리일·해체일로 물러선다. */
 function _ccrRowDate(r){return r["in"]||r.proc||r.open||null;}
 /* 다운로드 대상·정렬 모두 **물류입고일** 기준이다(반품일자도 입고일). */
-/* 등록 조건(2026-09 영업2팀 지정): **처리완료 + 입고일·처리일·해체일 모두 + 민트색 음영**.
-   음영은 시트에서 읽을 수 있을 때만 판단한다(r.shade: true/false, 모르면 undefined → 날짜·상태로만 본다). */
+/* 등록 조건(2026-09-23 영업2팀 재지정): **처리완료 + 입고일·처리일·해체일 모두**.
+   **민트색 음영은 더 이상 보지 않는다** — 셀 색은 Sheets API가 켜져 있어야 읽히는데 실제로는 못 읽는 때가 많았고,
+   영업2팀이 "음영 건이 아니어도 된다"고 정했다. */
 function _ccrWhyNot(r){
   if(r.status&&r.status!=="처리완료")return "처리완료가 아님("+r.status+")";
   var miss=[];if(!r["in"])miss.push("입고일");if(!r.proc)miss.push("처리일");if(!r.open)miss.push("해체일");
   if(miss.length)return miss.join("·")+" 없음";
-  if(r.shade===false)return "민트색 음영 아님";
   return "";
 }
 function _ccrReady(r){return !_ccrWhyNot(r);}
@@ -15483,7 +15483,7 @@ function _ccrSummary(){
   var badN=ccrRows.filter(function(r){return r.bad;}).length;
   el.innerHTML=ccrRows.length+'건'
     +(badN?' · <span style="color:#b45309;font-weight:700">불량 '+badN+'건</span>':'')
-    +(noOpen?' · <span style="color:#5b6675" title="처리완료 + 입고일·처리일·해체일 + 민트색 음영이 모두 있어야 등록">등록 조건 미충족 '+noOpen+'건 제외</span>':'')
+    +(noOpen?' · <span style="color:#5b6675" title="처리완료 + 입고일·처리일·해체일이 모두 있어야 등록">등록 조건 미충족 '+noOpen+'건 제외</span>':'')
     +(noCode?' · <span style="color:#dc2626;font-weight:700">미매칭 '+noCode+'건</span>':' · <span style="color:#15803d;font-weight:700">코드 매칭 완료</span>')
     +(noPrice?' · <span style="color:#dc2626;font-weight:700">공급가 없음 '+noPrice+'건</span>':'')
     +(noDate?' · <span style="color:#dc2626;font-weight:700">날짜 없음 '+noDate+'건</span>':'');
@@ -15495,7 +15495,7 @@ function ccrDownload(){
     /* 왜 한 건도 못 나왔는지 사유별로 적어 준다 — 예전엔 '입고일이 없습니다'로만 떠서 원인을 알 수 없었다(2026-09-23) */
     var why={};
     ccrRows.forEach(function(r){var w=_ccrWhyNot(r);if(w)why[w]=(why[w]||0)+1;});
-    alert("등록할 수 있는 행이 없습니다."+"\n\n"+"등록 조건: 처리완료 + 입고일·처리일·해체일 + 민트색 음영"+"\n\n"
+    alert("등록할 수 있는 행이 없습니다."+"\n\n"+"등록 조건: 처리완료 + 입고일·처리일·해체일"+"\n\n"
       +Object.keys(why).map(function(k){return "· "+k+" : "+why[k]+"건";}).join("\n"));
     return;
   }
@@ -15761,21 +15761,21 @@ function ccrLoadSheet(){
   _retSheetMsg("ccrSheetMsg","불러오는 중...");
   _retSheetRows(RET_SHEET_GID.online).then(function(rows){
     /* 온라인 탭에는 모든 온라인몰 반품이 섞여 있다 — 코스트코 · 처리완료(초록 표시) 건만 가져온다 */
-    return _retSheetShades(RET_SHEET_GID.online,rows).then(function(shade){
+    /* 민트색 음영은 더 이상 보지 않는다(2026-09-23 영업2팀) — Sheets API 호출도 하지 않는다 */
+    return Promise.resolve(null).then(function(shade){
       var pick=[],skip={};
       var add=function(k){skip[k]=(skip[k]||0)+1;};
       rows.slice(1).forEach(function(r,i){
         var m=_ccrMapRow(r);if(!m)return;
         if(!/코스트코/.test(m.shop))return;
-        m.shade=shade?shade[i+1]:undefined;
         var why=_ccrWhyNot(m);
-        if(why){add(/음영/.test(why)?"음영 없음":(/처리완료/.test(why)?"미완료":"날짜 빠짐"));return;}
-        pick.push({line:r.join("\t"),shade:m.shade});
+        if(why){add(/처리완료/.test(why)?"미완료":"날짜 빠짐");return;}
+        pick.push({line:r.join("\t"),shade:undefined});
       });
       ccrRows=[];
       var d=new Date(),tm=" ("+d.getHours()+":"+String(d.getMinutes()).padStart(2,"0")+")";
       var sk=Object.keys(skip).map(function(k){return k+" "+skip[k];}).join(" · ");
-      var shadeNote=shade?"":" · ⚠ 음영은 확인 못 함";
+      var shadeNote="";
       if(!pick.length){renderCcrTable();_retSheetMsg("ccrSheetMsg","등록할 건이 없습니다"+(sk?" (제외: "+sk+")":"")+shadeNote+tm);return;}
       var ta=document.getElementById("ccrPasteArea");
       ta.value=pick.map(function(p){return p.line;}).join("\n");
@@ -15784,7 +15784,6 @@ function ccrLoadSheet(){
       pick.forEach(function(p,k){if(ccrRows[k])ccrRows[k].shade=p.shade;});
       renderCcrTable();
       _retSheetMsg("ccrSheetMsg","✔ 등록 대상 "+pick.length+"건"+(sk?" · 제외 "+sk:"")+shadeNote+tm);
-      if(!shade)_retSheetMsg("ccrSheetMsg","✔ 등록 대상 "+pick.length+"건"+(sk?" · 제외 "+sk:"")+" · ⚠ 민트색 음영은 확인 못 함(처리완료·날짜 3개로만 골랐습니다)"+tm);
     });
   }).catch(function(e){_retSheetMsg("ccrSheetMsg","",true);alert("반품리스트를 불러오지 못했습니다.\n\n"+e.message);});
 }
