@@ -2294,6 +2294,7 @@ var FB_PATH={
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg",
+  "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
@@ -2760,6 +2761,9 @@ function fbListen(){
     function(d){if(d&&typeof d==="object")ccsMallDB=d;},
     function(){var pg=document.getElementById("page-ccstock");if(pg&&pg.style.display!=="none")ccsRender();}
   );
+  /* 반품등록 표 (팀 공유) — 한 사람이 불러오면 모두 같은 화면을 본다 */
+  apply("ws/ccrShare","ccrShare",function(d){_retShareApply("ccr",d);},function(){});
+  apply("ws/hsrShare","hsrShare",function(d){_retShareApply("hsr",d);},function(){});
   /* 매장재고현황 (팀 공유) — 재고이관 분석이 쓴다 */
   apply("ws/siRaw","siRaw",
     function(d){
@@ -15441,8 +15445,47 @@ function ccrResetAll(){
   var el=document.getElementById("ccrMsg");if(el)el.textContent="";
   renderCcrTable();
 }
+/* ── 반품등록 표 팀 공유 (2026-09-23 영업2팀) ──
+   한 사람이 `시트에서 바로 불러오기`를 누르면 **접속한 모두가 같은 표**를 본다.
+   날짜(`in`·`proc`·`open`)는 Date라 JSON을 거치면 글자가 되므로 받을 때 되돌린다(`_retReviveRows`).
+   수취인·연락처·주소는 애초에 읽지 않으므로 공유본에도 없다.
+   표를 다시 그릴 때마다 저장하되 **내용이 그대로면 올리지 않는다** — 원격 자료를 받아 그린 것이 되돌아 올라가지 않게. */
+var _retShareLast={ccr:"",hsr:""};
+function _retReviveRows(rows){
+  (rows||[]).forEach(function(r){
+    ["in","proc","open"].forEach(function(k){
+      if(typeof r[k]==="string"&&r[k]){var d=new Date(r[k]);r[k]=isNaN(d)?null:d;}
+    });
+  });
+  return rows||[];
+}
+function _retShareSave(kind){
+  var rows=(kind==="ccr")?ccrRows:hsrRows;
+  var body=JSON.stringify(rows);
+  if(_retShareLast[kind]===body)return;
+  _retShareLast[kind]=body;
+  var by="";
+  try{if(_authMe&&_authMe.name)by=String(_authMe.name);else if(_authUser&&_authUser.email)by=String(_authUser.email).split("@")[0];}catch(e){}
+  try{wsSetItem(kind==="ccr"?"ccrShare":"hsrShare",JSON.stringify({rows:rows,at:new Date().toISOString(),by:by}));}catch(e){}
+}
+/* 원격 자료 적용 — 표에서 입력 중이면 그리지 않는다(치던 값이 날아가지 않게) */
+function _retShareApply(kind,d){
+  if(!d||!Array.isArray(d.rows))return;
+  var body=JSON.stringify(d.rows);
+  if(_retShareLast[kind]===body)return;
+  _retShareLast[kind]=body;
+  var rows=_retReviveRows(d.rows);
+  if(kind==="ccr")ccrRows=rows;else hsrRows=rows;
+  var pg=document.getElementById("page-hsreturn");
+  if(!pg||pg.style.display==="none")return;
+  var ae=document.activeElement;
+  var wrapId=kind==="ccr"?"ccrTableWrap":"hsrTableWrap";
+  if(ae&&ae.closest&&ae.closest("#"+wrapId))return;
+  try{if(kind==="ccr")renderCcrTable();else renderHsrTable();}catch(e){}
+}
 function renderCcrTable(){
   var wrap=document.getElementById("ccrTableWrap");if(!wrap)return;
+  _retShareSave("ccr");
   if(!ccrRows.length){wrap.innerHTML='<div style="padding:20px;text-align:center;color:#5b6675;font-size:12px">2단계에서 반품 표를 붙여넣으세요.</div>';_ccrSummary();return;}
   var h='<table style="border-collapse:collapse;font-size:12.5px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
@@ -15814,6 +15857,7 @@ function hsrResetAll(){
 function renderHsrTable(){
   var st=document.getElementById("hsrMatchStatus"),wrap=document.getElementById("hsrTableWrap");
   if(!wrap)return;
+  _retShareSave("hsr");
   if(!hsrRows.length){
     if(st)st.textContent="등록된 반품이 없습니다.";
     wrap.innerHTML="";
