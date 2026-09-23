@@ -7269,6 +7269,7 @@ function lrLoadFile(input){
       }else{
         lrDB.rows=newRows;
       }
+      lrDB.rows.forEach(function(r,k){lrMatchRow(k,true,true);});   /* 엑셀로 불러온 줄도 상품데이터로 색·TAG가 채움 */
       lrSave();lrRenderRows();lrRenderSummary();
       var storeInput=document.getElementById("lrStore");
       if(storeFromFile&&storeInput&&!storeInput.value.trim()){
@@ -7288,6 +7289,77 @@ function lrEditRow(i,field,val){
   var td=document.getElementById("lrAmt_"+i);
   if(td){var r=lrDB.rows[i];var amt=(Number(r.qty)||0)*(Number(r.tag)||0);td.textContent=amt.toLocaleString()+"원";}
 }
+/* ── 로스 품의서 상품 검색 (2026-09-23 영업2팀) ──
+   상품명 칸에 일부만 쳐도 상품데이터(DB) 상품명이 목록으로 뜨고, 고르면 색상 목록·TAG가를 채운다.
+   색상을 고르면 그 색의 TAG가로 바꾼다. 직접 고친 TAG가는 덮지 않는다(tagAuto 표시가 있는 값만 바꾼다). */
+var _lrIdx=null;
+function _lrProducts(){
+  var src=(typeof DB!=="undefined"&&DB)||[];
+  if(_lrIdx&&_lrIdx.n===src.length&&_lrIdx.src===src)return _lrIdx;
+  var by={};
+  src.forEach(function(d){
+    var nm=String(d["상품명"]||"").trim();if(!nm)return;
+    var o=by[nm]||(by[nm]={name:nm,flat:nm.replace(/\s/g,"").toLowerCase(),colors:{},tags:{}});
+    var cn=String(d["칼라명"]||"").trim(),tg=parseInt(d["TAG가"],10)||0;
+    if(cn&&!(cn in o.colors))o.colors[cn]=tg;
+    if(tg)o.tags[tg]=(o.tags[tg]||0)+1;
+  });
+  var list=Object.keys(by).map(function(k){
+    var o=by[k],best=0,bn=0;
+    Object.keys(o.tags).forEach(function(t){if(o.tags[t]>bn){bn=o.tags[t];best=+t;}});
+    o.tag=best;return o;
+  });
+  _lrIdx={n:src.length,src:src,list:list};
+  var dl=document.getElementById("lrProdList");
+  if(!dl){dl=document.createElement("datalist");dl.id="lrProdList";document.body.appendChild(dl);}
+  dl.innerHTML=list.map(function(o){return '<option value="'+_esc(o.name)+'">';}).join("");
+  return _lrIdx;
+}
+/* 이름으로 상품 찾기 — 정확히 같으면 그 상품, 아니면 쓴 낱말이 모두 든 상품이 하나뿐일 때 */
+function _lrFind(q){
+  q=String(q||"").trim();if(!q)return null;
+  var list=_lrProducts().list;
+  for(var i=0;i<list.length;i++)if(list[i].name===q)return list[i];
+  var toks=q.toLowerCase().split(/\s+/).filter(Boolean);
+  var hit=list.filter(function(o){return toks.every(function(t){return o.flat.indexOf(t)>=0;});});
+  if(hit.length===1)return hit[0];
+  return hit.length?{many:hit.length}:null;
+}
+function _lrColorOf(o,c){
+  c=String(c||"").trim();if(!c)return null;
+  if(c in o.colors)return c;
+  var ks=Object.keys(o.colors),lc=c.toLowerCase().replace(/\s/g,"");
+  var hit=ks.filter(function(k){var kk=k.toLowerCase().replace(/\s/g,"");return kk.indexOf(lc)>=0||lc.indexOf(kk)>=0;});
+  return hit.length===1?hit[0]:null;
+}
+/* 한 줄 맞추기 — byName이면 상품명을 정식 이름으로 바꾸고, 색이 하나뿐이면 색도 넣는다 */
+function lrMatchRow(i,byName,quiet){
+  var r=lrDB.rows[i];if(!r)return;
+  var o=_lrFind(r.name);
+  if(!o||!o.name){
+    if(!quiet&&byName&&o&&o.many){var el=document.getElementById("lrName_"+i);if(el)el.title="후보 "+o.many+"개 — 목록에서 하나를 고르세요";}
+    return;
+  }
+  r.name=o.name;
+  var cks=Object.keys(o.colors);
+  var col=_lrColorOf(o,r.color);
+  if(col)r.color=col;else if(!String(r.color||"").trim()&&cks.length===1)r.color=cks[0];
+  var tg=(r.color&&o.colors[r.color])||o.tag||0;
+  if(tg&&(!String(r.tag||"").trim()||r.tagAuto)){r.tag=String(tg);r.tagAuto=true;}
+  if(!quiet){lrSave();_lrPaintRow(i,o);lrRenderSummary();}
+}
+/* 표를 다시 그리지 않고 그 줄 칸만 고친다 — change(포커스 이동) 중에 표를 통째로 다시 그리면 브라우저 오류가 난다 */
+function _lrPaintRow(i,o){
+  var r=lrDB.rows[i];
+  var nm=document.getElementById("lrName_"+i),co=document.getElementById("lrColor_"+i),tg=document.getElementById("lrTag_"+i);
+  if(nm){nm.value=r.name||"";nm.style.background=o&&o.name?"#f0fdf4":"";nm.title=o&&o.name?"상품데이터와 맞춰졌습니다":"";}
+  if(co)co.value=r.color||"";
+  if(tg)tg.value=r.tag||"";
+  var dl=document.getElementById("lrColList_"+i);
+  if(dl)dl.innerHTML=o&&o.name?Object.keys(o.colors).map(function(c){return '<option value="'+_esc(c)+'">';}).join(""):"";
+  var td=document.getElementById("lrAmt_"+i);
+  if(td){var amt=(Number(r.qty)||0)*(Number(r.tag)||0);td.textContent=amt.toLocaleString()+"원";}
+}
 function lrRenderRows(){
   var tb=document.getElementById("lrRows");if(!tb)return;
   var h="";
@@ -7295,10 +7367,12 @@ function lrRenderRows(){
     var amt=(Number(r.qty)||0)*(Number(r.tag)||0);
     h+='<tr>';
     h+='<td style="text-align:center;color:#5b6675">'+(i+1)+'</td>';
-    h+='<td><input value="'+_esc(r.name||"")+'" oninput="lrEditRow('+i+',\'name\',this.value)" style="width:100%"></td>';
-    h+='<td><input value="'+_esc(r.color||"")+'" oninput="lrEditRow('+i+',\'color\',this.value)" style="width:90px"></td>';
-    h+='<td><input value="'+_esc(r.qty||"")+'" inputmode="numeric" oninput="lrEditRow('+i+',\'qty\',this.value)" style="width:70px;text-align:right"></td>';
-    h+='<td><input value="'+_esc(r.tag||"")+'" inputmode="numeric" oninput="lrEditRow('+i+',\'tag\',this.value)" style="width:90px;text-align:right"></td>';
+    var mt=_lrFind(r.name);
+    h+='<td><input id="lrName_'+i+'" list="lrProdList" value="'+_esc(r.name||"")+'" placeholder="상품명 일부 입력 → 목록에서 선택" oninput="lrEditRow('+i+',\'name\',this.value)" onchange="lrMatchRow('+i+',true)" style="width:100%'+(mt&&mt.name?';background:#f0fdf4':'')+'" title="상품데이터에서 찾아 색상·TAG가를 채웁니다"></td>';
+    h+='<td><input id="lrColor_'+i+'" list="lrColList_'+i+'" value="'+_esc(r.color||"")+'" oninput="lrEditRow('+i+',\'color\',this.value)" onchange="lrMatchRow('+i+',false)" style="width:90px"><datalist id="lrColList_'+i+'">'
+      +(mt&&mt.name?Object.keys(mt.colors).map(function(c){return '<option value="'+_esc(c)+'">';}).join(""):"")+'</datalist></td>';
+    h+='<td><input id="lrQty_'+i+'" value="'+_esc(r.qty||"")+'" inputmode="numeric" oninput="lrEditRow('+i+',\'qty\',this.value)" style="width:70px;text-align:right"></td>';
+    h+='<td><input id="lrTag_'+i+'" value="'+_esc(r.tag||"")+'" inputmode="numeric" oninput="lrEditRow('+i+',\'tag\',this.value);delete lrDB.rows['+i+'].tagAuto" style="width:90px;text-align:right"></td>';
     h+='<td id="lrAmt_'+i+'" style="text-align:right;font-weight:700">'+amt.toLocaleString()+'원</td>';
     h+='<td><button class="rb" onclick="lrDelRow('+i+')">✕</button></td>';
     h+='</tr>';
