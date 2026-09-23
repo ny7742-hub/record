@@ -37,6 +37,8 @@
 - [`docs/cowork.md`](docs/cowork.md) — **별도 페이지** `cowork.html`: 디자인·생산·웹디자인·영업2팀 코스트코 상품개발 협업(단계·일정·시안·코멘트)
 
 ## 바로가기
+- 칩은 `#homeQuick` 한 곳에서 `flex-wrap`으로 흘린다. **앞의 몇 개를 2열 격자(`.qc-2col`)로 묶지 말 것** —
+  그 블록이 통째로 자리를 차지해 뒤 칩들이 엉뚱한 줄로 밀려났다(2026-09-23). 지금은 `.qc-2col{display:contents}`다.
 - **로그인(SSO) 주소를 직접 조립하지 말 것.** 코스트코 DSS 바로가기가 Keycloak `openid-connect/auth?...`를
   직접 만들고 `redirect_uri`에 `#/costcokr/dropship/`(이미 프래그먼트가 있는 주소)를 넣어 두었는데,
   `response_mode=fragment`라 로그인 후 `#/costcokr/dropship/&session_state=…&code=…`처럼 프래그먼트가 덧붙어

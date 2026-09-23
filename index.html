@@ -469,7 +469,9 @@ input:focus{border-color:var(--ec-blue)!important;box-shadow:0 0 0 2px rgba(42,1
 .home-quick .hq-dot{width:22px;height:22px;border-radius:50%;background:#e3eeee;display:grid;place-items:center;flex:none}
 .home-quick .hq-dot svg{width:12px;height:12px;color:#1b6e82}
 .qc-card{display:flex;flex-direction:column;gap:5px;min-width:150px;max-width:220px}
-.qc-2col{display:grid;grid-template-columns:repeat(2,max-content);gap:8px}
+/* 예전에는 앞의 다섯 개를 2열 격자로 묶어 뒀는데, 그 블록이 통째로 자리를 차지해
+   뒤 칩들이 엉뚱한 줄로 밀려났다(2026-09-23 영업2팀). 이제 전부 한 흐름으로 감싼다. */
+.qc-2col{display:contents}
 /* 매출 현황 3종(매장별 일별매출·코스트코·홈쇼핑)은 한 줄로, 금액을 크게 */
 .home-shelf-rev{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px}
 .home-cat.hc-rev{min-height:150px}
@@ -7020,6 +7022,7 @@ function renderQuickLaunch(){
   var _peopleIcon='<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3 3 0 0 1 0 5"/><path d="M18.5 20a5.5 5.5 0 0 0-3-4.9"/>';
   var pcTwoCol=[
     {label:"상품개발 협업",url:"cowork.html",icon:_peopleIcon,noCred:true,strong:true},
+    {label:"통합업무포탈",url:"https://wsportal.pages.dev/",icon:_extLinkIcon,noCred:true},
     {label:"플레이엠디",url:"https://playmd.xmd.co.kr/member/login",icon:_extLinkIcon,noCred:true},
     {label:"공식홈페이지",url:"https://whitesands.co.kr/",icon:_extLinkIcon,noCred:true},
     {label:"영업2팀",url:"https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/edit?gid=1131579574#gid=1131579574",icon:_extLinkIcon,noCred:true},
@@ -7038,6 +7041,7 @@ function renderQuickLaunch(){
     {label:"코스트코 수발주",url:"https://www.escm21.net/escm21/home/index.jsp",icon:_extLinkIcon},
     {label:"CX통합관리",url:"https://wscx.pages.dev/",icon:_extLinkIcon},
     {label:"세일즈매니지먼트",url:"https://wssales.pages.dev/",icon:_extLinkIcon},
+    {label:"생산팀 생산입고현황",url:"https://docs.google.com/spreadsheets/d/1zzqZGk8C30LZo3BXxhzFSNpe_GzgBVeDw4X5eIVystc/edit?gid=1410697301#gid=1410697301",icon:_extLinkIcon,noCred:true},
     {label:"CX팀 물류센터",url:"https://docs.google.com/spreadsheets/d/1LPy69E2yPTaSwxFAYrX6qV0BZx1tW0YdonLRNqeo5Vc/edit?gid=883501265#gid=883501265",icon:_extLinkIcon,noCred:true},
     {label:"코스트코 마케팅요청",url:"https://docs.google.com/spreadsheets/d/1oKX8xMqxGPPXBEGiOxeMrvXod79Us7qspX1nIouKGag/edit?gid=1334074917#gid=1334074917",icon:_extLinkIcon,noCred:true},
     {label:"영업2팀내공유",url:"https://docs.google.com/spreadsheets/d/1SY3GJjTtTw7SYHzmTvBoPrCQwL-r3gHWeOXHeTFqOag/edit?gid=0#gid=0",icon:_extLinkIcon,noCred:true},
@@ -12900,7 +12904,7 @@ function hsPreAddFromBroadcast(i){
   var row=homeshoppingDB[i];if(!row)return;
   var nm=String(row.name||"").trim();
   if(!nm){alert("상품명을 먼저 입력해주세요.\n왼쪽 상품명 칸을 클릭하고 바로 입력하면 됩니다.");return;}
-  hsPreDB.push({name:nm,date:"",time:"",orderDate:"",orderQty:[],dueDate:"",stockQty:[],marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
+  hsPreDB.push({name:nm,date:"",time:"",qaDate:"",orderDate:"",orderQty:[],dueDate:"",stockQty:[],marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
   saveHsPre();renderHsPre();
   var w=document.getElementById("hsPreTableWrap");if(w)w.scrollIntoView({behavior:"smooth",block:"end"});
   var msg=document.getElementById("hsMsg");
@@ -13075,9 +13079,34 @@ var hsPreDB=(function(){try{var d=JSON.parse(localStorage.getItem("hsPreDB")||"[
 /* 사전미팅 뒤에 바로 오는 칸 — 날짜 하나와 그 뒤에 붙는 **컬러별 수량** 한 쌍씩 (2026-09-23 영업2팀).
    상품발주일자 뒤에는 컬러별 발주수량, 납기일정 뒤에는 컬러별 재고가 온다. */
 var HS_PRE_DATES=[
+  {key:"qaDate",label:"QA일정"},
   {key:"orderDate",label:"상품발주일자",qtyKey:"orderQty",qtyLabel:"컬러별 발주수량"},
   {key:"dueDate",label:"납기일정",qtyKey:"stockQty",qtyLabel:"컬러별 재고"}
 ];
+/* 컬러 목록은 **방송관리 표의 `컬러` 칸**을 그대로 따라온다(2026-09-23 영업2팀) — 여기서는 수량만 적는다.
+   상품명이 같은 방송관리 줄을 찾아 쉼표·가운뎃점·슬래시로 나눈다. */
+function _hsPreColors(name){
+  var nm=String(name||"").trim();
+  if(!nm||typeof homeshoppingDB==="undefined")return [];
+  var hit=null;
+  homeshoppingDB.forEach(function(r){if(!hit&&String(r.name||"").trim()===nm)hit=r;});
+  if(!hit)return [];
+  return String(hit.color||"").split(/[,·\/|]+/).map(function(x){return x.trim();}).filter(Boolean);
+}
+/* 한 색의 수량만 고쳐 넣는다. 비우면 그 색은 기록에서 뺀다. */
+function hsPreQtySet(i,key,color,val){
+  var r=hsPreDB[i];if(!r)return;
+  var list=_hsPreQtyList(r[key]).slice(),hit=null;
+  list.forEach(function(x){if(x.c===color)hit=x;});
+  var t=String(val==null?"":val).trim();
+  if(t===""){r[key]=list.filter(function(x){return x.c!==color;});}
+  else{
+    var q=Number(t.replace(/,/g,""))||0;
+    if(hit)hit.q=q;else list.push({c:color,q:q});
+    r[key]=list;
+  }
+  saveHsPre();renderHsPre();
+}
 /* 컬러별 수량은 [{c:"블랙",q:100}, …]로 담는다. 화면에서는 한 줄에 `색상 수량`으로 적고 읽는다. */
 function _hsPreQtyList(v){return Array.isArray(v)?v:[];}
 function _hsPreQtySum(v){var n=0;_hsPreQtyList(v).forEach(function(x){n+=Number(x.q)||0;});return n;}
@@ -13116,7 +13145,7 @@ function hsPreEdit(i,key,val){
 }
 function saveHsPre(){wsSetItem("hsPreDB",JSON.stringify(hsPreDB));}
 function hsPreAddRow(){
-  hsPreDB.push({name:"",date:"",time:"",orderDate:"",orderQty:[],dueDate:"",stockQty:[],marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
+  hsPreDB.push({name:"",date:"",time:"",qaDate:"",orderDate:"",orderQty:[],dueDate:"",stockQty:[],marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
   saveHsPre();renderHsPre();
   var w=document.getElementById("hsPreTableWrap");if(w)w.scrollTop=w.scrollHeight;
 }
@@ -13183,22 +13212,36 @@ function renderHsPre(){
     /* 사전미팅 바로 뒤 — 상품발주일자 · 납기일정(날짜만) */
     HS_PRE_DATES.forEach(function(f){
       var v=row[f.key]||"";
-      h+='<div style="flex:1;min-width:118px;display:flex;flex-direction:column;gap:4px">';
+      h+='<div style="flex:1;min-width:112px;display:flex;flex-direction:column;gap:4px">';
       h+='<div style="display:flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:10px;border:1px solid #cfe0e5;background:'+(v?"#eef7f0":"#eef4f6")+';color:'+(v?"#15803d":"#1b6e82")+';font-size:13px;font-weight:700;white-space:nowrap">'+(v?"✅ ":"")+f.label+'</div>';
       h+='<input type="date" value="'+_escX(v)+'" onchange="hsPreEdit('+i+',\''+f.key+'\',this.value);renderHsPre()" title="'+f.label+'"'
         +' style="border:1px solid #cbd5e1;border-radius:8px;padding:5px 6px;font-size:12px;text-align:center;color:#1f2937;background:#fff">';
       h+='</div>';
-      /* 날짜 바로 뒤 — 컬러별 수량 */
-      var ql=_hsPreQtyList(row[f.qtyKey]),qs=_hsPreQtySum(row[f.qtyKey]);
-      h+='<div style="flex:1.2;min-width:132px;display:flex;flex-direction:column;gap:4px">';
-      h+='<button onclick="hsPreEditQty('+i+',\''+f.qtyKey+'\',\''+f.qtyLabel+'\')" title="한 줄에 색상 수량"'
-        +' style="display:flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:10px;border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;background:'+(ql.length?"#16a34a":"#7c3aed")+'">'
-        +(ql.length?"✅ ":"")+f.qtyLabel+(ql.length?" "+qs.toLocaleString():"")+'</button>';
-      h+='<div style="font-size:11px;color:#334155;line-height:1.5;text-align:center;word-break:keep-all">'
-        +(ql.length?ql.map(function(x){return _esc(x.c)+" <b>"+(Number(x.q)||0).toLocaleString()+"</b>";}).join(" · "):'<span style="color:#5b6675">눌러서 입력</span>')+'</div>';
+      if(!f.qtyKey)return;
+      /* 날짜 바로 뒤 — 컬러별 수량. **색상은 방송관리 `컬러` 칸을 그대로 따라오고 수량만 적는다**(2026-09-23 영업2팀) */
+      var cols=_hsPreColors(row.name),qmap={},extra=[];
+      _hsPreQtyList(row[f.qtyKey]).forEach(function(x){qmap[x.c]=x.q;if(cols.indexOf(x.c)<0)extra.push(x.c);});
+      var all=cols.concat(extra),qs=_hsPreQtySum(row[f.qtyKey]);
+      h+='<div style="flex:1.4;min-width:148px;display:flex;flex-direction:column;gap:4px">';
+      h+='<div style="display:flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:10px;color:#fff;font-size:13px;font-weight:700;white-space:nowrap;background:'+(qs?"#16a34a":"#7c3aed")+'">'
+        +(qs?"✅ ":"")+f.qtyLabel+(qs?" "+qs.toLocaleString():"")+'</div>';
+      if(!all.length){
+        h+='<div style="font-size:11px;color:#5b6675;text-align:center;line-height:1.5">방송관리 <b>컬러</b> 칸을<br>채우면 여기에 나옵니다</div>';
+      }else{
+        all.forEach(function(c){
+          var q=qmap[c];
+          h+='<div style="display:flex;align-items:center;gap:4px">'
+            +'<span style="flex:1;min-width:0;font-size:11.5px;color:#334155;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+_escX(c)+'">'+_esc(c)+'</span>'
+            +'<input type="text" inputmode="numeric" value="'+_escX(q==null?"":String(q))+'" placeholder="수량"'
+            +' onblur="hsPreQtySet('+i+',\''+f.qtyKey+'\',this.dataset.color,this.value)" data-color="'+_escX(c)+'"'
+            +' onkeydown="if(event.key===\'Enter\'){this.blur();}"'
+            +' style="flex:none;width:58px;border:1px solid #cbd5e1;border-radius:7px;padding:4px 5px;font-size:12px;text-align:right;color:#1f2937;background:#fff">'
+            +'</div>';
+        });
+      }
       h+='</div>';
     });
-    HS_PRE_TASKS.forEach(function(t){
+HS_PRE_TASKS.forEach(function(t){
       var on=!!row[t.key];
       var dateKey=t.key+"Date";
       h+='<div style="flex:1;min-width:110px;display:flex;flex-direction:column;gap:4px">';
