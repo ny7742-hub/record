@@ -12900,7 +12900,7 @@ function hsPreAddFromBroadcast(i){
   var row=homeshoppingDB[i];if(!row)return;
   var nm=String(row.name||"").trim();
   if(!nm){alert("상품명을 먼저 입력해주세요.\n왼쪽 상품명 칸을 클릭하고 바로 입력하면 됩니다.");return;}
-  hsPreDB.push({name:nm,date:"",time:"",orderDate:"",dueDate:"",marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
+  hsPreDB.push({name:nm,date:"",time:"",orderDate:"",orderQty:[],dueDate:"",stockQty:[],marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
   saveHsPre();renderHsPre();
   var w=document.getElementById("hsPreTableWrap");if(w)w.scrollIntoView({behavior:"smooth",block:"end"});
   var msg=document.getElementById("hsMsg");
@@ -13072,11 +13072,35 @@ function renderHomeshopping(){
    사전미팅 일정 바로 뒤에 **상품발주일자 · 납기일정**을 둔다(2026-09-23 영업2팀).
    이 둘은 토글이 아니라 날짜만 적는 칸이라 `HS_PRE_TASKS`와 따로 그린다(`HS_PRE_DATES`). */
 var hsPreDB=(function(){try{var d=JSON.parse(localStorage.getItem("hsPreDB")||"[]");return Array.isArray(d)?d:[];}catch(e){return [];}})();
-/* 사전미팅 뒤에 바로 오는 날짜 칸 — 토글 없이 날짜만 적는다 */
+/* 사전미팅 뒤에 바로 오는 칸 — 날짜 하나와 그 뒤에 붙는 **컬러별 수량** 한 쌍씩 (2026-09-23 영업2팀).
+   상품발주일자 뒤에는 컬러별 발주수량, 납기일정 뒤에는 컬러별 재고가 온다. */
 var HS_PRE_DATES=[
-  {key:"orderDate",label:"상품발주일자"},
-  {key:"dueDate",label:"납기일정"}
+  {key:"orderDate",label:"상품발주일자",qtyKey:"orderQty",qtyLabel:"컬러별 발주수량"},
+  {key:"dueDate",label:"납기일정",qtyKey:"stockQty",qtyLabel:"컬러별 재고"}
 ];
+/* 컬러별 수량은 [{c:"블랙",q:100}, …]로 담는다. 화면에서는 한 줄에 `색상 수량`으로 적고 읽는다. */
+function _hsPreQtyList(v){return Array.isArray(v)?v:[];}
+function _hsPreQtySum(v){var n=0;_hsPreQtyList(v).forEach(function(x){n+=Number(x.q)||0;});return n;}
+function _hsPreQtyText(v){
+  return _hsPreQtyList(v).map(function(x){return (x.c||"")+" "+(x.q==null?"":x.q);}).join("\n");
+}
+function _hsPreQtyParse(t){
+  var out=[];
+  String(t==null?"":t).split(/\r?\n/).forEach(function(line){
+    var v=line.trim();if(!v)return;
+    var m=v.match(/^(.*?)[\s,]+(-?[0-9,]+)$/);
+    if(m)out.push({c:m[1].trim(),q:Number(String(m[2]).replace(/,/g,""))||0});
+    else out.push({c:v,q:0});          /* 수량을 안 적었으면 색만 남긴다 */
+  });
+  return out;
+}
+function hsPreEditQty(i,key,label){
+  var r=hsPreDB[i];if(!r)return;
+  var v=prompt(label+" — 한 줄에 `색상 수량`으로 적어 주세요.\n예) 블랙 100\n     화이트 50",_hsPreQtyText(r[key]));
+  if(v===null)return;
+  r[key]=_hsPreQtyParse(v);
+  saveHsPre();renderHsPre();
+}
 var HS_PRE_TASKS=[
   {key:"sample",label:"방송샘플요청",dateLabel:"요청일자"},
   {key:"marketing",label:"마케팅 요청",dateLabel:"요청일자"},
@@ -13092,7 +13116,7 @@ function hsPreEdit(i,key,val){
 }
 function saveHsPre(){wsSetItem("hsPreDB",JSON.stringify(hsPreDB));}
 function hsPreAddRow(){
-  hsPreDB.push({name:"",date:"",time:"",orderDate:"",dueDate:"",marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
+  hsPreDB.push({name:"",date:"",time:"",orderDate:"",orderQty:[],dueDate:"",stockQty:[],marketing:false,lowprice:false,review:false,juhee:false,sample:false,salesShare:false});
   saveHsPre();renderHsPre();
   var w=document.getElementById("hsPreTableWrap");if(w)w.scrollTop=w.scrollHeight;
 }
@@ -13163,6 +13187,15 @@ function renderHsPre(){
       h+='<div style="display:flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:10px;border:1px solid #cfe0e5;background:'+(v?"#eef7f0":"#eef4f6")+';color:'+(v?"#15803d":"#1b6e82")+';font-size:13px;font-weight:700;white-space:nowrap">'+(v?"✅ ":"")+f.label+'</div>';
       h+='<input type="date" value="'+_escX(v)+'" onchange="hsPreEdit('+i+',\''+f.key+'\',this.value);renderHsPre()" title="'+f.label+'"'
         +' style="border:1px solid #cbd5e1;border-radius:8px;padding:5px 6px;font-size:12px;text-align:center;color:#1f2937;background:#fff">';
+      h+='</div>';
+      /* 날짜 바로 뒤 — 컬러별 수량 */
+      var ql=_hsPreQtyList(row[f.qtyKey]),qs=_hsPreQtySum(row[f.qtyKey]);
+      h+='<div style="flex:1.2;min-width:132px;display:flex;flex-direction:column;gap:4px">';
+      h+='<button onclick="hsPreEditQty('+i+',\''+f.qtyKey+'\',\''+f.qtyLabel+'\')" title="한 줄에 색상 수량"'
+        +' style="display:flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:10px;border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;background:'+(ql.length?"#16a34a":"#7c3aed")+'">'
+        +(ql.length?"✅ ":"")+f.qtyLabel+(ql.length?" "+qs.toLocaleString():"")+'</button>';
+      h+='<div style="font-size:11px;color:#334155;line-height:1.5;text-align:center;word-break:keep-all">'
+        +(ql.length?ql.map(function(x){return _esc(x.c)+" <b>"+(Number(x.q)||0).toLocaleString()+"</b>";}).join(" · "):'<span style="color:#5b6675">눌러서 입력</span>')+'</div>';
       h+='</div>';
     });
     HS_PRE_TASKS.forEach(function(t){
