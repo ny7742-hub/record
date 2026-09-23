@@ -42,8 +42,13 @@
   **상품코드리스트도 Playwright로 받는다**(2026-09-23) — 메뉴 이름 `상품코드리스트`로 링크를 찾아(화면 주소를 몰라 이름으로 찾고,
   찾은 주소를 로그에 남긴다) `검색조건 → 설정 → 확인 → 조회 → 엑셀`. 홈 카드 `🏷️ 상품코드리스트`(`#auProdIn` → `processFile`)에 넣으면
   `processFile`이 형식 검증(자사코드·칼라 묶임) 후 저장하고 `uploadLog.prod`(n·fixed·file)를 남긴다. 헤더 업로드 창에서 올려도 같은 기록이 남는다.
-  실행은 **Windows 작업 스케줄러**(`PlayMD-Jarvis-Daily`, 평일 8:30, `register-schedule.cmd`로 등록) → `run-daily.cmd`
-  (실패하면 20분 뒤 한 번 더) · 로그는 `automation\logs\YYYY-MM-DD.log`.
+  실행은 `register-schedule.cmd` → `setup-schedule.ps1`이 한 번에 설치한다(2026-09-23, **회사 PC라 매일 끈다**):
+  ① 작업 스케줄러 `PlayMD-Jarvis-Daily` 평일 8:30 + `StartWhenAvailable`(꺼져 있어 놓치면 켤 때 바로)
+  ② 시작프로그램 바로가기 → `run-daily.cmd startup`(로그인 1분 뒤) ③ `playmdrun:` 주소(HKCU) → `run-now.cmd` —
+  자비스 홈 `▶ 지금 PlayMD 받아오기`(`#auRunNow`)가 이 주소를 연다. 설치 안 한 PC에서는 아무 반응 없음 ④ 바탕화면 `PlayMD 지금 받기`.
+  자동 실행은 `--if-needed`로 돈다 — 주말이거나 `logs/done-YYYY-MM-DD`(4가지 다 올린 날)가 있으면 바로 끝나고,
+  `logs/running.lock`(30분)으로 겹침을 막는다. 그래서 8:30·로그인·보충이 겹쳐도 하루 한 번. 실패하면 20분 뒤 한 번 더.
+  로그는 `automation\logs\YYYY-MM-DD.log`, 멈추면 `fail-시각.png`. 홈 경고(`오늘 자동 업로드 안 됨`)는 **10시** 이후에 띄운다.
   스크립트가 지키는 것(고치지 말 것): **화면 하나마다 브라우저를 새로 띄운다**(한 브라우저에서 엑셀을 두 번 받으면
   두 번째 화면의 확인창이 아예 안 뜬다) · 메뉴는 이름이 아니라 **화면 주소**(`xsal7500q`·`xsal7600q`·`xagt5000q`)로 찾는다 ·
   조회 완료는 '조회하고 있습니다'가 사라진 것만 보지 않고 **표에 줄이 찰 때까지** 기다린다.
