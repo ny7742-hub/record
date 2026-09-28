@@ -14497,6 +14497,7 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"듀리에", code:"687979", price:21990, colors:["베이지","블랙"]},
     {name:"바르셀", code:"691716", price:25990, colors:["베이지","블랙","그레이"]},
     {name:"바르셀 직매입", code:"691716", price:20656, colors:["베이지","블랙","그레이"]},
+    {name:"장우산 850", code:"696151", price:18990, colors:["딥그린","블랙"]},
     {name:"장우산 850 직매입", code:"696151", price:14608, colors:["딥그린","블랙"]}
   ],
   salePeriods:[],
@@ -14555,7 +14556,8 @@ var _defaultNewProds=[
   /* 바르셀 — 온라인몰 판매(판매가)와 직매입(매입가)을 따로 집계한다 */
   {name:"바르셀",code:"691716",price:25990,colors:["베이지","블랙","그레이"]},
   {name:"바르셀 직매입",code:"691716",price:20656,colors:["베이지","블랙","그레이"]},
-  /* 장우산 850 — 매입가만 확인되어 직매입으로만 등록 */
+  /* 장우산 850 — 바르셀처럼 온라인몰 판매(판매가 18,990원)와 직매입(매입가)을 따로 집계한다 (2026-09-29 판매 행 추가) */
+  {name:"장우산 850",code:"696151",price:18990,colors:["딥그린","블랙"]},
   {name:"장우산 850 직매입",code:"696151",price:14608,colors:["딥그린","블랙"]}
 ];
 _defaultNewProds.forEach(function(np){
@@ -14581,7 +14583,8 @@ var CC_PRODUCT_URLS={
   "세팔로":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/694100",
   "루시아":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Umbreall/p/693954",
   "듀리에":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/Whitesands-Hat-Dewlieh/p/687979",
-  "바르셀":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/White-Sands-Wool-Hat/p/691716"
+  "바르셀":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/HatMufflers/White-Sands-Wool-Hat/p/691716",
+  "장우산 850":"https://www.costco.co.kr/ClothingBagsAccessories/Basics/Fashion-Accessories/White-Sands-Long-Umbrella/p/696151"
 };
 function ccApplyDataFixes(db){
   var ch=false;
@@ -14625,6 +14628,17 @@ function ccApplyDataFixes(db){
     var p=db.products.find(function(x){return x.name===nm;});
     if(p&&p.price!==25990){p.price=25990;ch=true;}
   });
+  /* 장우산 850: 판매가 18990원으로 강제 보정 ("장우산 850 직매입"은 매입가라 이름이 정확히 같은 행만 대상) */
+  var jw=db.products.find(function(x){return x.name==="장우산 850";});
+  if(jw&&jw.price!==18990){jw.price=18990;ch=true;}
+  /* 장우산 850 쿠폰 4,000원 할인(9/21~10/4): 18990-4000=14990원 — 코스트코 상품 API 기준. 없으면 추가, 있으면 세일가 보정 */
+  (function(){
+    var sp=db.salePeriods.find(function(x){return x.start==="2026-09-21"&&x.end==="2026-10-04";});
+    if(!sp){db.salePeriods.push({start:"2026-09-21",end:"2026-10-04",items:{"장우산 850":14990}});
+      db.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});ch=true;return;}
+    if(!sp.items)sp.items={};
+    if(sp.items["장우산 850"]!==14990){sp.items["장우산 850"]=14990;ch=true;}
+  })();
   /* 장우산 3종(포시타/세팔로/루시아): 없으면 추가, 있으면 코드/가격/색상 강제 보정 (코스트코 판매가 19990원) */
   [
     {name:"포시타",code:"694099",price:19990,colors:["블랙","세이지그린"]},
@@ -15208,7 +15222,7 @@ function _ccDirectBuyName(prodName){
 }
 /* 판매일보에 영문 등 다른 표기로 들어오는 상품명 → 앱 상품명 */
 var CC_RAW_NAME_MAP=[
-  {test:/850\s*UV\s*Protection\s*Parasol/i, name:"장우산 850 직매입"}
+  {test:/850\s*UV\s*Protection\s*Parasol/i, name:"장우산 850"}
 ];
 function ccMatchProd(v){
   var _raw=String(v||"");
@@ -19231,7 +19245,7 @@ function _ccProdHasAnySales(prod){
    바이어(D26/D31)와 직매입으로 나눠 보고, 묶음 사이에 머리줄을 넣는다.
    여기 없는 상품은 '기타'로 표 맨 뒤에 붙는다 — 새 상품이 조용히 사라지지 않게. */
 var CC_PROD_GROUPS=[
-  {label:"D26",   names:["아다나","린다우","메르신","우양산 2종","포시타","세팔로","루시아"]},
+  {label:"D26",   names:["아다나","린다우","메르신","우양산 2종","포시타","세팔로","루시아","장우산 850"]},
   {label:"D31",   names:["루시","크리스티","로슬라","소니아","케디리","일리안","듀리에","바르셀",
                          "오비크","헬로나","아르고","아말리"]},
   {label:"직매입", names:["바르셀 직매입","장우산 850 직매입"]}
