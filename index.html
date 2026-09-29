@@ -1044,6 +1044,7 @@ label{font-size:14px!important}
       <button onclick="dsFillPlaymd()" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700" title="이 달 매장판매일보에서 매장코드가 같은 매장을 찾아 PLAY MD 칸을 채웁니다">📥 판매일보 → PLAY MD</button>
       <datalist id="dsCodeList"></datalist>
       <span id="dsMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
+      <span id="dsEdiInfo" style="font-size:11px;color:#1b6e82;font-weight:600"></span>
       <span style="margin-left:auto;font-size:11px;color:#5b6675">EDI·PLAY MD는 금액, 수량은 개수 · 셀 클릭 후 입력</span>
     </div>
   </div>
@@ -8768,6 +8769,57 @@ function _dsAutoPlaymd(){
   }
   return n;
 }
+/* ── 백화점 협력사 포탈 → EDI·수량 칸 자동 입력 (2026-09-29 영업2팀) ──
+   automation 폴더의 `edi-daily.mjs`가 포탈에서 지점별 하루 매출을 읽어 이 함수를 부른다
+   (롯데: 파트너포탈 납품/매출관리 > 판매정보 > 기간별 매출을 하루씩 조회 — 9/1·9/9·9/22 EDI와 원 단위까지 같았다).
+   days = {"2026-09-01":{"LJS":{amt:543900,qty:7}, …}} (매장코드로 준다) · codes = 그 포탈이 맡는 매장코드 전부.
+   **포탈 값이 정본**이라 EDI·수량 칸을 덮어쓴다(영업2팀 선택: 평일 아침 당월 1일~어제를 매번 다시).
+   그날 포탈에 없는(매출 0) 매장은 칸을 비운다. 일별매출에 없는 매장코드는 건너뛰고 skipped로 돌려준다. */
+function dsApplyEdi(src,days,codes,dry){
+  var changed=0,filled=0,cleared=0,skipped={},diffs=[];
+  Object.keys(days||{}).forEach(function(ymd){
+    var mk=ymd.slice(0,7),day=String(+ymd.slice(8,10));
+    var byCode={};
+    (dsStores(mk)||[]).forEach(function(st){var c=_dsStoreCode(st);if(c)byCode[c]=st.name;});
+    var got=days[ymd]||{};
+    Object.keys(got).forEach(function(c){if(!byCode[c]&&(got[c].amt||got[c].qty))skipped[c]=(skipped[c]||0)+1;});
+    (codes||[]).forEach(function(c){
+      var nm=byCode[c];if(!nm)return;
+      var v=got[c],amt=v?Math.round(v.amt||0):0,qty=v?Math.round(v.qty||0):0;
+      var nv=(amt||qty)?String(amt):"",nq=(amt||qty)?String(qty):"";
+      var cur=((dailySalesDB.data[mk]||{})[day]||{})[nm]||{};
+      var ov=cur.edi==null?"":String(cur.edi),oq=cur.ediQ==null?"":String(cur.ediQ);
+      if(ov===nv&&oq===nq)return;
+      if(nv==="")cleared++;else filled++;
+      changed++;
+      if(diffs.length<300)diffs.push([ymd,nm,ov,nv,oq,nq]);
+      if(dry)return;                                   /* 미리보기 — 바꾸지 않고 다른 칸만 돌려준다 */
+      if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
+      if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
+      var cell=dailySalesDB.data[mk][day][nm]||(dailySalesDB.data[mk][day][nm]={});
+      cell.edi=nv;cell.ediQ=nq;
+    });
+  });
+  if(dry)return {changed:changed,filled:filled,cleared:cleared,skipped:skipped,diffs:diffs};
+  var ks=Object.keys(days||{}).sort();
+  if(!dailySalesDB.ediAuto)dailySalesDB.ediAuto={};
+  dailySalesDB.ediAuto[src]={at:new Date().toISOString(),from:ks[0]||"",to:ks[ks.length-1]||"",changed:changed};
+  saveDaily();
+  try{var pg=document.getElementById("page-daily");if(pg&&pg.style.display!=="none")renderDaily();else _dsEdiInfo();}catch(e){}
+  try{renderHomeAll(new Date());}catch(e){}
+  return {changed:changed,filled:filled,cleared:cleared,skipped:skipped,diffs:diffs};
+}
+/* 머리줄에 마지막 자동 입력 시각 — `EDI 자동: 롯데 9/29 08:41 (9/1~9/28)` */
+function _dsEdiInfo(){
+  var el=document.getElementById("dsEdiInfo");if(!el)return;
+  var a=dailySalesDB.ediAuto||{},nm={lotte:"롯데",hyundai:"현대"},parts=[];
+  Object.keys(a).forEach(function(k){
+    var r=a[k]||{},d=new Date(r.at);if(isNaN(d))return;
+    var md=function(s){return s?(+s.slice(5,7))+"/"+(+s.slice(8,10)):"";};
+    parts.push((nm[k]||k)+" "+(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+" ("+md(r.from)+"~"+md(r.to)+")");
+  });
+  el.textContent=parts.length?"🔄 EDI 자동: "+parts.join(" · "):"";
+}
 function dsFillPlaymd(){
   var mk=dsKey(),by=_dsSalesByCode(mk);
   if(!by){
@@ -9391,6 +9443,7 @@ function dsWriteImport(byMonth,storeName,count){
   if(msg){msg.textContent="✔ "+storeName+" "+count+"일 반영 (PLAY MD 유지)";setTimeout(function(){msg.textContent="";},4000);}
 }
 function renderDaily(){
+  try{_dsEdiInfo();}catch(e){}
   dsSyncOrderFromDept();
   dsFillSelectors();
   var wrap=document.getElementById("dailyTableWrap");if(!wrap)return;
