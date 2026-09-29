@@ -1280,6 +1280,28 @@ label{font-size:14px!important}
       <button class="bs" style="font-size:11px;padding:5px 12px" onclick="ccoResetAll()" title="등록된 주문 내역을 모두 지우고 처음 상태로">🗑 초기화</button>
     </div>
 
+    <!-- 자동 매출등록 — OneDrive 판매자료 → 아래 1~3단계와 같은 변환 → 플레이엠디 저장 (2026-09-29 영업2팀).
+         버튼은 playmdhs: 주소로 자동화 PC의 run-hs-saip.cmd를 연다. 결과는 ws/hsSaipStatus · ws/dsSaipStatus -->
+    <div id="saipAutoBox" style="border:1px solid #9fd3dc;border-radius:10px;background:#f0fafb;padding:10px 12px;margin:8px 0 10px">
+      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <b style="color:#154f5e;font-size:14px">🤖 자동 매출등록</b>
+        <span style="font-size:12px;color:#5b6675">OneDrive 판매자료에서 그 날짜 파일을 받아 아래 1~3단계와 같은 규칙으로 바꾼 뒤, 플레이엠디 [EX]사입매장출고반품등록(작업구분 사입출고 · 시트명 사입출고양식)에 저장까지 합니다.</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <label for="saipAutoDate" style="font-size:13px;font-weight:700;color:#334155">등록 날짜</label>
+        <input type="date" id="saipAutoDate" onchange="renderSaipAuto()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+        <span id="saipAutoFolder" style="font-size:12px;color:#5b6675"></span>
+        <button class="bs" id="saipAutoHs" onclick="saipAutoGo('hs')" style="font-size:13px;font-weight:700;padding:6px 14px;background:#1b6e82;color:#fff;border-color:#1b6e82">🛍 홈쇼핑 매출등록</button>
+        <button class="bs" id="saipAutoDs" onclick="saipAutoGo('ds')" style="font-size:13px;font-weight:700;padding:6px 14px;background:#1b6e82;color:#fff;border-color:#1b6e82">🏬 백화점몰 매출등록</button>
+      </div>
+      <div id="saipAutoStatus" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:8px;margin-top:8px"></div>
+      <div style="font-size:11px;color:#5b6675;margin-top:6px;line-height:1.6">
+        · 자동화 PC(PlayMD 자동 업로드를 설치한 PC)에서만 동작합니다. 1~3분 걸리고 끝나면 여기에 결과가 나옵니다.<br>
+        · <b>저장하지 않고 멈추는 경우</b> — 코드 매칭이 안 된 줄이 있을 때 · 출고일자가 폴더 날짜와 다를 때 · 플레이엠디에 그날 같은 매장·상품 출고가 이미 있을 때 · 플레이엠디 에러리스트가 나올 때.
+        저장한 뒤에는 매장출고반품현황을 다시 조회해 수량·금액이 맞는지 확인합니다.
+      </div>
+    </div>
+
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
       <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
         <div style="background:#1b6e82;color:#fff;font-size:15px;font-weight:700;text-align:center;padding:10px 6px;border-radius:6px;line-height:1.35">1단계<br>주문내역 등록</div>
@@ -1292,7 +1314,7 @@ label{font-size:14px!important}
           </div>
         </div>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5">
-          코스트코·홈쇼핑 주문내역을<br>붙여넣거나 엑셀로 올리세요
+          원드라이브 판매자료를<br>붙여넣거나 엑셀로 올리세요
           <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">쇼핑몰·상품명·수량·결제금액만 읽습니다<br>(수령인·연락처·주소는 저장하지 않음)</div>
         </div>
       </div>
@@ -2164,6 +2186,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus",   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
@@ -2652,6 +2675,15 @@ function fbListen(){
   apply("ws/allSales","allSalesDB",
     function(d){if(d&&typeof d==="object")allSalesDB=d;},
     function(){var pg=document.getElementById("page-home");if(pg&&pg.style.display!=="none"&&typeof renderHomeAll==="function")renderHomeAll(new Date());}
+  );
+  /* 사입출고 자동 매출등록 결과 (자동화 PC → 팀 공유) */
+  apply("ws/hsSaipStatus","hsSaipStatus",
+    function(d){if(d&&typeof d==="object")hsSaipStatus=d;},
+    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
+  );
+  apply("ws/dsSaipStatus","dsSaipStatus",
+    function(d){if(d&&typeof d==="object")dsSaipStatus=d;},
+    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
   );
   /* 홈 자동 업로드 기록 (팀 공유) */
   apply("ws/uploadLog","uploadLog",
@@ -7038,7 +7070,7 @@ function switchTab(tab){
   if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="daily") renderDaily();
   if(tab==="costco"){ renderCostcoPage(); ccDropZoneInit(); }
-  if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); ccoDropZoneInit(); }
+  if(tab==="ccorder"){ renderCcoTable(); renderHsCodeMatchStatus(); ccoDropZoneInit(); renderSaipAuto(); }
   if(tab==="hsreturn"){ _hsrReapplyMatches(); renderHsrTable(); }
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); ccPdfPairDropZoneInit(); }
   if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
@@ -16593,6 +16625,89 @@ function ccoDownload(){
   var todayStr=now2.getFullYear()+"-"+String(now2.getMonth()+1).padStart(2,"0")+"-"+String(now2.getDate()).padStart(2,"0");
   XLSX.writeFile(wb,"사입출고양식_"+todayStr+".xlsx");
 }
+
+/* ── 자동 매출등록 (홈쇼핑 · 백화점몰) ──────────────────────────────
+   버튼 → playmdhs:save/<hs|ds>/<MMDD> → 자동화 PC의 run-hs-saip.cmd → playmd-hs-saip.mjs --save --kind --date.
+   PC가 OneDrive 「판매자료」/MMDD 폴더의 `MMDD 홈쇼핑.xlsx`·`MMDD 백화점몰.xlsx`를 받아 이 탭 1~3단계와 같은 규칙으로 바꾸고
+   플레이엠디 [EX]사입매장출고반품등록에 저장한 뒤, 결과를 ws/hsSaipStatus · ws/dsSaipStatus에 남긴다(여기 그 결과를 그린다). */
+var hsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("hsSaipStatus")||"null");}catch(e){return null;}})();
+var dsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("dsSaipStatus")||"null");}catch(e){return null;}})();
+var _saipAutoPending={};                        /* 이 브라우저에서 누른 요청 — {hs:{at,mmdd}} (결과가 오면 지운다) */
+var SAIP_KINDS={hs:{label:"홈쇼핑",icon:"🛍"},ds:{label:"백화점몰",icon:"🏬"}};
+/* 기본 날짜 = 전 영업일(월요일이면 지난 금요일) */
+function _saipPrevBizDay(){
+  var d=new Date();
+  do{d.setDate(d.getDate()-1);}while(d.getDay()===0||d.getDay()===6);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function _saipFmtAt(iso){
+  var d=new Date(iso);if(isNaN(d))return "";
+  return (d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+function saipAutoGo(kind){
+  var el=document.getElementById("saipAutoDate");
+  var v=el&&el.value;
+  if(!v){alert("등록 날짜를 골라 주세요.");return;}
+  var mmdd=v.slice(5,7)+v.slice(8,10);
+  var K=SAIP_KINDS[kind];
+  var msg=K.label+" "+(+v.slice(5,7))+"/"+(+v.slice(8,10))+" 매출을 플레이엠디에 저장합니다.\n\n"
+    +"OneDrive 판매자료의 '"+mmdd+" "+K.label+".xlsx'를 받아 사입출고양식으로 바꾼 뒤\n"
+    +"[EX]사입매장출고반품등록에 저장까지 합니다. 저장하면 되돌리기 어렵습니다.\n\n"
+    +"코드 매칭이 안 된 줄이 있거나, 그날 같은 매장·상품 출고가 플레이엠디에 이미 있으면 저장하지 않고 멈춥니다.\n\n"
+    +"진행할까요?";
+  if(!confirm(msg))return;
+  _saipAutoPending[kind]={at:Date.now(),mmdd:mmdd};
+  renderSaipAuto();
+  location.href="playmdhs:save/"+kind+"/"+mmdd;
+}
+var SAIP_ITEM_TXT={
+  saved:["✅","저장 완료 · 확인됨","#15803d"],savecheck:["⚠️","저장했지만 확인 필요 — 플레이엠디 매장출고반품현황을 봐 주세요","#b45309"],
+  already:["⛔","플레이엠디에 이미 있어 저장 안 함","#b45309"],unmatched:["⛔","코드 매칭 안 된 줄이 있어 저장 안 함","#b91c1c"],
+  datemismatch:["⛔","출고일자가 폴더 날짜와 달라 저장 안 함","#b91c1c"],error:["❗","오류로 멈춤","#b91c1c"],
+  nofile:["📭","파일 없음","#5b6675"],preview:["🔍","미리보기(저장 안 함)","#1d4ed8"]
+};
+function _saipCard(kind){
+  var K=SAIP_KINDS[kind],S=kind==="ds"?dsSaipStatus:hsSaipStatus,P=_saipAutoPending[kind];
+  var h='<div style="border:1px solid #cfe0e5;border-radius:8px;background:#fff;padding:8px 10px;font-size:12px;line-height:1.6">';
+  h+='<div style="font-weight:800;color:#154f5e;margin-bottom:2px">'+K.icon+' '+K.label+' 매출등록</div>';
+  var sAt=S&&S.at?new Date(S.at).getTime():0;
+  if(P&&sAt<P.at){
+    var mins=(Date.now()-P.at)/60000;
+    if(mins<6)h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+P.mmdd+' — 자동화 PC에서 실행 중… (1~3분, 끝나면 여기에 결과가 나옵니다)</div>';
+    else h+='<div style="color:#b91c1c;font-weight:700">⚠️ '+P.mmdd+' — 6분이 지나도 결과가 없습니다. 자동화 PC가 켜져 있고 자동 등록이 설치돼 있는지, 실행 창에 오류가 없는지 확인해 주세요.</div>';
+  }
+  if(!S){h+='<div style="color:#5b6675">아직 실행 기록이 없습니다.</div></div>';return h;}
+  h+='<div style="color:#5b6675">마지막 실행 '+_escX(_saipFmtAt(S.at))+' · '+(S.mode==="save"?"저장":"미리보기")+(S.date?' · '+_escX(S.date):'')+'</div>';
+  if(S.error)h+='<div style="color:#b91c1c;font-weight:700">❗ '+_escX(S.error)+'</div>';
+  if(S.note)h+='<div style="color:#b45309;font-weight:700">ℹ️ '+_escX(S.note)+'</div>';
+  (S.items||[]).forEach(function(it){
+    var t=SAIP_ITEM_TXT[it.status]||["•",it.status||"",""];
+    h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">';
+    h+='<b>'+_escX(it.mmdd)+'</b> <span style="color:'+t[2]+';font-weight:700">'+t[0]+' '+t[1]+'</span>';
+    if(it.rows)h+=' <span style="color:#334155">· '+it.rows.length+'줄 · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</span>';
+    if(it.slips&&it.slips.length)h+=' <span style="color:#5b6675">· 전표 '+_escX(it.slips.join(", "))+'</span>';
+    if(it.bad&&it.bad.length)h+='<div style="color:#b91c1c">'+it.bad.map(_escX).join("<br>")+'<br><span style="color:#5b6675">→ 아래 홈쇼핑 코드매칭표에 추가한 뒤 다시 누르세요</span></div>';
+    if(it.error&&it.status!=="unmatched")h+='<div style="color:#b91c1c">'+_escX(it.error)+'</div>';
+    if(it.verify&&it.status==="savecheck")h+='<div style="color:#b45309">'+_escX(it.verify)+'</div>';
+    h+='</div>';
+  });
+  if(!(S.items||[]).length&&!S.note&&!S.error)h+='<div style="color:#5b6675">처리할 날짜가 없었습니다.</div>';
+  return h+'</div>';
+}
+function renderSaipAuto(){
+  var box=document.getElementById("saipAutoStatus");if(!box)return;
+  var el=document.getElementById("saipAutoDate");
+  if(el&&!el.value)el.value=_saipPrevBizDay();
+  var fo=document.getElementById("saipAutoFolder");
+  if(fo&&el&&el.value)fo.textContent="OneDrive 폴더 "+el.value.slice(5,7)+el.value.slice(8,10);
+  /* 결과가 도착했으면 '실행 중' 표시를 지운다 */
+  ["hs","ds"].forEach(function(k){
+    var S=k==="ds"?dsSaipStatus:hsSaipStatus,P=_saipAutoPending[k];
+    if(P&&S&&S.at&&new Date(S.at).getTime()>=P.at)delete _saipAutoPending[k];
+  });
+  box.innerHTML=_saipCard("hs")+_saipCard("ds");
+}
+setInterval(function(){if(Object.keys(_saipAutoPending).length)renderSaipAuto();},30000);
 
 /* ── 코스트코 PDF 주문서 업로드 — 어드민에서 다운받은 주문서 PDF를 파싱해
    '화이트샌즈 CX 통합관리' 발주서 양식으로 바로 변환. 받는분·연락처·주소는
