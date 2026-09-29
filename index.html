@@ -8777,8 +8777,10 @@ function _dsAutoPlaymd(){
 /* ── 백화점 협력사 포탈 → EDI·수량 칸 자동 입력 (2026-09-29 영업2팀) ──
    automation 폴더의 `edi-daily.mjs`가 포탈에서 지점별 하루 매출을 읽어 이 함수를 부른다
    (롯데: 파트너포탈 납품/매출관리 > 판매정보 > 기간별 매출을 하루씩 조회 — 9/1·9/9·9/22 EDI와 원 단위까지 같았다).
-   days = {"2026-09-01":{"LJS":{amt:543900,qty:7}, …}} (매장코드로 준다) · codes = 그 포탈이 맡는 매장코드 전부.
-   **포탈 값이 정본**이라 EDI·수량 칸을 덮어쓴다(영업2팀 선택: 평일 아침 당월 1일~어제를 매번 다시).
+   days = {"2026-09-01":{"LJS":{amt,qty,dept,qDept,online,qOnline}, …}} (매장코드로 준다) · codes = 그 포탈이 맡는 매장코드 전부.
+   **백화점·수량·온라인·수량·EDI·수량 여섯 칸을 같이** 넣는다(2026-09-29 영업2팀 — EDI만으로는 안 된다).
+   금액·수량이 둘 다 0인 칸은 비운다(예전부터 손으로 적을 때도 없는 날은 비워 뒀다).
+   **포탈 값이 정본**이라 덮어쓴다(영업2팀 선택: 평일 아침 당월 1일~어제를 매번 다시).
    그날 포탈에 없는(매출 0) 매장은 칸을 비운다. 일별매출에 없는 매장코드는 건너뛰고 skipped로 돌려준다. */
 function dsApplyEdi(src,days,codes,dry){
   var changed=0,filled=0,cleared=0,skipped={},diffs=[];
@@ -8790,19 +8792,23 @@ function dsApplyEdi(src,days,codes,dry){
     Object.keys(got).forEach(function(c){if(!byCode[c]&&(got[c].amt||got[c].qty))skipped[c]=(skipped[c]||0)+1;});
     (codes||[]).forEach(function(c){
       var nm=byCode[c];if(!nm)return;
-      var v=got[c],amt=v?Math.round(v.amt||0):0,qty=v?Math.round(v.qty||0):0;
-      var nv=(amt||qty)?String(amt):"",nq=(amt||qty)?String(qty):"";
+      var v=got[c]||{};
       var cur=((dailySalesDB.data[mk]||{})[day]||{})[nm]||{};
-      var ov=cur.edi==null?"":String(cur.edi),oq=cur.ediQ==null?"":String(cur.ediQ);
-      if(ov===nv&&oq===nq)return;
-      if(nv==="")cleared++;else filled++;
-      changed++;
-      if(diffs.length<300)diffs.push([ymd,nm,ov,nv,oq,nq]);
-      if(dry)return;                                   /* 미리보기 — 바꾸지 않고 다른 칸만 돌려준다 */
-      if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
-      if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
-      var cell=dailySalesDB.data[mk][day][nm]||(dailySalesDB.data[mk][day][nm]={});
-      cell.edi=nv;cell.ediQ=nq;
+      /* [칸, 수량칸, 금액 키, 수량 키] */
+      [["dept","deptQ","dept","qDept"],["online","onlineQ","online","qOnline"],["edi","ediQ","amt","qty"]].forEach(function(f){
+        var a=Math.round(Number(v[f[2]])||0),q=Math.round(Number(v[f[3]])||0);
+        var nv=(a||q)?String(a):"",nq=(a||q)?String(q):"";
+        var ov=cur[f[0]]==null?"":String(cur[f[0]]),oq=cur[f[1]]==null?"":String(cur[f[1]]);
+        if(ov===nv&&oq===nq)return;
+        if(nv==="")cleared++;else filled++;
+        changed++;
+        if(diffs.length<300)diffs.push([ymd,nm+" "+f[0],ov,nv,oq,nq]);
+        if(dry)return;                                 /* 미리보기 — 바꾸지 않고 다른 칸만 돌려준다 */
+        if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
+        if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
+        var cell=dailySalesDB.data[mk][day][nm]||(dailySalesDB.data[mk][day][nm]={});
+        cell[f[0]]=nv;cell[f[1]]=nq;cur=cell;
+      });
     });
   });
   if(dry)return {changed:changed,filled:filled,cleared:cleared,skipped:skipped,diffs:diffs};
