@@ -21,6 +21,12 @@
   `wsSetItem`도 `_authState`가 `member`(또는 설정 전 `open`)일 때만 Firebase에 쓴다.
 - 사용 중 삭제되면 `FB_PATH`에 해당하는 localStorage 팀 자료를 지우고 새로고침한다.
 - 로컬(localhost)은 게이트 없이 열리고, `?gate=1`로 확인할 수 있다(로그인 화면의 `로컬 개발: 로그인 없이 계속`).
+- **자동화(Playwright)도 로그인해야 한다**(2026-09-29): 승인제가 켜지면 로그인 안 한 브라우저는 `wsSetItem`이 팀 공유에 쓰지 않아
+  아침 PlayMD 업로드(`playmd-daily.mjs`)·사입출고 자동등록(`playmd-hs-saip.mjs`)이 **조용히 반영 안 된다**.
+  `C:\영업2팀\automation\jarvis-login.mjs`로 승인된 이메일로 한 번 로그인해 두면 `jarvis-state.json`(Firebase 로그인이 IndexedDB라 `indexedDB:true`로 저장)을
+  `jarvis-auth.mjs`의 `jarvisCtx`가 새 브라우저마다 불러오고, `jarvisReady`가 `_authState`가 `member`/`open`이 아니면 "자비스 로그인이 필요합니다"로 멈춘다.
+  파일이 없으면 예전처럼 로그인 없이 연다(승인제 켜기 전에는 그대로 돈다). **③ 첫 관리자 등록 직후 바로 `node jarvis-login.mjs`** — 다음 8:30 전에.
+- 2026-09-29 진행: ① 이메일/비밀번호 + 이메일 링크 켬, ② 승인된 도메인 `ny7742-hub.github.io` 추가 완료(`getProjectConfig`로 확인). ③부터 남음.
 - **도입 순서**(콘솔 작업이라 사람이 해야 함): ① Authentication → 로그인 방법 → **이메일/비밀번호** 추가 → **이메일 링크(비밀번호가 없는 로그인)** 켜기
   ② 승인된 도메인에 `ny7742-hub.github.io` ③ 배포 사이트에서 `🔐 회원 승인제 시작` → 메일 링크로 로그인 → `👑 첫 관리자로 등록` ④ 팀원 승인 요청·승인
   ⑤ **`database.rules.json` 붙여넣고 게시** ⑥ `quickCreds`에 있던 사이트 비밀번호 교체(그동안 공개 상태였음).
