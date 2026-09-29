@@ -1669,10 +1669,11 @@ label{font-size:14px!important}
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">📋 일정체크</div>
       <button onclick="hsPreAddRow()" class="bg" style="padding:6px 14px;font-size:12px">+ 행 추가</button>
-      <span style="font-size:11px;color:#5b6675">칸 왼쪽 ↕를 드래그하면 순서를 바꿀 수 있습니다</span>
+      <span id="hsPreHint" style="font-size:11px;color:#5b6675">칸 왼쪽 ↕를 드래그하면 순서를 바꿀 수 있습니다</span>
+      <button id="hsPreFoldBtn" onclick="hsPreFold()" class="bs" style="margin-left:auto;padding:5px 14px;font-size:12px;font-weight:700" title="일정체크 표를 접거나 폅니다">▲ 닫기</button>
     </div>
   </div>
-  <div class="card" style="padding:0;overflow:hidden">
+  <div class="card" id="hsPreCard" style="padding:0;overflow:hidden">
     <div id="hsPreTableWrap" style="overflow:auto;max-height:50vh;padding:0"></div>
   </div>
 </div>
@@ -13128,7 +13129,20 @@ function hsPreDragOver(i,ev){if(hsPreDragIdx==null)return;ev.preventDefault();if
 function hsPreDragLeave(ev){var el=ev.currentTarget;if(el&&el.classList)el.classList.remove("hsDropOver");}
 function hsPreDrop(i,ev){ev.preventDefault();var from=hsPreDragIdx;hsPreDragIdx=null;hsPreMoveRow(from,i);}
 function hsPreDragEnd(){hsPreDragIdx=null;var o=document.querySelectorAll("#hsPreTableWrap .hsDropOver");for(var k=0;k<o.length;k++)o[k].classList.remove("hsDropOver");}
+/* 일정체크 닫기/열기 (2026-09-29 영업2팀) — 표만 접는다. 보는 사람마다 따로 기억한다(팀 공유 아님) */
+function _hsPreClosed(){try{return localStorage.getItem("hsPreClosed")==="1";}catch(e){return false;}}
+function _hsPreFoldApply(){
+  var closed=_hsPreClosed(),card=document.getElementById("hsPreCard"),btn=document.getElementById("hsPreFoldBtn"),hint=document.getElementById("hsPreHint");
+  if(card)card.style.display=closed?"none":"";
+  if(hint)hint.style.display=closed?"none":"";
+  if(btn)btn.textContent=closed?("▼ 열기 ("+hsPreDB.length+"건)"):"▲ 닫기";
+}
+function hsPreFold(){
+  try{localStorage.setItem("hsPreClosed",_hsPreClosed()?"0":"1");}catch(e){}
+  _hsPreFoldApply();
+}
 function renderHsPre(){
+  _hsPreFoldApply();
   var wrap=document.getElementById("hsPreTableWrap");if(!wrap)return;
   if(!hsPreDB.length){
     wrap.innerHTML='<div style="padding:24px;text-align:center;color:#475569;font-size:13px">＋ 행 추가 버튼으로 일정을 등록하세요</div>';
