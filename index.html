@@ -2044,6 +2044,7 @@ label{font-size:14px!important}
       <label style="cursor:pointer"><span class="bs" style="padding:5px 12px;font-size:12px;display:inline-block">📁 파일 업로드</span><input type="file" id="ocFileIn" accept=".xlsx,.xls" style="display:none" onchange="ocLoadFile(this)"/></label>
       <div id="ocDropZone" class="drop-zone" onclick="document.getElementById('ocFileIn').click()" style="border-radius:8px;padding:5px 14px;font-size:12px;gap:5px">📂 끌어오기</div>
       <button onclick="ocDownload()" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ 발주서 다운로드</button>
+      <button onclick="ocReset()" title="올린 주문배분현황과 변환한 표를 비웁니다" style="padding:6px 14px;font-size:12px;font-weight:700;background:#fff;color:#b91c1c;border:1px solid #fca5a5;border-radius:8px;cursor:pointer">↺ 초기화</button>
       <span id="ocMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <span class="wh-slot"></span>
     </div>
@@ -12695,6 +12696,14 @@ function ocRender(){
   });
   h+='</tbody></table>';
   wrap.innerHTML=h;
+}
+/* 초기화 (2026-09-29 영업2팀) — 변환 표는 이 화면에만 있고 저장·공유되지 않으므로 비우기만 하면 된다.
+   파일칸 값도 비워 같은 파일을 다시 올려도 onchange가 불리게 한다. */
+function ocReset(){
+  if(orderConvRows.length&&!confirm("변환한 발주서 "+orderConvRows.length+"줄을 지우고 처음 상태로 돌릴까요?"))return;
+  orderConvRows=[];
+  var fi=document.getElementById("ocFileIn");if(fi)fi.value="";
+  ocRender();
 }
 function ocDownload(){
   if(!orderConvRows.length){alert("먼저 주문배분현황 파일을 업로드하세요.");return;}
