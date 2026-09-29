@@ -10,6 +10,10 @@
   링크 처리 중에는 `_authLinkPending`으로 로그아웃 콜백이 화면을 덮어쓰지 못하게 막는다(안 막으면 이메일 재입력 화면이 사라진다).
   로그인 후 주소창의 일회용 코드(`oobCode`)는 `history.replaceState`로 지운다.
   헤더 오른쪽 `authChip`에 이름·로그아웃, 관리자면 `👥 사용자 관리`(대기 인원 표시).
+- **로그인 링크 메일은 무료(Spark) 요금제에서 프로젝트 전체 하루 5통뿐이다**(2026-09-29 첫 도입일에 3명 + 자동화 로그인으로 바로 `auth/quota-exceeded`).
+  그래서 같은 로그인 화면에 **`Google 계정으로 로그인`**(`authGoogle`, `signInWithPopup` → 팝업이 막히면 `signInWithRedirect`)을 같이 둔다 —
+  메일을 안 보내 한도가 없다(콘솔 Google 제공업체는 켜져 있음). 승인은 똑같이 관리자가 한다(Google 계정 이메일이 대기 목록에 뜬다).
+  한도 초과 문구도 Google 로그인을 안내한다. 자동화(`jarvis-login.mjs`)는 Google이 자동화 브라우저 로그인을 막으므로 **이메일 링크**로 한다.
 - **화면 게이트만으로는 막히지 않는다** — 페이지 코드에 DB 주소가 있어 누구나 REST로 `ws/` 전체(`quickCreds` 포함)를 읽을 수 있었다.
   실제 잠금은 저장소의 **`database.rules.json`** 을 Firebase 콘솔 Realtime Database → 규칙에 붙여넣어야 한다.
   규칙: `ws/`는 `access/members/{uid}`가 있는 사람만 읽기·쓰기, `access/pending/{uid}`는 본인만 요청, 승인·삭제는 `access/admins`만.

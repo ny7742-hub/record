@@ -2227,10 +2227,31 @@ function _authRenderOut(){
   _authShow('<input id="authEmail" type="email" autocomplete="email" placeholder="회사 이메일 (예: name@whitesands.co.kr)" value="'+_authEsc(saved)+'"'
     +' style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px" onkeydown="if(event.key===\'Enter\')authSendLink()">'
     +'<button id="authSendBtn" onclick="authSendLink()" style="'+AUTH_BTN+';background:#1b6e82;color:#fff">✉️ 로그인 링크 받기</button>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin:12px 0 0;font-size:11.5px;color:#5b6675"><span style="flex:1;height:1px;background:#e2e8f0"></span>또는<span style="flex:1;height:1px;background:#e2e8f0"></span></div>'
+    +'<button id="authGoogleBtn" onclick="authGoogle()" style="'+AUTH_BTN+';background:#fff;color:#1f2937;border:1px solid #cbd5e1">'
+    +'<span style="font-weight:800;color:#4285f4">G</span>&nbsp; Google 계정으로 로그인</button>'
     +'<div style="font-size:11.5px;color:#5b6675;margin-top:12px;line-height:1.6;text-align:left">'
     +'비밀번호는 없습니다. 적은 이메일로 <b>로그인 링크</b>가 가고, 메일에서 누르면 들어옵니다.<br>'
+    +'로그인 메일은 <b>하루 5통</b>까지라 못 받으면 <b>Google 계정</b>으로 들어오세요.<br>'
     +'처음이면 로그인 후 이름을 적어 <b>승인 요청</b> → 관리자가 승인하면 사용할 수 있습니다.</div>'+_authLocalLink());
   setTimeout(function(){var i=document.getElementById("authEmail");if(i&&!i.value)i.focus();},50);
+}
+/* Google 로그인 (2026-09-29 영업2팀) — 무료 요금제는 로그인 링크 메일이 **하루 5통**뿐이라(프로젝트 전체)
+   팀원이 한꺼번에 들어오지 못했다. Google 로그인은 메일을 보내지 않아 한도가 없다(콘솔에서 이미 켜 둠).
+   누가 들어와도 승인은 지금처럼 관리자가 access/members로 한다. 팝업이 막히면 페이지 이동 방식으로 한 번 더 한다. */
+function authGoogle(){
+  _authErr("");
+  var p=new firebase.auth.GoogleAuthProvider();
+  p.setCustomParameters({prompt:"select_account"});
+  firebase.auth().signInWithPopup(p).then(function(){authStartSetup();}).catch(function(e){
+    var c=e&&e.code||"";
+    if(c==="auth/popup-blocked"||c==="auth/operation-not-supported-in-this-environment"){firebase.auth().signInWithRedirect(p);return;}
+    if(c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request")return;
+    if(c==="auth/account-exists-with-different-credential")_authErr("이 이메일은 이미 로그인 링크로 가입돼 있습니다. 이메일 로그인 링크로 들어와 주세요.");
+    else if(c==="auth/unauthorized-domain")_authErr("이 주소("+location.hostname+")가 Firebase 허용 도메인에 없습니다. 관리자에게 알려주세요.");
+    else if(c==="auth/operation-not-allowed")_authErr("Firebase에서 Google 로그인이 꺼져 있습니다. 관리자에게 알려주세요.");
+    else _authErr("Google 로그인 실패: "+(e&&e.message||c));
+  });
 }
 function _authValidEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);}
 function _authLinkUrl(){return location.origin+location.pathname;}
@@ -2252,7 +2273,7 @@ function authSendLink(){
     var c=e&&e.code||"";
     if(c==="auth/operation-not-allowed")_authErr("Firebase에서 이메일 링크 로그인이 아직 켜져 있지 않습니다. 관리자에게 알려주세요.");
     else if(c==="auth/unauthorized-continue-uri"||c==="auth/unauthorized-domain")_authErr("이 주소("+location.hostname+")가 Firebase 허용 도메인에 없습니다. 관리자에게 알려주세요.");
-    else if(c==="auth/quota-exceeded")_authErr("오늘 보낼 수 있는 로그인 메일 수를 넘었습니다. 내일 다시 시도하거나 관리자에게 알려주세요.");
+    else if(c==="auth/quota-exceeded")_authErr("오늘 보낼 수 있는 로그인 메일(하루 5통)을 넘었습니다. 아래 [Google 계정으로 로그인]으로 들어오거나 내일 다시 시도해주세요.");
     else if(c==="auth/invalid-email")_authErr("이메일 주소를 확인해주세요.");
     else _authErr("메일 보내기 실패: "+(e&&e.message||c));
   });
