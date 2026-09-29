@@ -19028,7 +19028,10 @@ function renderSaleModal(){
       var sp=row.sp,i=row.i;
       var sd=_ccYMD(sp.start),ed=_ccYMD(sp.end);
       var label=(sd.getMonth()+1)+"/"+(sd.getDate())+"~"+(ed.getMonth()+1)+"/"+(ed.getDate());
-      var prods=Object.keys(sp.items||{}).map(function(k){return k+' '+Number(sp.items[k]).toLocaleString()+'원';}).join(', ');
+      var prods=Object.keys(sp.items||{}).map(function(k){
+        var sv=Number(sp.items[k])||0,pp=costcoDB.products.find(function(x){return x.name===k;}),base=pp&&Number(pp.price)||0;
+        return k+' '+sv.toLocaleString()+'원'+(base>sv?' (−'+(base-sv).toLocaleString()+')':'');
+      }).join(', ');
       var state,bg,border,txt;
       if(today>=sd&&today<=ed){state="진행중";bg="#fff5f5";border="#fca5a5";txt="#dc2626";}
       else if(today<sd){state="예정";bg="#eff6ff";border="#93c5fd";txt="#1d4ed8";}
@@ -19062,12 +19065,26 @@ function renderSaleModal(){
       ph+='<input type="checkbox" id="ccScb_'+p.name+'" style="width:15px;height:15px;cursor:pointer">';
       ph+='<label for="ccScb_'+p.name+'" style="font-size:13px;font-weight:600;color:#374151;min-width:60px;cursor:pointer">'+p.name+'</label>';
       ph+='<span style="font-size:11px;color:#5b6675">'+(p.code?'('+p.code+')':'')+'</span>';
-      ph+='<input type="number" id="ccSprice_'+p.name+'" placeholder="세일가" style="width:100px;padding:4px 7px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">';
-      ph+='<span style="font-size:11px;color:#475569">원</span>';
+      var _pi=costcoDB.products.indexOf(p),_base=Number(p.price)||0;
+      ph+='<span style="font-size:11px;color:#5b6675;min-width:74px;text-align:right">'+(_base?_base.toLocaleString()+'원':'정상가 없음')+'</span>';
+      ph+='<span style="font-size:11px;color:#475569">−</span>';
+      ph+='<input type="number" id="ccSprice_'+p.name+'" placeholder="할인금액" min="0" oninput="_ccSaleCalc('+_pi+')"'+(_base?'':' disabled')+' style="width:90px;padding:4px 7px;border:1px solid #d1d5db;border-radius:6px;font-size:12px">';
+      ph+='<span id="ccSres_'+_pi+'" style="font-size:12px;font-weight:700;color:#dc2626;min-width:80px"></span>';
       ph+='</div>';
     });
     prodsEl.innerHTML=ph;
   }
+}
+/* 세일 모달: 할인금액을 적으면 세일가를 바로 보여 주고, 상품 체크도 켠다 */
+function _ccSaleCalc(i){
+  var p=costcoDB.products[i];if(!p)return;
+  var pi=document.getElementById("ccSprice_"+p.name),out=document.getElementById("ccSres_"+i),cb=document.getElementById("ccScb_"+p.name);
+  var off=Number(pi&&pi.value)||0,base=Number(p.price)||0;
+  if(cb&&off>0)cb.checked=true;
+  if(!out)return;
+  if(!off){out.textContent="";return;}
+  out.style.color=off>=base?"#b45309":"#dc2626";
+  out.textContent=off>=base?"정상가보다 큼":"→ "+(base-off).toLocaleString()+"원";
 }
 function addSalePeriodFromModal(){
   var startEl=document.getElementById("ccSaleStart");
@@ -19080,16 +19097,20 @@ function addSalePeriodFromModal(){
     var ed=new Date(startEl.value); ed.setDate(ed.getDate()+13);
     endVal=ed.toISOString().slice(0,10);
   }
-  var items={};
+  /* 입력은 할인금액, 저장은 세일가(= 정상가 − 할인금액) — 판매현황 표·세일 배지·지난 달 세일가가 모두 세일가를 읽는다 */
+  var items={},bad=[];
   costcoDB.products.forEach(function(p){
     var cb=document.getElementById("ccScb_"+p.name);
     var pi=document.getElementById("ccSprice_"+p.name);
     if(cb&&cb.checked&&pi&&pi.value){
-      var v=Number(pi.value)||0;
-      if(v)items[p.name]=v;
+      var off=Number(pi.value)||0,base=Number(p.price)||0;
+      if(!off)return;
+      if(!base||off>=base){bad.push(p.name+(base?' (정상가 '+base.toLocaleString()+'원)':' (정상가 없음)'));return;}
+      items[p.name]=base-off;
     }
   });
-  if(!Object.keys(items).length){alert("세일 상품을 하나 이상 선택하고 세일가를 입력해주세요.");return;}
+  if(bad.length){alert("할인금액이 정상가보다 크거나 같거나, 정상가가 없는 상품이 있습니다:\n\n"+bad.join("\n"));return;}
+  if(!Object.keys(items).length){alert("세일 상품을 하나 이상 선택하고 할인금액을 입력해주세요.");return;}
   var inlineOnlyEl=document.getElementById("ccSaleInlineOnly");
   var sp={start:startEl.value,end:endVal,items:items};
   if(inlineOnlyEl&&inlineOnlyEl.checked)sp.inlineOnly=true;
@@ -21211,7 +21232,7 @@ function initTransferTab(){tfDropInit();tfAutoFill();tfRenderChips();tfRender();
         <input type="checkbox" id="ccSaleInlineOnly" style="width:15px;height:15px;cursor:pointer">
         <label for="ccSaleInlineOnly" style="font-size:12px;font-weight:600;color:#374151;cursor:pointer">인라인만 진행 (온라인 미적용)</label>
       </div>
-      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">세일 상품 및 세일가</div>
+      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">세일 상품 및 할인금액 <span style="font-weight:500;color:#5b6675">(정상가에서 빼는 금액 — 예: 15,990원에 4,000원 → 11,990원)</span></div>
       <div id="ccSaleNewProds" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
       <button onclick="addSalePeriodFromModal()" style="width:100%;padding:9px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">추가</button>
     </div>
