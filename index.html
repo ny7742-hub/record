@@ -1041,6 +1041,7 @@ label{font-size:14px!important}
       <button onclick="dsAddStore()" class="bs" style="padding:5px 12px;font-size:12px">+ 매장</button>
       <button onclick="openDsFocusModal()" class="bs" style="padding:5px 12px;font-size:12px;background:#fef3c7;border-color:#fbbf24;color:#92400e" title="기간·매장을 지정하면 온라인 칸이 노랗게 표시됩니다">🟡 온라인 주력주차</button>
       <span id="dsFocusBadges" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></span>
+      <button onclick="dsEdiRun()" class="bg" style="padding:5px 12px;font-size:12px;font-weight:700" title="롯데 파트너포탈에서 이번 달 1일~어제 매출을 받아 백화점·온라인·EDI 칸(수량 포함)을 채웁니다 — 자동화가 설치된 PC에서만 동작">📥 일별매출 등록</button>
       <button onclick="dsFillPlaymd()" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700" title="이 달 매장판매일보에서 매장코드가 같은 매장을 찾아 PLAY MD 칸을 채웁니다">📥 판매일보 → PLAY MD</button>
       <datalist id="dsCodeList"></datalist>
       <span id="dsMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
@@ -8819,6 +8820,14 @@ function dsApplyEdi(src,days,codes,dry){
   try{var pg=document.getElementById("page-daily");if(pg&&pg.style.display!=="none")renderDaily();else _dsEdiInfo();}catch(e){}
   try{renderHomeAll(new Date());}catch(e){}
   return {changed:changed,filled:filled,cleared:cleared,skipped:skipped,diffs:diffs};
+}
+/* [📥 일별매출 등록] (2026-09-29 영업2팀) — 이 PC의 automation `run-edi-now.cmd`(edi-daily.mjs)를 `playmdedi:` 주소로 연다.
+   누르면 먼저 EDI(롯데 파트너포탈) 접속 여부를 묻는다. 로그인된 포탈 창(자동화 전용 크롬)이 있으면 그대로 쓰고,
+   없으면 포탈 창이 떠서 로그인을 기다렸다가 이어 간다. 결과는 팀 공유로 들어와 이 표가 저절로 바뀐다. */
+function dsEdiRun(){
+  if(!confirm("EDI 접속하셨나요?\n\n롯데 파트너포탈(EDI)에 로그인돼 있으면 [확인]을 누르세요.\n이번 달 1일~어제 매출을 받아 백화점·수량·온라인·수량·EDI·수량 칸을 채웁니다(3~5분).\n\n아직 로그인 전이면 [확인] 뒤 뜨는 포탈 창에서 로그인하면 이어서 진행합니다.\n※ 자동화가 설치된 PC에서만 동작합니다."))return;
+  _dsMsg("EDI 받는 중… 뜬 검은 창을 닫지 마세요. 끝나면 이 표가 저절로 바뀝니다");
+  location.href="playmdedi:run";
 }
 /* 머리줄에 마지막 자동 입력 시각 — `EDI 자동: 롯데 9/29 08:41 (9/1~9/28)` */
 function _dsEdiInfo(){
