@@ -14498,7 +14498,7 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"바르셀", code:"691716", price:25990, colors:["베이지","블랙","그레이"]},
     {name:"바르셀 직매입", code:"691716", price:20656, colors:["베이지","블랙","그레이"]},
     {name:"장우산 850", code:"696151", price:18990, colors:["딥그린","블랙"]},
-    {name:"장우산 850 직매입", code:"696151", price:14608, colors:["딥그린","블랙"]}
+    {name:"장우산 850 직매입", code:"696151", price:16990, colors:["딥그린","블랙"]}
   ],
   salePeriods:[],
   cumul:{},
@@ -14556,9 +14556,9 @@ var _defaultNewProds=[
   /* 바르셀 — 온라인몰 판매(판매가)와 직매입(매입가)을 따로 집계한다 */
   {name:"바르셀",code:"691716",price:25990,colors:["베이지","블랙","그레이"]},
   {name:"바르셀 직매입",code:"691716",price:20656,colors:["베이지","블랙","그레이"]},
-  /* 장우산 850 — 바르셀처럼 온라인몰 판매(판매가 18,990원)와 직매입(매입가)을 따로 집계한다 (2026-09-29 판매 행 추가) */
+  /* 장우산 850 — 바르셀처럼 온라인몰 판매(판매가 18,990원)와 직매입(16,990원)을 따로 집계한다 (2026-09-29 영업2팀) */
   {name:"장우산 850",code:"696151",price:18990,colors:["딥그린","블랙"]},
-  {name:"장우산 850 직매입",code:"696151",price:14608,colors:["딥그린","블랙"]}
+  {name:"장우산 850 직매입",code:"696151",price:16990,colors:["딥그린","블랙"]}
 ];
 _defaultNewProds.forEach(function(np){
   if(!costcoDB.products.find(function(p){return p.name===np.name;})){
@@ -14628,9 +14628,11 @@ function ccApplyDataFixes(db){
     var p=db.products.find(function(x){return x.name===nm;});
     if(p&&p.price!==25990){p.price=25990;ch=true;}
   });
-  /* 장우산 850: 판매가 18990원으로 강제 보정 ("장우산 850 직매입"은 매입가라 이름이 정확히 같은 행만 대상) */
-  var jw=db.products.find(function(x){return x.name==="장우산 850";});
-  if(jw&&jw.price!==18990){jw.price=18990;ch=true;}
+  /* 장우산 850: 판매가 18990원, 장우산 850 직매입: 16990원으로 강제 보정 (2026-09-29 영업2팀 지정) */
+  [["장우산 850",18990],["장우산 850 직매입",16990]].forEach(function(e){
+    var jw=db.products.find(function(x){return x.name===e[0];});
+    if(jw&&jw.price!==e[1]){jw.price=e[1];ch=true;}
+  });
   /* 장우산 850 쿠폰 4,000원 할인(9/21~10/4): 18990-4000=14990원 — 코스트코 상품 API 기준. 없으면 추가, 있으면 세일가 보정 */
   (function(){
     var sp=db.salePeriods.find(function(x){return x.start==="2026-09-21"&&x.end==="2026-10-04";});
