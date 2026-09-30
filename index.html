@@ -1303,21 +1303,25 @@ label{font-size:14px!important}
         <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid #cfe0e5;border-radius:8px;padding:7px 8px">
           <button class="bs" id="saipAutoHs" onclick="saipAutoGo('hs')" title="OneDrive 판매자료 날짜 폴더의 홈쇼핑 파일 (기본 전 영업일)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border-color:#1b6e82">🛍 홈쇼핑 매출등록</button>
           <input type="date" id="saipDate_hs" onchange="_saipTouched.hs=true;renderSaipAuto()" aria-label="🛍 홈쇼핑 매출등록 날짜" style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+          <button class="bs" onclick="saipPreviewGo('hs')" title="저장하지 않고 등록될 줄만 먼저 봅니다" style="font-size:12.5px;font-weight:700;padding:4px 8px;background:#fff;color:#1b6e82;border:1px dashed #1b6e82">🔍 미리보기</button>
           <span id="saipNote_hs" style="font-size:11.5px;color:#5b6675;line-height:1.4"></span>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid #cfe0e5;border-radius:8px;padding:7px 8px">
           <button class="bs" id="saipAutoDs" onclick="saipAutoGo('ds')" title="OneDrive 판매자료 날짜 폴더의 백화점몰 파일 (기본 전 영업일)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border-color:#1b6e82">🏬 백화점몰 매출등록</button>
           <input type="date" id="saipDate_ds" onchange="_saipTouched.ds=true;renderSaipAuto()" aria-label="🏬 백화점몰 매출등록 날짜" style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+          <button class="bs" onclick="saipPreviewGo('ds')" title="저장하지 않고 등록될 줄만 먼저 봅니다" style="font-size:12.5px;font-weight:700;padding:4px 8px;background:#fff;color:#1b6e82;border:1px dashed #1b6e82">🔍 미리보기</button>
           <span id="saipNote_ds" style="font-size:11.5px;color:#5b6675;line-height:1.4"></span>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid #cfe0e5;border-radius:8px;padding:7px 8px">
           <button class="bs" id="saipAutoCc" onclick="saipAutoGo('cc')" title="하이웍스 메일 RE:화이트샌즈(날짜) - 영업2팀 의 코스트코 도매발주서 (기본 오늘)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border-color:#1b6e82">🛒 코스트코 매출등록</button>
           <input type="date" id="saipDate_cc" onchange="_saipTouched.cc=true;renderSaipAuto()" aria-label="🛒 코스트코 매출등록 날짜" style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+          <button class="bs" onclick="saipPreviewGo('cc')" title="저장하지 않고 등록될 줄만 먼저 봅니다" style="font-size:12.5px;font-weight:700;padding:4px 8px;background:#fff;color:#1b6e82;border:1px dashed #1b6e82">🔍 미리보기</button>
           <span id="saipNote_cc" style="font-size:11.5px;color:#5b6675;line-height:1.4"></span>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid #cfe0e5;border-radius:8px;padding:7px 8px">
           <button class="bs" id="saipAutoXc" onclick="saipAutoGo('xc')" title="같은 날짜 폴더의 발송후취소 · 발송후취소(백화점몰) 파일을 공급가 0원으로 (기본 전 영업일)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border-color:#1b6e82">↩ 발송후취소 등록</button>
           <input type="date" id="saipDate_xc" onchange="_saipTouched.xc=true;renderSaipAuto()" aria-label="↩ 발송후취소 등록 날짜" style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+          <button class="bs" onclick="saipPreviewGo('xc')" title="저장하지 않고 등록될 줄만 먼저 봅니다" style="font-size:12.5px;font-weight:700;padding:4px 8px;background:#fff;color:#1b6e82;border:1px dashed #1b6e82">🔍 미리보기</button>
           <span id="saipNote_xc" style="font-size:11.5px;color:#5b6675;line-height:1.4"></span>
         </div>
       </div>
@@ -17023,7 +17027,29 @@ function _saipFmtAt(iso){
 var _saipTouched={hs:false,ds:false,cc:false,xc:false};
 function _saipDateEl(kind){return document.getElementById("saipDate_"+kind);}
 function _saipDefaultDate(kind){return kind==="cc"?_saipYmd(new Date()):_saipPrevBizDay();}
-function saipAutoGo(kind){
+/* 🔍 미리보기 — 자동화 PC가 저장만 빼고 다 한다(원본 받기 → 변환 → 플레이엠디 불러오기 → 중복 조회).
+   결과 카드에 등록될 줄이 나오고, 문제가 없으면 '✅ 이대로 등록'으로 저장한다(2026-09-30 영업2팀). 등록 기록은 남기지 않는다. */
+function saipPreviewGo(kind){
+  var el=_saipDateEl(kind),v=el&&el.value;
+  if(!v){alert("날짜를 골라 주세요.");return;}
+  var K=SAIP_KINDS[kind],mmdd=v.slice(5,7)+v.slice(8,10),md=(+v.slice(5,7))+"/"+(+v.slice(8,10));
+  var L=_saipLogOf(kind,v);
+  if(L||((kind==="hs"||kind==="ds")&&v<=SAIP_BASELINE)){
+    alert(K.label+" "+md+"는 이미 등록되었습니다."+(L?"\n\n등록 시각: "+_saipFmtAt(L.at)+"\n등록자: "+(L.by||"알 수 없음"):"")+"\n\n미리보기할 것이 없습니다.");
+    return;
+  }
+  var cur=(saipReq||{})[kind];
+  if(_saipReqActive(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview"};
+  if(!saipReq||typeof saipReq!=="object")saipReq={};
+  saipReq[kind]=R;
+  wsSetItem("saipReq",JSON.stringify(saipReq));
+  renderSaipAuto();
+  if(!_saipWatchOk())alert("미리보기 요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다 — 자동화 PC가 켜지면 처리됩니다.");
+}
+function saipAutoGo(kind,opt){
+  opt=opt||{};
+  if(opt.date){var e0=_saipDateEl(kind);if(e0){e0.value=opt.date;_saipTouched[kind]=true;}}   /* 미리보기 카드의 '이대로 등록' */
   var el=_saipDateEl(kind);
   var v=el&&el.value;
   if(!v){alert("등록 날짜를 골라 주세요.");return;}
@@ -17061,7 +17087,7 @@ function saipAutoGo(kind){
     +"코드 매칭이 안 된 줄이 있거나, 그날 같은 매장·상품 출고가 플레이엠디에 이미 있으면 저장하지 않고 멈춥니다.\n\n"
     +"진행할까요?";
   if(!confirm(msg))return;
-  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청"};
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"save",expect:opt.expect||""};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   saipReq[kind]=R;
   wsSetItem("saipReq",JSON.stringify(saipReq));
@@ -17077,52 +17103,78 @@ var SAIP_ITEM_TXT={
 };
 function _saipCard(kind){
   var K=SAIP_KINDS[kind],S=_saipStatusOf(kind),R=(saipReq||{})[kind];
-  var h='<div style="border:1px solid #cfe0e5;border-radius:8px;background:#fff;padding:8px 10px;font-size:12px;line-height:1.6">';
-  h+='<div style="font-weight:800;color:#154f5e;margin-bottom:2px">'+K.icon+' '+K.label+' 매출등록</div>';
+  var base=K.label+(kind==="xc"?" 등록":" 매출등록");
+  /* 글자를 키웠다(12→14px) · '마지막 실행' 줄과 '저장 완료 · 확인됨' 줄은 뺐다 — 위 '등록됨' 줄과 겹친다(2026-09-30 영업2팀) */
+  var h='<div style="border:1px solid #cfe0e5;border-radius:8px;background:#fff;padding:9px 12px;font-size:14px;line-height:1.6">';
+  h+='<div style="font-weight:800;color:#154f5e;margin-bottom:3px;font-size:15px">'+K.icon+' '+base+'</div>';
   /* 고른 날짜의 등록 기록 — 언제·누가 */
   var dEl=_saipDateEl(kind),dv=dEl&&dEl.value;
   var L=dv?_saipLogOf(kind,dv):null;
-  if(L)h+='<div style="background:#ecfdf5;border-radius:6px;padding:3px 7px;margin-bottom:3px;color:#047857;font-weight:700">✅ '+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+' 등록됨 · '+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"알 수 없음")
+  if(L)h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:3px;color:#047857;font-weight:700">✅ '+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+' 등록됨 · '+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"알 수 없음")
     +(L.qty!=null?' <span style="font-weight:600;color:#334155">· '+L.qty+'개 · '+Number(L.amt||0).toLocaleString()+'원'+(L.slips&&L.slips.length?' · 전표 '+_escX(L.slips.join(", ")):'')+'</span>':'')+'</div>';
   else if(dv&&(kind==="hs"||kind==="ds")&&dv<=SAIP_BASELINE)h+='<div style="color:#047857;font-weight:700">✅ '+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+' — 기준일('+SAIP_BASELINE+') 이전, 직접 등록한 날짜</div>';
   /* 요청 상태 */
+  var active=_saipReqActive(R);
   if(R&&R.state){
     var who=_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at));
     var md2=R.mmdd?(+R.mmdd.slice(0,2))+'/'+(+R.mmdd.slice(2,4)):"";
-    if(_saipReqActive(R)){
-      if(R.state==="요청")h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+md2+' 등록 요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음 — 켜지면 처리됩니다</span>')+'</div>';
-      else h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+md2+' 자동화 PC에서 등록 중… ('+who+' · 1~3분)</div>';
+    var what=R.mode==="preview"?"미리보기":"등록";
+    if(active){
+      if(R.state==="요청")h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+md2+' '+what+' 요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음 — 켜지면 처리됩니다</span>')+'</div>';
+      else h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+md2+' 자동화 PC에서 '+what+' 중… ('+who+' · 1~3분)</div>';
     }else if(R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<24*3600*1000){
-      h+='<div style="color:#b91c1c;font-weight:700">❗ '+md2+' 요청('+who+')이 실패로 끝났습니다'+(R.error?' — '+_escX(R.error):'')+' · 아래 결과를 확인해 주세요</div>';
+      h+='<div style="color:#b91c1c;font-weight:700">❗ '+md2+' '+what+' 요청('+who+')이 실패로 끝났습니다'+(R.error?' — '+_escX(R.error):'')+'</div>';
     }else if(R.state==="요청"||R.state==="처리중"){
       h+='<div style="color:#b91c1c;font-weight:700">⚠️ '+md2+' 요청('+who+')이 45분 넘게 끝나지 않았습니다 — 자동화 PC를 확인해 주세요</div>';
     }
   }
-  if(!S){h+='<div style="color:#5b6675">아직 실행 기록이 없습니다.</div></div>';return h;}
-  h+='<div style="color:#5b6675">마지막 실행 '+_escX(_saipFmtAt(S.at))+' · '+(S.mode==="save"?"저장":"미리보기")+(S.date?' · '+_escX(S.date):'')+(S.by?' · 요청자 '+_escX(S.by):'')+'</div>';
+  if(!S){if(!L)h+='<div style="color:#5b6675">아직 실행 기록이 없습니다.</div>';return h+'</div>';}
   if(S.error)h+='<div style="color:#b91c1c;font-weight:700">❗ '+_escX(S.error)+'</div>';
   if(S.note)h+='<div style="color:#b45309;font-weight:700">ℹ️ '+_escX(S.note)+'</div>';
+  var fresh=S.at&&Date.now()-new Date(S.at).getTime()<2*3600*1000;   /* 미리보기는 2시간 안의 것만 '이대로 등록'을 띄운다 */
   (S.items||[]).forEach(function(it){
+    if(it.status==="saved")return;                                    /* 저장 완료는 위 '등록됨' 줄로 충분하다 */
     var t=SAIP_ITEM_TXT[it.status]||["•",it.status||"",""];
+    var imd=it.mmdd?(+it.mmdd.slice(0,2))+'/'+(+it.mmdd.slice(2,4)):"";
     h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">';
-    h+='<b>'+_escX(it.mmdd)+'</b> <span style="color:'+t[2]+';font-weight:700">'+t[0]+' '+t[1]+'</span>';
+    h+='<b>'+imd+'</b> <span style="color:'+t[2]+';font-weight:700">'+t[0]+' '+t[1]+'</span>';
     if(it.rows)h+=' <span style="color:#334155">· '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</span>';
-    if(it.slips&&it.slips.length)h+=' <span style="color:#5b6675">· 전표 '+_escX(it.slips.join(", "))+'</span>';
     if(it.skipped&&it.skipped.length)h+='<div style="color:#5b6675">⏭ 발송후취소 중 Cafe24 '+it.skipped.length+'줄은 뺐습니다(매장코드 미정)</div>';
     if(it.bad&&it.bad.length)h+='<div style="color:#b91c1c">'+it.bad.map(_escX).join("<br>")+'<br><span style="color:#5b6675">→ 아래 홈쇼핑 코드매칭표에 추가한 뒤 다시 누르세요</span></div>';
     if(it.error&&it.status!=="unmatched")h+='<div style="color:#b91c1c">'+_escX(it.error)+'</div>';
     if(it.verify&&it.status==="savecheck")h+='<div style="color:#b45309">'+_escX(it.verify)+'</div>';
+    if(it.already)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>';
+    /* 미리보기 — 등록될 줄을 표로 */
+    if(S.mode==="preview"&&it.rows&&it.rows.length){
+      var th='style="text-align:left;padding:3px 5px;border-bottom:1px solid #cfe0e5;color:#475569;font-weight:700;background:#f1f5f9"';
+      var td='style="padding:3px 5px;border-bottom:1px solid #eef2f6"';
+      var tdn='style="padding:3px 5px;border-bottom:1px solid #eef2f6;text-align:right;white-space:nowrap"';
+      h+='<div style="max-height:260px;overflow:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+        +'<tr><th '+th+'>매장</th><th '+th+'>상품</th><th '+th+'>코드</th><th '+th+' align="right">수량</th><th '+th+' align="right">공급가</th></tr>';
+      it.rows.forEach(function(r){
+        h+='<tr><td '+td+'>'+_escX(r.store||"")+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+'</td>'
+          +'<td '+td+' title="'+_escX(r.prod||"")+'">'+_escX(String(r.prod||"").slice(0,26))+'</td>'
+          +'<td '+td+'>'+_escX(r.code||"")+'</td>'
+          +'<td '+tdn+'>'+(r.qty||0)+'</td><td '+tdn+'>'+Number(r.unit||0).toLocaleString()+'</td></tr>';
+      });
+      h+='</table></div>';
+      /* 이대로 등록 — 문제 없는 미리보기, 아직 등록 안 된 날짜, 진행 중인 요청 없음, 2시간 안 */
+      if(it.status==="preview"&&!it.already&&!_saipLogOf(kind,it.date)&&!active&&fresh)
+        h+='<div style="margin-top:6px"><button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:6px 14px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ 이대로 등록</button>'
+          +' <span style="font-size:12px;color:#5b6675">미리보기 뒤 원본이 바뀌었으면 저장하지 않습니다</span></div>';
+      else if(it.status==="preview"&&!fresh)h+='<div style="font-size:12px;color:#5b6675;margin-top:4px">미리보기가 2시간이 지나 다시 미리보기 해 주세요</div>';
+    }
     h+='</div>';
   });
-  if(!(S.items||[]).length&&!S.note&&!S.error)h+='<div style="color:#5b6675">처리할 날짜가 없었습니다.</div>';
   return h+'</div>';
 }
 /* 매출등록 버튼 색·글자 — busy: 등록 중 · done: 그 날짜 등록 끝(민트) · todo: 등록할 건 있음(보라, 전체) · idle: 평소(청록) */
 function _saipBtnPaint(k,st){
   var b=document.getElementById("saipAuto"+k.charAt(0).toUpperCase()+k.slice(1));if(!b)return;
   var K=SAIP_KINDS[k],base=K.label+(k==="xc"?" 등록":" 매출등록");
-  var S={busy:["#e0f2fe","#7dd3fc","#075985","⏳ "+base+" 중"],done:["#99f6e4","#2dd4bf","#115e59","✅ "+base+"완료"],
-         todo:["#7c3aed","#6d28d9","#fff",K.icon+" "+base+" 요망"],idle:["#1b6e82","#1b6e82","#fff",K.icon+" "+base]}[st]||null;
+  /* 완료 = 청록 #1b6e82(2026-09-30 영업2팀 지정 색) · 평소 = 흰 바탕 청록 테두리(완료와 구별) · 요망 = 보라 · 등록/미리보기 중 = 하늘 */
+  var S={busy:["#e0f2fe","#7dd3fc","#075985","⏳ "+base+" 중"],pbusy:["#e0f2fe","#7dd3fc","#075985","⏳ "+K.label+" 미리보기 중"],done:["#1b6e82","#1b6e82","#fff","✅ "+base+"완료"],
+         todo:["#7c3aed","#6d28d9","#fff",K.icon+" "+base+" 요망"],idle:["#fff","#1b6e82","#1b6e82",K.icon+" "+base]}[st]||null;
   if(!S)return;
   b.style.background=S[0];b.style.borderColor=S[1];b.style.color=S[2];b.textContent=S[3];
   b.dataset.state=st;
@@ -17147,7 +17199,7 @@ function renderSaipAuto(){
     else if(er)note.innerHTML+='<div style="margin-top:3px;color:#b91c1c">⚠ '+_escX(er)+'</div>';
     /* 버튼 색으로 상태를 보인다(2026-09-30 영업2팀) — 등록 중 · 완료(민트) · 요망(보라) · 평소(청록) */
     var R0=(saipReq||{})[k],v=el.value;
-    var st=_saipReqActive(R0)?"busy"
+    var st=_saipReqActive(R0)?(R0.mode==="preview"?"pbusy":"busy")
       :(_saipLogOf(k,v)||((k==="hs"||k==="ds")&&v<=SAIP_BASELINE))?"done"
       :rd.some(function(x){return x.date===v;})?"todo":"idle";
     _saipBtnPaint(k,st);
