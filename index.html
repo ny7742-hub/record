@@ -13092,12 +13092,32 @@ function hsDragOver(i,ev){if(hsDragIdx==null)return;ev.preventDefault();if(ev.da
 function hsDragLeave(ev){var tr=ev.currentTarget;if(tr&&tr.classList)tr.classList.remove("hsDropOver");}
 function hsDrop(i,ev){ev.preventDefault();var from=hsDragIdx;hsDragIdx=null;hsMoveRow(from,i);}
 function hsDragEnd(){hsDragIdx=null;var o=document.querySelectorAll("#hsTableWrap tr.hsDropOver");for(var k=0;k<o.length;k++)o[k].classList.remove("hsDropOver");}
+/* 방송이 끝났나 — 방송일+시간이 지금보다 앞이면 지난 방송(2026-09-30 영업2팀: 지난 줄은 통째로 회색).
+   시간이 비어 있으면 **그날이 끝나야** 지난 것으로 본다(당일 방송을 미리 회색으로 만들지 않게). 방송일이 없으면 아님. */
+function _hsAired(row){
+  var d=String(row&&row.date||"").trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return false;
+  var t=String(row.time||"").trim();
+  var at=/^\d{1,2}:\d{2}/.test(t)?new Date(d+"T"+(t.length===4?"0"+t:t.slice(0,5))+":00"):new Date(d+"T23:59:59");
+  return !isNaN(at)&&at<new Date();
+}
+/* 방송 시간이 지나면 손대지 않아도 회색이 되도록 5분마다 다시 그린다(표에서 입력 중이면 건너뜀) */
+setInterval(function(){
+  var pg=document.getElementById("page-homeshopping");
+  if(!pg||pg.style.display==="none")return;
+  var ae=document.activeElement;if(ae&&ae.closest&&ae.closest("#hsTableWrap"))return;
+  try{renderHomeshopping();}catch(e){}
+},5*60*1000);
 function renderHomeshopping(){
   var wrap=document.getElementById("hsTableWrap");if(!wrap)return;
   hsSelImgIdx=null;
   var h='<style>#hsTableWrap td.hsImgSel{outline:2px solid #2563eb;outline-offset:-2px}#hsTableWrap tr.hsDropOver td{border-top:2px solid #2563eb !important}#hsTableWrap tr.hsDropOver td:first-child{box-shadow:inset 0 2px 0 #2563eb}'
     +'#hsTableWrap .hsNameIn:empty:before{content:attr(data-ph);color:#5b6675}'
-    +'#hsTableWrap .hsNameIn:focus{background:#f1f5f9}</style>';
+    +'#hsTableWrap .hsNameIn:focus{background:#f1f5f9}'
+    /* 지난 방송 줄 — 칸·입력·선택까지 전부 회색 */
+    +'#hsTableWrap tr.hsPast td{background:#e6eaf0 !important;color:#5b6675 !important}'
+    +'#hsTableWrap tr.hsPast td input,#hsTableWrap tr.hsPast td select,#hsTableWrap tr.hsPast td .hsNameIn{background:transparent !important;color:#5b6675 !important}'
+    +'#hsTableWrap tr.hsPast td img{opacity:.55}</style>';
   h+='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
   h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 6px;color:#1b6e82;font-weight:700;width:30px">#</th>';
@@ -13110,7 +13130,8 @@ function renderHomeshopping(){
     h+='<tr><td colspan="'+(HS_COLS.length+2)+'" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 버튼으로 방송 일정을 등록하세요</td></tr>';
   }
   homeshoppingDB.forEach(function(row,i){
-    h+='<tr ondragover="hsDragOver('+i+',event)" ondragleave="hsDragLeave(event)" ondrop="hsDrop('+i+',event)" ondragend="hsDragEnd()">';
+    var _past=_hsAired(row);
+    h+='<tr'+(_past?' class="hsPast" title="방송이 지난 상품"':'')+' ondragover="hsDragOver('+i+',event)" ondragleave="hsDragLeave(event)" ondrop="hsDrop('+i+',event)" ondragend="hsDragEnd()">';
     h+='<td draggable="true" ondragstart="hsDragStart('+i+',event)" title="드래그하여 순서 변경" style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc;cursor:grab;user-select:none"><span style="color:#5b6675;font-size:11px">↕</span><br>'+(i+1)+'</td>';
     HS_COLS.forEach(function(col){
       if(col.type==="img"){
@@ -13139,9 +13160,9 @@ function renderHomeshopping(){
       }else if(col.type==="calc"){
         h+='<td id="hsEff_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;font-weight:700;color:#1b6e82;background:#f1f5f9">'+_hsEff(row)+'</td>';
       }else if(col.type==="date"){
-        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="date" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value)" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
+        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="date" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value);renderHomeshopping()" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
       }else if(col.type==="time"){
-        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="time" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value)" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
+        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="time" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value);renderHomeshopping()" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
       }else if(col.key==="name"){
         /* 다른 칸처럼 바로 타이핑해서 입력한다.
            예전엔 클릭=사전미팅추가 / 더블클릭=입력이었는데, 빈 칸을 더블클릭하면
