@@ -1298,6 +1298,7 @@ label{font-size:14px!important}
         <span style="font-size:12px;color:#5b6675">OneDrive 판매자료에서 그 날짜 파일을 받아 아래 1~3단계와 같은 규칙으로 바꾼 뒤, 플레이엠디 [EX]사입매장출고반품등록(작업구분 사입출고 · 시트명 사입출고양식)에 저장까지 합니다.</span>
       </div>
       <!-- 버튼마다 자기 날짜 칸 — 홈쇼핑·백화점몰·발송후취소는 전 영업일(OneDrive 날짜 폴더), 코스트코는 당일(그날 온 메일) (2026-09-30 영업2팀) -->
+      <div id="saipReadyLine" style="margin-top:8px"></div>
       <div class="saip-grid" style="margin-top:8px">
         <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid #cfe0e5;border-radius:8px;padding:7px 8px">
           <button class="bs" id="saipAutoHs" onclick="saipAutoGo('hs')" title="OneDrive 판매자료 날짜 폴더의 홈쇼핑 파일 (기본 전 영업일)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border-color:#1b6e82">🛍 홈쇼핑 매출등록</button>
@@ -2228,7 +2229,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","xcSaipStatus":"ws/xcSaipStatus",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch",   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
@@ -2761,6 +2762,11 @@ function fbListen(){
   );
   apply("ws/xcSaipStatus","xcSaipStatus",
     function(d){if(d&&typeof d==="object")xcSaipStatus=d;},
+    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
+  );
+  /* 등록할 건 미리 살펴보기 — 자동화 PC(saip-watch)가 10분마다 OneDrive·하이웍스를 보고 남긴다 */
+  apply("ws/saipReady","saipReady",
+    function(d){if(d&&typeof d==="object")saipReady=d;},
     function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
   );
   /* 등록 기록 · 등록 요청 · 자동화 PC 신호 (팀 공유, 2026-09-30) */
@@ -16966,6 +16972,13 @@ var hsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("hsSaipS
 var dsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("dsSaipStatus")||"null");}catch(e){return null;}})();
 var ccSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("ccSaipStatus")||"null");}catch(e){return null;}})();
 var xcSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("xcSaipStatus")||"null");}catch(e){return null;}})();
+/* 등록할 건(ws/saipReady) = {at,pc,hs:[{mmdd,date,files}],ds,cc,xc,err:{kind:"…"}} — 파일 이름·존재만, 이미 등록한 날짜는 빠져 있다 */
+var saipReady=(function(){try{return JSON.parse(localStorage.getItem("saipReady")||"null");}catch(e){return null;}})();
+function _saipReadyOf(k){
+  var L=((saipReady||{})[k])||[];
+  return L.filter(function(x){return x&&x.date&&!_saipLogOf(k,x.date);});   /* 방금 등록한 건은 살펴보기 전이라도 바로 뺀다 */
+}
+function _saipPickReady(k,date){var el=_saipDateEl(k);if(el){el.value=date;_saipTouched[k]=true;renderSaipAuto();}return false;}
 function _saipStatusOf(k){return k==="ds"?dsSaipStatus:k==="cc"?ccSaipStatus:k==="xc"?xcSaipStatus:hsSaipStatus;}
 /* ── 어느 PC에서나 등록 요청 (2026-09-30 영업2팀) ──
    예전엔 버튼이 playmdhs: 주소로 **그 PC**의 자동화를 직접 열어 자동화 PC에서만 됐다. 이제는
@@ -17123,7 +17136,24 @@ function renderSaipAuto(){
     var src=k==="cc"?"하이웍스 메일 ("+mm+")":"OneDrive 폴더 "+mm+(k==="xc"?" · 발송후취소":"");
     var def=k==="cc"?"기본 오늘":"기본 전 영업일";
     note.innerHTML=src+" · "+(_saipTouched[k]?"직접 고름":def)+(warn.length?' <span style="color:#b45309;font-weight:700">· '+warn.join(" · ")+'</span>':'');
+    /* 등록할 건 — 날짜를 누르면 그 날짜로 바뀐다 */
+    var rd=_saipReadyOf(k),er=((saipReady||{}).err||{})[k],tile=note.parentElement;
+    if(rd.length)note.innerHTML+='<div style="margin-top:3px;color:#b45309;font-weight:800">📥 등록할 건: '+rd.map(function(x){return '<a href="#" onclick="return _saipPickReady(\''+k+'\',\''+x.date+'\')" title="'+_escX((x.files||[]).join(", "))+' — 누르면 이 날짜로" style="color:#b45309">'+(+x.mmdd.slice(0,2))+'/'+(+x.mmdd.slice(2,4))+'</a>';}).join(", ")+'</div>';
+    else if(er)note.innerHTML+='<div style="margin-top:3px;color:#b91c1c">⚠ '+_escX(er)+'</div>';
+    if(tile)tile.style.borderColor=rd.length?"#f59e0b":"#cfe0e5";
+    if(tile)tile.style.boxShadow=rd.length?"0 0 0 2px #fde68a":"";
   });
+  /* 맨 위 안내 — '홈쇼핑 매출등록 건이 있습니다 (9/29)' */
+  var rl=document.getElementById("saipReadyLine");
+  if(rl){
+    var parts=["hs","ds","cc","xc"].map(function(k){var rd=_saipReadyOf(k);if(!rd.length)return "";
+      return '<b>'+SAIP_KINDS[k].icon+' '+SAIP_KINDS[k].label+(k==="xc"?" 등록":" 매출등록")+' 건이 있습니다</b> ('+rd.map(function(x){return (+x.mmdd.slice(0,2))+'/'+(+x.mmdd.slice(2,4));}).join(", ")+')';}).filter(Boolean);
+    var ra=saipReady&&saipReady.at?new Date(saipReady.at):null,old=!ra||Date.now()-ra.getTime()>30*60*1000;
+    var when=ra?' <span style="font-weight:500;color:#5b6675">· '+_escX(_saipFmtAt(saipReady.at))+' 확인'+(old?' (30분 넘게 새로 못 봄 — 자동화 PC 확인)':'')+'</span>':'';
+    rl.innerHTML=parts.length
+      ?'<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;font-size:13px;color:#92400e">📥 '+parts.join(' · ')+when+'</div>'
+      :(ra?'<div style="font-size:12px;color:#5b6675">📭 지금 등록할 건 없음'+when+'</div>':'');
+  }
   var yw=document.getElementById("saipAutoYearWarn");
   if(yw)yw.textContent=KR_HOLIDAYS[String(new Date().getFullYear())]?"":("⚠ "+new Date().getFullYear()+"년 공휴일표가 없어 전 영업일 계산에서 주말만 뺍니다 — KR_HOLIDAYS에 올해 공휴일을 넣어 주세요");
   var W=saipWatch,wOk=_saipWatchOk();
