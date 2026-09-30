@@ -8691,6 +8691,10 @@ function onsExportByMall(){
 /* ── 매장별 일별매출 (시트 전 항목) ── */
 var DS_DEFAULT_STORES=["롯데 잠실점","롯데 청량리점","롯데 평촌점","커넥트현대 청주점","롯데 센텀점","롯데 동부산점","롯데 김포공항점","현대 킨텍스","현대 충청점","롯데 울산점","현대 목동점","롯데 포항점"];
 var DS_FIELDS=[{k:"dept",t:"백화점"},{k:"deptQ",t:"수량"},{k:"online",t:"온라인"},{k:"onlineQ",t:"수량"},{k:"edi",t:"EDI"},{k:"ediQ",t:"수량"},{k:"playmd",t:"PLAY MD"}];
+/* 백화점 EDI가 없는 매장 — 백화점·수량·EDI·수량 칸을 빼고 PLAY MD(판매일보)만 본다. 달성도 PLAY MD로 계산하고
+   EDI≠PLAY MD 빨강 표시도 하지 않는다(EDI가 늘 0이라 매일 빨갛게 나온다). 2026-09-30 영업2팀: 라이즈업 플리마켓 */
+var DS_PLAYMD_ONLY=[/라이즈업/];
+function _dsPlaymdOnly(name){name=String(name||"");return DS_PLAYMD_ONLY.some(function(r){return r.test(name);});}
 function dsMigrate(d){
   if(!d||!d.stores||!d.data)return null;
   d.stores=d.stores.map(function(s){return (typeof s==="string")?{name:s,target:"",prevYear:"",period:"",code:""}:s;});
@@ -9163,7 +9167,7 @@ function dsEdit(day,si,field,val){
   }
   /* EDI금액 ≠ PLAY MD금액 이면 PLAY MD 금액을 빨강 표시 (즉시 갱신) */
   if(field==="edi"||field==="playmd"){
-    var mism=_dsN(cell.edi)!==_dsN(cell.playmd);
+    var mism=!_dsPlaymdOnly(s.name)&&_dsN(cell.edi)!==_dsN(cell.playmd);
     var pm=document.getElementById("dsIn_"+day+"_"+si+"_playmd");
     if(pm){pm.style.color=mism?"#dc2626":"";pm.style.fontWeight=mism?"700":"";if(pm.parentNode)pm.parentNode.style.background=mism?"#fee2e2":"";}
     var ed=document.getElementById("dsIn_"+day+"_"+si+"_edi");
@@ -9198,7 +9202,7 @@ function dsRecalc(){
     var acc={};DS_FIELDS.forEach(function(f){acc[f.k]=0;});
     Object.keys(md).forEach(function(day){var c=md[day][s.name];if(!c)return;DS_FIELDS.forEach(function(f){acc[f.k]+=_dsN(c[f.k]);});});
     DS_FIELDS.forEach(function(f){var el=document.getElementById("dsTot_"+si+"_"+f.k);if(el)el.textContent=_dsFmt(acc[f.k]);});
-    var ach=acc.edi, qt=acc.ediQ, tgt=_dsN(s.target);
+    var ach=_dsPlaymdOnly(s.name)?acc.playmd:acc.edi, qt=acc.ediQ, tgt=_dsN(s.target);
     var ae=document.getElementById("dsAch_"+si);if(ae)ae.textContent=_dsFmt(ach);
     var re=document.getElementById("dsRate_"+si);if(re)re.textContent=tgt?Math.round(ach/tgt*100)+"%":"-";
     var ue=document.getElementById("dsUnit_"+si);if(ue)ue.textContent=qt?_dsFmt(Math.round(ach/qt)):"-";
@@ -9261,6 +9265,7 @@ function _dsFldsOf(name,mk){
   /* 온라인만 있는 매장(롯데백화점 온라인 본점 등)은 **백화점·수량 칸을 아예 빼 둔다**(2026-09-22 영업2팀) —
      늘 비어 있는 두 칸이 자리만 차지했다. 백화점 매출이 한 건이라도 생기면 칸이 다시 나온다. */
   if(showOnline&&on&&!dept)flds=flds.filter(function(f){return f.k!=="dept"&&f.k!=="deptQ";});
+  if(_dsPlaymdOnly(name))flds=flds.filter(function(f){return f.k!=="dept"&&f.k!=="deptQ"&&f.k!=="edi"&&f.k!=="ediQ";});
   return flds;
 }
 /* 표 위쪽의 가로 스크롤바(그림자 스크롤) — 안쪽 div 폭을 표 폭에 맞춰야 움직인다.
@@ -9534,7 +9539,7 @@ function renderDaily(){
     var _col=0;
     stores.forEach(function(s,si){
       var c=dsCell(mk,d,s.name);
-      var mism=_dsN(c.edi)!==_dsN(c.playmd);
+      var mism=!_dsPlaymdOnly(s.name)&&_dsN(c.edi)!==_dsN(c.playmd);
       _dsFldsOf(s.name,mk).forEach(function(f,fi){
         var red=(mism&&f.k==="playmd");
         /* 온라인 주력주차 — 지정 기간·매장의 온라인/수량 칸을 노랗게 */
