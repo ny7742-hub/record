@@ -1586,6 +1586,16 @@ label{font-size:14px!important}
 
 <div id="page-margin" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
+  <!-- 간단 마진계산 (2026-09-30 영업2팀 — 엑셀 양식 그대로: 상품명·Tag가·제안가·할인율·원가·수수료율·수수료액·물류비·기타·상품이익·상품이익%·원가대비%) -->
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <div class="sec-title" style="margin:0;font-size:13px">🧮 간단 마진계산</div>
+      <button onclick="msAddRow()" class="bg" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
+      <button onclick="msExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
+      <span style="font-size:11px;color:#5b6675">상품명을 넣으면 Tag가·원가가 자동으로 들어갑니다 · 금액은 적은 그대로 계산합니다(VAT 따로 안 뺌) · 회색 칸은 자동 계산</span>
+    </div>
+    <div id="msWrap" style="overflow-x:auto"></div>
+  </div>
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">💰 코스트코 온라인몰 행사 마진 계산서</div>
@@ -2187,7 +2197,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
-  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp",
+  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg",
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
@@ -2619,6 +2629,12 @@ function fbListen(){
     function(){if(document.getElementById("page-homeshopping")&&document.getElementById("page-homeshopping").style.display!=="none"&&typeof renderHsPre==="function")renderHsPre();}
   );
   /* 마진계산 */
+  /* 간단 마진계산 (팀 공유) — 입력 중이면 다시 그리지 않는다 */
+  apply("ws/msSimple","msDB",
+    function(d){if(d&&Array.isArray(d.rows))msDB=d;},
+    function(){var pg=document.getElementById("page-margin");var ae=document.activeElement;
+      if(pg&&pg.style.display!=="none"&&!(ae&&ae.closest&&ae.closest("#msWrap")))msRender();}
+  );
   apply("ws/ccProp","ccPropDB",
     function(d){if(d&&Array.isArray(d.rows))ccPropDB=d;},
     function(){var pg=document.getElementById("page-margin");if(pg&&pg.style.display!=="none"&&!_cpEditing())cpRender();}
@@ -7115,7 +7131,7 @@ function switchTab(tab){
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); ccPdfPairDropZoneInit(); }
   if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
   _tabDropSync();
-  if(tab==="margin"){ renderMargin(); mgRenderContractPreview(); cpRender(); }
+  if(tab==="margin"){ msRender(); renderMargin(); mgRenderContractPreview(); cpRender(); }
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock"){ initStockTab(); stockWhDropInit(); }
   whInitSlots();          /* 발주 화면들의 창고재고 불러오기 칸 */
@@ -13562,6 +13578,106 @@ function _cpProducts(){
   var list=Object.keys(by).map(function(k){var o=by[k];o.tag=_cpMode(o.tags)||(typeof CC_ONLY_PRICE!=="undefined"&&CC_ONLY_PRICE[o.code]?String(CC_ONLY_PRICE[o.code]):"");o.cost=_cpMode(o.costs);o.flat=o.key.replace(/\s/g,"");return o;});
   _cpIdx={sig:sig,list:list};
   return _cpIdx;
+}
+/* ── 간단 마진계산 (2026-09-30 영업2팀) ──
+   영업2팀 엑셀 양식 그대로 한 줄에 계산한다. 금액은 **적은 그대로**(VAT 조정 없음) — 행사 마진 계산서·제안 상품 손익계산서보다 단순하게.
+   할인율 = 1 − 제안가÷Tag가 · 수수료액 = 제안가×수수료율 · 상품이익 = 제안가 − 원가 − 수수료액 − 물류비 − 기타
+   상품이익% = 상품이익÷제안가 · 원가대비% = 원가÷제안가(원가율). 상품명을 넣으면 Tag가·원가를 상품데이터에서 채운다(_cpFindProduct,
+   직접 고친 값은 덮지 않음 — _cpAutoSet). 팀 공유 ws/msSimple. 입력 중에는 표를 다시 그리지 않고 계산 칸만 바꾼다(_msPaint). */
+var msDB=(function(){try{var d=JSON.parse(localStorage.getItem("msDB")||"null");if(d&&Array.isArray(d.rows))return d;}catch(e){}return {rows:[]};})();
+function saveMs(){wsSetItem("msDB",JSON.stringify(msDB));}
+function _msN(v){var n=Number(String(v==null?"":v).replace(/[^0-9.\-]/g,""));return isNaN(n)?0:n;}
+function _msCalc(r){
+  var tag=_msN(r.tag),price=_msN(r.price),cost=_msN(r.cost),rate=_msN(r.feeRate),logi=_msN(r.logi),etc=_msN(r.etc);
+  var fee=Math.round(price*rate/100);
+  var profit=price-cost-fee-logi-etc;
+  return {disc:(tag&&price)?(1-price/tag):null,fee:fee,profit:profit,
+    pPct:price?profit/price:null,cPct:price?cost/price:null,has:!!(price||cost)};
+}
+function _msPct(v){return v==null?"–":(Math.round(v*1000)/10).toFixed(1)+"%";}
+/* 표 칸 순서 — 엑셀과 같다. t: in(입력)·calc(계산) */
+var MS_COLS=[
+  {k:"name",lab:"상품명",w:220,t:"in"},{k:"tag",lab:"Tag가",w:90,t:"in",num:1},{k:"price",lab:"제안가",w:90,t:"in",num:1},
+  {k:"disc",lab:"할인율",w:70,t:"calc"},{k:"cost",lab:"원가",w:90,t:"in",num:1},{k:"feeRate",lab:"수수료율(%)",w:80,t:"in",num:1},
+  {k:"fee",lab:"수수료액",w:90,t:"calc"},{k:"logi",lab:"물류비",w:80,t:"in",num:1},{k:"etc",lab:"기타",w:80,t:"in",num:1},
+  {k:"profit",lab:"상품이익",w:95,t:"calc"},{k:"pPct",lab:"상품이익%",w:80,t:"calc"},{k:"cPct",lab:"원가대비%",w:80,t:"calc"}
+];
+function _msCellText(k,c){
+  if(!c.has&&k!=="disc")return "";
+  if(k==="disc")return c.disc==null?"":_msPct(c.disc);
+  if(k==="fee"||k==="profit")return Number(c[k]).toLocaleString();
+  return _msPct(c[k]);
+}
+function msRender(){
+  var wrap=document.getElementById("msWrap");if(!wrap)return;
+  var th='position:sticky;top:0;background:#e3eeee;border:1px solid #cfe0e5;padding:6px 6px;color:#1b6e82;font-weight:700;font-size:12px;white-space:nowrap;text-align:center';
+  var h='<table style="border-collapse:collapse;font-size:13px;min-width:100%"><thead><tr>';
+  MS_COLS.forEach(function(c){h+='<th style="'+th+';min-width:'+c.w+'px">'+c.lab+'</th>';});
+  h+='<th style="'+th+';width:34px"></th></tr></thead><tbody>';
+  if(!msDB.rows.length)h+='<tr><td colspan="'+(MS_COLS.length+1)+'" style="padding:18px;text-align:center;color:#5b6675;border:1px solid #e1e6ee">＋ 행 추가를 눌러 상품을 넣으세요</td></tr>';
+  msDB.rows.forEach(function(r,i){
+    var c=_msCalc(r);
+    h+='<tr>';
+    MS_COLS.forEach(function(col){
+      if(col.t==="in"){
+        var v=r[col.k]==null?"":String(r[col.k]);
+        if(col.num&&v&&col.k!=="feeRate"&&!isNaN(_msN(v)))v=_msN(v).toLocaleString();
+        h+='<td style="border:1px solid #e1e6ee;padding:2px">'
+          +'<input value="'+_escX(v)+'"'+(col.k==="name"?' list="cpProdList" placeholder="상품명"':' inputmode="decimal"')
+          +' oninput="msInput('+i+',\''+col.k+'\',this.value)" onchange="msChange('+i+',\''+col.k+'\',this.value)"'
+          +' style="width:100%;box-sizing:border-box;border:none;outline:none;padding:5px 6px;font-size:13px;background:transparent;'+(col.num?'text-align:right':'')+'"></td>';
+      }else{
+        h+='<td id="ms_'+i+'_'+col.k+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;background:#f1f5f9;font-weight:700;white-space:nowrap"></td>';
+      }
+    });
+    h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="msDelRow('+i+')" title="삭제" style="border:none;background:#fee2e2;color:#dc2626;border-radius:6px;padding:3px 7px;cursor:pointer;font-weight:700">✕</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+  msDB.rows.forEach(function(r,i){_msPaint(i);});
+}
+/* 계산 칸만 다시 칠한다 — 표를 다시 그리면 입력 칸 포커스가 날아간다 */
+function _msPaint(i){
+  var r=msDB.rows[i];if(!r)return;
+  var c=_msCalc(r);
+  ["disc","fee","profit","pPct","cPct"].forEach(function(k){
+    var el=document.getElementById("ms_"+i+"_"+k);if(!el)return;
+    el.textContent=_msCellText(k,c);
+    var neg=(k==="profit"||k==="pPct")&&c.has&&c.profit<0;
+    el.style.color=neg?"#dc2626":(k==="profit"||k==="pPct"?"#15803d":"#334155");
+  });
+}
+function msInput(i,k,v){var r=msDB.rows[i];if(!r)return;r[k]=String(v).trim();_msPaint(i);}
+function msChange(i,k,v){
+  var r=msDB.rows[i];if(!r)return;
+  r[k]=String(v).trim();
+  if(k==="name"&&r.name&&typeof _cpFindProduct==="function"){
+    var p=_cpFindProduct(r.name);
+    if(p&&!p.many){
+      if(p.name)r.name=p.name;
+      if(p.tag)_cpAutoSet(r,"tag",String(_msN(p.tag)||""));
+      if(p.cost)_cpAutoSet(r,"cost",String(_msN(p.cost)||""));
+    }
+    saveMs();msRender();return;          /* 이름을 고치면 Tag가·원가가 바뀔 수 있어 다시 그린다 */
+  }
+  saveMs();_msPaint(i);
+}
+function msAddRow(){msDB.rows.push({name:"",tag:"",price:"",cost:"",feeRate:"",logi:"",etc:""});saveMs();msRender();}
+function msDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;msDB.rows.splice(i,1);saveMs();msRender();}
+function msExport(){
+  if(!msDB.rows.length){alert("계산한 상품이 없습니다.");return;}
+  var aoa=[MS_COLS.map(function(c){return c.lab;})];
+  msDB.rows.forEach(function(r){
+    var c=_msCalc(r);
+    aoa.push([r.name||"",_msN(r.tag)||"",_msN(r.price)||"",c.disc==null?"":Math.round(c.disc*1000)/10+"%",_msN(r.cost)||"",
+      r.feeRate?_msN(r.feeRate)+"%":"",c.has?c.fee:"",_msN(r.logi)||"",_msN(r.etc)||"",c.has?c.profit:"",
+      c.pPct==null?"":Math.round(c.pPct*1000)/10+"%",c.cPct==null?"":Math.round(c.cPct*1000)/10+"%"]);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=MS_COLS.map(function(c){return {wch:c.k==="name"?34:12};});
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"간단마진계산");
+  var d=new Date();
+  XLSX.writeFile(wb,"간단마진계산("+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+").xlsx");
 }
 function _cpFindProduct(q){
   var key=_cpNameKey(q);if(!key)return null;
