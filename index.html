@@ -1316,7 +1316,7 @@ label{font-size:14px!important}
           <span id="saipNote_cc" style="font-size:11.5px;color:#5b6675;line-height:1.4"></span>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid #cfe0e5;border-radius:8px;padding:7px 8px">
-          <button class="bs" id="saipAutoXc" onclick="saipAutoGo('xc')" title="같은 날짜 폴더의 발송후취소 · 발송후취소(백화점몰) 파일을 공급가 0원으로 (기본 전 영업일)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#7c3aed;color:#fff;border-color:#7c3aed">↩ 발송후취소 등록</button>
+          <button class="bs" id="saipAutoXc" onclick="saipAutoGo('xc')" title="같은 날짜 폴더의 발송후취소 · 발송후취소(백화점몰) 파일을 공급가 0원으로 (기본 전 영업일)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border-color:#1b6e82">↩ 발송후취소 등록</button>
           <input type="date" id="saipDate_xc" onchange="_saipTouched.xc=true;renderSaipAuto()" aria-label="↩ 발송후취소 등록 날짜" style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
           <span id="saipNote_xc" style="font-size:11.5px;color:#5b6675;line-height:1.4"></span>
         </div>
@@ -17117,11 +17117,23 @@ function _saipCard(kind){
   if(!(S.items||[]).length&&!S.note&&!S.error)h+='<div style="color:#5b6675">처리할 날짜가 없었습니다.</div>';
   return h+'</div>';
 }
+/* 매출등록 버튼 색·글자 — busy: 등록 중 · done: 그 날짜 등록 끝(민트) · todo: 등록할 건 있음(보라, 전체) · idle: 평소(청록) */
+function _saipBtnPaint(k,st){
+  var b=document.getElementById("saipAuto"+k.charAt(0).toUpperCase()+k.slice(1));if(!b)return;
+  var K=SAIP_KINDS[k],base=K.label+(k==="xc"?" 등록":" 매출등록");
+  var S={busy:["#e0f2fe","#7dd3fc","#075985","⏳ "+base+" 중"],done:["#99f6e4","#2dd4bf","#115e59","✅ "+base+"완료"],
+         todo:["#7c3aed","#6d28d9","#fff",K.icon+" "+base+" 요망"],idle:["#1b6e82","#1b6e82","#fff",K.icon+" "+base]}[st]||null;
+  if(!S)return;
+  b.style.background=S[0];b.style.borderColor=S[1];b.style.color=S[2];b.textContent=S[3];
+  b.dataset.state=st;
+}
 function renderSaipAuto(){
   var box=document.getElementById("saipAutoStatus");if(!box)return;
   ["hs","ds","cc","xc"].forEach(function(k){
     var el=_saipDateEl(k);if(!el)return;
-    if(!el.value||!_saipTouched[k])el.value=_saipDefaultDate(k);
+    /* 직접 고르지 않았으면: 등록할 건이 있으면 그 날짜(가장 이른 것), 없으면 기본 날짜 */
+    var rd0=_saipReadyOf(k);
+    if(!el.value||!_saipTouched[k])el.value=rd0.length?rd0.map(function(x){return x.date;}).sort()[0]:_saipDefaultDate(k);
     var note=document.getElementById("saipNote_"+k);if(!note)return;
     var dd=new Date(el.value+"T00:00:00"),mm=el.value.slice(5,7)+el.value.slice(8,10),warn=[];
     if(dd.getDay()===0||dd.getDay()===6)warn.push("주말");
@@ -17133,19 +17145,21 @@ function renderSaipAuto(){
     var rd=_saipReadyOf(k),er=((saipReady||{}).err||{})[k],tile=note.parentElement;
     if(rd.length)note.innerHTML+='<div style="margin-top:3px;color:#b45309;font-weight:800">📥 등록할 건: '+rd.map(function(x){return '<a href="#" onclick="return _saipPickReady(\''+k+'\',\''+x.date+'\')" title="'+_escX((x.files||[]).join(", "))+' — 누르면 이 날짜로" style="color:#b45309">'+(+x.mmdd.slice(0,2))+'/'+(+x.mmdd.slice(2,4))+'</a>';}).join(", ")+'</div>';
     else if(er)note.innerHTML+='<div style="margin-top:3px;color:#b91c1c">⚠ '+_escX(er)+'</div>';
-    if(tile)tile.style.borderColor=rd.length?"#f59e0b":"#cfe0e5";
-    if(tile)tile.style.boxShadow=rd.length?"0 0 0 2px #fde68a":"";
+    /* 버튼 색으로 상태를 보인다(2026-09-30 영업2팀) — 등록 중 · 완료(민트) · 요망(보라) · 평소(청록) */
+    var R0=(saipReq||{})[k],v=el.value;
+    var st=_saipReqActive(R0)?"busy"
+      :(_saipLogOf(k,v)||((k==="hs"||k==="ds")&&v<=SAIP_BASELINE))?"done"
+      :rd.some(function(x){return x.date===v;})?"todo":"idle";
+    _saipBtnPaint(k,st);
   });
-  /* 맨 위 안내 — '홈쇼핑 매출등록 건이 있습니다 (9/29)' */
+  /* 맨 위 안내줄(등록할 건 있습니다/없음)은 없앴다 — 버튼 색(요망·완료)으로 대신한다(2026-09-30 영업2팀).
+     자동화 PC가 30분 넘게 새로 살펴보지 못했을 때만 짧게 알린다(버튼 색이 오래된 정보일 수 있으므로). */
   var rl=document.getElementById("saipReadyLine");
   if(rl){
-    var parts=["hs","ds","cc","xc"].map(function(k){var rd=_saipReadyOf(k);if(!rd.length)return "";
-      return '<b>'+SAIP_KINDS[k].icon+' '+SAIP_KINDS[k].label+(k==="xc"?" 등록":" 매출등록")+' 건이 있습니다</b> ('+rd.map(function(x){return (+x.mmdd.slice(0,2))+'/'+(+x.mmdd.slice(2,4));}).join(", ")+')';}).filter(Boolean);
-    var ra=saipReady&&saipReady.at?new Date(saipReady.at):null,old=!ra||Date.now()-ra.getTime()>30*60*1000;
-    var when=ra?' <span style="font-weight:500;color:#5b6675">· '+_escX(_saipFmtAt(saipReady.at))+' 확인'+(old?' (30분 넘게 새로 못 봄 — 자동화 PC 확인)':'')+'</span>':'';
-    rl.innerHTML=parts.length
-      ?'<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:7px 10px;font-size:13px;color:#92400e">📥 '+parts.join(' · ')+when+'</div>'
-      :(ra?'<div style="font-size:12px;color:#5b6675">📭 지금 등록할 건 없음'+when+'</div>':'');
+    var ra=saipReady&&saipReady.at?new Date(saipReady.at):null;
+    rl.innerHTML=ra&&Date.now()-ra.getTime()>30*60*1000
+      ?'<div style="font-size:12px;color:#b45309;font-weight:700">⚠ 등록할 건을 '+_escX(_saipFmtAt(saipReady.at))+' 뒤로 새로 확인하지 못했습니다 — 자동화 PC를 확인해 주세요(버튼 색이 오래됐을 수 있음)</div>'
+      :"";
   }
   var yw=document.getElementById("saipAutoYearWarn");
   if(yw)yw.textContent=KR_HOLIDAYS[String(new Date().getFullYear())]?"":("⚠ "+new Date().getFullYear()+"년 공휴일표가 없어 전 영업일 계산에서 주말만 뺍니다 — KR_HOLIDAYS에 올해 공휴일을 넣어 주세요");
