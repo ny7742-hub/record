@@ -52,6 +52,7 @@
   **출고일자 = 제목의 날짜**(2026-09-29 영업2팀 지정 — 파일의 `출고일` 칸이 비어 와서 1단계가 '오늘'을 넣기 때문에 채워 준다).
   **운송장번호가 빈 줄이 하나라도 있으면 멈춘다**(아직 출고 안 된 줄). 매장·창고는 1단계 규칙대로 `CSTC`/`COSO`.
   하이웍스 로그인은 자동화 PC에서 `hiworks-login.cmd`로 한 번(비밀번호는 사람이 입력, 로그인 상태만 `hiworks-state.json`에 저장).
+  **로그인 계정은 `mj.kang@whitesands.co.kr`** — 그 계정으로 들어가면 offline@whitesands.co.kr 메일함이 열린다(2026-09-30 영업2팀).
   **하이웍스 Cloudflare 방화벽(2026-09-30~)**: 로그인 창이 '자동화 중' 크롬이면 ID를 넣어도 `네트워크 연결 상태가 원활하지 않습니다`만 뜨고 막혔다 →
   `hiworks-login.mjs`는 `--enable-automation`을 빼고 `AutomationControlled`를 끈 크롬으로 띄우고, 로그인 창의 브라우저 이름(`navigator.userAgent`)을
   `hiworks-state.json`의 `ua`에 같이 저장한다. 메일 받기(`fetchHiworks`)는 그 `ua`로 컨텍스트를 만든다(통과 쿠키가 UA에 묶여 `HeadlessChrome`이면 막힘).
