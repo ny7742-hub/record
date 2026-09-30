@@ -9829,35 +9829,45 @@ function whSetScope(v){
   try{localStorage.setItem("whScope",whScope);}catch(e){}
   _whKeys=null;whRefresh();
 }
-function _whFlat(){return (whScope==="all"?whStock.all:whStock.ship)||{};}
-var _whKeys=null;
+function _whFlat(wh){
+  if(wh==="cstc")return whStock.cstc||{};
+  return (whScope==="all"?whStock.all:whStock.ship)||{};
+}
+var _whKeys=null,_whKeysC=null;
 function _whSave(){try{localStorage.setItem("whStockDB",JSON.stringify(whStock));}catch(e){}}
-function _whKeyList(){
+function _whKeyList(wh){
+  if(wh==="cstc"){
+    if(!_whKeysC)_whKeysC=Object.keys(_whFlat("cstc")).sort(function(a,b){return b.length-a.length;});
+    return _whKeysC;
+  }
   if(!_whKeys)_whKeys=Object.keys(_whFlat()).sort(function(a,b){return b.length-a.length;});
   return _whKeys;
 }
 /* 상품컬러코드(자사코드) → 창고재고. 창고 파일은 `상품코드+칼라코드` 단위라
    자사코드에서 **사이즈 한 글자를 떼고** 맞춘다(재고확인 탭과 같은 규칙).
    못 찾으면 null — 0개(발주 불가)와 구분해야 한다. */
-function whQty(sku){
+/* wh="cstc"면 코스트코 창고(CSTC) 재고, 아니면 위 '주희물류/전체' 선택을 따른다 */
+function whQty(sku,wh){
   var s=String(sku||"").trim().toUpperCase();
   if(!s||!whStock.n)return null;
-  var f=_whFlat();
+  if(wh==="cstc"&&!whStock.cstc)return null;              /* CSTC를 담기 전(옛 자료) — 다음 업로드부터 나온다 */
+  var f=_whFlat(wh);
   if(f[s]!==undefined)return f[s];
   var cut=s.slice(0,-1);
   if(f[cut]!==undefined)return f[cut];
-  var keys=_whKeyList();
+  var keys=_whKeyList(wh);
   for(var i=0;i<keys.length;i++){if(s.indexOf(keys[i])===0)return f[keys[i]];}
   return null;
 }
 /* 발주 표에 넣을 '창고재고' 칸 — 재고가 주문 수량보다 적으면 빨강, 아슬아슬하면 주황 */
 /* 창고재고가 이 수량 **이하면 발주 불가**다(2026-09 영업2팀 지정 — 10개 이하는 발주 안 함) */
 var WH_MIN_ORDER=10;
-function whCell(sku,qty,tdStyle){
+function whCell(sku,qty,tdStyle,wh){
   var st=tdStyle||"border:1px solid #e1e6ee;padding:5px 8px";
   if(!whStock.n)return '<td style="'+st+';text-align:center;color:#5b6675">–</td>';
-  var q=whQty(sku),need=Number(String(qty==null?"":qty).replace(/[^0-9.-]/g,""))||0;
-  if(q===null)return '<td style="'+st+';text-align:center;color:#b45309" title="창고재고현황에 없는 코드입니다">?</td>';
+  var q=whQty(sku,wh),need=Number(String(qty==null?"":qty).replace(/[^0-9.-]/g,""))||0;
+  var whLab=wh==="cstc"?"CSTC 코스트코 창고":"창고재고현황";
+  if(q===null)return '<td style="'+st+';text-align:center;color:#b45309" title="'+whLab+'에 없는 코드입니다">?</td>';
   var col="#15803d",bg="",txt=q.toLocaleString(),tip="";
   if(q<=WH_MIN_ORDER){
     col="#dc2626";bg="background:#fef2f2;";txt=q.toLocaleString()+" (발주불가)";
@@ -10383,7 +10393,9 @@ function whLoadRows(rows){
         if(/불량|샘플/.test(nm))return false;
         return /^NH\d*$/.test(c)||/주희물류/.test(nm);
       };
-      var ship={},all={},n=0,whs={};
+      /* 코스트코 창고(CSTC)는 따로 담는다 — 코스트코 발주·사입출고(코스트코 줄)는 **CSTC에서 출고**라 그 재고를 봐야 한다(2026-09-30 영업2팀) */
+      var isCstc=function(code,name){return /^CSTC/.test(String(code||"").toUpperCase())||/코스트코/.test(String(name||""));};
+      var ship={},all={},cstc={},n=0,whs={};
       for(var r2=hRow+1;r2<rows.length;r2++){
         var row=rows[r2];if(!row||!row[cCode])continue;
         var key=(String(row[cCode]).trim()+(cColor>=0?String(row[cColor]||"").trim():"")).toUpperCase();
@@ -10392,14 +10404,15 @@ function whLoadRows(rows){
         if(all[key]===undefined)n++;
         all[key]=(all[key]||0)+q;
         if(isShip(wc,wn))ship[key]=(ship[key]||0)+q;
+        if(isCstc(wc,wn))cstc[key]=(cstc[key]||0)+q;
         if(wc&&!whs[wc])whs[wc]=wn||wc;
       }
       var m=/재고일자\s*:\s*(\d{8})/.exec(String((rows[0]&&rows[0][0])||""));
       var d=new Date();
-      whStock={ship:ship,all:all,n:n,at:(d.getMonth()+1)+"/"+d.getDate(),
+      whStock={ship:ship,all:all,cstc:cstc,n:n,at:(d.getMonth()+1)+"/"+d.getDate(),
         whs:Object.keys(whs).map(function(k){return k+" "+whs[k];}),
         date:m?(m[1].slice(0,4)+"-"+m[1].slice(4,6)+"-"+m[1].slice(6,8)):""};
-      _whKeys=null;_whSave();whRefresh();
+      _whKeys=null;_whKeysC=null;_whSave();whRefresh();
     }catch(err){
       alert("창고재고 자료 오류: "+err.message);
       whRefresh();
@@ -16681,7 +16694,7 @@ function renderCcoTable(){
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+out.ymd+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.barcode)+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
-      +whCell(r.colorCode,r.qty,"border:1px solid #e2e8f0;padding:5px 8px")
+      +whCell(r.colorCode,r.qty,"border:1px solid #e2e8f0;padding:5px 8px",_ccoWhStoreCode(r.shop).wh===CCO_OUT_WH?"cstc":"")   /* 코스트코 줄은 CSTC, 홈쇼핑·백화점몰은 주희물류 */
       +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:90px">'
         +'<input type="text" value="'+r.amt+'" data-i="'+i+'" onchange="ccoEditAmt(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(!r.amt?'#fca5a5':(r.amtAuto?'#fcd34d':'#d1d5db'))+';border-radius:5px;padding:4px 6px;text-align:right;font-size:13px">'
         +(r.amtAuto?'<div style="font-size:10px;color:#b45309;padding:2px 2px 0">💡'+_esc(r.amtSrc||"자동")+' 단가</div>':'')
@@ -17165,7 +17178,7 @@ function renderCcPdfTable(){
       +'<td style="border:1px solid #b9c4d4;padding:2px;min-width:130px"><input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="ccPdfEditColorCode(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.matched?'#d1d5db':'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:18px'+(r.matched?'':';color:#dc2626')+'"></td>'
       +'<td style="border:1px solid #b9c4d4;padding:5px 8px;font-size:16px;color:#64748b;white-space:nowrap">'+_esc(r.barcode||"")+'</td>'
       +'<td style="border:1px solid #b9c4d4;padding:5px 8px;text-align:right">'+fmtCC(r.qty)+'</td>'
-      +whCell(r.colorCode,r.qty,"border:1px solid #b9c4d4;padding:5px 8px")
+      +whCell(r.colorCode,r.qty,"border:1px solid #b9c4d4;padding:5px 8px","cstc")   /* 코스트코 발주 = CSTC 출고 */
       +'<td style="border:1px solid #b9c4d4;padding:5px 8px;text-align:right">'+fmtCC(r.amt)+'</td>'
       +'<td style="border:1px solid #b9c4d4;padding:5px 8px;font-size:16px;color:#64748b;white-space:nowrap">'+_esc(r.orderNo)+'</td>'
       +'<td style="border:1px solid #b9c4d4;padding:2px;min-width:120px"><input type="text" value="'+_esc(r.invoiceNo||"")+'" data-i="'+i+'" onchange="ccPdfEditInvoiceNo(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.invoiceNo?'#d1d5db':'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:18px'+(r.invoiceNo?'':';color:#dc2626')+'"></td>'
