@@ -2558,10 +2558,15 @@ function authToggleAdmin(uid){
    Firebase 콘솔에서 Google 로그인을 켜기 전에 게이트부터 켜면 팀 전체가 못 들어온다.
    보안 규칙을 잠근 뒤에는 로그인 전 읽기가 거부되는데, 그것도 '켜짐'으로 본다. */
 var _authGateOn=null;
+/* 저장된 로그인을 Firebase가 다 불러왔는지 — 첫 onAuthStateChanged가 와야 안다.
+   그 전에 currentUser가 비어 있다고 로그인 화면을 띄우면, **로그인해 둔 사람도 열 때마다 잠깐 로그인 화면이 보였다**(2026-10-01 영업2팀 문의). */
+var _authResolved=false;
 function authStartSetup(){
   _authGateOn=true;
   var u=firebase.auth().currentUser;
-  if(u){_authUser=u;_authShow("권한 확인 중...");_authCheck(u);}else _authRenderOut();
+  if(u){_authUser=u;_authShow("권한 확인 중...");_authCheck(u);}
+  else if(!_authResolved)_authShow("로그인 확인 중...");   /* 곧 onAuthStateChanged가 이어서 그린다 */
+  else _authRenderOut();
 }
 function _authOpenMode(){
   _authGateOn=false;_authState="open";
@@ -2572,7 +2577,7 @@ function _authOpenMode(){
   fbListen();
 }
 firebase.auth().onAuthStateChanged(function(u){
-  _authUser=u;
+  _authUser=u;_authResolved=true;
   if(_authGateOn!==true)return;               /* 게이트가 꺼져 있으면 로그인 상태만 기억 */
   if(!u){if(!_authLocalSkip&&!_authLinkPending){_authMe=null;_authRenderChip();_authRenderOut();}return;}
   _authShow("권한 확인 중...");
