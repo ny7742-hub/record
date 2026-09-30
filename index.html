@@ -13582,7 +13582,7 @@ function _cpProducts(){
 /* ── 간단 마진계산 (2026-09-30 영업2팀) ──
    영업2팀 엑셀 양식 그대로 한 줄에 계산한다. 금액은 **적은 그대로**(VAT 조정 없음) — 행사 마진 계산서·제안 상품 손익계산서보다 단순하게.
    할인율 = 1 − 제안가÷Tag가 · 수수료액 = 제안가×수수료율 · 상품이익 = 제안가 − 원가 − 수수료액 − 물류비 − 기타
-   상품이익% = 상품이익÷제안가 · 원가대비% = 원가÷제안가(원가율). 상품명을 넣으면 Tag가·원가를 상품데이터에서 채운다(_cpFindProduct,
+   상품이익% = 상품이익÷제안가 · 원가대비% = **상품이익÷원가**(2026-09-30 영업2팀 엑셀로 확인). 상품명을 넣으면 Tag가·원가를 상품데이터에서 채운다(_cpFindProduct,
    직접 고친 값은 덮지 않음 — _cpAutoSet). 팀 공유 ws/msSimple. 입력 중에는 표를 다시 그리지 않고 계산 칸만 바꾼다(_msPaint). */
 var msDB=(function(){try{var d=JSON.parse(localStorage.getItem("msDB")||"null");if(d&&Array.isArray(d.rows))return d;}catch(e){}return {rows:[]};})();
 function saveMs(){wsSetItem("msDB",JSON.stringify(msDB));}
@@ -13592,9 +13592,9 @@ function _msCalc(r){
   var fee=Math.round(price*rate/100);
   var profit=price-cost-fee-logi-etc;
   return {disc:(tag&&price)?(1-price/tag):null,fee:fee,profit:profit,
-    pPct:price?profit/price:null,cPct:price?cost/price:null,has:!!(price||cost)};
+    pPct:price?profit/price:null,cPct:cost?profit/cost:null,has:!!(price||cost)};   /* 원가대비% = 상품이익÷원가(영업2팀 엑셀: 4,383÷13,397=32.72%) */
 }
-function _msPct(v){return v==null?"–":(Math.round(v*1000)/10).toFixed(1)+"%";}
+function _msPct(v){return v==null?"–":(Math.round(v*10000)/100).toFixed(2)+"%";}   /* 엑셀과 같이 소수 둘째 자리 */
 /* 표 칸 순서 — 엑셀과 같다. t: in(입력)·calc(계산) */
 var MS_COLS=[
   {k:"name",lab:"상품명",w:220,t:"in"},{k:"tag",lab:"Tag가",w:90,t:"in",num:1},{k:"price",lab:"제안가",w:90,t:"in",num:1},
@@ -13643,8 +13643,8 @@ function _msPaint(i){
   ["disc","fee","profit","pPct","cPct"].forEach(function(k){
     var el=document.getElementById("ms_"+i+"_"+k);if(!el)return;
     el.textContent=_msCellText(k,c);
-    var neg=(k==="profit"||k==="pPct")&&c.has&&c.profit<0;
-    el.style.color=neg?"#dc2626":(k==="profit"||k==="pPct"?"#15803d":"#334155");
+    var neg=(k==="profit"||k==="pPct"||k==="cPct")&&c.has&&c.profit<0;
+    el.style.color=neg?"#dc2626":(k==="profit"||k==="pPct"||k==="cPct"?"#15803d":"#334155");
   });
 }
 function msInput(i,k,v){var r=msDB.rows[i];if(!r)return;r[k]=String(v).trim();_msPaint(i);}
@@ -13671,7 +13671,7 @@ function msExport(){
     var c=_msCalc(r);
     aoa.push([r.name||"",_msN(r.tag)||"",_msN(r.price)||"",c.disc==null?"":Math.round(c.disc*1000)/10+"%",_msN(r.cost)||"",
       r.feeRate?_msN(r.feeRate)+"%":"",c.has?c.fee:"",_msN(r.logi)||"",_msN(r.etc)||"",c.has?c.profit:"",
-      c.pPct==null?"":Math.round(c.pPct*1000)/10+"%",c.cPct==null?"":Math.round(c.cPct*1000)/10+"%"]);
+      c.pPct==null?"":Math.round(c.pPct*10000)/100+"%",c.cPct==null?"":Math.round(c.cPct*10000)/100+"%"]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"]=MS_COLS.map(function(c){return {wch:c.k==="name"?34:12};});
