@@ -48,6 +48,19 @@
   받은 뒤 5단계 안내에 `송장 있는 N줄만 담음 · M줄 뺌`을 띄운다. 뺀 주문은 송장이 나오면 그때 다시 올린다.
   같은 규칙을 자동화 `automation/dss-invoice.mjs`(DSS 송장 자동 입력, 만드는 중)도 쓴다.
 
+- **코스트코 자동 발주**(2026-10-01 영업2팀, `automation/costco-order.mjs` · 화면 `#ccAutoBox` `ccAutoGo`/`ccAutoRender`):
+  코스트코 발주 머리 아래 **`🔍 미리보기(메일 초안)`** · **`🚚 발주하기`** → 팀 공유 요청 `ws/saipReq.co`(mode preview|save) → 자동화 PC `saip-watch`가 돌린다.
+  ① DSS 두 아이디(자동화 창 9333·9334) 새 주문을 **DSS 내부 API**(GET `PurchaseOrder?status=…` · `PurchaseOrderDetail?purchaseOrder.id=`)로 읽는다 —
+  토큰은 앱이 스스로 보내는 요청의 `authorization`을 그대로 쓴다(비밀번호 없음). PDF를 받지 않는다. 받는 분 `shipTo.name/phoneNumber/address.postCode·additionalLine1·2`, 상품 `vendorItem.retailerSKU`·`quantity`.
+  **DSS [인쇄] 화면은 여는 것만으로 신규(IMPORTED)를 확인완료(ACKNOWLEDGED)로 바꾼다**(화면 코드 `_afterReset → acknowledge`, [새 주문]도 같음) — 미리보기는 홈만 열어 상태를 안 바꾼다.
+  ② 도매발주서는 자비스 화면 안에서 **`ccOrderBuildFromDss(orders)`** — PDF 경로와 같은 `_ccPdfMakeRow`(매칭·금액) · `_ccPdfWholesaleAoa`(27열)를 쓴다.
+  ③ 발주하기만: DSS **[출력]** — **출력완료(PRINTED)가 된 주문만 송장 화면(발송일괄업로드)에 나온다**. 메일에 넣은 주문만 Ctrl+클릭으로 골라(한 화면 20건) 출력, API로 출력완료 확인. 실패하면 메일을 안 보낸다.
+  ④ 하이웍스 메일 쓰기 화면(`data-testid` input-address-to/cc/subject · iframe `se-contents-edit` · input-upload-file-picker · btn-write-send/save):
+  받는 사람 김구남 gnkim72@daum.net · 참조 offline@·cs@ · 제목 `화이트샌즈(MMDD) - 영업2팀` · 서명 = 누른 사람(`automation/mail-signature.json`, 없으면 '영업2팀').
+  미리보기는 **[저장하기](임시보관함)** 까지. 같은 날 두 번 발주는 `ws/ccOrderLog[YYYY-MM-DD]`로 막는다. 결과 `ws/ccOrderStatus`.
+  멈춤: 한 아이디라도 못 읽음 · 두 창이 같은 아이디 · 상품 매칭 안 된 줄. 배송메세지는 API에서 아직 못 찾아 비운다(9/29 0건 · 9/30 1건뿐이었음).
+  슬랙 알림은 빼기로 했다(영업2팀). 만들 때 Claude Code 자동 모드 안전 확인이 '실제 거래'로 막아 영업2팀이 수동(매번 확인) 모드로 바꿔 진행했다.
+
 - **DSS 송장 자동 입력 `automation/dss-invoice.mjs`**(2026-10-01 영업2팀) — **🛒 코스트코 매출등록 버튼 뒤에 이어서 돈다**:
   자동화 PC(`saip-watch`)가 cc 매출등록(`playmd-hs-saip`)을 끝내면 `dss-invoice --date --save --by`를 부른다(미리보기 요청이면 DSS도 미리보기).
   결과는 `ws/ccDssStatus`(`{mmdd,mode,by,at,ok,accounts:[{who,orders,uploaded,still}],notInDss,errors}`) → 자비스 코스트코 카드 맨 아래 `DSS 송장` 줄(`_ccDssLine`).

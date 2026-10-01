@@ -1434,6 +1434,17 @@ label{font-size:14px!important}
       <span>📄 코스트코 발주</span>
       <button class="bs" style="font-size:16px;padding:5px 12px" onclick="ccPdfResetAll()" title="업로드한 PDF·송장번호·대상 파일을 모두 지우고 처음 상태로">🗑 초기화</button>
     </div>
+    <!-- 코스트코 자동 발주(2026-10-01 영업2팀) — 자동화 PC(automation/costco-order.mjs)가 아래 1~3단계와 메일까지 한다 -->
+    <div id="ccAutoBox" style="border:1px solid #cfe0e5;border-radius:10px;background:#f6fbfc;padding:10px 12px;margin:6px 0 12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <b style="font-size:16px;color:#0f4c5c">🤖 코스트코 자동 발주</b>
+        <span style="font-size:13px;color:#5b6675">DSS 두 아이디 새 주문 → 도매발주서 → DSS [출력] → 주희물류 메일(참조 영업2팀·CX팀, 서명 = 누른 사람)</span>
+        <span style="flex:1"></span>
+        <button class="bs" onclick="ccAutoGo('preview')" style="font-size:14px;font-weight:700;padding:6px 12px" title="DSS는 읽기만 하고, 도매발주서를 만들어 하이웍스 임시보관함에 메일 초안만 저장합니다">🔍 미리보기(메일 초안)</button>
+        <button onclick="ccAutoGo('save')" style="font-size:14px;font-weight:800;padding:6px 14px;background:#1b6e82;color:#fff;border:1px solid #1b6e82;border-radius:8px;cursor:pointer" title="DSS 출력완료 처리 + 메일 발송까지 합니다">🚚 발주하기</button>
+      </div>
+      <div id="ccAutoStatus" style="margin-top:6px;font-size:14px;line-height:1.6"></div>
+    </div>
 
     <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:6px;align-items:stretch">
       <div style="border:1px solid #cbd5e1;border-radius:10px;padding:8px;background:#fff;display:flex;flex-direction:column;gap:8px">
@@ -2265,7 +2276,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -2806,6 +2817,15 @@ function fbListen(){
   apply("ws/ccDssStatus","ccDssStatus",
     function(d){if(d&&typeof d==="object")ccDssStatus=d;},
     function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
+  );
+  /* 코스트코 자동 발주 결과·기록(automation/costco-order.mjs) */
+  apply("ws/ccOrderStatus","ccOrderStatus",
+    function(d){if(d&&typeof d==="object")ccOrderStatus=d;},
+    function(){if(typeof ccAutoRender==="function")ccAutoRender();}
+  );
+  apply("ws/ccOrderLog","ccOrderLog",
+    function(d){if(d&&typeof d==="object")ccOrderLog=d;},
+    function(){if(typeof ccAutoRender==="function")ccAutoRender();}
   );
   apply("ws/xcSaipStatus","xcSaipStatus",
     function(d){if(d&&typeof d==="object")xcSaipStatus=d;},
@@ -17418,6 +17438,52 @@ var hsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("hsSaipS
 var dsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("dsSaipStatus")||"null");}catch(e){return null;}})();
 var ccSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("ccSaipStatus")||"null");}catch(e){return null;}})();
 var ccDssStatus=(function(){try{return JSON.parse(localStorage.getItem("ccDssStatus")||"null");}catch(e){return null;}})();
+var ccOrderStatus=(function(){try{return JSON.parse(localStorage.getItem("ccOrderStatus")||"null");}catch(e){return null;}})();
+var ccOrderLog=(function(){try{return JSON.parse(localStorage.getItem("ccOrderLog")||"null")||{};}catch(e){return {};}})();
+/* ── 코스트코 자동 발주(2026-10-01 영업2팀) ──
+   버튼은 이 PC를 직접 열지 않고 팀 공유 요청 ws/saipReq.co를 남긴다 → 자동화 PC(saip-watch)가 costco-order.mjs를 돌린다.
+   미리보기: DSS 읽기만 + 메일 초안(임시보관함). 발주하기: DSS [인쇄](신규→확인완료) → 도매발주서 → [출력] → 메일 발송.
+   같은 날 두 번 발주는 ws/ccOrderLog로 막는다. */
+function _ccToday(){var d=new Date();return d.getFullYear()+"-"+_ord2(d.getMonth()+1)+"-"+_ord2(d.getDate());}
+function ccAutoGo(mode){
+  var cur=(saipReq||{}).co;
+  if(_saipReqActive(cur)){alert("코스트코 자동 발주가 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").\n\n끝나면 결과가 이 칸에 나옵니다.");return;}
+  var today=_ccToday(),L=(ccOrderLog||{})[today];
+  if(mode==="save"&&L){alert("오늘 이미 발주했습니다.\n\n"+_saipFmtAt(L.at)+" · "+(L.by||"?")+" · "+(L.orders||0)+"건\n\n같은 날 두 번 보내면 물류가 두 번 출고합니다. 추가 주문은 내일 발주에 들어갑니다.");return;}
+  var msg=mode==="save"
+    ?"코스트코 발주를 진행합니다.\n\n① DSS 두 아이디 [인쇄] 화면을 열어 새 주문을 확인 처리하고\n② 도매발주서를 만든 뒤\n③ 그 주문들을 DSS [출력](출력완료) 하고\n④ 김구남 님(gnkim72@daum.net, 참조 영업2팀·CX팀)께 '화이트샌즈("+today.slice(5,7)+today.slice(8,10)+") - 영업2팀' 메일을 보냅니다.\n\n서명: "+_saipMe()+"\n출력·메일은 되돌리기 어렵습니다. 진행할까요?"
+    :"코스트코 발주 미리보기를 합니다.\n\nDSS는 읽기만 하고, 도매발주서를 만들어 하이웍스 임시보관함에 메일 초안만 저장합니다(보내지 않음).\n\n진행할까요?";
+  if(!confirm(msg))return;
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:today.slice(5,7)+today.slice(8,10),date:today,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:mode};
+  if(!saipReq||typeof saipReq!=="object")saipReq={};
+  saipReq.co=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  ccAutoRender();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다(꺼져 있거나 요청 받기 프로그램이 안 돌고 있음). 켜지면 이어서 처리됩니다.");
+}
+function ccAutoRender(){
+  var box=document.getElementById("ccAutoStatus");if(!box)return;
+  var h="",R=(saipReq||{}).co,S=ccOrderStatus,L=(ccOrderLog||{})[_ccToday()];
+  if(L)h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:4px;color:#047857;font-weight:700">✅ 오늘 발주함 · '+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"?")+' · '+(L.orders||0)+'건 '+(L.qty||0)+'개</div>';
+  if(R&&R.state){
+    var who=_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":"미리보기";
+    if(_saipReqActive(R))h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?'요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>'):'진행 중… ('+who+' · 2~5분)')+'</div>';
+    else if(R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<24*3600*1000)h+='<div style="color:#b91c1c;font-weight:700">❗ '+what+' 요청('+who+')이 실패로 끝났습니다</div>';
+  }
+  if(S&&S.at){
+    var pv=S.mode!=="save",ok=!(S.errors||[]).length;
+    h+='<div style="border-top:1px dashed #cfe0e5;margin-top:4px;padding-top:4px">'
+      +'<b style="color:'+(ok?(pv?'#1d4ed8':'#047857'):'#b91c1c')+'">'+(ok?(pv?'🔍 미리보기':'✅ 발주'):'❗ '+(pv?'미리보기':'발주')+' 멈춤')+'</b> '
+      +'<span style="color:#5b6675">· '+_escX(_saipFmtAt(S.at))+' · '+_escX(S.by||"?")+'</span>';
+    if(S.accounts&&S.accounts.length)h+='<div>'+S.accounts.map(function(a){return _escX(a.who)+' <b>'+a.orders+'건</b>';}).join(' · ')+(S.orders?' · 합계 <b>'+S.orders+'건</b> · '+(S.lines||0)+'줄 · '+(S.qty||0)+'개 · '+Number(S.amt||0).toLocaleString()+'원':'')+'</div>';
+    if(S.note)h+='<div style="color:#5b6675">'+_escX(S.note)+'</div>';
+    if(S.mail)h+='<div>✉️ 메일 '+_escX(S.mail)+' · <span style="color:#5b6675">'+_escX(S.subject||"")+'</span>'+(pv?' — 하이웍스 <b>임시보관함</b>에서 열어 확인하세요':'')+'</div>';
+    if(S.unmatched&&S.unmatched.length)h+='<div style="color:#b91c1c">상품 매칭 안 됨: '+S.unmatched.map(_escX).join(", ")+'</div>';
+    (S.errors||[]).forEach(function(e){h+='<div style="color:#b91c1c">'+_escX(e)+'</div>';});
+    h+='</div>';
+  }
+  if(!h)h='<span style="color:#5b6675">아직 실행 기록이 없습니다. 처음에는 <b>미리보기</b>로 메일 초안을 확인해 주세요.</span>';
+  box.innerHTML=h;
+}
 /* 코스트코 카드 맨 아래 — DSS 송장 입력 결과(2026-10-01 영업2팀). 아이디(ckr.…)마다 올린 주문 수, 남은 주문, 오류 */
 function _ccDssLine(){
   var D=ccDssStatus;if(!D||!D.at)return "";
@@ -17670,6 +17736,7 @@ function _saipBtnPaint(k,st){
   b.dataset.state=st;
 }
 function renderSaipAuto(){
+  if(typeof ccAutoRender==="function")ccAutoRender();
   var box=document.getElementById("saipAutoStatus");if(!box)return;
   ["hs","ds","cc","xc"].forEach(function(k){
     var el=_saipDateEl(k);if(!el)return;
@@ -17854,24 +17921,29 @@ function _ccPdfParsePageLines(lines){
   }
   var items=_ccPdfExtractItems(lines.slice(itemStart,itemEnd));
   return items.map(function(it){
-    var cm=CC_PDF_CODE_MAP[it.code];
-    var mappedColor=_ccPdfColor(cm,it.color);
-    var qty=it.qty*((cm&&cm.setQty)||1);
-    var dd=cm?_ccPdfResolveFromDefaultData(cm.base,mappedColor):null;
-    if(!dd&&cm)dd=_ccPdfResolveByColorName(cm.base,it.name); /* 칼라코드 불일치 시 칼라명으로 재시도 */
-    var amt=_ccPdfCostcoAmount(cm,it.qty);
-    return{
-      name:name,phone:_ccPdfFmtPhone(phone),zip:zipc,address:address,
-      orderNo:orderNo,orderDate:orderDate,msg:msg,
-      prodName:dd?(dd.prodName+" "+dd.colorName):(cm?cm.name:it.name),
-      prodCode:dd?dd.prodCode:(cm?cm.base:""),
-      colorCode:dd?dd.skuCode:(cm?(cm.base+mappedColor+"X"):""),
-      barcode:dd?(dd.barcode||""):"",
-      amt:amt,
-      rawName:it.name,ccColor:it.color,
-      qty:qty,matched:!!dd,invoiceNo:"",invoiceAuto:true
-    };
+    return _ccPdfMakeRow({name:name,phone:phone,zip:zipc,address:address,orderNo:orderNo,orderDate:orderDate,msg:msg},it);
   });
+}
+/* 주문(받는 분·주소·주문번호) + 상품 하나({name,qty,code,color}) → 발주 행.
+   PDF 주문서(_ccPdfParsePageLines)와 DSS 자동 발주(ccOrderBuildFromDss)가 같은 규칙을 쓰도록 한 곳에 둔다. */
+function _ccPdfMakeRow(o,it){
+  var cm=CC_PDF_CODE_MAP[it.code];
+  var mappedColor=_ccPdfColor(cm,it.color);
+  var qty=it.qty*((cm&&cm.setQty)||1);
+  var dd=cm?_ccPdfResolveFromDefaultData(cm.base,mappedColor):null;
+  if(!dd&&cm)dd=_ccPdfResolveByColorName(cm.base,it.name); /* 칼라코드 불일치 시 칼라명으로 재시도 */
+  var amt=_ccPdfCostcoAmount(cm,it.qty);
+  return{
+    name:o.name,phone:_ccPdfFmtPhone(o.phone),zip:o.zip,address:o.address,
+    orderNo:o.orderNo,orderDate:o.orderDate,msg:o.msg||"",
+    prodName:dd?(dd.prodName+" "+dd.colorName):(cm?cm.name:it.name),
+    prodCode:dd?dd.prodCode:(cm?cm.base:""),
+    colorCode:dd?dd.skuCode:(cm?(cm.base+mappedColor+"X"):""),
+    barcode:dd?(dd.barcode||""):"",
+    amt:amt,
+    rawName:it.name,ccColor:it.color,
+    qty:qty,matched:!!dd,invoiceNo:"",invoiceAuto:true
+  };
 }
 /* 상품명으로 품목 분류 — 우양산/우산/양산 → 우산, 마스크 → 마스크, 그 외는 모자 */
 function _ccPdfItemCategory(prodName){
@@ -18776,7 +18848,10 @@ function ccPdfDownloadWholesale(){
     return !String(r.name||"").trim()||!String(r.address||"").trim();
   }).length;
   if(need&&!confirm("수령인 또는 주소가 비어있는 행이 "+need+"건 있습니다.\n\n그대로 다운로드할까요?"))return;
-  var rows=ccPdfRows.map(function(r){
+  XLSX.writeFile(_wholesaleWorkbook(_ccPdfWholesaleAoa(ccPdfRows)),_wholesaleFileName("코스트코"));
+}
+function _ccPdfWholesaleAoa(list){
+  return (list||[]).map(function(r){
     var row=[];for(var c=0;c<27;c++)row.push("");
     row[2]=r.orderNo||"";                              /* C 주문번호(쇼핑몰) */
     row[3]="코스트코 온라인";                           /* D 쇼핑몰 */
@@ -18794,7 +18869,31 @@ function ccPdfDownloadWholesale(){
     row[24]=r.orderDate||"";                           /* Y 주문일시 */
     return row;
   });
-  XLSX.writeFile(_wholesaleWorkbook(rows),_wholesaleFileName("코스트코"));
+}
+/* ── 코스트코 자동 발주(2026-10-01 영업2팀) — automation/costco-order.mjs가 자비스 화면 안에서 부른다 ──
+   DSS 주문 데이터(받는 분·주소·상품)를 받아 3단계 '⬇ 도매발주서 양식'과 똑같은 파일을 만든다(같은 매칭·금액·27열).
+   orders: [{orderNo,orderDate:'YYYY/MM/DD',name,phone,zip,address,msg,account,items:[{sku:'696151-BK',qty,name}]}]
+   돌려주는 것: {b64(xlsx), fileName, lines, qty, amt, unmatched:[{orderNo,sku,name}], perOrder:[{orderNo,account,lines,qty}]}
+   받는 분·주소는 이 파일을 만드는 데만 쓰고 자비스에 저장하지 않는다. */
+function ccOrderBuildFromDss(orders){
+  var rows=[],unmatched=[],perOrder=[];
+  (orders||[]).forEach(function(o){
+    var n=0,q=0;
+    (o.items||[]).forEach(function(it){
+      var m=String(it.sku||"").match(/^(\d{6})-([A-Za-z]{2,4})$/);
+      var item=m?{name:it.name||"",qty:+it.qty||0,code:m[1],color:m[2].toUpperCase()}:{name:it.name||"",qty:+it.qty||0,code:String(it.sku||""),color:""};
+      var r=_ccPdfMakeRow(o,item);
+      if(!r.matched)unmatched.push({orderNo:o.orderNo,sku:it.sku,name:it.name||""});
+      rows.push(r);n++;q+=r.qty||0;
+    });
+    perOrder.push({orderNo:o.orderNo,account:o.account||"",lines:n,qty:q});
+  });
+  var wb=_wholesaleWorkbook(_ccPdfWholesaleAoa(rows));
+  return {
+    b64:XLSX.write(wb,{type:"base64",bookType:"xlsx"}),fileName:_wholesaleFileName("코스트코"),
+    lines:rows.length,qty:rows.reduce(function(a,r){return a+(+r.qty||0);},0),amt:rows.reduce(function(a,r){return a+(+r.amt||0);},0),
+    unmatched:unmatched,perOrder:perOrder
+  };
 }
 
 
