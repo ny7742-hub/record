@@ -7069,6 +7069,8 @@ function renderQuickLaunch(){
     {label:"홈앤쇼핑",url:"https://partners.hnsmall.com/app/index.html",icon:_extLinkIcon},
     {label:"롯데 홈쇼핑",url:"https://partners.lotteimall.com/",icon:_extLinkIcon,defaultEmail:"offline@whitesands.co.kr"},
     {label:"코스트코 DSS",url:"https://costcokr.logistics.reply.com/costcokr/#/costcokr/dropship/",icon:_extLinkIcon,dualCred:true,portal:"dss"},
+    /* DSS 두 번째 아이디용 — 자동화 창으로 열기를 켠 PC에만 보인다(두 번째 자동화 창에 로그인해 두면 송장 자동 입력이 두 아이디 다 한다) */
+    {label:"코스트코 DSS 2",url:"https://costcokr.logistics.reply.com/costcokr/#/costcokr/dropship/",icon:_extLinkIcon,noCred:true,portal:"dss2",portalOnly:true},
     {label:"코스트코 수발주",url:"https://www.escm21.net/escm21/home/index.jsp",icon:_extLinkIcon},
     {label:"CX통합관리",url:"https://wscx.pages.dev/",icon:_extLinkIcon},
     {label:"세일즈매니지먼트",url:"https://wssales.pages.dev/",icon:_extLinkIcon},
@@ -7082,6 +7084,7 @@ function renderQuickLaunch(){
   ];
   var qw=document.getElementById("homeQuick");
   function renderCard(q){
+    if(q.portalOnly&&!_qcPortalMode())return "";
     var tag=q.url?'a href="'+_esc(q.url)+'" target="_blank" rel="noopener"'+(q.portal?' onclick="return qcPortalOpen(event,\''+q.portal+'\')"':''):'div onclick="switchTab(\''+q.tab+'\')"';
     var closeTag=q.url?'a':'div';
     var cred=quickCreds[q.label]||{};
@@ -7122,7 +7125,8 @@ function renderQuickLaunch(){
 function _qcPortalMode(){try{return localStorage.getItem("qcPortalMode")==="1";}catch(e){return false;}}
 function qcSetPortalMode(on){
   try{localStorage.setItem("qcPortalMode",on?"1":"0");}catch(e){}
-  if(on)alert("이 PC에서는 롯데 EDI · 현대 EDI · 코스트코 DSS · 메일함 바로가기가 '자동화 포탈 창'에 열립니다.\n\n자동화 PC에서만 켜 두세요. 처음 누를 때 크롬이 'portalopen 열기'를 물으면 '항상 허용'에 체크하고 열기를 누르세요.");
+  renderQuickLaunch();
+  if(on)alert("이 PC에서는 롯데 EDI · 현대 EDI · 코스트코 DSS · 메일함 바로가기가 '자동화 포탈 창'에 열립니다.\n[코스트코 DSS 2]는 DSS 두 번째 아이디용 창입니다(코스트코 DSS와 다른 아이디로 로그인).\n\n자동화 PC에서만 켜 두세요. 처음 누를 때 크롬이 'portalopen 열기'를 물으면 '항상 허용'에 체크하고 열기를 누르세요.");
 }
 function qcPortalOpen(e,key){
   if(!_qcPortalMode())return true;               /* 꺼져 있으면 평소처럼 새 탭 */
