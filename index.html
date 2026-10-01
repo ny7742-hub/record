@@ -704,6 +704,7 @@ label{font-size:14px!important}
     <div style="font-size:11px;font-weight:700;color:#5b6675">⚡ 바로가기</div>
     <label id="qcPortalBox" title="자동화 PC에서만 켜세요 — 켜면 롯데 EDI·현대 EDI·코스트코 DSS·메일함 바로가기가 이 PC의 '자동화 포탈 창'에 열립니다(자동화가 그 창의 로그인을 씁니다). 이 브라우저에만 기억합니다." style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:#334155;border:1px solid #cbd5e1;border-radius:999px;padding:3px 10px;cursor:pointer;background:#fff;white-space:nowrap;flex:none;width:auto">
       <input type="checkbox" id="qcPortalChk" onchange="qcSetPortalMode(this.checked)" style="margin:0;width:14px;height:14px;padding:0;flex:none"> 🖥 자동화 창으로 열기</label><!-- 한 줄로(2026-10-01 영업2팀) — 공용 input·label 규칙에 체크박스가 커지고 글자가 세 줄로 접혔다 -->
+    <button id="qcLoginAllBtn" onclick="qcOpenAllLogins()" title="롯데 EDI · 현대 EDI · 코스트코 DSS(두 아이디) · 메일함을 자동화 창에 한 번에 엽니다 — 아침에 PC를 켜면 로그인이 다 풀려 있어서" style="display:none;font-size:11.5px;font-weight:800;color:#fff;background:#7c3aed;border:1px solid #6d28d9;border-radius:999px;padding:3px 11px;cursor:pointer">🔑 로그인 창 모두 열기</button>
     <button id="qcLockBtn" onclick="qcToggleLock()" style="border:1px solid #e8734a;border-radius:999px;padding:4px 13px;font-size:11.5px;font-weight:800;cursor:pointer;background:#e8734a;color:#fff;box-shadow:0 1px 3px rgba(232,115,74,.35)">🔒 아이디·비밀번호 보기</button>
   </div>
   <div id="homeQuick" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start"></div>
@@ -7156,6 +7157,7 @@ function renderQuickLaunch(){
   if(qw)qw.innerHTML='<div class="qc-2col">'+pcTwoCol.map(renderCard).join("")+'</div>'+quick.map(renderCard).join("");
   qcSyncLockBtn();
   var pc=document.getElementById("qcPortalChk");if(pc)pc.checked=_qcPortalMode();
+  try{_qcLoginNudge();}catch(e){}
 }
 /* ── 자동화 포탈 창으로 열기 (2026-10-01 영업2팀) ──
    자동화(백화점 EDI·DSS 송장·코스트코 메일)는 이 PC의 **자동화 포탈 창**(크롬 9333 · 전용 프로필)에 사람이 해 둔 로그인을 쓴다.
@@ -7167,6 +7169,27 @@ function qcSetPortalMode(on){
   try{localStorage.setItem("qcPortalMode",on?"1":"0");}catch(e){}
   renderQuickLaunch();
   if(on)alert("이 PC에서는 롯데 EDI · 현대 EDI · 코스트코 DSS · 메일함 바로가기가 '자동화 포탈 창'에 열립니다.\n[코스트코 DSS 2]는 DSS 두 번째 아이디용 창입니다(코스트코 DSS와 다른 아이디로 로그인).\n\n자동화 PC에서만 켜 두세요. 처음 누를 때 크롬이 'portalopen 열기'를 물으면 '항상 허용'에 체크하고 열기를 누르세요.");
+}
+/* ── 로그인 창 모두 열기(2026-10-02 영업2팀) — 회사 PC라 퇴근 때 꺼서 매일 아침 자동화 창의 로그인이 다 풀린다.
+   자동화 창 모드를 켠 PC에서 자비스를 열면, 그날 아직 안 열었으면 위에 알림을 띄운다(크롬은 클릭 없이 바깥 프로그램을 못 열어 단추로 연다).
+   portalopen:all → automation/portal-open.mjs: 첫 창에 롯데 EDI·현대 EDI·DSS·메일, 두 번째 창에 DSS 2(이미 열린 탭은 그대로). */
+function _qcToday(){var d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
+function qcOpenAllLogins(){
+  try{localStorage.setItem("qcLoginAllDay",_qcToday());}catch(e){}
+  var n=document.getElementById("qcLoginNudge");if(n)n.remove();
+  location.href="portalopen:all";
+}
+function _qcLoginNudge(){
+  var btn=document.getElementById("qcLoginAllBtn");if(btn)btn.style.display=_qcPortalMode()?"inline-block":"none";
+  if(!_qcPortalMode())return;
+  var day="";try{day=localStorage.getItem("qcLoginAllDay")||"";}catch(e){}
+  if(day===_qcToday()||document.getElementById("qcLoginNudge"))return;
+  var d=document.createElement("div");d.id="qcLoginNudge";
+  d.style.cssText="position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;background:#fff;border:2px solid #7c3aed;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:12px 16px;font-size:14px;color:#1f2937;display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 32px)";
+  d.innerHTML='<b>🔑 오늘 로그인할 곳</b><span style="color:#5b6675">롯데 EDI · 현대 EDI · 코스트코 DSS 2개(ckr.5834231 · ckr.5834226) · 메일함</span>'
+    +'<button onclick="qcOpenAllLogins()" style="font-weight:800;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer">모두 열기</button>'
+    +'<button onclick="try{localStorage.setItem(\'qcLoginAllDay\',_qcToday())}catch(e){};this.parentNode.remove()" style="background:none;border:none;color:#5b6675;cursor:pointer">오늘은 닫기</button>';
+  document.body.appendChild(d);
 }
 function qcPortalOpen(e,key){
   if(!_qcPortalMode())return true;               /* 꺼져 있으면 평소처럼 새 탭 */

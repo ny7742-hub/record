@@ -257,6 +257,10 @@
   **바로가기로 자동화 창에 로그인**(2026-10-01 영업2팀): 바로가기 줄의 `🖥 자동화 창으로 열기`(`qcPortalMode`, 이 브라우저에만 기억)를 켠 PC에서는
   롯데 백화점 EDI · 현대 백화점 EDI · 코스트코 DSS · 메일함(하이웍스) 바로가기가 `portalopen:<lotte|hyundai|dss|hiworks>`로
   **자동화 포탈 창**(9333 · `edi-chrome-profile`)에 열린다(HKCU `portalopen` → `automation/portal-open.vbs` → `portal-open.mjs`).
+  **🔑 로그인 창 모두 열기**(2026-10-02 영업2팀, `qcOpenAllLogins` → `portalopen:all`): 회사 PC라 퇴근 때 꺼서 매일 아침 로그인이 다 풀린다 →
+  자동화 창 모드를 켠 PC에서 자비스를 열면 그날 처음 한 번 위에 알림(`_qcLoginNudge`, `qcLoginAllDay`)을 띄우고, [모두 열기]를 누르면
+  첫 창에 롯데 EDI·현대 EDI·코스트코 DSS·메일함, 두 번째 창(9334)에 DSS 2를 연다(이미 열린 탭은 새로 고치지 않음). 바로가기 줄에도 같은 단추가 있다.
+  크롬은 클릭 없이 바깥 프로그램(portalopen:)을 열지 못해 자동으로 열지 않고 알림 단추로 연다.
   평소 크롬에서 로그인하면 자동화가 그 로그인을 못 보기 때문. 롯데·현대는 늘 첫 화면으로 새로 열고, DSS·하이웍스는 로그인돼 있으면 앞으로만 가져온다.
   자동화 PC의 `saip-watch.mjs`가 10분마다 **DSS·하이웍스 탭을 새로 고쳐 로그인을 유지**한다(`portal-keepalive.mjs` — 메모리 부족으로 크롬이
   뒤 탭을 멈추면 DSS는 1~2시간, 하이웍스는 밤사이 로그인이 풀렸다). 롯데·현대는 새로 고치면 풀리는 사이트라 손대지 않는다.
