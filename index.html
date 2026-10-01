@@ -1640,9 +1640,21 @@ label{font-size:14px!important}
       <div class="sec-title" style="margin:0;font-size:13px">🧮 간단 마진계산</div>
       <button onclick="msAddRow()" class="bg" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
       <button onclick="msExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
+      <button onclick="msToggleReport()" class="bs" style="padding:5px 12px;font-size:12px" title="슬랙 보고용 문구(대표님 보고)">📝 보고 문구</button>
       <span style="font-size:11px;color:#5b6675">상품명을 넣으면 Tag가·원가가 자동으로 들어갑니다 · 금액은 적은 그대로 계산합니다(VAT 따로 안 뺌) · 회색 칸은 자동 계산</span>
     </div>
     <div id="msWrap" style="overflow-x:auto"></div>
+    <datalist id="msChList"><option value="홈쇼핑"><option value="백화점"><option value="코스트코"><option value="온라인"><option value="오프라인"><option value="기타"></datalist>
+    <!-- 슬랙 보고 문구(2026-10-01 영업2팀 — 대표님 보고용). 표를 고치면 바로 갱신(문구 칸을 직접 고치는 중이면 덮지 않음) -->
+    <div id="msReportBox" style="display:none;margin-top:10px;border:1px solid #cfe0e5;border-radius:8px;background:#f8fbfb;padding:8px 10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <b style="font-size:12.5px;color:#154f5e">📝 슬랙 보고 문구</b>
+        <span style="font-size:11px;color:#5b6675">복사해서 슬랙에 그대로 붙여넣으면 굵은 글씨(*…*)가 적용됩니다</span>
+        <span id="msReportMsg" style="font-size:11.5px;color:#15803d;font-weight:700"></span>
+        <button onclick="msCopyReport()" class="bg" style="margin-left:auto;padding:4px 14px;font-size:12px">📋 복사</button>
+      </div>
+      <textarea id="msReportText" style="width:100%;box-sizing:border-box;min-height:220px;border:1px solid #cbd5e1;border-radius:6px;padding:8px;font-size:12.5px;font-family:inherit;line-height:1.55;resize:vertical"></textarea>
+    </div>
   </div>
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -13716,7 +13728,8 @@ function _msCalc(r){
 function _msPct(v){return v==null?"–":(Math.round(v*10000)/100).toFixed(2)+"%";}   /* 엑셀과 같이 소수 둘째 자리 */
 /* 표 칸 순서 — 엑셀과 같다. t: in(입력)·calc(계산) */
 var MS_COLS=[
-  {k:"name",lab:"상품명",w:220,t:"in"},{k:"tag",lab:"Tag가",w:90,t:"in",num:1},{k:"price",lab:"제안가",w:90,t:"in",num:1},
+  {k:"ch",lab:"구분",w:84,t:"in"},   /* 홈쇼핑·백화점 … (2026-10-01 영업2팀 — 보고 문구에서 상품명 앞에 [구분]) */
+  {k:"name",lab:"상품명",w:380,t:"in"},   /* 380px — 220px이면 '[화이트샌즈] 24FW 코듀로이 이어머프 보…'처럼 잘렸다(2026-10-01) */{k:"tag",lab:"Tag가",w:90,t:"in",num:1},{k:"price",lab:"제안가",w:90,t:"in",num:1},
   {k:"disc",lab:"할인율(%)",w:74,t:"in",num:1},{k:"cost",lab:"원가",w:90,t:"in",num:1},{k:"feeRate",lab:"수수료율(%)",w:80,t:"in",num:1},
   {k:"fee",lab:"수수료액",w:90,t:"calc"},{k:"logi",lab:"물류비",w:80,t:"in",num:1},{k:"etc",lab:"기타",w:80,t:"in",num:1},
   {k:"profit",lab:"상품이익",w:95,t:"calc"},{k:"pPct",lab:"상품이익%",w:80,t:"calc"},{k:"cPct",lab:"원가대비%",w:80,t:"calc"}
@@ -13766,7 +13779,8 @@ function msRender(){
   var wrap=document.getElementById("msWrap");if(!wrap)return;
   var th='position:sticky;top:0;background:#e3eeee;border:1px solid #cfe0e5;padding:6px 6px;color:#1b6e82;font-weight:700;font-size:12px;white-space:nowrap;text-align:center';
   var h='<table style="border-collapse:collapse;font-size:13px;min-width:100%"><thead><tr>';
-  MS_COLS.forEach(function(c){h+='<th style="'+th+';min-width:'+c.w+'px">'+c.lab+'</th>';});
+  /* 상품명만 폭을 정하지 않아 남는 화면 폭을 다 가져간다 — 다른 칸은 정해진 폭(2026-10-01 영업2팀 "상품명이 다 안 보입니다") */
+  MS_COLS.forEach(function(c){h+='<th style="'+th+';min-width:'+c.w+'px'+(c.k==="name"?'':';width:'+c.w+'px')+'">'+c.lab+'</th>';});
   h+='<th style="'+th+';width:34px"></th></tr></thead><tbody>';
   if(!msDB.rows.length)h+='<tr><td colspan="'+(MS_COLS.length+1)+'" style="padding:18px;text-align:center;color:#5b6675;border:1px solid #e1e6ee">＋ 행 추가를 눌러 상품을 넣으세요</td></tr>';
   msDB.rows.forEach(function(r,i){
@@ -13778,7 +13792,7 @@ function msRender(){
         if(col.k==="disc"&&!v){var cc=_msCalc(r);v=cc.disc==null?"":String(Math.round(cc.disc*10000)/100);}
         if(col.num&&v&&col.k!=="feeRate"&&col.k!=="disc"&&!/[+*/]/.test(v)&&!isNaN(_msN(v)))v=_msN(v).toLocaleString();
         h+='<td style="border:1px solid #e1e6ee;padding:2px">'
-          +'<input id="msi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'+(col.k==="name"?' list="cpProdList" placeholder="상품명"':' inputmode="decimal"')
+          +'<input id="msi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'+(col.k==="name"?' list="cpProdList" placeholder="상품명" title="'+_escX(v)+'"':col.k==="ch"?' list="msChList" placeholder="구분"':' inputmode="decimal"')
           +(col.k==="disc"?' title="할인율을 적으면 제안가 = Tag가 × (1 − 할인율)로 계산합니다. 제안가를 적으면 할인율이 계산됩니다."':'')
           +' oninput="msInput('+i+',\''+col.k+'\',this.value)" onchange="msChange('+i+',\''+col.k+'\',this.value)"'
           +' style="width:100%;box-sizing:border-box;border:none;outline:none;padding:5px 6px;font-size:13px;background:transparent;'+(col.num?'text-align:right':'')+'"></td>';
@@ -13795,6 +13809,7 @@ function msRender(){
 }
 /* 계산 칸만 다시 칠한다 — 표를 다시 그리면 입력 칸 포커스가 날아간다 */
 function _msPaint(i){
+  _msRefreshReport();
   var r=msDB.rows[i];if(!r)return;
   var c=_msCalc(r);
   ["fee","profit","pPct","cPct"].forEach(function(k){
@@ -13834,19 +13849,76 @@ function msChange(i,k,v){
   }
   _msSyncDisc(i,k);saveMs();_msPaint(i);
 }
-function msAddRow(){msDB.rows.push({name:"",tag:"",disc:"",price:"",cost:"",feeRate:"",logi:"",etc:""});saveMs();msRender();}
+/* ── 슬랙 보고 문구 (대표님 보고용, 2026-10-01 영업2팀) ──
+   상품마다: *[구분] 상품명* → 가격(Tag가→제안가·할인) → 원가·수수료·물류·기타 → 상품이익(이익률·원가대비) → 컬러별 재고(주희물류 NH).
+   상품명 앞 [브랜드]는 떼고 [구분]을 붙인다. 슬랙 굵게 = *…* */
+function _msShortName(n){return String(n||"").replace(/^\s*\[[^\]]*\]\s*/,"").trim();}
+function msBuildReport(){
+  var rows=msDB.rows.filter(function(r){return String(r.name||"").trim();});
+  if(!rows.length)return "";
+  var w=function(n){return Math.round(n).toLocaleString();};
+  var d=new Date(),L=[];
+  L.push("*[마진 검토] "+(d.getMonth()+1)+"/"+d.getDate()+" · "+rows.length+"개 상품*");
+  var stockDate="";
+  rows.forEach(function(r,i){
+    var c=_msCalc(r),tag=_msN(r.tag),price=_msN(r.price),cost=_msN(r.cost),rate=_msN(r.feeRate),logi=_msN(r.logi),etc=_msN(r.etc);
+    var ch=String(r.ch||"").trim();
+    L.push("");
+    L.push("*"+(i+1)+". "+(ch?"["+ch+"] ":"")+_msShortName(r.name)+"*");
+    if(tag||price)L.push("• 가격: Tag가 "+(tag?w(tag):"-")+" → 제안가 "+(price?w(price):"-")+(c.disc!=null?" (할인 "+_msPct(c.disc)+")":""));
+    var cs=["원가 "+(cost?w(cost):"-")];
+    if(rate||c.fee)cs.push("수수료 "+(rate?rate+"% ":"")+w(c.fee));
+    if(logi)cs.push("물류비 "+w(logi));
+    if(etc)cs.push("기타 "+w(etc));
+    L.push("• 비용: "+cs.join(" · "));
+    if(!price)L.push("• 상품이익: 제안가 입력 전(계산 안 함)");    /* 제안가가 비면 원가만큼 '적자'로 보여 오해를 산다 */
+    else if(c.has)L.push("• 상품이익: *"+w(c.profit)+"원* (이익률 "+_msPct(c.pPct)+" · 원가대비 "+_msPct(c.cPct)+")"+(c.profit<0?" ※ 적자":""));
+    var code=r.code;
+    if(!code&&typeof _cpFindProduct==="function"){var p=_cpFindProduct(r.name);if(p&&!p.many)code=p.code;}
+    var S=_msColorStock(code);
+    if(S&&S.has){
+      stockDate=S.date||stockDate;
+      var on=S.list.filter(function(x){return x.qty>0;}),off=S.list.filter(function(x){return x.qty<=0;});
+      L.push("• 재고(주희물류 NH): *"+w(S.total)+"개*"+(on.length?" — "+on.map(function(x){return x.name+" "+w(x.qty);}).join(" · "):""));
+      if(off.length)L.push("   재고 없음: "+off.map(function(x){return x.name;}).join(", "));
+    }
+  });
+  L.push("");
+  L.push("※ 금액은 적은 그대로 계산(VAT 조정 없음) · 상품이익 = 제안가 − 원가 − 수수료 − 물류비 − 기타"+(stockDate?" · 재고 "+stockDate+" 기준":""));
+  return L.join("\n");
+}
+function _msRefreshReport(){
+  var box=document.getElementById("msReportBox"),ta=document.getElementById("msReportText");
+  if(!box||!ta||box.style.display==="none"||document.activeElement===ta)return;
+  ta.value=msBuildReport();
+}
+function msToggleReport(){
+  var box=document.getElementById("msReportBox");if(!box)return;
+  var open=box.style.display==="none";
+  box.style.display=open?"block":"none";
+  if(open){var ta=document.getElementById("msReportText");ta.value=msBuildReport()||"상품을 먼저 넣어 주세요.";}
+}
+function msCopyReport(){
+  var ta=document.getElementById("msReportText");if(!ta)return;
+  var msg=document.getElementById("msReportMsg");
+  var done=function(){if(msg){msg.textContent="✔ 복사됨";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},2000);}};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(done,function(){ta.select();document.execCommand("copy");done();});
+  }else{ta.select();document.execCommand("copy");done();}
+}
+function msAddRow(){msDB.rows.push({ch:"",name:"",tag:"",disc:"",price:"",cost:"",feeRate:"",logi:"",etc:""});saveMs();msRender();}
 function msDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;msDB.rows.splice(i,1);saveMs();msRender();}
 function msExport(){
   if(!msDB.rows.length){alert("계산한 상품이 없습니다.");return;}
   var aoa=[MS_COLS.map(function(c){return c.lab;})];
   msDB.rows.forEach(function(r){
     var c=_msCalc(r);
-    aoa.push([r.name||"",_msN(r.tag)||"",_msN(r.price)||"",c.disc==null?"":Math.round(c.disc*10000)/100+"%",_msN(r.cost)||"",
+    aoa.push([r.ch||"",r.name||"",_msN(r.tag)||"",_msN(r.price)||"",c.disc==null?"":Math.round(c.disc*10000)/100+"%",_msN(r.cost)||"",
       r.feeRate?_msN(r.feeRate)+"%":"",c.has?c.fee:"",_msN(r.logi)||"",_msN(r.etc)||"",c.has?c.profit:"",
       c.pPct==null?"":Math.round(c.pPct*10000)/100+"%",c.cPct==null?"":Math.round(c.cPct*10000)/100+"%"]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=MS_COLS.map(function(c){return {wch:c.k==="name"?34:12};});
+  ws["!cols"]=MS_COLS.map(function(c){return {wch:c.k==="name"?44:c.k==="ch"?10:12};});
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"간단마진계산");
   var d=new Date();
   XLSX.writeFile(wb,"간단마진계산("+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+").xlsx");
