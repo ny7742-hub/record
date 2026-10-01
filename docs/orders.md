@@ -66,7 +66,7 @@
   발송후취소의 **`Cafe24(신)`(자사몰 공구) 줄은 당분간 빼고** 나머지만 등록한다(매장코드 미정 — 결과에 뺀 줄 수를 적고, 뺀 줄뿐이면 `등록할 줄 없음`).
   백화점몰은 `(백)롯데본점`·`(백)롯데고양`처럼 구분되어 들어온다(영업2팀) — 옛 이름 `롯데백화점몰`이 오면 매장을 몰라 그날은 멈춘다.
   **`🛒 코스트코 매출등록`**(`--kind=cc`, 결과 `ws/ccSaipStatus`): 자료는 OneDrive가 아니라 **하이웍스 메일**(offline@whitesands.co.kr)
-  `RE:화이트샌즈(MMDD) - 영업2팀`의 첨부 `화이트샌즈(MMDD) - 코스트코 도매발주서.xlsx` — 물류가 **운송장번호를 채워** 돌려준 27열 도매발주서다.
+  회신 메일(`RE:화이트샌즈(MMDD) - 영업2팀` 또는 `RE: [도매] 발주서 - MM/DD(요일)`)의 첨부 `화이트샌즈(MMDD) - 코스트코 도매발주서.xlsx` — 물류가 **운송장번호를 채워** 돌려준 27열 도매발주서다.
   **출고일자 = 제목의 날짜**(2026-09-29 영업2팀 지정 — 파일의 `출고일` 칸이 비어 와서 1단계가 '오늘'을 넣기 때문에 채워 준다).
   **운송장번호가 빈 줄이 하나라도 있으면 멈춘다**(아직 출고 안 된 줄). 매장·창고는 1단계 규칙대로 `CSTC`/`COSO`.
   하이웍스 로그인은 자동화 PC에서 `hiworks-login.cmd`로 한 번(비밀번호는 사람이 입력, 로그인 상태만 `hiworks-state.json`에 저장).
@@ -75,9 +75,13 @@
   `hiworks-login.mjs`는 `--enable-automation`을 빼고 `AutomationControlled`를 끈 크롬으로 띄우고, 로그인 창의 브라우저 이름(`navigator.userAgent`)을
   `hiworks-state.json`의 `ua`에 같이 저장한다. 메일 받기(`fetchHiworks`)는 그 `ua`로 컨텍스트를 만든다(통과 쿠키가 UA에 묶여 `HeadlessChrome`이면 막힘).
   코스트코는 수동 등록 기준일을 두지 않고 플레이엠디 중복 조회로만 막는다. `--file=경로`로 첨부를 직접 줄 수도 있다.
-  메일 받기(`fetchHiworks`)는 하이웍스 웹메일 API를 쿠키 로그인으로 부른다 — 검색 `POST mail-api.office.hiworks.com/v2/mails/search`
-  `{mailbox_id:'b0', search_all:'화이트샌즈(MMDD) - 영업2팀'}` → 제목이 `RE:`로 시작하고 첨부 있는 메일(여러 통이면 최근 것),
-  `GET /v2/mails/{no}`의 `message.attachments`에서 이름에 `코스트코`가 든 xlsx 하나, `GET /v2/mails/{no}/attachments/{part_id}`로 받는다.
+  메일 받기(`fetchHiworks`)는 하이웍스 웹메일 API를 쿠키 로그인으로 부른다 — 검색 `POST mail-api.office.hiworks.com/v2/mails/search`,
+  `GET /v2/mails/{no}`의 `message.attachments`, `GET /v2/mails/{no}/attachments/{part_id}`.
+  **회신 찾기는 `automation/hiworks-cc.mjs` 한 곳**(2026-10-01 — `playmd-hs-saip`·`saip-ready`·`dss-invoice`가 같이 쓴다):
+  10/1부터 발주 메일 제목이 `[도매] 발주서 - 10/01(목)`(도매 발주와 한 메일)로 바뀌었고, 회신이 메일 규칙으로 **개인 폴더**(발주-도매)로 옮겨진다.
+  그래서 `mailbox_id:'all'`(전체 — `'b0'`은 받은메일함뿐)에서 `화이트샌즈(MMDD)` · `발주서 - MM/DD` · `발주서 - M/D`로 찾고,
+  `RE:`+첨부 있는 메일 중 **첨부 이름 `화이트샌즈(MMDD) - 코스트코 도매발주서.xlsx`**로 날짜·코스트코를 정한다(여러 통이면 최근 것).
+  검색(`search_all`)은 제목만 본다 — 첨부 이름으로는 안 걸린다.
   로그인이 풀리면(401·403) `hiworks-login.cmd`를 다시 실행하라고 알린다.
   시험: 0929 = 메일 `RE: 화이트샌즈(0929) - 영업2팀`(09:38) → 26줄 · 30개 · 650,700원, 플레이엠디 불러오기 에러 0(2026-09-29, 저장 안 함).
 - 사입출고등록: 홈쇼핑 주문서는 결제금액이 비어 오는 경우가 많아,
