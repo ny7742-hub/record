@@ -62,6 +62,8 @@
   **[발주하기]는 제목 바로 옆(왼쪽)**이고, 새 주문이 있으면 보라 **'발주 요망 N건'**(`_ccAutoPaint`) · 오늘 발주했으면 '✅ 오늘 발주 완료 · 다음 발주 N건 대기'.
   새 주문 수는 자동화 PC가 10분마다 DSS 로그인 유지(`portal-keepalive.mjs`)를 하면서 GET으로만 읽어 `ws/ccOrderReady`({at,total,accounts})에 올린다(3시간 넘은 값은 안 씀).
   하이웍스 편집기 iframe 안 body는 높이가 0이라 클릭이 안 된다 → iframe 틀의 왼쪽 위를 눌러 커서를 넣고 Ctrl+A·Delete로 계정 기본 서명(강민준 차장)을 지운 뒤 쓴다.
+  **평일 08:35 예약**(2026-10-02 영업2팀, 작업 `Costco-Order-Auto` → `automation/run-costco-order.cmd`, 서명 강민준): 08:30 PlayMD 업로드가 돌고 있으면(`logs/running.lock`) 끝날 때까지 기다린다.
+  **`automation/co-auto-send.flag` 파일이 있을 때만 실제 발주**(출력 + 메일 발송), 없으면 미리보기(메일 초안) — 첫 초안을 사람이 확인한 뒤 이 파일을 만들어 켠다.
   슬랙 알림은 빼기로 했다(영업2팀). 만들 때 Claude Code 자동 모드 안전 확인이 '실제 거래'로 막아 영업2팀이 수동(매번 확인) 모드로 바꿔 진행했다.
 
 - **DSS 송장 자동 입력 `automation/dss-invoice.mjs`**(2026-10-01 영업2팀) — **🛒 코스트코 매출등록 버튼 뒤에 이어서 돈다**:
