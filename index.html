@@ -2265,7 +2265,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -2800,6 +2800,11 @@ function fbListen(){
   );
   apply("ws/ccSaipStatus","ccSaipStatus",
     function(d){if(d&&typeof d==="object")ccSaipStatus=d;},
+    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
+  );
+  /* 코스트코 DSS 송장 입력 결과 — 자동화 PC가 코스트코 매출등록 뒤에 이어서 돌린다(automation/dss-invoice.mjs) */
+  apply("ws/ccDssStatus","ccDssStatus",
+    function(d){if(d&&typeof d==="object")ccDssStatus=d;},
     function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
   );
   apply("ws/xcSaipStatus","xcSaipStatus",
@@ -17412,6 +17417,28 @@ function ccoDownload(){
 var hsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("hsSaipStatus")||"null");}catch(e){return null;}})();
 var dsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("dsSaipStatus")||"null");}catch(e){return null;}})();
 var ccSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("ccSaipStatus")||"null");}catch(e){return null;}})();
+var ccDssStatus=(function(){try{return JSON.parse(localStorage.getItem("ccDssStatus")||"null");}catch(e){return null;}})();
+/* 코스트코 카드 맨 아래 — DSS 송장 입력 결과(2026-10-01 영업2팀). 아이디(ckr.…)마다 올린 주문 수, 남은 주문, 오류 */
+function _ccDssLine(){
+  var D=ccDssStatus;if(!D||!D.at)return "";
+  var md=D.mmdd?(+D.mmdd.slice(0,2))+'/'+(+D.mmdd.slice(2,4)):"";
+  var pv=D.mode==="preview";
+  var acc=(D.accounts||[]).filter(function(a){return !a.same;}).map(function(a){
+    var t=_escX(a.who)+' ';
+    if(!a.orders)t+='채울 송장 없음';
+    else if(pv)t+=a.orders+'건 넣을 수 있음';
+    else t+=a.uploaded+'건 입력'+(a.still?' · <b style="color:#b91c1c">'+a.still+'건 남음</b>':'');
+    return t;
+  }).join(' · ');
+  var ok=D.ok&&!(D.errors||[]).length;
+  var h='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'
+    +'<span style="font-weight:700;color:'+(ok?(pv?'#1d4ed8':'#047857'):'#b91c1c')+'">'+(ok?(pv?'🔍':'✅'):'❗')+' DSS 송장 '+md+(pv?' 미리보기':'')+'</span>'
+    +' <span style="color:#5b6675">· '+_escX(_saipFmtAt(D.at))+' · '+_escX(_saipWho(D.by))+'</span>';
+  if(acc)h+='<div style="color:#334155">'+acc+'</div>';
+  if(D.notInDss)h+='<div style="color:#5b6675">도매발주서 주문 중 '+D.notInDss+'건은 이미 입력됐거나 DSS 대기 목록에 없음</div>';
+  (D.errors||[]).forEach(function(e){h+='<div style="color:#b91c1c">'+_escX(e)+'</div>';});
+  return h+'</div>';
+}
 var xcSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("xcSaipStatus")||"null");}catch(e){return null;}})();
 /* 등록할 건(ws/saipReady) = {at,pc,hs:[{mmdd,date,files}],ds,cc,xc,err:{kind:"…"}} — 파일 이름·존재만, 이미 등록한 날짜는 빠져 있다 */
 var saipReady=(function(){try{return JSON.parse(localStorage.getItem("saipReady")||"null");}catch(e){return null;}})();
@@ -17502,6 +17529,19 @@ function saipAutoGo(kind,opt){
   var md=(+v.slice(5,7))+"/"+(+v.slice(8,10));
   /* ① 이미 등록된 날짜 — 언제·누가 등록했는지 안내하고 멈춘다 */
   var L=_saipLogOf(kind,v);
+  /* 코스트코는 매출등록 뒤에 DSS 송장 입력이 이어서 돈다. 매출은 이미 등록됐는데 그날 DSS 송장이 안 끝났으면
+     (로그인 풀림 등) '송장 입력만' 다시 요청할 수 있게 한다(mode:'dss' — 자동화 PC가 매출등록은 건너뛴다) */
+  if(L&&kind==="cc"&&!(ccDssStatus&&ccDssStatus.mmdd===mmdd&&ccDssStatus.mode==="save"&&ccDssStatus.ok)){
+    var cur0=(saipReq||{}).cc;
+    if(_saipReqActive(cur0)){alert("코스트코 작업이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+    if(!confirm("코스트코 "+md+" 매출은 이미 등록되었습니다("+_saipFmtAt(L.at)+" · "+(L.by||"?")+").\n\n"
+      +"DSS 송장 입력은 아직 끝나지 않았습니다. 송장 입력만 다시 할까요?\n\n"
+      +"같은 날짜 회신 메일의 운송장번호를 두 DSS 아이디(자동화 창)에 넣고 [발송완료 진행]까지 합니다. 되돌리기 어렵습니다."))return;
+    var R0={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"dss"};
+    if(!saipReq||typeof saipReq!=="object")saipReq={};
+    saipReq.cc=R0;wsSetItem("saipReq",JSON.stringify(saipReq));renderSaipAuto();
+    return;
+  }
   if(L){
     alert("이미 등록되었습니다.\n\n"+K.label+" "+md+"\n등록 시각: "+_saipFmtAt(L.at)+"\n등록자: "+(L.by||"알 수 없음")
       +(L.qty!=null?"\n내용: "+L.qty+"개 · "+Number(L.amt||0).toLocaleString()+"원":"")
@@ -17523,11 +17563,12 @@ function saipAutoGo(kind,opt){
   }
   var msg=K.label+" "+md+" 매출을 플레이엠디에 저장합니다.\n\n"
     +(kind==="cc"
-      ?"하이웍스 메일 'RE:화이트샌즈("+mmdd+") - 영업2팀'의 코스트코 도매발주서(운송장번호가 채워진 것)를 받아\n사입출고양식으로 바꾼 뒤(출고일자 = "+(+v.slice(5,7))+"/"+(+v.slice(8,10))+")\n"
+      ?"하이웍스 회신 메일의 '화이트샌즈("+mmdd+") - 코스트코 도매발주서'(운송장번호가 채워진 것)를 받아\n사입출고양식으로 바꾼 뒤(출고일자 = "+(+v.slice(5,7))+"/"+(+v.slice(8,10))+")\n"
       :kind==="xc"
       ?"OneDrive 판매자료의 '"+mmdd+" 발송후취소.xlsx'·'"+mmdd+" 발송후취소(백화점몰).xlsx'를 받아\n공급가 0원으로 사입출고양식을 만든 뒤(Cafe24 줄은 뺌)\n"
       :"OneDrive 판매자료의 '"+mmdd+" "+K.label+".xlsx'를 받아 사입출고양식으로 바꾼 뒤\n")
     +"[EX]사입매장출고반품등록에 저장까지 합니다. 저장하면 되돌리기 어렵습니다.\n\n"
+    +(kind==="cc"?"이어서 같은 운송장번호를 코스트코 DSS 두 아이디(자동화 창)에 넣고 [발송완료 진행]까지 합니다.\n\n":"")
     +"코드 매칭이 안 된 줄이 있거나, 그날 같은 매장·상품 출고가 플레이엠디에 이미 있으면 저장하지 않고 멈춥니다.\n\n"
     +"진행할까요?";
   if(!confirm(msg))return;
@@ -17576,7 +17617,7 @@ function _saipCard(kind){
       h+='<div style="color:#b91c1c;font-weight:700">⚠️ '+md2+' 요청('+who+')이 45분 넘게 끝나지 않았습니다 — 자동화 PC를 확인해 주세요</div>';
     }
   }
-  if(!S){if(!L)h+='<div style="color:#5b6675">아직 실행 기록이 없습니다.</div>';return h+'</div>';}
+  if(!S){if(!L)h+='<div style="color:#5b6675">아직 실행 기록이 없습니다.</div>';return h+(kind==="cc"?_ccDssLine():"")+'</div>';}
   if(S.error)h+='<div style="color:#b91c1c;font-weight:700">❗ '+_escX(S.error)+'</div>';
   if(S.note)h+='<div style="color:#b45309;font-weight:700">ℹ️ '+_escX(_saipShortNote(S.note))+'</div>';
   var fresh=S.at&&Date.now()-new Date(S.at).getTime()<2*3600*1000;   /* 미리보기는 2시간 안의 것만 '이대로 등록'을 띄운다 */
@@ -17614,6 +17655,7 @@ function _saipCard(kind){
     }
     h+='</div>';
   });
+  if(kind==="cc")h+=_ccDssLine();
   return h+'</div>';
 }
 /* 매출등록 버튼 색·글자 — busy: 등록 중 · done: 그 날짜 등록 끝(민트) · todo: 등록할 건 있음(보라, 전체) · idle: 평소(청록) */

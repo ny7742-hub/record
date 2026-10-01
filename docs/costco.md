@@ -48,7 +48,12 @@
   받은 뒤 5단계 안내에 `송장 있는 N줄만 담음 · M줄 뺌`을 띄운다. 뺀 주문은 송장이 나오면 그때 다시 올린다.
   같은 규칙을 자동화 `automation/dss-invoice.mjs`(DSS 송장 자동 입력, 만드는 중)도 쓴다.
 
-- **DSS 송장 자동 입력 `automation/dss-invoice.mjs`**(2026-10-01 영업2팀, 만드는 중 — 아직 매출등록 버튼에 안 붙음)
+- **DSS 송장 자동 입력 `automation/dss-invoice.mjs`**(2026-10-01 영업2팀) — **🛒 코스트코 매출등록 버튼 뒤에 이어서 돈다**:
+  자동화 PC(`saip-watch`)가 cc 매출등록(`playmd-hs-saip`)을 끝내면 `dss-invoice --date --save --by`를 부른다(미리보기 요청이면 DSS도 미리보기).
+  결과는 `ws/ccDssStatus`(`{mmdd,mode,by,at,ok,accounts:[{who,orders,uploaded,still}],notInDss,errors}`) → 자비스 코스트코 카드 맨 아래 `DSS 송장` 줄(`_ccDssLine`).
+  매출이 이미 등록된 날짜에 버튼을 누르면, 그날 DSS 송장이 안 끝났을 때만 **'송장 입력만 다시 할까요?'** → `saipReq.cc.mode='dss'`(매출등록은 건너뜀).
+  **[발송완료 진행]을 누르면 화면 안 확인창**(`.yui3-scedialog` "발송완료 진행 하시겠습니까? YES NO")이 뜨고 **YES**를 눌러야 들어간다(`dssCommit`) —
+  처음엔 이걸 몰라 뒤에 있던 두 번째 창 13건이 안 들어갔다. 도는 동안 `logs/dss-invoice.lock`을 두어 로그인 유지가 같은 탭을 옮기지 않게 한다.
   `node dss-invoice.mjs --date=MMDD`(미리보기) / `--save`(발송완료 진행까지) / `--file=도매발주서.xlsx`.
   하이웍스 `RE:화이트샌즈(MMDD) - 영업2팀` 첨부 도매발주서의 `주문번호(쇼핑몰)`(= DSS 회원 주문)·`운송장번호`로
   DSS 발송일괄업로드 Export를 채우고(위 규칙) → [발송업로드] 탭 → **[↑ 불러오기](yui 업로더)**로 넣는다.

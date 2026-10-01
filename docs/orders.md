@@ -74,6 +74,7 @@
   **하이웍스 Cloudflare 방화벽(2026-09-30~)**: 로그인 창이 '자동화 중' 크롬이면 ID를 넣어도 `네트워크 연결 상태가 원활하지 않습니다`만 뜨고 막혔다 →
   `hiworks-login.mjs`는 `--enable-automation`을 빼고 `AutomationControlled`를 끈 크롬으로 띄우고, 로그인 창의 브라우저 이름(`navigator.userAgent`)을
   `hiworks-state.json`의 `ua`에 같이 저장한다. 메일 받기(`fetchHiworks`)는 그 `ua`로 컨텍스트를 만든다(통과 쿠키가 UA에 묶여 `HeadlessChrome`이면 막힘).
+  **매출등록 뒤에 DSS 송장 입력까지 이어서 한다**(2026-10-01, 두 DSS 아이디 — 상세는 `docs/costco.md` DSS 송장 자동 입력).
   코스트코는 수동 등록 기준일을 두지 않고 플레이엠디 중복 조회로만 막는다. `--file=경로`로 첨부를 직접 줄 수도 있다.
   메일 받기(`fetchHiworks`)는 하이웍스 웹메일 API를 쿠키 로그인으로 부른다 — 검색 `POST mail-api.office.hiworks.com/v2/mails/search`,
   `GET /v2/mails/{no}`의 `message.attachments`, `GET /v2/mails/{no}/attachments/{part_id}`.
