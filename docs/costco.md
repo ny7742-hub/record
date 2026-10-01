@@ -59,6 +59,9 @@
   받는 사람 김구남 gnkim72@daum.net · 참조 offline@·cs@ · 제목 `화이트샌즈(MMDD) - 영업2팀` · 서명 = 누른 사람(`automation/mail-signature.json`, 없으면 '영업2팀').
   미리보기는 **[저장하기](임시보관함)** 까지. 같은 날 두 번 발주는 `ws/ccOrderLog[YYYY-MM-DD]`로 막는다. 결과 `ws/ccOrderStatus`.
   멈춤: 한 아이디라도 못 읽음 · 두 창이 같은 아이디 · 상품 매칭 안 된 줄. 배송메세지는 API에서 아직 못 찾아 비운다(9/29 0건 · 9/30 1건뿐이었음).
+  **[발주하기]는 제목 바로 옆(왼쪽)**이고, 새 주문이 있으면 보라 **'발주 요망 N건'**(`_ccAutoPaint`) · 오늘 발주했으면 '✅ 오늘 발주 완료 · 다음 발주 N건 대기'.
+  새 주문 수는 자동화 PC가 10분마다 DSS 로그인 유지(`portal-keepalive.mjs`)를 하면서 GET으로만 읽어 `ws/ccOrderReady`({at,total,accounts})에 올린다(3시간 넘은 값은 안 씀).
+  하이웍스 편집기 iframe 안 body는 높이가 0이라 클릭이 안 된다 → iframe 틀의 왼쪽 위를 눌러 커서를 넣고 Ctrl+A·Delete로 계정 기본 서명(강민준 차장)을 지운 뒤 쓴다.
   슬랙 알림은 빼기로 했다(영업2팀). 만들 때 Claude Code 자동 모드 안전 확인이 '실제 거래'로 막아 영업2팀이 수동(매번 확인) 모드로 바꿔 진행했다.
 
 - **DSS 송장 자동 입력 `automation/dss-invoice.mjs`**(2026-10-01 영업2팀) — **🛒 코스트코 매출등록 버튼 뒤에 이어서 돈다**:

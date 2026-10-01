@@ -1438,10 +1438,9 @@ label{font-size:14px!important}
     <div id="ccAutoBox" style="border:1px solid #cfe0e5;border-radius:10px;background:#f6fbfc;padding:10px 12px;margin:6px 0 12px">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <b style="font-size:16px;color:#0f4c5c">🤖 코스트코 자동 발주</b>
-        <span style="font-size:13px;color:#5b6675">DSS 두 아이디 새 주문 → 도매발주서 → DSS [출력] → 주희물류 메일(참조 영업2팀·CX팀, 서명 = 누른 사람)</span>
-        <span style="flex:1"></span>
+        <button id="ccAutoSaveBtn" onclick="ccAutoGo('save')" style="font-size:14px;font-weight:800;padding:6px 14px;background:#1b6e82;color:#fff;border:1px solid #1b6e82;border-radius:8px;cursor:pointer" title="DSS 출력완료 처리 + 메일 발송까지 합니다">🚚 발주하기</button>
         <button class="bs" onclick="ccAutoGo('preview')" style="font-size:14px;font-weight:700;padding:6px 12px" title="DSS는 읽기만 하고, 도매발주서를 만들어 하이웍스 임시보관함에 메일 초안만 저장합니다">🔍 미리보기(메일 초안)</button>
-        <button onclick="ccAutoGo('save')" style="font-size:14px;font-weight:800;padding:6px 14px;background:#1b6e82;color:#fff;border:1px solid #1b6e82;border-radius:8px;cursor:pointer" title="DSS 출력완료 처리 + 메일 발송까지 합니다">🚚 발주하기</button>
+        <span style="font-size:13px;color:#5b6675">DSS 두 아이디 새 주문 → 도매발주서 → DSS [출력] → 주희물류 메일(참조 영업2팀·CX팀, 서명 = 누른 사람)</span>
       </div>
       <div id="ccAutoStatus" style="margin-top:6px;font-size:14px;line-height:1.6"></div>
     </div>
@@ -2276,7 +2275,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -2825,6 +2824,10 @@ function fbListen(){
   );
   apply("ws/ccOrderLog","ccOrderLog",
     function(d){if(d&&typeof d==="object")ccOrderLog=d;},
+    function(){if(typeof ccAutoRender==="function")ccAutoRender();}
+  );
+  apply("ws/ccOrderReady","ccOrderReady",
+    function(d){if(d&&typeof d==="object")ccOrderReady=d;},
     function(){if(typeof ccAutoRender==="function")ccAutoRender();}
   );
   apply("ws/xcSaipStatus","xcSaipStatus",
@@ -17440,6 +17443,19 @@ var ccSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("ccSaipS
 var ccDssStatus=(function(){try{return JSON.parse(localStorage.getItem("ccDssStatus")||"null");}catch(e){return null;}})();
 var ccOrderStatus=(function(){try{return JSON.parse(localStorage.getItem("ccOrderStatus")||"null");}catch(e){return null;}})();
 var ccOrderLog=(function(){try{return JSON.parse(localStorage.getItem("ccOrderLog")||"null")||{};}catch(e){return {};}})();
+var ccOrderReady=(function(){try{return JSON.parse(localStorage.getItem("ccOrderReady")||"null");}catch(e){return null;}})();
+/* [발주하기] 색·글자 — 새 주문이 있고 오늘 아직 발주 안 했으면 보라 '발주 요망 N건', 오늘 발주했으면 '✅ 오늘 발주 완료',
+   그 밖은 평소(청록). 새 주문 수는 3시간 넘은 값이면 쓰지 않는다(자동화 PC가 꺼졌을 수 있음) */
+function _ccAutoPaint(){
+  var b=document.getElementById("ccAutoSaveBtn");if(!b)return;
+  var L=(ccOrderLog||{})[_ccToday()],Q=ccOrderReady;
+  var fresh=Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000;
+  var n=fresh?(+Q.total||0):0;
+  var st=L?["#ecfdf5","#86efac","#047857","✅ 오늘 발주 완료"+(n?" · 다음 발주 "+n+"건 대기":"")]
+    :n?["#7c3aed","#6d28d9","#fff","🚚 발주하기 · 발주 요망 "+n+"건"]
+    :["#1b6e82","#1b6e82","#fff","🚚 발주하기"];
+  b.style.background=st[0];b.style.borderColor=st[1];b.style.color=st[2];b.textContent=st[3];
+}
 /* ── 코스트코 자동 발주(2026-10-01 영업2팀) ──
    버튼은 이 PC를 직접 열지 않고 팀 공유 요청 ws/saipReq.co를 남긴다 → 자동화 PC(saip-watch)가 costco-order.mjs를 돌린다.
    미리보기: DSS 읽기만 + 메일 초안(임시보관함). 발주하기: DSS [인쇄](신규→확인완료) → 도매발주서 → [출력] → 메일 발송.
@@ -17463,6 +17479,10 @@ function ccAutoGo(mode){
 function ccAutoRender(){
   var box=document.getElementById("ccAutoStatus");if(!box)return;
   var h="",R=(saipReq||{}).co,S=ccOrderStatus,L=(ccOrderLog||{})[_ccToday()];
+  _ccAutoPaint();
+  var Q=ccOrderReady;
+  if(Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000&&Q.total)
+    h+='<div style="color:'+(L?'#5b6675':'#6d28d9')+';font-weight:700">📦 '+(L?'다음 발주 대기':'발주 요망')+': '+(Q.accounts||[]).map(function(a){return _escX(a.who)+' '+a.orders+'건';}).join(' · ')+' <span style="font-weight:400;color:#5b6675">('+_escX(_saipFmtAt(Q.at))+' 확인)</span></div>';
   if(L)h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:4px;color:#047857;font-weight:700">✅ 오늘 발주함 · '+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"?")+' · '+(L.orders||0)+'건 '+(L.qty||0)+'개</div>';
   if(R&&R.state){
     var who=_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":"미리보기";
