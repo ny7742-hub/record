@@ -42,6 +42,11 @@
   파일명은 `<원본이름>_송장.xlsx`. 원본이 `.xls`이거나 zip 편집이 실패하면 옛 방식으로 되돌아간다.
   DSS Export(PurchaseOrderDetail) 구조: 1행 표시헤더 · **2행 필드경로**(`shipmentDetails.shipment.trackingNo`) · 3행부터 데이터,
   주문번호는 A열(`customerOrder`), 택배사 J열, 송장번호 K열.
+  **송장번호가 있는 줄만 담는다**(2026-10-01 영업2팀): DSS가 택배사(`shippingMethod.code`)가 빈 줄이 **하나라도** 있으면
+  `shippingMethod.code 값이 N 행에 존재하지 않습니다`로 파일 전체를 거부했다(Export 68줄 중 도매발주서에 송장이 있던 33줄만 채워진 날).
+  그래서 머리 두 줄(표시·필드경로)은 두고 송장 없는 줄은 빼며, 남긴 줄의 행 번호(`<row r>`·셀 `r`)와 `dimension`을 다시 매긴다.
+  받은 뒤 5단계 안내에 `송장 있는 N줄만 담음 · M줄 뺌`을 띄운다. 뺀 주문은 송장이 나오면 그때 다시 올린다.
+  같은 규칙을 자동화 `automation/dss-invoice.mjs`(DSS 송장 자동 입력, 만드는 중)도 쓴다.
 
 - **장우산 850 판매 행**(2026-09-29 영업2팀): 예전엔 매입가만 알아 `장우산 850 직매입` 한 행뿐이었고,
   판매현황의 `850 UV Protection Parasol`이 매장과 상관없이 **전부 직매입 행으로** 들어갔다(`CC_RAW_NAME_MAP`).

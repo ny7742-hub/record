@@ -18174,21 +18174,33 @@ async function _ccPdfBuildInvoiceXlsx(){
     if(!isNaN(n)){byNum[n]=rx;order.push(n);}
   });
   var cJ=_colLetter(t.c0+10),cK=_colLetter(t.c0+11);
-  var changed=0;
+  var changed=0,dropped=0,keep={};
   for(var r=t.startRow;r<t.rows.length;r++){
     var row=t.rows[r];
-    if(!row||!row[10])continue;                      /* 송장번호가 붙은 행만 건드린다 */
     var rn=t.r0+r+1;
+    if(!row||!row[10]){if(byNum[rn]){dropped++;}continue;}   /* 송장번호가 없는 줄은 파일에서 뺀다(아래) */
     if(!byNum[rn])continue;
     byNum[rn]=_ccPdfRowSetStr(byNum[rn],cJ,rn,row[9]||"C-CJ");
     byNum[rn]=_ccPdfRowSetStr(byNum[rn],cK,rn,row[10]);
-    changed++;
+    keep[rn]=1;changed++;
   }
-  var newSD="<sheetData>"+order.map(function(n){return byNum[n];}).join("")+"</sheetData>";
+  /* **송장번호가 있는 줄만 남긴다**(2026-10-01 영업2팀) — DSS가 택배사(shippingMethod.code)가 빈 줄이 하나라도 있으면
+     "shippingMethod.code 값이 N 행에 존재하지 않습니다"로 파일 전체를 거부했다(68줄 중 33줄만 송장이 있던 날).
+     머리 두 줄(표시·필드경로)은 그대로 두고, 남긴 줄은 번호를 다시 매긴다(행·셀의 r 값과 dimension). */
+  var headLast=t.r0+t.startRow;               /* 이 번호까지가 머리 줄 */
+  var kept=order.filter(function(n){return n<=headLast||keep[n];});
+  var renum=kept.map(function(n,i){
+    var nn=kept[0]+i;
+    if(nn===n)return byNum[n];
+    return byNum[n].replace(/(<row[^>]*\br=")(\d+)(")/,function(m,a,b,c){return a+nn+c;})
+                   .replace(/(<c r="[A-Z]+)(\d+)(")/g,function(m,a,b,c){return a+nn+c;});
+  });
+  var lastRow=kept.length?kept[0]+kept.length-1:1;
+  var newSD="<sheetData>"+renum.join("")+"</sheetData>";
   xml=xml.replace(/<sheetData>[\s\S]*?<\/sheetData>/,function(){return newSD;});
-  /* K열이 원래 범위 밖이면 dimension을 넓힌다 */
+  /* K열이 원래 범위 밖이면 넓히고, 줄을 뺀 만큼 마지막 행을 줄인다 */
   xml=xml.replace(/<dimension ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"\/>/,function(mm,a1,a2,b1,b2){
-    return _colNum(b1)>=_colNum(cK)?mm:'<dimension ref="'+a1+a2+':'+cK+b2+'"/>';
+    return '<dimension ref="'+a1+a2+':'+(_colNum(b1)>=_colNum(cK)?b1:cK)+lastRow+'"/>';
   });
   var outBytes=new TextEncoder().encode(xml);
   var deflated=await _deflateRaw(outBytes);
@@ -18197,7 +18209,7 @@ async function _ccPdfBuildInvoiceXlsx(){
     return {name:e.name,method:8,crc:_zipCrc32(outBytes),csize:deflated.length,usize:outBytes.length,
             flag:e.flag,time:e.time,date:e.date,data:deflated};
   });
-  return {bytes:_zipBuild(entries),changed:changed};
+  return {bytes:_zipBuild(entries),changed:changed,dropped:dropped};
 }
 /* 매칭된 J/K열이 채워진 대상 엑셀을 다운로드 — 원본 파일의 셀 형식을 그대로 유지한다 */
 async function ccPdfDownloadInvoiceTarget(){
@@ -18209,6 +18221,8 @@ async function ccPdfDownloadInvoiceTarget(){
   if(t.buf&&/\.xlsx$/i.test(t.fileName||"")){
     try{
       var out=await _ccPdfBuildInvoiceXlsx();
+      var stEl=document.getElementById("ccPdfInvoiceStatus");
+      if(stEl&&out.dropped)stEl.innerHTML='📦 송장번호가 있는 <b>'+out.changed+'줄</b>만 담았습니다 — 송장이 없는 <b>'+out.dropped+'줄</b>은 빼고 받았습니다(DSS는 택배사·송장이 빈 줄이 있으면 파일 전체를 거부). 그 주문은 송장이 나오면 다시 올리세요.';
       var blob=new Blob([out.bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
       var a=document.createElement("a");
       a.href=URL.createObjectURL(blob);a.download=base+"_송장.xlsx";
@@ -18221,7 +18235,7 @@ async function ccPdfDownloadInvoiceTarget(){
   }
   if(!done){
     /* .xls 이거나 원본 편집이 안 되는 경우 — 예전 방식(새로 만들기) */
-    var ws2=XLSX.utils.aoa_to_sheet(t.rows);
+    var ws2=XLSX.utils.aoa_to_sheet(t.rows.filter(function(row,i){return i<t.startRow||(row&&row[10]);}));   /* 송장 있는 줄만 */
     var wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws2,(t.sheetName||"Sheet1").slice(0,31));
     XLSX.writeFile(wb,base+"_송장"+(/\.xls$/i.test(t.fileName||"")?".xls":".xlsx"));
