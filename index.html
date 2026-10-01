@@ -10387,6 +10387,7 @@ function _whApplyRows(rows,fileName,owner){
   _stockWhRows(rows,owner);
   try{_tfWhFromRows(rows);}catch(e){}   /* 재고이관 분석 */
   try{_ccsFromRows(rows);}catch(e){}    /* 코스트코 재고확인(CSTC) */
+  try{var ae=document.activeElement;if(!(ae&&ae.closest&&ae.closest("#msWrap")))msRender();}catch(e){}   /* 간단 마진계산 컬러별 재고 */
 }
 /* 필요한 열만 남긴다 — 1행(재고일자 문구) + 머리글 + 데이터 */
 var WH_KEEP_COLS=["창고코드","창고명","상품코드","상품명","품목","TAG가","칼라","칼라코드","칼라명","재고합계","가용재고","현재고","재고수량","재고"];
@@ -10516,7 +10517,7 @@ function whLoadRows(rows){
       };
       /* 코스트코 창고(CSTC)는 따로 담는다 — 코스트코 발주·사입출고(코스트코 줄)는 **CSTC에서 출고**라 그 재고를 봐야 한다(2026-09-30 영업2팀) */
       var isCstc=function(code,name){return /^CSTC/.test(String(code||"").toUpperCase())||/코스트코/.test(String(name||""));};
-      var ship={},all={},cstc={},n=0,whs={};
+      var ship={},all={},cstc={},nh={},n=0,whs={};   /* nh = 주희물류 NH 창고만(분리보관 NH3 제외) — 간단 마진계산 컬러별 재고(2026-10-01 영업2팀) */
       for(var r2=hRow+1;r2<rows.length;r2++){
         var row=rows[r2];if(!row||!row[cCode])continue;
         var key=(String(row[cCode]).trim()+(cColor>=0?String(row[cColor]||"").trim():"")).toUpperCase();
@@ -10526,11 +10527,12 @@ function whLoadRows(rows){
         all[key]=(all[key]||0)+q;
         if(isShip(wc,wn))ship[key]=(ship[key]||0)+q;
         if(isCstc(wc,wn))cstc[key]=(cstc[key]||0)+q;
+        if(wc.toUpperCase()==="NH")nh[key]=(nh[key]||0)+q;
         if(wc&&!whs[wc])whs[wc]=wn||wc;
       }
       var m=/재고일자\s*:\s*(\d{8})/.exec(String((rows[0]&&rows[0][0])||""));
       var d=new Date();
-      whStock={ship:ship,all:all,cstc:cstc,n:n,at:(d.getMonth()+1)+"/"+d.getDate(),
+      whStock={ship:ship,all:all,cstc:cstc,nh:nh,n:n,at:(d.getMonth()+1)+"/"+d.getDate(),
         whs:Object.keys(whs).map(function(k){return k+" "+whs[k];}),
         date:m?(m[1].slice(0,4)+"-"+m[1].slice(4,6)+"-"+m[1].slice(6,8)):""};
       _whKeys=null;_whKeysC=null;_whSave();whRefresh();
@@ -13715,6 +13717,41 @@ var MS_COLS=[
   {k:"fee",lab:"수수료액",w:90,t:"calc"},{k:"logi",lab:"물류비",w:80,t:"in",num:1},{k:"etc",lab:"기타",w:80,t:"in",num:1},
   {k:"profit",lab:"상품이익",w:95,t:"calc"},{k:"pPct",lab:"상품이익%",w:80,t:"calc"},{k:"cPct",lab:"원가대비%",w:80,t:"calc"}
 ];
+/* 컬러별 재고(2026-10-01 영업2팀 — "상품명 넣으면 컬러별 재고도, 주희물류 NH 기준") —
+   컬러 목록은 상품데이터(DB)의 그 상품코드 칼라코드·칼라명, 재고는 창고재고현황의 **NH 창고만**(whStock.nh, 분리보관 NH3 제외).
+   NH 자료가 없는 옛 저장본이면 주희물류 전체(ship)로 물러선다(새로고침하면 팀 공유 창고재고로 다시 채워진다). */
+var _msColIdx=null;
+function _msColorStock(code){
+  code=String(code||"").trim();if(!code)return null;
+  var src=(typeof DB!=="undefined"&&DB.length)?DB:[];
+  if(!_msColIdx||_msColIdx.sig!==src.length){
+    var by={};
+    src.forEach(function(x){var c=String(x["상품코드"]||"").trim(),cc=String(x["칼라코드"]||"").trim();if(!c||!cc)return;
+      var o=by[c]||(by[c]={});if(!o[cc])o[cc]=String(x["칼라명"]||"").trim()||cc;});
+    _msColIdx={sig:src.length,by:by};
+  }
+  var cols=_msColIdx.by[code];if(!cols)return null;
+  var nhOk=whStock&&whStock.nh&&Object.keys(whStock.nh).length;
+  var M=nhOk?whStock.nh:((whStock&&whStock.ship)||{});
+  var list=Object.keys(cols).map(function(cc){return {cc:cc,name:cols[cc],qty:M[(code+cc).toUpperCase()]||0};});
+  list.sort(function(a,b){return b.qty-a.qty;});
+  return {list:list,total:list.reduce(function(a,x){return a+x.qty;},0),basis:nhOk?"주희물류 NH":"주희물류",date:(whStock&&(whStock.date||whStock.at))||"",has:!!Object.keys(M).length};
+}
+function _msStockRow(r,i){
+  if(!String(r.name||"").trim())return "";
+  var code=r.code;
+  if(!code&&typeof _cpFindProduct==="function"){var p=_cpFindProduct(r.name);if(p&&!p.many)code=p.code;}
+  var S=_msColorStock(code);
+  var td='<td colspan="'+(MS_COLS.length+1)+'" style="border:1px solid #e1e6ee;border-top:none;padding:4px 8px 6px;background:#f8fbfb;font-size:12.5px;line-height:1.7">';
+  if(!S)return code?'<tr>'+td+'<span style="color:#5b6675">📦 컬러별 재고: 상품데이터에 '+_escX(code)+' 컬러가 없습니다</span></td></tr>':'';
+  if(!S.has)return '<tr>'+td+'<span style="color:#5b6675">📦 컬러별 재고: 창고재고현황이 아직 없습니다(홈 📤 PlayMD 자료 업로드)</span></td></tr>';
+  var chips=S.list.map(function(x){
+    var z=x.qty<=0;
+    return '<span style="display:inline-block;margin:0 4px 2px 0;padding:1px 8px;border-radius:10px;border:1px solid '+(z?'#fecaca':'#cfe0e5')+';background:'+(z?'#fef2f2':'#fff')+';color:'+(z?'#b91c1c':'#334155')+'" title="'+_escX(code+x.cc)+'">'
+      +_escX(x.name)+' <b>'+x.qty.toLocaleString()+'</b></span>';
+  }).join("");
+  return '<tr>'+td+'<b style="color:#1b6e82">📦 '+_escX(S.basis)+' 재고</b> <span style="color:#5b6675">('+_escX(code)+' · 합계 '+S.total.toLocaleString()+'개'+(S.date?' · '+_escX(S.date)+' 기준':'')+')</span><br>'+chips+'</td></tr>';
+}
 function _msCellText(k,c){
   if(!c.has&&k!=="disc")return "";
   if(k==="disc")return c.disc==null?"":_msPct(c.disc);
@@ -13746,6 +13783,7 @@ function msRender(){
       }
     });
     h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="msDelRow('+i+')" title="삭제" style="border:none;background:#fee2e2;color:#dc2626;border-radius:6px;padding:3px 7px;cursor:pointer;font-weight:700">✕</button></td></tr>';
+    h+=_msStockRow(r,i);
   });
   h+='</tbody></table>';
   wrap.innerHTML=h;
@@ -13782,6 +13820,7 @@ function msChange(i,k,v){
   r[k]=String(v).trim();
   if(k==="name"&&r.name&&typeof _cpFindProduct==="function"){
     var p=_cpFindProduct(r.name);
+    r.code=(p&&!p.many&&p.code)||"";                 /* 컬러별 재고에 쓴다 */
     if(p&&!p.many){
       if(p.name)r.name=p.name;
       if(p.tag)_cpAutoSet(r,"tag",String(_msN(p.tag)||""));
