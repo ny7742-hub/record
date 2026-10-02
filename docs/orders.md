@@ -2,6 +2,9 @@
 
 `CLAUDE.md`에서 분리한 상세 문서. 내용은 그대로이고 위치만 옮겼다.
 
+- **발주불가 기준 바꾸기**(2026-10-02 영업2팀): 발주서 변환 머리 줄 `발주불가 기준: 창고재고 [N]개 이하`(`.wh-min-in` → `setWhMinOrder`)
+  — 예전 고정 10개(`WH_MIN_ORDER`)를 **팀 공유 `ws/whMinOrder`**로 바꿀 수 있게 했다(기본 10). 바꾸면 발주 화면 표들(발주서 변환·수기발주·코스트코·아난티·
+  CX팀 물류센터·트래블메이트 등 `whCell`을 쓰는 곳)의 창고재고 색·발주불가·`🗑 발주불가 일괄 삭제`가 같은 기준으로 다시 그려진다(`_whMinRerender`).
 - **도매 발주 자동화**(2026-10-02 영업2팀, 발주서 변환 화면 `ocAutoPull`·`ocAutoMail`·`ocAutoApply`·`ocAutoRender`):
   **`🔄 PlayMD에서 불러오기`** → `ws/saipReq.wp` → 자동화 PC `automation/wholesale-pull.mjs`가 PlayMD 주문배분현황(`xsal6305q`)에서
   **확인구분 [3] 미확인**(ng-model `searchConditions.selGubn`, 주문일자는 화면 기본 한 달)을 [조회]·[엑셀]로 받아 시트 그대로 `ws/orderConvSrc{at,by,aoa,rows,note}`에 올린다

@@ -2143,6 +2143,8 @@ label{font-size:14px!important}
       <button onclick="ocDownload()" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ 발주서 다운로드</button>
       <button onclick="ocAutoMail()" title="지금 표의 발주서(⬇ 발주서 다운로드와 같은 파일)를 첨부해 김구남 센터장께 메일을 보냅니다" style="padding:6px 14px;font-size:12px;font-weight:800;background:#1b6e82;color:#fff;border:none;border-radius:8px;cursor:pointer">✉️ 발주 메일 전달</button>
       <button onclick="ocReset()" title="올린 주문배분현황과 변환한 표를 비웁니다" style="padding:6px 14px;font-size:12px;font-weight:700;background:#fff;color:#b91c1c;border:1px solid #fca5a5;border-radius:8px;cursor:pointer">↺ 초기화</button>
+      <label title="창고재고가 이 수량 이하인 상품은 발주불가로 표시됩니다(팀 전체 공통 — 발주 화면 모두에 적용)" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#334155;white-space:nowrap">발주불가 기준: 창고재고
+        <input class="wh-min-in" type="text" inputmode="numeric" onchange="setWhMinOrder(this.value)" style="width:46px;padding:3px 5px;border:1px solid #cbd5e1;border-radius:6px;text-align:right;font-weight:800;font-size:12px">개 이하</label>
       <button id="ocDelBadBtn" onclick="ocDelNoOrder()" title="창고재고 10개 이하(발주불가) 줄을 한 번에 지웁니다" style="display:none;padding:6px 14px;font-size:12px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer">🗑 발주불가 일괄 삭제</button>
       <span id="ocMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <span class="wh-slot"></span>
@@ -2290,7 +2292,7 @@ var FB_PATH={
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
   "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
-  "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch",
+  "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
@@ -2847,6 +2849,10 @@ function fbListen(){
     function(){if(typeof ccAutoRender==="function")ccAutoRender();}
   );
   /* 도매 발주 자동화(2026-10-02 영업2팀) — PlayMD에서 받은 주문배분현황 · 발주 메일 결과 */
+  apply("ws/whMinOrder","whMinOrder",
+    function(d){var v=parseInt(d,10);if(!isNaN(v)&&v>=0)WH_MIN_ORDER=v;},
+    function(){if(typeof _whMinRerender==="function")_whMinRerender();}
+  );
   apply("ws/orderConvSrc","orderConvSrc",
     function(d){if(d&&typeof d==="object")orderConvSrc=d;},
     function(){if(typeof ocAutoApply==="function")ocAutoApply();}
@@ -7376,7 +7382,7 @@ function switchTab(tab){
   if(tab==="transfer") initTransferTab();
   if(tab==="order"){ renderOrder(); ordLotteDropInit(); }
   if(tab==="cxorder") renderCxOrder();
-  if(tab==="orderconv"){ ocRender(); ocDropZoneInit(); }
+  if(tab==="orderconv"){ ocRender(); ocDropZoneInit(); document.querySelectorAll(".wh-min-in").forEach(function(el){el.value=WH_MIN_ORDER;}); }
   if(tab==="popup") renderPopupPage();
   if(tab==="lossreport") initLossReportTab();
 }
@@ -10119,8 +10125,24 @@ function whQty(sku,wh){
   return null;
 }
 /* 발주 표에 넣을 '창고재고' 칸 — 재고가 주문 수량보다 적으면 빨강, 아슬아슬하면 주황 */
-/* 창고재고가 이 수량 **이하면 발주 불가**다(2026-09 영업2팀 지정 — 10개 이하는 발주 안 함) */
-var WH_MIN_ORDER=10;
+/* 창고재고가 이 수량 **이하면 발주 불가**다(2026-09 영업2팀 지정 — 10개 이하는 발주 안 함).
+   2026-10-02 영업2팀: 고정값이 아니라 **발주서 변환 화면에서 바꿀 수 있게** — 팀 공유(ws/whMinOrder), 기본 10 */
+var WH_MIN_ORDER=(function(){try{var v=parseInt(JSON.parse(localStorage.getItem("whMinOrder")||"10"),10);return isNaN(v)||v<0?10:v;}catch(e){return 10;}})();
+function setWhMinOrder(v){
+  var n=parseInt(String(v).replace(/[^0-9]/g,""),10);
+  if(isNaN(n)||n<0||n>9999){alert("0 이상의 숫자를 넣어 주세요.");_whMinRerender();return;}
+  if(n===WH_MIN_ORDER)return;
+  WH_MIN_ORDER=n;
+  wsSetItem("whMinOrder",JSON.stringify(n));
+  _whMinRerender();
+}
+/* 기준이 바뀌면 발주 표들(창고재고 칸 색·발주불가)을 다시 그린다 */
+function _whMinRerender(){
+  document.querySelectorAll(".wh-min-in").forEach(function(el){if(document.activeElement!==el)el.value=WH_MIN_ORDER;});
+  ["ocRender","renderOrder","renderCcPdfTable","renderCcoTable","renderCxOrder","renderTmOrder","anRenderTable","ccsRender"].forEach(function(f){
+    try{if(typeof window[f]==="function")window[f]();}catch(e){}
+  });
+}
 function whCell(sku,qty,tdStyle,wh){
   var st=tdStyle||"border:1px solid #e1e6ee;padding:5px 8px";
   if(!whStock.n)return '<td style="'+st+';text-align:center;color:#5b6675">–</td>';
