@@ -2764,6 +2764,8 @@ function fbListen(){
     function(d){var m=dsMigrate(d);if(m)dailySalesDB=m;},
     function(){
       var pg=document.getElementById("page-daily");if(pg&&pg.style.display!=="none"){var ae=document.activeElement;if(!(ae&&ae.closest&&ae.closest("#dailyTableWrap")))renderDaily();}
+      /* 팝업 탭의 팝업 기간 EDI 합계도 같이(입력 중이면 건너뜀) */
+      var pp=document.getElementById("page-popup");if(pp&&pp.style.display!=="none"&&typeof renderPopupPage==="function"){var ae2=document.activeElement;if(!(ae2&&ae2.closest&&ae2.closest("#popupTable")))renderPopupPage();}
       var ph=document.getElementById("page-home");if(ph&&ph.style.display!=="none"&&typeof renderHomeDashboard==="function")renderHomeDashboard();
       var pd=document.getElementById("page-dept");if(pd&&pd.style.display!=="none"&&typeof renderDeptAllStores==="function")renderDeptAllStores();
     }
@@ -21167,7 +21169,7 @@ function renderPopupPage(){
       +'</td>';
     /* 일정 — 시작~종료를 한 칸에. 26/08/21 형태로 입력하거나 📅로 달력 선택 */
     h+='<td class="pop-fix" style="left:292px;padding:5px 2px;border-right:2px solid #e0e7ff">'
-      +_popRangeCell(i,row.start,row.end)+'</td>';
+      +_popRangeCell(i,row.start,row.end)+_popEdiHtml(row)+'</td>';
     /* 내용 */
     h+='<td style="padding:5px 4px"><textarea onchange="popupEdit('+i+',\'content\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:18px;font-family:inherit;resize:none;overflow:auto;height:'+_taH+'px;box-sizing:border-box">'+_esc(row.content||"")+'</textarea></td>';
     /* 주소 · 영업시간 · 프로모션 */
@@ -21191,6 +21193,40 @@ function renderPopupPage(){
 }
 
 function _esc(s){return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+/* 팝업 기간 EDI 매출(2026-10-02 영업2팀 — "팝업 기간 매출도 EDI 기준으로") — 매장별 일별매출의 **EDI 칸**을 팝업 기간(시작~종료, 오늘까지)만큼 더한다.
+   매장은 이름으로 맞춘다(_dsNormStoreName: 코드·띄어쓰기·끝 '점'을 뺌 — '롯데 센텀점' = '롯데 센텀 LSC'). 달마다 목록 이름이 달라도 달마다 다시 맞춘다. */
+function _popEdiSum(row){
+  var a=/^(\d{4})-(\d{2})-(\d{2})$/.exec(row&&row.start||"");if(!a||!row.store)return null;
+  var b=/^(\d{4})-(\d{2})-(\d{2})$/.exec(row.end||"");
+  var s=new Date(+a[1],+a[2]-1,+a[3]),today=new Date();today.setHours(0,0,0,0);
+  var e=b?new Date(+b[1],+b[2]-1,+b[3]):today;if(e>today)e=today;
+  if(s>today)return {future:true};
+  if(typeof dailySalesDB!=="object"||!dailySalesDB||!dailySalesDB.data)return null;
+  var key=_dsNormStoreName(row.store),sum=0,days=0,matched=false,last="";
+  for(var m=new Date(s.getFullYear(),s.getMonth(),1);m<=e;m=new Date(m.getFullYear(),m.getMonth()+1,1)){
+    var mk=m.getFullYear()+"-"+String(m.getMonth()+1).padStart(2,"0");
+    var list=(dailySalesDB.monthStores||{})[mk]||dailySalesDB.stores||[];
+    var st=list.filter(function(x){return _dsNormStoreName(x.name)===key;})[0];if(!st)continue;
+    matched=true;
+    var md=dailySalesDB.data[mk]||{};
+    Object.keys(md).forEach(function(day){
+      var dt=new Date(m.getFullYear(),m.getMonth(),+day);if(dt<s||dt>e)return;
+      var c=(md[day]||{})[st.name];if(!c||c.edi===""||c.edi==null)return;
+      sum+=Number(c.edi)||0;days++;
+      var ymd=mk+"-"+String(+day).padStart(2,"0");if(ymd>last)last=ymd;
+    });
+  }
+  return {matched:matched,sum:sum,days:days,last:last};
+}
+function _popEdiHtml(row){
+  if(row&&(row.status==="협의중"||row.status==="협의"))return "";
+  var r=_popEdiSum(row);if(!r||r.future)return "";
+  if(!r.matched)return '<div title="매장별 일별매출에 같은 이름의 매장이 없어 EDI를 못 더했습니다" style="margin-top:3px;text-align:center;font-size:11px;color:#5b6675">EDI 매장 없음</div>';
+  if(!r.days)return '<div style="margin-top:3px;text-align:center;font-size:11px;color:#5b6675">EDI 자료 없음</div>';
+  var lm=r.last?(+r.last.slice(5,7))+"/"+(+r.last.slice(8,10)):"";
+  return '<div title="팝업 기간 매장별 일별매출 EDI 칸 합계 · 자료 있는 날 '+r.days+'일 · 마지막 '+lm+'" style="margin-top:3px;text-align:center;font-size:12.5px;font-weight:800;color:#1b6e82;white-space:nowrap">EDI '+Math.round(r.sum).toLocaleString()+'원</div>'
+    +'<div style="text-align:center;font-size:10.5px;color:#5b6675;white-space:nowrap">~'+lm+' · '+r.days+'일</div>';
+}
 /* 스마트플레이스 등록요망(2026-10-02 영업2팀) — 일정이 **한 달 이상**(종료일 ≥ 시작일 + 1개월)이고 끝나지 않은 팝업.
    예: 10/09~11/12 → 표시, 11/06~12/03 → 한 달이 안 돼 표시 안 함 */
 function _popSmartNeed(row){
