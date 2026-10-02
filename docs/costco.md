@@ -76,6 +76,7 @@
 - **DSS 송장 자동 입력 `automation/dss-invoice.mjs`**(2026-10-01 영업2팀) — **🛒 코스트코 매출등록 버튼 뒤에 이어서 돈다**:
   자동화 PC(`saip-watch`)가 cc 매출등록(`playmd-hs-saip`)을 끝내면 `dss-invoice --date --save --by`를 부른다(미리보기 요청이면 DSS도 미리보기).
   결과는 `ws/ccDssStatus`(`{mmdd,mode,by,at,ok,accounts:[{who,orders,uploaded,still}],notInDss,errors}`) → 자비스 코스트코 카드 맨 아래 `DSS 송장` 줄(`_ccDssLine`).
+  DSS가 로그아웃이거나 두 번째 창이 없으면 그 DSS 로그인 화면을 자동화 창에 **자동으로 띄우고**(`portal-open.mjs portalopen:dss|dss2`) 카드에 '로그인 후 다시 눌러 주세요'(2026-10-02).
   매출이 이미 등록된 날짜에 버튼을 누르면, 그날 DSS 송장이 안 끝났을 때만 **'송장 입력만 다시 할까요?'** → `saipReq.cc.mode='dss'`(매출등록은 건너뜀).
   **[발송완료 진행]을 누르면 화면 안 확인창**(`.yui3-scedialog` "발송완료 진행 하시겠습니까? YES NO")이 뜨고 **YES**를 눌러야 들어간다(`dssCommit`) —
   처음엔 이걸 몰라 뒤에 있던 두 번째 창 13건이 안 들어갔다. 도는 동안 `logs/dss-invoice.lock`을 두어 로그인 유지가 같은 탭을 옮기지 않게 한다.
