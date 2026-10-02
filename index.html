@@ -2844,7 +2844,7 @@ function fbListen(){
   );
   apply("ws/portalLogin","portalLogin",
     function(d){if(d&&typeof d==="object")portalLogin=d;},
-    function(){if(typeof renderPortalLogin==="function")renderPortalLogin();}
+    function(){if(typeof renderPortalLogin==="function")renderPortalLogin();if(typeof renderSaipAuto==="function")renderSaipAuto();}
   );
   apply("ws/xcSaipStatus","xcSaipStatus",
     function(d){if(d&&typeof d==="object")xcSaipStatus=d;},
@@ -17606,6 +17606,11 @@ function _ccDssLine(){
   if(acc)h+='<div style="color:#334155">'+acc+'</div>';
   if(D.notInDss)h+='<div style="color:#5b6675">도매발주서 주문 중 '+D.notInDss+'건은 이미 입력됐거나 DSS 대기 목록에 없음</div>';
   (D.errors||[]).forEach(function(e){h+='<div style="color:#b91c1c">'+_escX(e)+'</div>';});
+  /* 지난 오류 정리 — 로그인 문제였고 지금(로그인 상태 칸 기준)은 두 DSS가 로그인돼 있으면 다시 누르라고 */
+  var PLs=(typeof portalLogin==="object"&&portalLogin&&portalLogin.sites)||null;
+  if((D.errors||[]).some(function(e){return /로그인|창이 없습니다/.test(e);})&&PLs&&portalLogin.at>D.at
+     &&(PLs.dss1||{}).state==="in"&&(PLs.dss2||{}).state==="in")
+    h+='<div style="color:#047857;font-weight:700">✅ 지금은 DSS 두 아이디 모두 로그인돼 있습니다 — 버튼을 다시 누르면 송장 입력만 다시 합니다</div>';
   return h+'</div>';
 }
 var xcSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("xcSaipStatus")||"null");}catch(e){return null;}})();
@@ -17780,6 +17785,9 @@ function _saipCard(kind){
     if(active){
       if(R.state==="요청")h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+md2+' '+what+' 요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음 — 켜지면 처리됩니다</span>')+'</div>';
       else h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+md2+' 자동화 PC에서 '+what+' 중… ('+who+' · 1~3분)</div>';
+      /* 실시간 진행(2026-10-02 영업2팀) — 지금 하는 일 한 줄 + 끝나기 전에 난 오류 */
+      if(R.state==="처리중"&&R.progress)h+='<div style="color:#475569;font-size:13px;padding-left:18px">▸ '+_escX(R.progress)+(R.progressAt?' <span style="color:#5b6675">('+_escX(_saipFmtAt(R.progressAt))+')</span>':'')+'</div>';
+      if(R.state==="처리중"&&R.progressErr&&R.progressErr.length)h+=R.progressErr.map(function(e){return '<div style="color:#b91c1c;font-size:13px;padding-left:18px">'+_escX(e)+'</div>';}).join("");
     }else if(R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<24*3600*1000){
       h+='<div style="color:#b91c1c;font-weight:700">❗ '+md2+' '+what+' 요청('+who+')이 실패로 끝났습니다'+(R.error?' — '+_escX(R.error):'')+'</div>';
     }else if(R.state==="요청"||R.state==="처리중"){

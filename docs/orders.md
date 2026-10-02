@@ -79,6 +79,10 @@
   **하이웍스 Cloudflare 방화벽(2026-09-30~)**: 로그인 창이 '자동화 중' 크롬이면 ID를 넣어도 `네트워크 연결 상태가 원활하지 않습니다`만 뜨고 막혔다 →
   `hiworks-login.mjs`는 `--enable-automation`을 빼고 `AutomationControlled`를 끈 크롬으로 띄우고, 로그인 창의 브라우저 이름(`navigator.userAgent`)을
   `hiworks-state.json`의 `ua`에 같이 저장한다. 메일 받기(`fetchHiworks`)는 그 `ua`로 컨텍스트를 만든다(통과 쿠키가 UA에 묶여 `HeadlessChrome`이면 막힘).
+  **진행 상황 실시간 표시**(2026-10-02 영업2팀, 모든 매출등록·반품·자동 발주 카드): saip-watch가 등록 프로그램이 찍는 줄을 3초에 한 번
+  `ws/saipReq[kind].progress`(지금 단계)·`progressErr`(✖·⚠·실패 줄, 최근 5개)로 올리고, 카드가 '⏳ … 중' 아래에 `▸ 지금 단계`와 오류를 바로 보여 준다.
+  DSS 송장 오류가 로그인 때문이었는데 지금(홈 로그인 상태) 두 DSS가 로그인돼 있으면 '✅ 지금은 … 다시 누르면 송장 입력만 다시' 줄을 덧붙인다.
+  **watcher 재시작은 `logs/saip-watch.restart` 파일로** — 등록이 안 도는 틈(busy·'요청'·'처리중' 없음)에 스스로 새로 띄우고 끝난다(밖에서 끄면 막 시작한 등록이 같이 꺼졌다).
   **매출등록 뒤에 DSS 송장 입력까지 이어서 한다**(2026-10-01, 두 DSS 아이디 — 상세는 `docs/costco.md` DSS 송장 자동 입력).
   코스트코는 수동 등록 기준일을 두지 않고 플레이엠디 중복 조회로만 막는다. `--file=경로`로 첨부를 직접 줄 수도 있다.
   메일 받기(`fetchHiworks`)는 하이웍스 웹메일 API를 쿠키 로그인으로 부른다 — 검색 `POST mail-api.office.hiworks.com/v2/mails/search`,
