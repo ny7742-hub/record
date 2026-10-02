@@ -2141,6 +2141,7 @@ label{font-size:14px!important}
       <div id="ocDropZone" class="drop-zone" onclick="document.getElementById('ocFileIn').click()" style="border-radius:8px;padding:5px 14px;font-size:12px;gap:5px">📂 끌어오기</div>
       <button onclick="ocDownload()" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ 발주서 다운로드</button>
       <button onclick="ocReset()" title="올린 주문배분현황과 변환한 표를 비웁니다" style="padding:6px 14px;font-size:12px;font-weight:700;background:#fff;color:#b91c1c;border:1px solid #fca5a5;border-radius:8px;cursor:pointer">↺ 초기화</button>
+      <button id="ocDelBadBtn" onclick="ocDelNoOrder()" title="창고재고 10개 이하(발주불가) 줄을 한 번에 지웁니다" style="display:none;padding:6px 14px;font-size:12px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer">🗑 발주불가 일괄 삭제</button>
       <span id="ocMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
       <span class="wh-slot"></span>
     </div>
@@ -10146,7 +10147,7 @@ function whRefresh(){
   var sels=document.querySelectorAll(".wh-scope");
   for(var k=0;k<sels.length;k++)sels[k].value=whScope;
   /* 열려 있는 발주 표를 다시 그려 재고 칸을 채운다 */
-  ["renderOrder","renderCxOrder","renderCcoTable","renderCcPdfTable","anRenderTable"].forEach(function(fn){
+  ["renderOrder","renderCxOrder","renderCcoTable","renderCcPdfTable","anRenderTable","ocRender"].forEach(function(fn){
     try{if(typeof window[fn]==="function")window[fn]();}catch(e){}
   });
 }
@@ -13015,12 +13016,12 @@ function ocRender(){
   if(msg)msg.textContent=orderConvRows.length?("✅ "+orderConvRows.length+"줄 변환됨"+(merged?(" · 동일상품 "+merged+"건 합산"):"")+(unmatched?(" · 주소 미매칭 "+unmatched+"건"):"")+(noSku?(" · ❗자사코드 미매칭 "+noSku+"건"):"")):"";
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량',''],['창고재고',''],['상품코드',''],['수령인',''],['주소','min-width:280px']].forEach(function(c){
+  [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량',''],['창고재고',''],['상품코드',''],['수령인',''],['주소','min-width:280px'],['삭제','']].forEach(function(c){
     h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
   if(!orderConvRows.length){
-    h+='<tr><td colspan="9" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">📁 주문배분현황 엑셀을 업로드하세요</td></tr>';
+    h+='<tr><td colspan="10" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">📁 주문배분현황 엑셀을 업로드하세요</td></tr>';
   }
   orderConvRows.forEach(function(r,i){
     var _noSku=(r.skuMatched===false);
@@ -13031,15 +13032,47 @@ function ocRender(){
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937">'+_escX(r.store||"")+(r.storeName?' · '+_escX(r.storeName):"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;white-space:normal">'+_escX(r.name||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;color:'+(_noSku?"#dc2626":"#1f2937")+'">'+(_noSku?"❗코드없음":_escX(r.code||""))+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;color:#1f2937"'+(r.cnt>1?' title="주문 '+r.cnt+'건 합산"':'')+'>'+_escX(r.qty||"")+(r.cnt>1?' <span style="font-size:11px;color:#0891b2">('+r.cnt+'건)</span>':'')+'</td>';
+    /* 수량은 직접 고칠 수 있다(2026-10-02 영업2팀) — 고치면 창고재고 칸의 '부족'도 다시 계산된다 */
+    h+='<td style="border:1px solid #e1e6ee;padding:2px 4px;text-align:right;color:#1f2937;white-space:nowrap"'+(r.cnt>1?' title="주문 '+r.cnt+'건 합산"':'')+'>'
+      +'<input value="'+_escX(r.qty||"")+'" inputmode="numeric" onchange="ocEditQty('+i+',this.value)" title="수량을 고칠 수 있습니다" style="width:58px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:5px;padding:3px 5px;text-align:right;font-size:13px">'
+      +(r.cnt>1?' <span style="font-size:11px;color:#0891b2">('+r.cnt+'건)</span>':'')+'</td>';
     h+=whCell(r.code,r.qty);
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;color:#6366f1;font-weight:600;font-family:monospace;background:#f8fafc">'+_escX((r.code||"").slice(0,8))+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937">'+_escX(r.recv||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#475569;white-space:normal">'+_escX(r.addr||"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:3px 6px;text-align:center"><button onclick="ocDelRow('+i+')" title="이 줄 삭제" style="border:none;background:#fee2e2;color:#dc2626;border-radius:6px;padding:3px 8px;cursor:pointer;font-weight:700">✕</button></td>';
     h+='</tr>';
   });
   h+='</tbody></table>';
   wrap.innerHTML=h;
+  /* 발주불가(창고재고 10개 이하) 일괄 삭제 버튼 — 그런 줄이 있을 때만 */
+  var bad=orderConvRows.filter(_ocNoOrder).length,bb=document.getElementById("ocDelBadBtn");
+  if(bb){bb.style.display=bad?"":"none";bb.textContent="🗑 발주불가 일괄 삭제 ("+bad+"건)";}
+}
+/* 발주불가 = 창고재고현황에 있고 재고가 WH_MIN_ORDER(10)개 이하(whCell과 같은 기준). 재고표에 없는 코드(?)는 발주불가로 보지 않는다 */
+function _ocNoOrder(r){
+  if(!whStock||!whStock.n||!r||!r.code)return false;
+  var q=whQty(r.code);
+  return q!==null&&q<=WH_MIN_ORDER;
+}
+function ocEditQty(i,v){
+  var r=orderConvRows[i];if(!r)return;
+  var n=parseInt(String(v).replace(/[^0-9]/g,""),10);
+  if(!(n>0)){alert("수량은 1 이상이어야 합니다. 이 줄을 빼려면 ✕로 삭제해 주세요.");ocRender();return;}
+  r.qty=String(n);ocRender();
+}
+function ocDelRow(i){
+  var r=orderConvRows[i];if(!r)return;
+  if(!confirm((r.store?r.store+" · ":"")+(r.name||"이 줄")+" "+(r.qty||"")+"개를 발주서에서 뺄까요?"))return;
+  orderConvRows.splice(i,1);ocRender();
+}
+function ocDelNoOrder(){
+  var bad=orderConvRows.filter(_ocNoOrder);
+  if(!bad.length){alert("발주불가(창고재고 "+WH_MIN_ORDER+"개 이하) 줄이 없습니다.");return;}
+  var list=bad.slice(0,12).map(function(r){return "· "+(r.name||r.code)+" "+(r.qty||"")+"개 (재고 "+whQty(r.code)+")";}).join("\n")+(bad.length>12?"\n… 외 "+(bad.length-12)+"줄":"");
+  if(!confirm("창고재고 "+WH_MIN_ORDER+"개 이하로 발주할 수 없는 "+bad.length+"줄을 발주서에서 뺄까요?\n\n"+list))return;
+  orderConvRows=orderConvRows.filter(function(r){return !_ocNoOrder(r);});
+  ocRender();
 }
 /* 초기화 (2026-09-29 영업2팀) — 변환 표는 이 화면에만 있고 저장·공유되지 않으므로 비우기만 하면 된다.
    파일칸 값도 비워 같은 파일을 다시 올려도 onchange가 불리게 한다. */
