@@ -2071,8 +2071,7 @@ label{font-size:14px!important}
     @media(max-width:700px){#page-auto .ap-grid{grid-template-columns:1fr}}
   </style>
   <div class="ap-grid">
-    <div class="ap-card"><div class="ap-h"><b>🔑 로그인 상태</b><span id="autoPlAge" class="ap-sub"></span>
-      <button class="ap-btn" style="margin-left:auto;background:#7c3aed;border-color:#6d28d9" onclick="qcOpenAllLogins()">🔑 로그인 창 모두 열기</button></div>
+    <div class="ap-card"><div class="ap-h"><b>🔑 로그인 상태</b><span id="autoPlAge" class="ap-sub"></span></div>
       <div id="autoPlSites" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
     <div class="ap-card"><div class="ap-h"><b>📤 PlayMD 자료 업로드</b><span class="ap-sub">평일 08:30 자동 · 판매일보는 10:00 한 번 더</span>
       <a href="playmdrun:now" class="ap-btn sub" style="margin-left:auto;text-decoration:none" onclick="return auRunNow()" title="자동화 PC에서 PlayMD 4가지를 지금 받아 올립니다(3~5분)">▶ 지금 받기</a></div>
@@ -7290,7 +7289,7 @@ function renderAutoPage(){
       return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><b style="font-size:14px">'+K.icon+' '+K.label+(k==="xc"?' 등록':' 매출등록')+'</b>'
         +(dv?'<span class="ap-sub">'+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+'</span>':'')
-        +'<button class="ap-btn" style="margin-left:auto" onclick="saipAutoGo(\''+k+'\')">등록</button>'
+        +_apBtn("saipAuto"+k.charAt(0).toUpperCase()+k.slice(1),"saipAutoGo('"+k+"')","등록")
         +(typeof saipPreviewGo==="function"?'<button class="ap-btn sub" onclick="saipPreviewGo(\''+k+'\')">🔍 미리보기</button>':'')+'</div>'
         +_saipCard(k)+'</div>';
     }).join("");
@@ -7302,7 +7301,7 @@ function renderAutoPage(){
       var K=RET_KINDS[k],note=document.getElementById("retNote_"+k);
       return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px"><b style="font-size:14px">'+_escX(K.label)+'</b>'
-        +'<button class="ap-btn" style="margin-left:auto" onclick="retAutoGo(\''+k+'\')">등록</button>'
+        +_apBtn("retAuto"+k.charAt(0).toUpperCase()+k.slice(1),"retAutoGo('"+k+"')","등록")
         +'<button class="ap-btn sub" onclick="retPreviewGo(\''+k+'\')">🔍 미리보기</button></div>'
         +(note&&note.innerHTML?'<div class="ap-sub" style="margin-bottom:4px">'+note.innerHTML+'</div>':'')
         +_retCard(k)+'</div>';
@@ -7310,6 +7309,12 @@ function renderAutoPage(){
   }
   /* 복사본(로그인·코스트코·도매)은 원래 그리는 함수가 채운다 — 처음 열 때 한 번 불러 준다 */
   if(!pg._first){pg._first=1;try{renderPortalLogin();}catch(e){}try{ccAutoRender();}catch(e){}try{ocAutoRender();}catch(e){}}
+}
+/* 원래 화면의 등록 단추(사입출고 saipAutoHs… · 반품 retAutoHr…)가 칠해진 색·글자(요망·완료·진행 중)를 그대로 쓴다 */
+function _apBtn(srcId,onclick,fallback){
+  var o=document.getElementById(srcId);
+  var t=o&&o.textContent?o.textContent:fallback,st=o?'background:'+(o.style.background||'#1b6e82')+';color:'+(o.style.color||'#fff')+';border-color:'+(o.style.borderColor||'#1b6e82'):'';
+  return '<button class="ap-btn" style="margin-left:auto;'+st+'" onclick="'+onclick+'">'+_escX(t)+'</button>';
 }
 function _apCopy(from,to){var a=document.getElementById(from),b=document.getElementById(to);if(a&&b)b.innerHTML=a.innerHTML;}
 function renderPortalLogin(){
