@@ -21144,7 +21144,9 @@ function renderPopupPage(){
     h+='</select></td>';
     /* 매장 */
     h+='<td class="pop-fix" style="left:122px;padding:5px 3px"><input type="text" value="'+_esc(row.store||"")+'" title="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 4px;font-size:16px;box-sizing:border-box">'
-      +(_popSmartNeed(row)?'<div title="일정이 한 달 이상 — 네이버 스마트플레이스에 매장 등록이 필요합니다" style="margin-top:4px;display:inline-block;font-size:11.5px;font-weight:800;color:#b45309;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:1px 7px;white-space:nowrap">📍 스마트플레이스 등록요망</div>':'')+'</td>';
+      +(_popSmartNeed(row)?(row.smartDone
+        ?'<div onclick="popSmartToggle('+i+')" title="스마트플레이스 등록 완료 — 누르면 등록요망으로 되돌립니다" style="margin-top:4px;display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#047857;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:10px;padding:1px 7px;white-space:nowrap">✅ 스마트플레이스 등록완료</div>'
+        :'<div onclick="popSmartToggle('+i+')" title="일정이 한 달 이상 — 네이버 스마트플레이스에 매장 등록이 필요합니다. 등록했으면 누르세요" style="margin-top:4px;display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#b45309;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:1px 7px;white-space:nowrap">📍 스마트플레이스 등록요망</div>'):'')+'</td>';
     /* 일정 — 시작~종료를 한 칸에. 26/08/21 형태로 입력하거나 📅로 달력 선택 */
     h+='<td class="pop-fix" style="left:292px;padding:5px 2px;border-right:2px solid #e0e7ff">'
       +_popRangeCell(i,row.start,row.end)+'</td>';
@@ -21273,6 +21275,15 @@ function popupEditDate(i,field,val){
     setTimeout(function(){_popOpenPicker("poprg-e-"+_j);},60);
   }
   renderPopupPage();
+}
+/* 스마트플레이스 등록요망 ↔ 등록완료(2026-10-02 영업2팀 — "등록요망을 누르면 등록완료로"). 팀 공유 팝업 자료에 smartDone으로 남는다.
+   완료를 되돌릴 때만 한 번 묻는다(잘못 눌러 요망으로 돌아가는 일 방지) */
+function popSmartToggle(i){
+  var r=popupDB[i];if(!r)return;
+  if(r.smartDone&&!confirm((r.store||"이 매장")+"을(를) 스마트플레이스 '등록요망'으로 되돌릴까요?"))return;
+  r.smartDone=!r.smartDone;
+  if(r.smartDone)r.smartDoneAt=new Date().toISOString();else delete r.smartDoneAt;
+  savePopupDB();renderPopupPage();
 }
 function popupEdit(i,field,val){
   if(popupDB[i])popupDB[i][field]=val;
