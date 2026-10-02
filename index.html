@@ -21154,7 +21154,15 @@ function renderPopupPage(){
     h+='<td class="pop-fix" style="left:122px;padding:5px 3px"><input type="text" value="'+_esc(row.store||"")+'" title="'+_esc(row.store||"")+'" onchange="popupEdit('+i+',\'store\',this.value)" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:5px 4px;font-size:16px;box-sizing:border-box">'
       +(_popSmartNeed(row)?(row.smartDone
         ?'<div onclick="popSmartToggle('+i+')" title="스마트플레이스 등록 완료 — 누르면 등록요망으로 되돌립니다" style="margin-top:4px;display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#047857;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:10px;padding:1px 7px;white-space:nowrap">✅ 스마트플레이스 등록완료</div>'
-        :'<div onclick="popSmartToggle('+i+')" title="일정이 한 달 이상 — 네이버 스마트플레이스에 매장 등록이 필요합니다. 등록했으면 누르세요" style="margin-top:4px;display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#b45309;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:1px 7px;white-space:nowrap">📍 스마트플레이스 등록요망</div>'):'')+'</td>';
+        :'<div onclick="popSmartToggle('+i+')" title="일정이 한 달 이상 — 네이버 스마트플레이스에 매장 등록이 필요합니다. 등록했으면 누르세요" style="margin-top:4px;display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#b45309;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:1px 7px;white-space:nowrap">📍 스마트플레이스 등록요망</div>'):'')
+      /* 로스품의서(2026-10-02 영업2팀) — 끝난 팝업은 로스 품의서를 올려야 한다. 표시를 누르면 품의완료로 바뀐다 */
+      +(_popLossNeed(row)?(row.lossDone
+        ?'<div onclick="popLossToggle('+i+')" title="로스 품의 완료'+(row.lossDoneAt?' ('+_esc(String(row.lossDoneAt).slice(0,10))+')':'')+' — 누르면 작성요망으로 되돌립니다" style="margin-top:4px;display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#047857;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:10px;padding:1px 7px;white-space:nowrap;opacity:1">✅ 로스 품의완료</div>'
+        :'<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;opacity:1">'
+          +'<span onclick="popLossToggle('+i+')" title="팝업이 끝났습니다 — 로스 품의서를 올렸으면 누르세요(품의완료)" style="display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:1px 7px;white-space:nowrap">🧾 로스품의서 작성요망</span>'
+          +'<span onclick="popLossWrite('+i+')" title="로스 품의서 탭에서 이 팝업(매장·기간)을 불러옵니다" style="display:inline-block;cursor:pointer;font-size:11.5px;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:1px 7px;white-space:nowrap">✍ 쓰기</span>'
+        +'</div>'):'')
+      +'</td>';
     /* 일정 — 시작~종료를 한 칸에. 26/08/21 형태로 입력하거나 📅로 달력 선택 */
     h+='<td class="pop-fix" style="left:292px;padding:5px 2px;border-right:2px solid #e0e7ff">'
       +_popRangeCell(i,row.start,row.end)+'</td>';
@@ -21286,6 +21294,33 @@ function popupEditDate(i,field,val){
 }
 /* 스마트플레이스 등록요망 ↔ 등록완료(2026-10-02 영업2팀 — "등록요망을 누르면 등록완료로"). 팀 공유 팝업 자료에 smartDone으로 남는다.
    완료를 되돌릴 때만 한 번 묻는다(잘못 눌러 요망으로 돌아가는 일 방지) */
+/* 로스품의서 작성요망 — 끝난 팝업(구분 '종료' 또는 종료일이 지남). 너무 오래된 팝업까지 다 빨갛게 뜨지 않게
+   종료일이 있으면 최근 90일 안에 끝난 것만 본다 */
+function _popLossNeed(row){
+  if(!row||(!row.store&&!row.start))return false;
+  var t=new Date(),today=t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
+  var ended=row.status==="종료"||row.status==="완료"||(/^\d{4}-\d{2}-\d{2}$/.test(row.end||"")&&row.end<today);
+  if(!ended)return false;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(row.end||"")){var c=new Date(t.getTime()-90*86400000);var cut=c.getFullYear()+"-"+String(c.getMonth()+1).padStart(2,"0")+"-"+String(c.getDate()).padStart(2,"0");if(row.end<cut)return false;}
+  return true;
+}
+function popLossToggle(i){
+  var r=popupDB[i];if(!r)return;
+  if(r.lossDone){if(!confirm((r.store||"이 매장")+"을(를) 로스품의서 '작성요망'으로 되돌릴까요?"))return;}
+  else if(!confirm((r.store||"이 매장")+" 로스 품의를 완료로 표시할까요?"))return;
+  r.lossDone=!r.lossDone;
+  if(r.lossDone)r.lossDoneAt=new Date().toISOString();else delete r.lossDoneAt;
+  savePopupDB();renderPopupPage();
+}
+/* ✍ 쓰기 — 로스 품의서 탭으로 가서 이 팝업(매장·운영기간)을 불러온다(lrPopupSel 값 = popupDB 순번) */
+function popLossWrite(i){
+  switchTab("lossreport");
+  setTimeout(function(){
+    var sel=document.getElementById("lrPopupSel");if(!sel)return;
+    sel.value=String(i);
+    if(sel.value===String(i)&&typeof lrLoadFromPopup==="function")lrLoadFromPopup();
+  },300);
+}
 function popSmartToggle(i){
   var r=popupDB[i];if(!r)return;
   if(r.smartDone&&!confirm((r.store||"이 매장")+"을(를) 스마트플레이스 '등록요망'으로 되돌릴까요?"))return;
