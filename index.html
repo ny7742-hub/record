@@ -12413,11 +12413,29 @@ async function tmInvoicePdf(){
    '발주서 변환'·'수기발주'·'코스트코 발주'가 모두 같은 파일을 내도록 공용으로 쓴다.
    시트 구성: 발주서 + 매장주소록 */
 function _wholesaleWorkbook(dataRows){
-  var ws=XLSX.utils.aoa_to_sheet([ORDER_HEADERS.slice()].concat(dataRows||[]));
+  var aoa=[ORDER_HEADERS.slice()].concat(dataRows||[]);
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=_xlFitCols(aoa);
+  var ab=_ordAddrBookAoa(),wsA=XLSX.utils.aoa_to_sheet(ab);
+  wsA["!cols"]=_xlFitCols(ab);
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"발주서");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(_ordAddrBookAoa()),"매장주소록");
+  XLSX.utils.book_append_sheet(wb,wsA,"매장주소록");
   return wb;
+}
+/* 칸 넓이를 내용에 맞춘다(2026-10-02 영업2팀 — "엑셀에 기재된 내용이 다 보이게") — 칸마다 가장 긴 글자(한글·전각은 2칸)에 여유 2, 최소 6 · 최대 70 */
+function _xlFitCols(aoa){
+  var w=[];
+  (aoa||[]).forEach(function(row){
+    (row||[]).forEach(function(v,c){
+      var s=String(v==null?"":v),n=0;
+      for(var i=0;i<s.length;i++)n+=(s.charCodeAt(i)>0x2E80)?2:1;
+      if(!w[c]||n>w[c])w[c]=n;
+    });
+  });
+  var cols=[];
+  for(var c=0;c<w.length;c++)cols.push({wch:Math.min(70,Math.max(6,(w[c]||0)+2))});
+  return cols;
 }
 /* label을 주면 '화이트샌즈(0901) - 코스트코 도매발주서.xlsx' 처럼 앞에 붙는다
    (발주서 변환·수기발주는 그대로 '도매발주서') */
@@ -12989,6 +13007,8 @@ function ocParse(rows){
   for(var r=hRow+1;r<rows.length;r++){
     var row=rows[r];if(!row)continue;
     var nm=String(row[H.pname]||"").trim();if(!nm)continue;
+    /* PlayMD 파일 맨 아래 '합계 >>>'·'소계 >>' 집계 줄은 상품이 아니다(2026-10-02 — 발주서에 '합계 >>> 279' 줄로 나갔다) */
+    if(/^(소계|합계|총계)\s*>/.test(nm)||row.some(function(c){return /^(소계|합계|총계)\s*>{2,}/.test(String(c||"").trim());}))continue;
     var storeCode=String(row[H.store]||"").trim();
     var st=_ordStoreByCode(storeCode);
     var col=H.color>=0?String(row[H.color]||"").trim():"";
