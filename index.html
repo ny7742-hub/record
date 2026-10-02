@@ -9387,6 +9387,13 @@ function dsStores(mk){
       var mm=master.filter(function(x){return x.name===n;})[0];
       list.push({name:n,target:"",prevYear:"",period:"",code:(mm&&mm.code)||""});
     }});
+    /* 자료가 없는 새 달 — **지난달 매장 목록(코드 포함)을 이어받는다**(2026-10-02 영업2팀). 예전엔 기본 목록(코드 없는 이름)을 써서
+       10월이 '롯데 잠실'처럼 코드 없이 만들어졌고, EDI 자동 입력·PLAY MD 칸이 매장코드로 못 맞춰 한 칸도 안 들어갔다. 목표·전년은 비운다 */
+    if(!list.length){
+      var pd=new Date(+mk.slice(0,4),+mk.slice(5,7)-2,1),pk=pd.getFullYear()+"-"+String(pd.getMonth()+1).padStart(2,"0");
+      var prev=(dailySalesDB.monthStores[pk]||[]);
+      if(prev.length)list=prev.map(function(s){return {name:s.name,target:"",prevYear:"",period:s.period||"",code:_dsStoreCode(s)||""};});
+    }
     if(!list.length)list=master.map(function(s){return {name:s.name,target:"",prevYear:"",period:"",code:s.code||""};});
     dailySalesDB.monthStores[mk]=list;
   }
