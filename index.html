@@ -658,6 +658,7 @@ label{font-size:14px!important}
 
 <div class="tab-nav">
   <button class="tab-btn active" id="tab-home" onclick="switchTab('home')">🛍️ 홈</button>
+  <button class="tab-btn" id="tab-auto" onclick="switchTab('auto')">🤖 자동화</button>
   <button class="tab-btn" id="tab-sales" onclick="switchTab('sales')">📊 판매일보</button>
   <div class="tab-drop" id="tabDropOrder">
     <button class="tab-btn tab-drop-btn" onclick="tabDropToggle(event,'tabDropOrder')">📦 발주 <span class="tab-drop-caret">▾</span></button>
@@ -2054,6 +2055,49 @@ label{font-size:14px!important}
 </div>
 </div><!-- /page-tmorder -->
 
+<!-- 🤖 자동화(2026-10-02 영업2팀) — 자동화로 돌아가는 일을 한 화면에: 로그인 상태 · PlayMD 자료 업로드 · 코스트코 자동 발주 ·
+     도매 발주(주문배분현황) · 사입출고등록 4 · 반품등록 2 · 미출고 반영. 각 칸은 원래 화면의 카드·단추와 같은 함수로 그린다(renderAutoPage) -->
+<div id="page-auto" style="display:none">
+<div class="main" style="max-width:none;padding:16px 20px">
+  <style>
+    #page-auto .ap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px}
+    #page-auto .ap-card{background:#fff;border:1px solid #cfe0e5;border-radius:12px;padding:12px 14px}
+    #page-auto .ap-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+    #page-auto .ap-h b{font-size:15px;color:#0f4c5c}
+    #page-auto .ap-btn{font-size:12.5px;font-weight:800;padding:5px 11px;border-radius:8px;cursor:pointer;border:1px solid #1b6e82;background:#1b6e82;color:#fff}
+    #page-auto .ap-btn.sub{background:#fff;color:#1b6e82;border-style:dashed}
+    #page-auto .ap-row{border-top:1px dashed #e2e8f0;padding-top:8px;margin-top:8px}
+    #page-auto .ap-sub{font-size:12.5px;color:#475569}
+    @media(max-width:700px){#page-auto .ap-grid{grid-template-columns:1fr}}
+  </style>
+  <div class="ap-grid">
+    <div class="ap-card"><div class="ap-h"><b>🔑 로그인 상태</b><span id="autoPlAge" class="ap-sub"></span>
+      <button class="ap-btn" style="margin-left:auto;background:#7c3aed;border-color:#6d28d9" onclick="qcOpenAllLogins()">🔑 로그인 창 모두 열기</button></div>
+      <div id="autoPlSites" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+    <div class="ap-card"><div class="ap-h"><b>📤 PlayMD 자료 업로드</b><span class="ap-sub">평일 08:30 자동 · 판매일보는 10:00 한 번 더</span>
+      <a href="playmdrun:now" class="ap-btn sub" style="margin-left:auto;text-decoration:none" onclick="return auRunNow()" title="자동화 PC에서 PlayMD 4가지를 지금 받아 올립니다(3~5분)">▶ 지금 받기</a></div>
+      <div id="autoUp"></div></div>
+    <div class="ap-card"><div class="ap-h"><b>🛒 코스트코 자동 발주</b><span class="ap-sub">평일 08:35 · DSS 두 아이디 → 도매발주서 → 출력 → 김구남 센터장 메일</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button id="autoCcSaveBtn" class="ap-btn" onclick="ccAutoGo('save')">🚚 발주하기</button>
+        <button class="ap-btn sub" onclick="ccAutoGo('preview')">🔍 미리보기(메일 초안)</button></div>
+      <div id="autoCcStatus" style="font-size:13px;line-height:1.6"></div></div>
+    <div class="ap-card"><div class="ap-h"><b>📥 도매 발주 (주문배분현황)</b><span class="ap-sub">PlayMD [3] 미확인 → 발주서 변환 → 김구남 센터장 메일</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button class="ap-btn" style="background:#7c3aed;border-color:#6d28d9" onclick="ocAutoPull()">🔄 PlayMD에서 불러오기</button>
+        <button class="ap-btn sub" onclick="switchTab('orderconv')" title="표를 확인·수정한 뒤 그 화면에서 ✉️ 발주 메일 전달을 누르세요">📥 발주서 변환 열기(확인 후 메일 전달)</button></div>
+      <div id="autoOcStatus" style="font-size:13px;line-height:1.6"></div></div>
+    <div class="ap-card" style="grid-column:1/-1"><div class="ap-h"><b>🚚 사입출고등록</b><span class="ap-sub">홈쇼핑 · 백화점몰 · 코스트코(+DSS 송장) · 발송후취소 — 날짜는 사입출고등록 탭의 날짜 칸을 따릅니다</span>
+      <button class="ap-btn sub" style="margin-left:auto" onclick="switchTab('ccorder')">사입출고등록 탭 열기</button></div>
+      <div id="autoSaip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px"></div></div>
+    <div class="ap-card"><div class="ap-h"><b>↩ 반품등록</b><span class="ap-sub">홈쇼핑 반품 · 코스트코 반품 — 반품리스트에서 등록 안 한 줄</span>
+      <button class="ap-btn sub" style="margin-left:auto" onclick="switchTab('hsreturn')">반품등록 탭 열기</button></div>
+      <div id="autoRet" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px"></div></div>
+    <div class="ap-card"><div class="ap-h"><b>📮 미출고 반영</b><span class="ap-sub">운송장 회신 발주서 + 미출고 파일 → 매장출고양식</span>
+      <button class="ap-btn sub" style="margin-left:auto" onclick="switchTab('unship')">미출고 반영 탭 열기</button></div>
+      <div class="ap-sub" style="line-height:1.6">지금은 <b>직접</b> 합니다(미출고 파일 업로드 → 매장출고양식 다운로드).<br>
+      김구남 센터장 카톡 미출고 파일을 <b>메일로 받을지 · 폴더에 저장할지</b> 정해지면 PlayMD 매장출고등록 저장까지 자동으로 연결합니다.</div></div>
+  </div>
+</div>
+</div><!-- /page-auto -->
 <div id="page-unship" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
@@ -7218,6 +7262,56 @@ var PL_SITES=[
   {k:"dss2",name:"코스트코 DSS ②",use:"발주 08:35 · 송장",open:"dss2"},
   {k:"hiworks",name:"메일(하이웍스)",use:"발주 메일 · 코스트코 매출등록",open:"hiworks"}
 ];
+/* ── 🤖 자동화 탭 그리기(2026-10-02 영업2팀) — 원래 화면의 카드 함수(_saipCard·_retCard)와 같은 내용을 쓰고,
+   로그인 상태·코스트코·도매 발주 칸은 원래 화면을 그릴 때 같이 복사한다(renderPortalLogin·ccAutoRender·ocAutoRender 끝) */
+function renderAutoPage(){
+  var pg=document.getElementById("page-auto");if(!pg||pg.style.display==="none")return;
+  /* PlayMD 자료 업로드 4종 */
+  var up=document.getElementById("autoUp");
+  if(up){
+    var now=new Date();
+    up.innerHTML=[["wh","📦 창고재고현황"],["sales","🧾 매장판매일보"],["si","🏬 매장재고현황"],["prod","🏷️ 상품코드리스트"]].map(function(c){
+      var L=(uploadLog||{})[c[0]];
+      if(!L)return '<div class="ap-sub" style="padding:3px 0"><b style="color:#334155">'+c[1]+'</b> · <span style="color:#b91c1c">기록 없음</span></div>';
+      var la=new Date(L.at),today=la.toDateString()===now.toDateString();
+      var stale=now.getDay()>0&&now.getDay()<6&&now.getHours()>=9&&!today;
+      var det=c[0]==="wh"?(L.n||0).toLocaleString()+'품목':c[0]==="si"?(L.n||0).toLocaleString()+'줄 · 매장 '+(L.stores||0)+'곳':c[0]==="prod"?(L.n||0).toLocaleString()+'행':(L.from||"")+'~'+(L.to||"")+' · '+(L.rows||0).toLocaleString()+'줄';
+      return '<div class="ap-sub" style="padding:3px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><b style="color:#334155;min-width:120px">'+c[1]+'</b>'
+        +'<span style="font-weight:800;color:'+(stale?'#b91c1c':today?'#047857':'#334155')+'">'+(stale?'⚠ ':today?'✅ ':'')+_escX(_auFmtAt(L.at))+'</span>'
+        +'<span class="au-tag '+(L.mode==="auto"?"auto":"manual")+'">'+(L.mode==="auto"?"자동":"수동")+'</span><span>'+_escX(det)+'</span>'
+        +(stale?'<b style="color:#b91c1c">오늘 아직 안 올라옴</b>':'')+'</div>';
+    }).join("");
+  }
+  /* 사입출고등록 4개 */
+  var sp=document.getElementById("autoSaip");
+  if(sp&&typeof _saipCard==="function"){
+    sp.innerHTML=["hs","ds","cc","xc"].map(function(k){
+      var K=SAIP_KINDS[k],el=_saipDateEl(k),dv=el&&el.value?el.value:"";
+      return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><b style="font-size:14px">'+K.icon+' '+K.label+(k==="xc"?' 등록':' 매출등록')+'</b>'
+        +(dv?'<span class="ap-sub">'+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+'</span>':'')
+        +'<button class="ap-btn" style="margin-left:auto" onclick="saipAutoGo(\''+k+'\')">등록</button>'
+        +(typeof saipPreviewGo==="function"?'<button class="ap-btn sub" onclick="saipPreviewGo(\''+k+'\')">🔍 미리보기</button>':'')+'</div>'
+        +_saipCard(k)+'</div>';
+    }).join("");
+  }
+  /* 반품등록 2개 */
+  var rt=document.getElementById("autoRet");
+  if(rt&&typeof _retCard==="function"){
+    rt.innerHTML=["hr","cr"].map(function(k){
+      var K=RET_KINDS[k],note=document.getElementById("retNote_"+k);
+      return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px"><b style="font-size:14px">'+_escX(K.label)+'</b>'
+        +'<button class="ap-btn" style="margin-left:auto" onclick="retAutoGo(\''+k+'\')">등록</button>'
+        +'<button class="ap-btn sub" onclick="retPreviewGo(\''+k+'\')">🔍 미리보기</button></div>'
+        +(note&&note.innerHTML?'<div class="ap-sub" style="margin-bottom:4px">'+note.innerHTML+'</div>':'')
+        +_retCard(k)+'</div>';
+    }).join("");
+  }
+  /* 복사본(로그인·코스트코·도매)은 원래 그리는 함수가 채운다 — 처음 열 때 한 번 불러 준다 */
+  if(!pg._first){pg._first=1;try{renderPortalLogin();}catch(e){}try{ccAutoRender();}catch(e){}try{ocAutoRender();}catch(e){}}
+}
+function _apCopy(from,to){var a=document.getElementById(from),b=document.getElementById(to);if(a&&b)b.innerHTML=a.innerHTML;}
 function renderPortalLogin(){
   var box=document.getElementById("plSites");if(!box)return;
   var btn=document.getElementById("plOpenBtn");if(btn)btn.style.display=(typeof _qcPortalMode==="function"&&_qcPortalMode())?"inline-block":"none";
@@ -7231,7 +7325,7 @@ function renderPortalLogin(){
     var v=S[x.k]||{},st=stale?"?":(v.state||"?");
     var c={in:["#ecfdf5","#86efac","#047857","✅ 로그인됨"],out:["#fef2f2","#fca5a5","#b91c1c","❌ 로그인 필요"],none:["#fff7ed","#fdba74","#c2410c","➖ 탭 없음"],nowin:["#fff7ed","#fdba74","#c2410c","➖ 창 없음"],"?":["#f8fafc","#cbd5e1","#5b6675","… 확인 안 됨"]}[st]||["#f8fafc","#cbd5e1","#5b6675",st];
     return '<div style="border:1px solid '+c[1]+';background:'+c[0]+';border-radius:8px;padding:6px 10px;min-width:150px">'
-      +'<div style="font-weight:800;font-size:13px;color:#1f2937">'+_escX(x.name)+(v.who&&st==="in"?' <span style="font-weight:600;color:#475569">'+_escX(v.who)+'</span>':'')+'</div>'
+      +'<div style="font-weight:800;font-size:13px;color:#1f2937">'+_escX(/^dss/.test(x.k)&&v.who?"코스트코 DSS"+String(v.who).slice(-2):x.name)+(v.who&&st==="in"?' <span style="font-weight:600;color:#475569">'+_escX(v.who)+'</span>':'')+'</div>'
       +'<div style="font-weight:700;font-size:13px;color:'+c[2]+'">'+c[3]+'</div>'
       +'<div style="font-size:11px;color:#5b6675">'+_escX(x.use)+'</div>'
       /* 로그인 필요·탭 없음이면 그 사이트를 자동화 창에 여는 단추(2026-10-02 영업2팀) — 자동화 창 모드를 켠 PC에서만 열린다 */
@@ -7241,6 +7335,7 @@ function renderPortalLogin(){
         :'')
       +'</div>';
   }).join("");
+  _apCopy("plSites","autoPlSites");_apCopy("plAge","autoPlAge");
 }
 setInterval(function(){try{renderPortalLogin();}catch(e){}},60*1000);
 function _qcToday(){var d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
@@ -7329,6 +7424,9 @@ function switchTab(tab){
   document.getElementById("page-tmorder").style.display=tab==="tmorder"?"block":"none";
   if(tab==="tmorder")renderTmOrder();
   document.getElementById("page-unship").style.display=tab==="unship"?"block":"none";
+  document.getElementById("page-auto").style.display=tab==="auto"?"block":"none";
+  document.getElementById("tab-auto").classList.toggle("active",tab==="auto");
+  if(tab==="auto"){try{_retScan(false);}catch(e){}try{renderSaipAuto();}catch(e){}try{renderRetAuto();}catch(e){}renderAutoPage();}
   document.getElementById("page-invcount").style.display=tab==="invcount"?"block":"none";
   document.getElementById("tab-unship").classList.toggle("active",tab==="unship");
   document.getElementById("tab-invcount").classList.toggle("active",tab==="invcount");
@@ -10237,6 +10335,7 @@ function auPick(kind,input){
   _auIngest(kind,f);
 }
 function renderAutoUpBar(){
+  setTimeout(function(){try{renderAutoPage();}catch(e){}},0);
   [["wh","auWh","📦 창고재고현황","auWhIn"],["sales","auSales","🧾 매장판매일보","auSalesIn"],["si","auSi","🏬 매장재고현황","auSiIn"],["prod","auProd","🏷️ 상품코드리스트","auProdIn"]].forEach(function(c){
     var box=document.getElementById(c[1]);if(!box)return;
     var L=uploadLog[c[0]]||null;
@@ -13214,6 +13313,7 @@ function ocAutoRender(){
   if(W&&W.at)h+='<div style="color:'+(W.ok?'#047857':'#b91c1c')+';font-weight:700">'+(W.ok?'✅ 발주 메일 '+(W.mode==="draft"?'임시저장':'보냄'):'❗ 발주 메일 실패')+' · '+_escX(_saipFmtAt(W.at))+' · '+_escX(W.by||"")
     +' <span style="font-weight:400;color:#475569">'+_escX(W.subject||"")+' · '+(W.lines||0)+'줄'+(W.stores?' ('+_escX(W.stores)+')':'')+'</span>'+(W.error?' — '+_escX(W.error):'')+'</div>';
   box.innerHTML=h;
+  _apCopy("ocAutoStatus","autoOcStatus");
 }
 function ocDownload(){
   if(!orderConvRows.length){alert("먼저 주문배분현황 파일을 업로드하세요.");return;}
@@ -17126,6 +17226,7 @@ function _retBtnPaint(k,st,n){
   b.style.background=S[0];b.style.borderColor=S[1];b.style.color=S[2];b.textContent=S[3];b.dataset.state=st;
 }
 function renderRetAuto(){
+  setTimeout(function(){try{renderAutoPage();}catch(e){}},0);
   var box=document.getElementById("retAutoStatus");if(!box)return;
   ["hr","cr"].forEach(function(k){
     var R0=(saipReq||{})[k],P=_retPendingOf(k),E=_retPend[k];
@@ -17696,7 +17797,10 @@ var ccOrderReady=(function(){try{return JSON.parse(localStorage.getItem("ccOrder
 /* [발주하기] 색·글자 — 새 주문이 있고 오늘 아직 발주 안 했으면 보라 '발주 요망 N건', 오늘 발주했으면 '✅ 오늘 발주 완료',
    그 밖은 평소(청록). 새 주문 수는 3시간 넘은 값이면 쓰지 않는다(자동화 PC가 꺼졌을 수 있음) */
 function _ccAutoPaint(){
-  var b=document.getElementById("ccAutoSaveBtn");if(!b)return;
+  ["ccAutoSaveBtn","autoCcSaveBtn"].forEach(function(id){_ccAutoPaint1(document.getElementById(id));});
+}
+function _ccAutoPaint1(b){
+  if(!b)return;
   var L=(ccOrderLog||{})[_ccToday()],Q=ccOrderReady;
   var fresh=Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000;
   var n=fresh?(+Q.total||0):0;
@@ -17752,6 +17856,7 @@ function ccAutoRender(){
   }
   if(!h)h='<span style="color:#5b6675">아직 실행 기록이 없습니다. 처음에는 <b>미리보기</b>로 메일 초안을 확인해 주세요.</span>';
   box.innerHTML=h;
+  _apCopy("ccAutoStatus","autoCcStatus");
 }
 /* 코스트코 카드 맨 아래 — DSS 송장 입력 결과(2026-10-01 영업2팀). 아이디(ckr.…)마다 올린 주문 수, 남은 주문, 오류 */
 function _ccDssLine(){
@@ -18013,6 +18118,7 @@ function _saipBtnPaint(k,st){
   b.dataset.state=st;
 }
 function renderSaipAuto(){
+  setTimeout(function(){try{renderAutoPage();}catch(e){}},0);
   if(typeof ccAutoRender==="function")ccAutoRender();
   if(typeof ocAutoRender==="function")ocAutoRender();
   var box=document.getElementById("saipAutoStatus");if(!box)return;

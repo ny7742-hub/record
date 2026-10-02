@@ -36,6 +36,12 @@
 - [`docs/auth.md`](docs/auth.md) — 회원 승인제(이메일 링크 로그인 · 승인 · Firebase 규칙)
 - [`docs/cowork.md`](docs/cowork.md) — **별도 페이지** `cowork.html`: 디자인·생산·웹디자인·영업2팀 코스트코 상품개발 협업(단계·일정·시안·코멘트)
 
+## 🤖 자동화 탭
+- 홈 다음 탭(`page-auto`, `renderAutoPage`, 2026-10-02 영업2팀) — 로그인 상태 · PlayMD 자료 업로드 4종 · 코스트코 자동 발주 · 도매 발주(주문배분현황) ·
+  사입출고등록 4 · 반품등록 2 · 미출고 반영을 한 화면에. **새 카드를 만들지 않고 원래 화면의 카드 함수(`_saipCard`·`_retCard`)를 쓰거나,
+  원래 화면을 그릴 때 복사한다(`_apCopy` — renderPortalLogin·ccAutoRender·ocAutoRender 끝)**. 원래 화면을 고치면 이 탭도 같이 바뀐다.
+  로그인 칸의 DSS 이름은 아이디 끝 두 자리(`코스트코 DSS26`·`DSS31`).
+
 ## 바로가기
 - 칩은 `#homeQuick` 한 곳에서 `flex-wrap`으로 흘린다. **앞의 몇 개를 2열 격자(`.qc-2col`)로 묶지 말 것** —
   그 블록이 통째로 자리를 차지해 뒤 칩들이 엉뚱한 줄로 밀려났다(2026-09-23). 지금은 `.qc-2col{display:contents}`다.
