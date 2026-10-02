@@ -1326,8 +1326,9 @@ label{font-size:14px!important}
     <!-- 버튼 칸과 결과 카드를 같은 격자로 — 홈쇼핑·백화점몰·코스트코·발송후취소가 위아래로 줄을 맞춘다(2026-09-30 영업2팀).
          예전엔 버튼은 minmax(190px), 카드는 minmax(320px)로 따로 채워 넓은 화면에서 칸 수·폭이 서로 달랐다. -->
     <style>
-      .saip-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-      @media (max-width:1100px){.saip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      .saip-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+      @media (max-width:1300px){.saip-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+      @media (max-width:900px){.saip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
       @media (max-width:600px){.saip-grid{grid-template-columns:minmax(0,1fr)}}
     </style>
     <div id="saipAutoBox" style="border:1px solid #9fd3dc;border-radius:10px;background:#f0fafb;padding:10px 12px;margin:8px 0 10px">
@@ -1355,6 +1356,12 @@ label{font-size:14px!important}
           <input type="date" id="saipDate_cc" onchange="_saipTouched.cc=true;renderSaipAuto()" aria-label="🛒 코스트코 매출등록 날짜" style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
           <button class="bs" onclick="saipPreviewGo('cc')" title="저장하지 않고 등록될 줄만 먼저 봅니다" style="font-size:12.5px;font-weight:700;padding:4px 8px;background:#fff;color:#1b6e82;border:1px dashed #1b6e82">🔍 미리보기</button>
           <span id="saipNote_cc" style="font-size:11.5px;color:#5b6675;line-height:1.4"></span>
+        </div>
+        <!-- 창고간이동(2026-10-02 영업2팀, 자리만 먼저) — OneDrive 날짜 폴더의 'MMDD 창고간이동.xlsx' · '창고간이동(화이트샌즈/블랙샌즈).xlsx'.
+             PlayMD 메뉴·받는 곳별 코드·공급가가 정해지면 등록을 연결한다 -->
+        <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px dashed #cbd5e1;border-radius:8px;padding:7px 8px">
+          <button class="bs" id="saipAutoMv" onclick="saipMvSoon()" title="OneDrive 판매자료 날짜 폴더의 창고간이동 파일 — 등록 연결 준비 중" style="font-size:13px;font-weight:700;padding:7px 10px;background:#f1f5f9;color:#475569;border-color:#cbd5e1">🏭 창고간이동 등록</button>
+          <span style="font-size:11.5px;color:#5b6675;line-height:1.4">준비 중 — OneDrive <b>MMDD 창고간이동</b> 파일(화이트샌즈·블랙샌즈). PlayMD 등록 방법·받는 곳별 코드가 정해지면 연결합니다.</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid #cfe0e5;border-radius:8px;padding:7px 8px">
           <button class="bs" id="saipAutoXc" onclick="saipAutoGo('xc')" title="같은 날짜 폴더의 발송후취소 · 발송후취소(백화점몰) 파일을 공급가 0원으로 (기본 전 영업일)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border-color:#1b6e82">↩ 발송후취소 등록</button>
@@ -7289,7 +7296,9 @@ function renderAutoPage(){
   /* 사입출고등록 4개 */
   var sp=document.getElementById("autoSaip");
   if(sp&&typeof _saipCard==="function"){
-    sp.innerHTML=["hs","ds","cc","xc"].map(function(k){
+    sp.innerHTML=["hs","ds","cc","mv","xc"].map(function(k){
+      if(k==="mv")return '<div style="border:1px dashed #cbd5e1;border-radius:10px;padding:8px 10px"><div style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><b style="font-size:14px">🏭 창고간이동 등록</b>'
+        +'<button class="ap-btn sub" style="margin-left:auto" onclick="saipMvSoon()">준비 중</button></div>'+_saipMvCard()+'</div>';
       var K=SAIP_KINDS[k],el=_saipDateEl(k),dv=el&&el.value?el.value:"";
       return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><b style="font-size:14px">'+K.icon+' '+K.label+(k==="xc"?' 등록':' 매출등록')+'</b>'
@@ -18045,6 +18054,9 @@ var SAIP_ITEM_TXT={
 function _saipWho(by){var s=String(by||"알 수 없음");var m=/^\(?등록자 기록 전 · (.*?)\)?$/.exec(s);return m?m[1]:s;}
 /* '0928은(는) 이미 등록했습니다(9/29 14:11 · …)' → '0928은 이미 등록했습니다' — 언제·누가는 그 날짜를 고르면 1줄에 나온다 */
 function _saipShortNote(n){return String(n||"").replace(/은\(는\)/g,"은").replace(/(이미 등록했습니다)\s*\(.*\)\s*$/,"$1");}
+/* 창고간이동 칸(준비 중) — 결과 카드 줄의 자리 맞춤 */
+function _saipMvCard(){return '<div style="border:1px dashed #cbd5e1;border-radius:8px;background:#fff;padding:9px 12px;font-size:13px;color:#5b6675">🏭 창고간이동 — 등록 연결 준비 중</div>';}
+function saipMvSoon(){alert("🏭 창고간이동 등록은 준비 중입니다.\n\nOneDrive 날짜 폴더의 'MMDD 창고간이동' 파일(화이트샌즈·블랙샌즈)을 PlayMD에 넣는 방법(메뉴·작업구분), 받는 곳별 코드, 공급가가 정해지면 연결합니다.");}
 function _saipCard(kind){
   var K=SAIP_KINDS[kind],S=_saipStatusOf(kind),R=(saipReq||{})[kind];
   var base=K.label+(kind==="xc"?" 등록":" 매출등록");
@@ -18170,7 +18182,7 @@ function renderSaipAuto(){
   var wLine='<div style="grid-column:1/-1;font-size:12px;font-weight:700;color:'+(wOk?'#047857':'#b91c1c')+'">'
     +(wOk?'🟢 자동화 PC 켜짐'+(W.pc?' ('+_escX(W.pc)+')':'')+(W.busy?' · 지금 등록 중 '+_escX(W.busy):' · 요청을 기다리는 중')
          :'🔴 자동화 PC 신호 없음'+(W&&W.at?' (마지막 '+_escX(_saipFmtAt(W.at))+')':'')+' — 요청은 남길 수 있고, 자동화 PC가 켜지면 처리됩니다')+'</div>';
-  box.innerHTML=wLine+_saipCard("hs")+_saipCard("ds")+_saipCard("cc")+_saipCard("xc");
+  box.innerHTML=wLine+_saipCard("hs")+_saipCard("ds")+_saipCard("cc")+_saipMvCard()+_saipCard("xc");
 }
 /* 자동화 PC 신호·요청 경과를 다시 그린다(사입출고등록 화면이 열려 있을 때만) */
 setInterval(function(){var b=document.getElementById("saipAutoStatus");if(b&&b.offsetParent)renderSaipAuto();},30000);
