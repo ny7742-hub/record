@@ -307,7 +307,8 @@
 
 - **팝업 탭 매장 칸 표시**(2026-10-02 영업2팀): 일정이 한 달 이상이면 `📍 스마트플레이스 등록요망`(`_popSmartNeed`·`popSmartToggle`, `smartDone`),
   **끝난 팝업**(구분 '종료'·'완료' 또는 종료일이 지남, 종료일이 있으면 최근 90일 안)은 **`🧾 로스품의서 작성요망`**(`_popLossNeed`) —
-  누르면 확인 뒤 `✅ 로스 품의완료`(`popLossToggle`, `lossDone`·`lossDoneAt`, 다시 누르면 되돌림). 옆 `✍ 쓰기`는 로스 품의서 탭으로 가서
+  **누를 때마다(확인창 없이) 작성요망 → `✅ 로스 품의완료` → `➖ 로스 없음` → 작성요망**(`popLossToggle`·`_popLossBadge`, `lossState` ''|done|none · `lossStateAt`;
+  예전 `lossDone:true`는 품의완료로 읽음). 옆 `✍ 쓰기`는 로스 품의서 탭으로 가서
   그 팝업을 불러온다(`popLossWrite` → `lrPopupSel` = popupDB 순번 → `lrLoadFromPopup`). 처음 켰을 때 대상 12곳(9/30 동부산 ~ 7/09 목동).
 - 매장별 일별매출: **팝업 기간 밖의 날짜는 칸을 회색**(`#e6eaf0`)으로 칠한다(`_dsIsClosed`) —
   시작 전·종료 후는 물론 **팝업과 팝업 사이 빈 날도** 회색이다(9/18 하루짜리 팝업이면 그 하루만 흰색).

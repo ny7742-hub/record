@@ -21156,12 +21156,7 @@ function renderPopupPage(){
         ?'<div onclick="popSmartToggle('+i+')" title="스마트플레이스 등록 완료 — 누르면 등록요망으로 되돌립니다" style="margin-top:4px;display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#047857;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:10px;padding:1px 7px;white-space:nowrap">✅ 스마트플레이스 등록완료</div>'
         :'<div onclick="popSmartToggle('+i+')" title="일정이 한 달 이상 — 네이버 스마트플레이스에 매장 등록이 필요합니다. 등록했으면 누르세요" style="margin-top:4px;display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#b45309;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:1px 7px;white-space:nowrap">📍 스마트플레이스 등록요망</div>'):'')
       /* 로스품의서(2026-10-02 영업2팀) — 끝난 팝업은 로스 품의서를 올려야 한다. 표시를 누르면 품의완료로 바뀐다 */
-      +(_popLossNeed(row)?(row.lossDone
-        ?'<div onclick="popLossToggle('+i+')" title="로스 품의 완료'+(row.lossDoneAt?' ('+_esc(String(row.lossDoneAt).slice(0,10))+')':'')+' — 누르면 작성요망으로 되돌립니다" style="margin-top:4px;display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#047857;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:10px;padding:1px 7px;white-space:nowrap;opacity:1">✅ 로스 품의완료</div>'
-        :'<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;opacity:1">'
-          +'<span onclick="popLossToggle('+i+')" title="팝업이 끝났습니다 — 로스 품의서를 올렸으면 누르세요(품의완료)" style="display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:#b91c1c;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:1px 7px;white-space:nowrap">🧾 로스품의서 작성요망</span>'
-          +'<span onclick="popLossWrite('+i+')" title="로스 품의서 탭에서 이 팝업(매장·기간)을 불러옵니다" style="display:inline-block;cursor:pointer;font-size:11.5px;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:1px 7px;white-space:nowrap">✍ 쓰기</span>'
-        +'</div>'):'')
+      +(_popLossNeed(row)?_popLossBadge(i,row):'')
       +'</td>';
     /* 일정 — 시작~종료를 한 칸에. 26/08/21 형태로 입력하거나 📅로 달력 선택 */
     h+='<td class="pop-fix" style="left:292px;padding:5px 2px;border-right:2px solid #e0e7ff">'
@@ -21304,13 +21299,27 @@ function _popLossNeed(row){
   if(/^\d{4}-\d{2}-\d{2}$/.test(row.end||"")){var c=new Date(t.getTime()-90*86400000);var cut=c.getFullYear()+"-"+String(c.getMonth()+1).padStart(2,"0")+"-"+String(c.getDate()).padStart(2,"0");if(row.end<cut)return false;}
   return true;
 }
+/* 로스품의서 상태(2026-10-02 영업2팀) — 누를 때마다 작성요망 → 품의완료 → 로스 없음 → 작성요망.
+   lossState: ''(작성요망) · 'done'(품의완료) · 'none'(로스 없음). 예전 lossDone:true는 품의완료로 읽는다 */
+function _popLossState(r){return r.lossState||(r.lossDone?"done":"");}
 function popLossToggle(i){
   var r=popupDB[i];if(!r)return;
-  if(r.lossDone){if(!confirm((r.store||"이 매장")+"을(를) 로스품의서 '작성요망'으로 되돌릴까요?"))return;}
-  else if(!confirm((r.store||"이 매장")+" 로스 품의를 완료로 표시할까요?"))return;
-  r.lossDone=!r.lossDone;
-  if(r.lossDone)r.lossDoneAt=new Date().toISOString();else delete r.lossDoneAt;
+  var next={"":"done",done:"none",none:""}[_popLossState(r)];
+  if(next)r.lossState=next;else delete r.lossState;
+  delete r.lossDone;
+  if(next)r.lossStateAt=new Date().toISOString();else delete r.lossStateAt;
   savePopupDB();renderPopupPage();
+}
+function _popLossBadge(i,r){
+  var st=_popLossState(r),at=r.lossStateAt||r.lossDoneAt||"";
+  var tip=at?" ("+String(at).slice(0,10)+")":"";
+  var pill=function(txt,c,bg,bd,title){return '<span onclick="popLossToggle('+i+')" title="'+title+'" style="display:inline-block;cursor:pointer;font-size:11.5px;font-weight:800;color:'+c+';background:'+bg+';border:1px solid '+bd+';border-radius:10px;padding:1px 7px;white-space:nowrap">'+txt+'</span>';};
+  var h='<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">';
+  if(st==="done")h+=pill("✅ 로스 품의완료","#047857","#ecfdf5","#6ee7b7","로스 품의 완료"+tip+" — 누르면 '로스 없음'으로 바뀝니다");
+  else if(st==="none")h+=pill("➖ 로스 없음","#475569","#f1f5f9","#cbd5e1","로스 없음"+tip+" — 누르면 '작성요망'으로 돌아갑니다");
+  else h+=pill("🧾 로스품의서 작성요망","#b91c1c","#fef2f2","#fca5a5","팝업이 끝났습니다 — 누르면 '품의완료', 한 번 더 누르면 '로스 없음'")
+    +'<span onclick="popLossWrite('+i+')" title="로스 품의서 탭에서 이 팝업(매장·기간)을 불러옵니다" style="display:inline-block;cursor:pointer;font-size:11.5px;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #93c5fd;border-radius:10px;padding:1px 7px;white-space:nowrap">✍ 쓰기</span>';
+  return h+'</div>';
 }
 /* ✍ 쓰기 — 로스 품의서 탭으로 가서 이 팝업(매장·운영기간)을 불러온다(lrPopupSel 값 = popupDB 순번) */
 function popLossWrite(i){
