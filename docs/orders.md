@@ -2,6 +2,15 @@
 
 `CLAUDE.md`에서 분리한 상세 문서. 내용은 그대로이고 위치만 옮겼다.
 
+- **도매 발주 자동화**(2026-10-02 영업2팀, 발주서 변환 화면 `ocAutoPull`·`ocAutoMail`·`ocAutoApply`·`ocAutoRender`):
+  **`🔄 PlayMD에서 불러오기`** → `ws/saipReq.wp` → 자동화 PC `automation/wholesale-pull.mjs`가 PlayMD 주문배분현황(`xsal6305q`)에서
+  **확인구분 [3] 미확인**(ng-model `searchConditions.selGubn`, 주문일자는 화면 기본 한 달)을 [조회]·[엑셀]로 받아 시트 그대로 `ws/orderConvSrc{at,by,aoa,rows,note}`에 올린다
+  (없으면 PlayMD가 '엑셀변환할 데이터가 없습니다' → rows 0 '미확인 주문 없음'). 화면은 새로 받은 것을 **한 번만** `ocParse`로 표에 넣는다
+  (내가 누른 뒤 받은 것, 또는 표가 비었을 때 오늘 받은 것 — `ocSrcWant`·`ocSrcLoaded` 이 브라우저 기억).
+  **`✉️ 발주 메일 전달`** → 지금 표로 만든 발주서(`⬇ 발주서 다운로드`와 같은 `_ocWorkbook`)를 base64로 `ws/saipReq.wm`에 실어 →
+  `automation/wholesale-mail.mjs`가 하이웍스(`hiworks-send.mjs` 공통)로 **받는 사람 gnkim72@daum.net · 참조 강민준·이유진·이다겸·김민희 ·
+  제목 `[도매] 발주서 - M/D(요일)` · 첨부 `화이트샌즈(MMDD) - 도매발주서.xlsx` · 서명 = 누른 사람**(김민희 대리님이 보내던 형식)으로 보내고,
+  보낸 뒤 요청에서 파일(b64)을 지운다. 결과 `ws/wmStatus`. 확인창에 줄 수·매장별 줄·발주불가 줄 수와 '오늘 이미 보냄' 경고를 띄운다.
 - 발주 탭 **`📥 주문배분현황 → 발주서 변환`**의 `↺ 초기화`(`ocReset`, 2026-09-29 영업2팀): 변환 표(`orderConvRows`)는 저장·공유되지 않는
   화면 전용 자료라 비우기만 한다. 줄이 있으면 한 번 묻고, 파일칸(`#ocFileIn`) 값도 비워 **같은 파일을 다시 올려도** 읽히게 한다.
 

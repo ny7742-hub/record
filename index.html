@@ -2139,7 +2139,9 @@ label{font-size:14px!important}
       <div class="sec-title" style="margin:0;font-size:13px">📥 주문배분현황 → 발주서 변환</div>
       <label style="cursor:pointer"><span class="bs" style="padding:5px 12px;font-size:12px;display:inline-block">📁 파일 업로드</span><input type="file" id="ocFileIn" accept=".xlsx,.xls" style="display:none" onchange="ocLoadFile(this)"/></label>
       <div id="ocDropZone" class="drop-zone" onclick="document.getElementById('ocFileIn').click()" style="border-radius:8px;padding:5px 14px;font-size:12px;gap:5px">📂 끌어오기</div>
+      <button onclick="ocAutoPull()" title="자동화 PC가 PlayMD 주문배분현황에서 확인구분 [3] 미확인을 조회해 엑셀을 받아 이 화면에 올립니다" style="padding:6px 14px;font-size:12px;font-weight:800;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer">🔄 PlayMD에서 불러오기</button>
       <button onclick="ocDownload()" style="padding:6px 14px;font-size:12px;font-weight:700;background:#15803d;color:#fff;border:none;border-radius:8px;cursor:pointer">⬇ 발주서 다운로드</button>
+      <button onclick="ocAutoMail()" title="지금 표의 발주서(⬇ 발주서 다운로드와 같은 파일)를 첨부해 김구남 센터장께 메일을 보냅니다" style="padding:6px 14px;font-size:12px;font-weight:800;background:#1b6e82;color:#fff;border:none;border-radius:8px;cursor:pointer">✉️ 발주 메일 전달</button>
       <button onclick="ocReset()" title="올린 주문배분현황과 변환한 표를 비웁니다" style="padding:6px 14px;font-size:12px;font-weight:700;background:#fff;color:#b91c1c;border:1px solid #fca5a5;border-radius:8px;cursor:pointer">↺ 초기화</button>
       <button id="ocDelBadBtn" onclick="ocDelNoOrder()" title="창고재고 10개 이하(발주불가) 줄을 한 번에 지웁니다" style="display:none;padding:6px 14px;font-size:12px;font-weight:700;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer">🗑 발주불가 일괄 삭제</button>
       <span id="ocMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
@@ -2148,6 +2150,7 @@ label{font-size:14px!important}
     <div style="margin-top:8px;font-size:11px;color:#5b6675">
       주문배분현황 엑셀을 올리면 발주서 양식(27열)으로 자동 변환됩니다. 매장코드로 수령인·연락처·주소가 자동 채워지고, 파일명은 화이트샌즈(MMDD) - 도매발주서.xlsx 로 받습니다.
     </div>
+    <div id="ocAutoStatus" style="margin-top:6px;font-size:13px;line-height:1.6"></div>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
     <div id="ocTableWrap" style="overflow-x:auto;padding:0"></div>
@@ -2286,7 +2289,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","portalLogin":"ws/portalLogin","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -2842,6 +2845,15 @@ function fbListen(){
   apply("ws/ccOrderReady","ccOrderReady",
     function(d){if(d&&typeof d==="object")ccOrderReady=d;},
     function(){if(typeof ccAutoRender==="function")ccAutoRender();}
+  );
+  /* 도매 발주 자동화(2026-10-02 영업2팀) — PlayMD에서 받은 주문배분현황 · 발주 메일 결과 */
+  apply("ws/orderConvSrc","orderConvSrc",
+    function(d){if(d&&typeof d==="object")orderConvSrc=d;},
+    function(){if(typeof ocAutoApply==="function")ocAutoApply();}
+  );
+  apply("ws/wmStatus","wmStatus",
+    function(d){if(d&&typeof d==="object")wmStatus=d;},
+    function(){if(typeof ocAutoRender==="function")ocAutoRender();}
   );
   apply("ws/portalLogin","portalLogin",
     function(d){if(d&&typeof d==="object")portalLogin=d;},
@@ -13102,6 +13114,85 @@ function ocReset(){
   var fi=document.getElementById("ocFileIn");if(fi)fi.value="";
   ocRender();
 }
+/* ── 도매 발주 자동화(2026-10-02 영업2팀) ──
+   🔄 PlayMD에서 불러오기 → ws/saipReq.wp → 자동화 PC(wholesale-pull.mjs)가 주문배분현황 [3]미확인 엑셀을 받아 ws/orderConvSrc{at,aoa,rows}
+   → 이 화면이 받아 '파일 업로드'와 똑같이 ocParse로 변환 표를 만든다(새로 받은 것만 한 번 — 받은 시각을 이 브라우저에 기억).
+   ✉️ 발주 메일 전달 → 지금 표로 만든 발주서(⬇ 다운로드와 같은 파일)를 base64로 ws/saipReq.wm에 실어 보낸다
+   → 자동화 PC(wholesale-mail.mjs)가 김구남 센터장께 [도매] 발주서 메일(참조 강민준·이유진·이다겸·김민희)을 보내고 파일은 요청에서 지운다. */
+var orderConvSrc=(function(){try{return JSON.parse(localStorage.getItem("orderConvSrc")||"null");}catch(e){return null;}})();
+var wmStatus=(function(){try{return JSON.parse(localStorage.getItem("wmStatus")||"null");}catch(e){return null;}})();
+function _ocWorkbook(){
+  var aoa=[];
+  orderConvRows.forEach(function(r){
+    var row=[];for(var c=0;c<27;c++)row.push("");
+    row[2]=r.store||"";row[3]=r.storeName||"";row[4]=r.recv||"";row[7]=r.tel||"";row[9]=r.addr||"";
+    row[11]=r.name||"";row[12]=r.qty||"";row[17]=(r.code||"").slice(0,8);row[19]=r.code||"";
+    aoa.push(row);
+  });
+  return _wholesaleWorkbook(aoa);
+}
+function ocAutoPull(){
+  var cur=(saipReq||{}).wp;
+  if(_saipReqActive(cur)){alert("PlayMD 불러오기가 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+". 잠시 뒤 표에 올라옵니다.");return;}
+  if(orderConvRows.length&&!confirm("지금 표("+orderConvRows.length+"줄)를 PlayMD에서 새로 받은 주문배분현황으로 바꿉니다. 진행할까요?"))return;
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"pull"};
+  if(!saipReq||typeof saipReq!=="object")saipReq={};
+  saipReq.wp=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  try{localStorage.setItem("ocSrcWant",R.at);}catch(e){}
+  ocAutoRender();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 처리됩니다.");
+}
+/* 새로 받은 주문배분현황을 표로 — 내가 불러오기를 누른 뒤 받은 것(또는 표가 비어 있을 때 오늘 받은 것)만 */
+function ocAutoApply(){
+  ocAutoRender();
+  var S=orderConvSrc;if(!S||!S.at||!S.aoa||!S.aoa.length)return;
+  var done="",want="";try{done=localStorage.getItem("ocSrcLoaded")||"";want=localStorage.getItem("ocSrcWant")||"";}catch(e){}
+  if(S.at<=done)return;
+  var today=new Date();today=today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+  var mine=want&&S.at>=want, fresh=!orderConvRows.length&&String(S.at).slice(0,10)===new Date(Date.now()).toISOString().slice(0,10);
+  if(!mine&&!fresh)return;
+  try{localStorage.setItem("ocSrcLoaded",S.at);localStorage.removeItem("ocSrcWant");}catch(e){}
+  ocParse(S.aoa);
+  var msg=document.getElementById("ocMsg");if(msg)msg.textContent="PlayMD에서 받은 주문배분현황 "+(S.rows||0)+"줄을 불러왔습니다";
+}
+function ocAutoMail(){
+  if(!orderConvRows.length){alert("보낼 발주서가 없습니다.\n먼저 🔄 PlayMD에서 불러오기 또는 📁 파일 업로드를 해 주세요.");return;}
+  var cur=(saipReq||{}).wm;
+  if(_saipReqActive(cur)){alert("발주 메일이 이미 "+(cur.state==="처리중"?"보내지는 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").");return;}
+  var bad=orderConvRows.filter(function(r){return typeof _ocNoOrder==="function"&&_ocNoOrder(r);}).length;
+  var stores={};orderConvRows.forEach(function(r){var k=r.storeName||r.store||"?";stores[k]=(stores[k]||0)+1;});
+  var sl=Object.keys(stores).map(function(k){return k+" "+stores[k]+"줄";}).join(", ");
+  var d=new Date(),subj="[도매] 발주서 - "+(d.getMonth()+1)+"/"+d.getDate()+"("+"일월화수목금토".charAt(d.getDay())+")";
+  var L=wmStatus&&wmStatus.ok&&wmStatus.mode==="send"&&String(wmStatus.at).slice(0,10)===new Date().toISOString().slice(0,10)?wmStatus:null;
+  if(!confirm((L?"⚠ 오늘 이미 보낸 발주 메일이 있습니다("+_saipFmtAt(L.at)+" · "+L.by+").\n\n":"")
+    +"김구남 센터장(gnkim72@daum.net)께 도매 발주 메일을 보냅니다.\n\n제목: "+subj+"\n참조: 강민준·이유진·이다겸·김민희\n첨부: "+_wholesaleFileName()+" ("+orderConvRows.length+"줄 · "+sl+")\n서명: "+_saipMe()
+    +(bad?"\n\n⚠ 창고재고 부족(발주불가) 줄이 "+bad+"줄 있습니다. 빼고 보내려면 취소 후 🗑 발주불가 일괄삭제를 누르세요.":"")
+    +"\n\n보낸 메일은 되돌릴 수 없습니다. 보낼까요?"))return;
+  var b64=XLSX.write(_ocWorkbook(),{type:"base64",bookType:"xlsx"});
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send",
+    fileName:_wholesaleFileName(),b64:b64,lines:orderConvRows.length,stores:sl};
+  if(!saipReq||typeof saipReq!=="object")saipReq={};
+  saipReq.wm=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  ocAutoRender();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 보냅니다.");
+}
+function ocAutoRender(){
+  var box=document.getElementById("ocAutoStatus");if(!box)return;
+  var h="",RQ=saipReq||{},S=orderConvSrc,W=wmStatus;
+  var line=function(R,what){
+    if(!R||!R.state)return "";
+    var who=_escX(R.by||"?")+" · "+_escX(_saipFmtAt(R.at));
+    if(_saipReqActive(R))return '<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?"요청됨":"진행 중…")+' ('+who+')'+(R.progress?' <span style="font-weight:400;color:#475569">▸ '+_escX(R.progress)+'</span>':'')+'</div>';
+    if(R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<12*3600*1000)return '<div style="color:#b91c1c;font-weight:700">❗ '+what+' 실패 ('+who+')'+(R.error?' — '+_escX(R.error):'')+'</div>';
+    return "";
+  };
+  h+=line(RQ.wp,"PlayMD 불러오기")+line(RQ.wm,"발주 메일");
+  if(S&&S.at)h+='<div style="color:#334155">📥 PlayMD 주문배분현황 [3]미확인 · '+_escX(_saipFmtAt(S.at))+' · '+_escX(S.by||"")+' · '
+    +(S.error?'<span style="color:#b91c1c">'+_escX(S.error)+'</span>':S.rows?'<b>'+S.rows+'줄</b>':'<b>미확인 주문 없음</b>')+'</div>';
+  if(W&&W.at)h+='<div style="color:'+(W.ok?'#047857':'#b91c1c')+';font-weight:700">'+(W.ok?'✅ 발주 메일 '+(W.mode==="draft"?'임시저장':'보냄'):'❗ 발주 메일 실패')+' · '+_escX(_saipFmtAt(W.at))+' · '+_escX(W.by||"")
+    +' <span style="font-weight:400;color:#475569">'+_escX(W.subject||"")+' · '+(W.lines||0)+'줄'+(W.stores?' ('+_escX(W.stores)+')':'')+'</span>'+(W.error?' — '+_escX(W.error):'')+'</div>';
+  box.innerHTML=h;
+}
 function ocDownload(){
   if(!orderConvRows.length){alert("먼저 주문배분현황 파일을 업로드하세요.");return;}
   var aoa=[ORDER_HEADERS.slice()];
@@ -17901,6 +17992,7 @@ function _saipBtnPaint(k,st){
 }
 function renderSaipAuto(){
   if(typeof ccAutoRender==="function")ccAutoRender();
+  if(typeof ocAutoRender==="function")ocAutoRender();
   var box=document.getElementById("saipAutoStatus");if(!box)return;
   ["hs","ds","cc","xc"].forEach(function(k){
     var el=_saipDateEl(k);if(!el)return;
