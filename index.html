@@ -18200,6 +18200,7 @@ function renderSaipAuto(){
       :(_saipLogOf(k,v)||((k==="hs"||k==="ds")&&v<=SAIP_BASELINE))?"done"
       :rd.some(function(x){return x.date===v;})?"todo":"idle";
     _saipBtnPaint(k,st);
+    if(k==="cc")note.innerHTML+=_ccTwoSteps(v);
   });
   /* 맨 위 안내줄(등록할 건 있습니다/없음)은 없앴다 — 버튼 색(요망·완료)으로 대신한다(2026-09-30 영업2팀).
      자동화 PC가 30분 넘게 새로 살펴보지 못했을 때만 짧게 알린다(버튼 색이 오래된 정보일 수 있으므로). */
@@ -18217,6 +18218,35 @@ function renderSaipAuto(){
     +(wOk?'🟢 자동화 PC 켜짐'+(W.pc?' ('+_escX(W.pc)+')':'')+(W.busy?' · 지금 등록 중 '+_escX(W.busy):' · 요청을 기다리는 중')
          :'🔴 자동화 PC 신호 없음'+(W&&W.at?' (마지막 '+_escX(_saipFmtAt(W.at))+')':'')+' — 요청은 남길 수 있고, 자동화 PC가 켜지면 처리됩니다')+'</div>';
   box.innerHTML=wLine+_saipCard("hs")+_saipCard("ds")+_saipCard("cc")+_saipMvCard()+_saipCard("xc");
+}
+/* 코스트코 버튼 아래 두 줄 — 📒 플레이엠디 매출등록 · 🚚 DSS 송장 입력을 **따로** 완료 표시(2026-10-06 영업2팀).
+   버튼 하나가 둘을 차례로 한다(saip-watch: playmd-hs-saip → dss-invoice). 매출은 등록 기록(ws/saipLog.cc), 송장은 ws/ccDssStatus 기준 */
+function _ccTwoSteps(v){
+  var mm=v.slice(5,7)+v.slice(8,10),R=(saipReq||{}).cc,act=_saipReqActive(R)&&R.mmdd===mm,pv=act&&R.mode==="preview";
+  var L=_saipLogOf("cc",v),S=ccSaipStatus,D=ccDssStatus,started=act&&R.startedAt?new Date(R.startedAt).getTime():0;
+  var line=function(icon,lab,txt,col,sub){return '<div style="margin-top:2px;font-weight:700;color:'+col+'">'+icon+' '+lab+' '+txt+(sub?' <span style="font-weight:500;color:#5b6675">· '+_escX(sub)+'</span>':'')+'</div>';};
+  /* 📒 매출등록 */
+  var a,it=S&&S.mode==="save"&&(S.items||[]).filter(function(x){return x.mmdd===mm;})[0];
+  var sAt=S&&S.at?new Date(S.at).getTime():0;
+  if(L)a=line("✅","📒 매출등록","완료","#047857",_saipFmtAt(L.at)+(L.qty!=null?" · "+L.qty+"개":""));
+  else if(act&&R.state==="처리중"&&!(sAt>started))a=line("⏳","📒 매출등록",pv?"미리보기 중":"등록 중","#1d4ed8","");
+  else if(act&&R.state==="요청")a=line("⏳","📒 매출등록","요청됨","#1d4ed8","자동화 PC가 곧 시작");
+  else if(it&&it.status&&it.status!=="saved")a=line("❗","📒 매출등록","멈춤","#b91c1c",(SAIP_ITEM_TXT[it.status]||[])[1]||it.status);
+  else a=line("·","📒 매출등록","전","#5b6675","");
+  /* 🚚 DSS 송장 입력 */
+  var b,mine=D&&D.mmdd===mm&&D.at,dAt=mine?new Date(D.at).getTime():0;
+  if(mine&&(!act||dAt>started)){
+    var acc=(D.accounts||[]).filter(function(x){return !x.same;});
+    var up=acc.reduce(function(s,x){return s+(+x.uploaded||0);},0),still=acc.reduce(function(s,x){return s+(+x.still||0);},0),can=acc.reduce(function(s,x){return s+(+x.orders||0);},0);
+    var err=(D.errors||[]).length||!D.ok;
+    if(D.mode==="preview")b=line("🔍","🚚 송장 입력","미리보기",err?"#b91c1c":"#1d4ed8",(err?"오류 · ":"")+can+"건 넣을 수 있음");
+    else if(err)b=line("❗","🚚 송장 입력","멈춤","#b91c1c",((D.errors||[])[0]||"")+(up?" · "+up+"건은 입력됨":""));
+    else if(still)b=line("⚠️","🚚 송장 입력",still+"건 남음","#b45309",up+"건 입력 · "+_saipFmtAt(D.at));
+    else b=line("✅","🚚 송장 입력","완료","#047857",(up?up+"건 · ":"채울 송장 없음 · ")+_saipFmtAt(D.at));
+  }
+  else if(act)b=line("⏳","🚚 송장 입력",(L||sAt>started)?(pv?"미리보기 중":"입력 중"):"매출등록 뒤 이어서","#1d4ed8","");
+  else b=line("·","🚚 송장 입력","전","#5b6675","");
+  return '<div style="margin-top:4px;padding-top:3px;border-top:1px dashed #e2e8f0;font-size:12px">'+a+b+'</div>';
 }
 /* 자동화 PC 신호·요청 경과를 다시 그린다(사입출고등록 화면이 열려 있을 때만) */
 setInterval(function(){var b=document.getElementById("saipAutoStatus");if(b&&b.offsetParent)renderSaipAuto();},30000);
