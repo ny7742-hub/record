@@ -2095,9 +2095,10 @@ label{font-size:14px!important}
     <div class="ap-card"><div class="ap-h"><b>📤 PlayMD 자료 업로드</b><span class="ap-sub">평일 08:30 자동 · 판매일보는 10:00 한 번 더</span>
       <a href="playmdrun:now" class="ap-btn sub" style="margin-left:auto;text-decoration:none" onclick="return auRunNow()" title="자동화 PC에서 PlayMD 4가지를 지금 받아 올립니다(3~5분)">▶ 지금 받기</a></div>
       <div id="autoUp"></div></div>
-    <div class="ap-card"><div class="ap-h"><b>📥 도매 발주 (주문배분현황)</b><span class="ap-sub">PlayMD [3] 미확인 → 발주서 변환 → 김구남 센터장 메일</span></div>
+    <div class="ap-card"><div class="ap-h"><b>📥 도매 자동발주(주문배분현황)</b><span class="ap-sub">PlayMD [3] 미확인 → 발주서 변환 → 김구남 센터장 메일</span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button class="ap-btn" style="background:#7c3aed;border-color:#6d28d9" onclick="ocAutoPull()">🔄 PlayMD에서 불러오기</button>
         <button class="ap-btn sub" onclick="switchTab('orderconv')" title="표를 확인·수정한 뒤 그 화면에서 ✉️ 발주 메일 전달을 누르세요">📥 발주서 변환 열기(확인 후 메일 전달)</button></div>
+      <div class="oc-add-slot" data-k="auto" style="margin-bottom:6px"></div>
       <div id="autoOcStatus" style="font-size:13px;line-height:1.6"></div></div>
     <div class="ap-card"><div class="ap-h"><b>🛒 코스트코 자동 발주</b><span class="ap-sub">평일 08:35 · DSS 두 아이디 → 도매발주서 → 출력 → 김구남 센터장 메일</span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button id="autoCcSaveBtn" class="ap-btn" onclick="ccAutoGo('save')">🚚 발주하기</button>
@@ -2225,6 +2226,7 @@ label{font-size:14px!important}
     </div>
     <div id="ocAutoStatus" style="margin-top:6px;font-size:13px;line-height:1.6"></div>
   </div>
+  <div class="oc-add-slot" data-k="page" style="margin:0 0 8px"></div>
   <div class="card" style="padding:0;overflow:hidden">
     <div id="ocTableWrap" style="overflow-x:auto;padding:0"></div>
   </div>
@@ -7294,6 +7296,7 @@ var PL_SITES=[
    로그인 상태·코스트코·도매 발주 칸은 원래 화면을 그릴 때 같이 복사한다(renderPortalLogin·ccAutoRender·ocAutoRender 끝) */
 function renderAutoPage(){
   var pg=document.getElementById("page-auto");if(!pg||pg.style.display==="none")return;
+  try{ocAddRender();}catch(e){}   /* 도매 자동발주 카드의 '＋ 상품 추가' 칸 */
   /* PlayMD 자료 업로드 4종 */
   var up=document.getElementById("autoUp");
   if(up){
@@ -13219,7 +13222,7 @@ function ocRender(){
     h+='<tr'+warn+'>';
     h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937">'+_escX(r.store||"")+(r.storeName?' · '+_escX(r.storeName):"")+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;white-space:normal">'+_escX(r.name||"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;white-space:normal">'+(r.added?'<span style="font-size:11px;font-weight:800;color:#7c3aed;background:#f3e8ff;border-radius:8px;padding:0 6px;margin-right:4px" title="직접 추가한 상품">＋추가</span>':'')+_escX(r.name||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;color:'+(_noSku?"#dc2626":"#1f2937")+'">'+(_noSku?"❗코드없음":_escX(r.code||""))+'</td>';
     /* 수량은 직접 고칠 수 있다(2026-10-02 영업2팀) — 고치면 창고재고 칸의 '부족'도 다시 계산된다 */
     h+='<td style="border:1px solid #e1e6ee;padding:2px 4px;text-align:right;color:#1f2937;white-space:nowrap"'+(r.cnt>1?' title="주문 '+r.cnt+'건 합산"':'')+'>'
@@ -13235,8 +13238,64 @@ function ocRender(){
   h+='</tbody></table>';
   wrap.innerHTML=h;
   /* 발주불가(창고재고 10개 이하) 일괄 삭제 버튼 — 그런 줄이 있을 때만 */
+  ocAddRender();
   var bad=orderConvRows.filter(_ocNoOrder).length,bb=document.getElementById("ocDelBadBtn");
   if(bb){bb.style.display=bad?"":"none";bb.textContent="🗑 발주불가 일괄 삭제 ("+bad+"건)";}
+}
+/* ── 도매 자동발주 — 상품 직접 추가(2026-10-06 영업2팀 "여기에 상품을 추가할 수 있게") ──
+   🤖 자동화 탭 '도매 자동발주' 카드와 발주서 변환 화면(표 위) 두 곳에 같은 칸: 매장(수기발주 매장 목록) · 상품(상품데이터 — 이름이나 자사코드) · 수량 → [＋ 추가].
+   같은 발주서 표(orderConvRows)에 붙으므로 ⬇ 다운로드·✉️ 발주 메일에 같이 나간다. 수령인·연락처·주소는 매장 정보로 채운다 */
+var _ocProdIdx=null;
+function _ocProdList(){
+  var src=(typeof DB!=="undefined"&&DB.length)?DB:[];
+  if(_ocProdIdx&&_ocProdIdx.sig===src.length)return _ocProdIdx;
+  var seen={},list=[];
+  src.forEach(function(x){
+    var c=String(x["자사코드"]||"").trim();if(!c||seen[c])return;seen[c]=1;
+    list.push({code:c,label:(String(x["상품명"]||"").trim()+" "+String(x["칼라명"]||"").trim()).trim()});
+  });
+  _ocProdIdx={sig:src.length,list:list,by:Object.fromEntries(list.map(function(o){return [o.code.toUpperCase(),o];}))};
+  return _ocProdIdx;
+}
+function ocAddRender(){
+  var slots=document.querySelectorAll(".oc-add-slot");if(!slots.length)return;
+  var dl=document.getElementById("ocProdList"),PL=_ocProdList();
+  if(!dl){dl=document.createElement("datalist");dl.id="ocProdList";document.body.appendChild(dl);}
+  if(dl.dataset.sig!==String(PL.sig)){                         /* 상품데이터가 늦게 오면 목록을 다시 만든다 */
+    dl.innerHTML=PL.list.map(function(o){return '<option value="'+_escX(o.label+" ["+o.code+"]")+'">';}).join("");
+    dl.dataset.sig=String(PL.sig);
+  }
+  var opts=ORDER_STORES.filter(function(s){return s.code;}).map(function(s){return '<option value="'+_escX(s.code)+'">'+_escX(s.code+" · "+s.name)+'</option>';}).join("");
+  slots.forEach(function(sl){
+    if(sl.dataset.ready)return;                                   /* 한 번만 그린다(입력 중 값 보존) */
+    var k=sl.dataset.k;
+    sl.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:#faf5ff;border:1px dashed #c4b5fd;border-radius:8px;padding:6px 8px">'
+      +'<b style="font-size:12.5px;color:#6d28d9">＋ 상품 추가</b>'
+      +'<select id="ocAddStore_'+k+'" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;max-width:220px"><option value="">매장 선택</option>'+opts+'</select>'
+      +'<input id="ocAddProd_'+k+'" list="ocProdList" placeholder="상품명이나 자사코드" style="flex:1;min-width:220px;padding:4px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">'
+      +'<input id="ocAddQty_'+k+'" inputmode="numeric" placeholder="수량" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;text-align:right" onkeydown="if(event.key===\'Enter\')ocAddItem(\''+k+'\')">'
+      +'<button onclick="ocAddItem(\''+k+'\')" style="padding:4px 12px;font-size:12.5px;font-weight:700;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer">＋ 추가</button>'
+      +'<span id="ocAddMsg_'+k+'" style="font-size:11.5px;color:#5b6675"></span></div>';
+    sl.dataset.ready="1";
+  });
+}
+function ocAddItem(k){
+  var g=function(id){return document.getElementById(id+"_"+k);};
+  var sc=(g("ocAddStore")||{}).value||"",pv=String((g("ocAddProd")||{}).value||"").trim(),q=parseInt(String((g("ocAddQty")||{}).value||"").replace(/[^0-9]/g,""),10);
+  var msg=g("ocAddMsg"),say=function(t,c){if(msg){msg.style.color=c||"#5b6675";msg.textContent=t;}};
+  if(!sc){say("매장을 골라 주세요","#b91c1c");return;}
+  if(!pv){say("상품을 골라 주세요","#b91c1c");return;}
+  if(!(q>0)){say("수량을 적어 주세요","#b91c1c");return;}
+  var P=_ocProdList(),m=/\[([A-Za-z0-9]+)\]\s*$/.exec(pv),code=(m?m[1]:pv).toUpperCase(),o=P.by[code];
+  if(!o){var hit=P.list.filter(function(x){return x.label===pv;});if(hit.length===1)o=hit[0];}
+  if(!o){say("상품데이터에서 못 찾았습니다 — 목록에서 골라 주세요","#b91c1c");return;}
+  var st=_ordStoreByCode(sc)||{};
+  orderConvRows.push({store:sc,storeName:st.name||"",recv:st.recv||"",tel:st.tel||"",addr:st.addr||"",name:o.label,code:o.code,qty:String(q),matched:!!st.code,added:true});
+  (g("ocAddProd")||{}).value="";(g("ocAddQty")||{}).value="";
+  ocRender();
+  say("✔ "+(st.name||sc)+" · "+o.label+" "+q+"개 추가 (표 "+orderConvRows.length+"줄)","#047857");
+  var wq=typeof whQty==="function"?whQty(o.code):null;
+  if(wq!==null&&wq<=WH_MIN_ORDER)say("⚠ 추가했지만 창고재고 "+wq+"개로 발주불가입니다 — 표에서 확인해 주세요","#b45309");
 }
 /* 발주불가 = 창고재고현황에 있고 재고가 WH_MIN_ORDER(10)개 이하(whCell과 같은 기준). 재고표에 없는 코드(?)는 발주불가로 보지 않는다 */
 function _ocNoOrder(r){
