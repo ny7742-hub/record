@@ -49,6 +49,14 @@
   같은 규칙을 자동화 `automation/dss-invoice.mjs`(DSS 송장 자동 입력, 만드는 중)도 쓴다.
 
 - **코스트코 자동 발주**(2026-10-01 영업2팀, `automation/costco-order.mjs` · 화면 `#ccAutoBox` `ccAutoGo`/`ccAutoRender`):
+  **2026-10-06 바뀐 것**(영업2팀 점검 요청): ① **메일은 보내지 않고 초안(임시보관함)까지** — 발주 버튼도 `메일 초안 → 메일 발송 준비 완료`에서 끝나고 사람이 하이웍스 임시보관함에서 [보내기].
+  `ws/ccOrderLog[날짜].state='draft'`(같은 날 두 번 출력·초안 막음), 버튼 `📨 메일 발송 준비 완료`.
+  ② 결과 카드에 단계 칩(`_ccStepsHtml`, `S.steps` = login·print·orders·wholesale·output·draft·ready — 멈춘 단계는 빨강, 미리보기는 인쇄·출력·발송 준비 없음).
+  ③ 인쇄 화면 줄 고르기는 **주문번호 칸(첫 칸)을 누른다** — 줄 가운데를 누르면 거래처 링크(`5834226 ㈜엔에이치그룹`)가 눌려 VENDOR 탭이 열리고
+  도구 줄이 바뀌어 `[출력] 단추를 찾지 못했습니다`로 멈췄다(10/6 08:28, 30건 중 2건만 골라짐). 고른 뒤 선택된 줄(`yui3-datatable-sel-selected`) 수를 확인.
+  ④ 한 화면 20건 — 출력하면 목록에서 빠져 다시 열 때 다음 20건이 나온다. 고를 줄이 없는데 남은 주문이 있으면 다음 페이지(`dssNextPage`)로 넘긴다.
+  ⑤ 두 창 주문번호가 겹치면 같은 아이디로 보고 멈춘다(1번 창 인쇄 화면에서 ckr 아이디를 못 읽을 때가 있다).
+  출력·페이지 넘김은 실제 [출력]이 DSS 상태를 바꿔 미리보기로 시험하지 못했다 — 다음 실제 발주 때 로그(`logs/costco-order-날짜.log`)로 확인.
   코스트코 발주 머리 아래 **`🔍 미리보기(메일 초안)`** · **`🚚 발주하기`** → 팀 공유 요청 `ws/saipReq.co`(mode preview|save) → 자동화 PC `saip-watch`가 돌린다.
   ① DSS 두 아이디(자동화 창 9333·9334) 새 주문을 **DSS 내부 API**(GET `PurchaseOrder?status=…` · `PurchaseOrderDetail?purchaseOrder.id=`)로 읽는다 —
   토큰은 앱이 스스로 보내는 요청의 `authorization`을 그대로 쓴다(비밀번호 없음). PDF를 받지 않는다. 받는 분 `shipTo.name/phoneNumber/address.postCode·additionalLine1·2`, 상품 `vendorItem.retailerSKU`·`quantity`.
