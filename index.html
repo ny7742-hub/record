@@ -287,6 +287,8 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .store-modal-btns .confirm{padding:7px 18px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
 .store-modal-btns .confirm:hover{background:#4338ca}
 
+/* 코스트코 자동 발주 진행 막대 — 줄무늬가 흐르게(2026-10-06) */
+@keyframes ccProgMove{from{background-position:0 0}to{background-position:28px 0}}
 /* ── 코스트코 테이블 ── */
 #page-costco>.main{max-width:none;padding:16px 20px}
 /* 팝업 표 선 — 칸 경계선 하나만 또렷하게 두고, 입력칸 자체 테두리는 없애 겹쳐 보이지 않게 */
@@ -17838,6 +17840,13 @@ function _ccAutoPaint(){
 function _ccAutoPaint1(b){
   if(!b)return;
   var L=(ccOrderLog||{})[_ccToday()],Q=ccOrderReady;
+  var Rq=(saipReq||{}).co;
+  if(_saipReqActive(Rq)&&Rq.mode==="save"){
+    var g=_ccProg(Rq,ccOrderStatus);
+    b.style.background="#e0f2fe";b.style.borderColor="#7dd3fc";b.style.color="#075985";
+    b.textContent=g&&!g.wait?"⏳ 발주 중 ("+g.n+"/"+g.total+" · "+g.cur+")":"⏳ 발주 요청됨 — 곧 시작";
+    return;
+  }
   var fresh=Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000;
   var n=fresh?(+Q.total||0):0;
   var st=L?(L.state==="draft"?["#ecfdf5","#86efac","#047857","📨 메일 발송 준비 완료"+(n?" · 다음 발주 "+n+"건 대기":"")]:["#ecfdf5","#86efac","#047857","✅ 오늘 발주 완료"+(n?" · 다음 발주 "+n+"건 대기":"")])
@@ -17876,15 +17885,15 @@ function ccAutoRender(){
     +(L.state==="draft"?'<div style="font-weight:600;color:#334155">하이웍스 <b>임시보관함</b>의 \''+_escX(L.subject||"")+'\' 메일을 열어 확인하고 [보내기]를 눌러 주세요</div>':'')+'</div>';
   if(R&&R.state){
     var who=(R.auto?'🤖 자동 · ':'')+_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":"미리보기";
-    if(_saipReqActive(R))h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?'요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>'):'진행 중… ('+who+' · 2~5분)')+'</div>';
+    if(_saipReqActive(R))h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?'요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>'):'진행 중… ('+who+')')+'</div>'+_ccProgBar(R,S);
     else if(R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<24*3600*1000)h+='<div style="color:#b91c1c;font-weight:700">❗ '+what+' 요청('+who+')이 실패로 끝났습니다</div>';
   }
   if(S&&S.at){
     var pv=S.mode!=="save",ok=!(S.errors||[]).length;
     h+='<div style="border-top:1px dashed #cfe0e5;margin-top:4px;padding-top:4px">'
-      +'<b style="color:'+(ok?(pv?'#1d4ed8':'#047857'):'#b91c1c')+'">'+(ok?(pv?'🔍 미리보기':'✅ 발주'):'❗ '+(pv?'미리보기':'발주')+' 멈춤')+'</b> '
+      +'<b style="color:'+(S.running?'#1d4ed8':(ok?(pv?'#1d4ed8':'#047857'):'#b91c1c'))+'">'+(S.running?'⏳ '+(pv?'미리보기':'발주')+' 진행 중':(ok?(pv?'🔍 미리보기':'✅ 발주'):'❗ '+(pv?'미리보기':'발주')+' 멈춤'))+'</b> '
       +'<span style="color:#5b6675">· '+_escX(_saipFmtAt(S.at))+' · '+_escX(S.by||"?")+'</span>';
-    if(S.accounts&&S.accounts.length)h+='<div>'+S.accounts.map(function(a){return _escX(a.who)+' <b>'+a.orders+'건</b>';}).join(' · ')+(S.orders?' · 합계 <b>'+S.orders+'건</b> · '+(S.lines||0)+'줄 · '+(S.qty||0)+'개 · '+Number(S.amt||0).toLocaleString()+'원':'')+'</div>';
+    if(S.accounts&&S.accounts.length)h+='<div>'+S.accounts.map(function(a){return _escX(a.who)+' <b>'+a.orders+'건</b>';}).join(' · ')+(S.orders?' · 합계 <b>'+S.orders+'건</b>'+(S.lines?' · '+S.lines+'줄 · '+(S.qty||0)+'개 · '+Number(S.amt||0).toLocaleString()+'원':''):'')+'</div>';
     if(S.steps&&S.steps.length)h+=_ccStepsHtml(S);
     if(S.note)h+='<div style="color:#5b6675">'+_escX(S.note)+'</div>';
     if(S.mail)h+='<div>✉️ 메일 '+_escX(S.mail)+' · <span style="color:#5b6675">'+_escX(S.subject||"")+'</span>'+(/초안/.test(S.mail)?' — 하이웍스 <b>임시보관함</b>에서 열어 확인'+(pv?'하세요':'하고 [보내기]'):'')+'</div>';
@@ -17897,6 +17906,36 @@ function ccAutoRender(){
   h='<div style="font-size:12px;color:#5b6675;margin-bottom:3px">⏰ 평일(공휴일 제외) <b>8:40</b>에 자동화 PC가 자동으로 발주합니다 — 메일은 임시보관함 <b>초안</b>까지, 확인 후 직접 보내 주세요</div>'+h;
   box.innerHTML=h;
   _apCopy("ccAutoStatus","autoCcStatus");
+  _ccProgTick();
+}
+/* 진행 막대(2026-10-06 영업2팀 — "오래 걸려 발주 중인지 몰라 [발주하기]를 계속 누르게 된다").
+   자동화 PC가 단계마다 ws/ccOrderStatus(running:true, steps)를 올린다 → 끝난 단계 수만큼 색을 채우고, 지금 단계 이름·지난 시간을 적는다.
+   요청만 남은 때는 빈 막대 + '자동화 PC가 곧 시작'. 10초마다 지난 시간을 다시 그린다(_ccProgTick) */
+function _ccProg(R,S){
+  if(!_saipReqActive(R))return null;
+  var pv=R.mode!=="save";
+  var list=CC_STEPS.filter(function(x){return !pv||!(x[0]==="print"||x[0]==="output"||x[0]==="ready");});
+  var mine=S&&S.running&&S.startedAt&&R.startedAt&&new Date(S.startedAt).getTime()>=new Date(R.startedAt).getTime()-60000;
+  var done={};if(mine)(S.steps||[]).forEach(function(s){done[s.k]=1;});
+  var n=list.filter(function(x){return done[x[0]];}).length;
+  var cur=list.filter(function(x){return !done[x[0]];})[0];
+  var t0=R.state==="처리중"&&R.startedAt?new Date(R.startedAt).getTime():new Date(R.at).getTime();
+  return {n:n,total:list.length,cur:cur?cur[1]:"마무리",wait:R.state==="요청",sec:Math.max(0,Math.round((Date.now()-t0)/1000))};
+}
+function _ccProgBar(R,S){
+  var g=_ccProg(R,S);if(!g)return "";
+  var pct=g.wait?3:Math.max(6,Math.round(g.n/g.total*100));
+  var el=g.sec>=60?Math.floor(g.sec/60)+"분 "+(g.sec%60)+"초":g.sec+"초";
+  var lab=g.wait?"요청됨 — 자동화 PC가 곧 시작합니다":(g.n+"/"+g.total+" · "+g.cur+" 중");
+  return '<div style="margin:5px 0 3px">'
+    +'<div style="position:relative;height:16px;border-radius:9px;background:#e2e8f0;overflow:hidden">'
+    +'<div style="height:100%;width:'+pct+'%;border-radius:9px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#154f5e;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600">'+el+' 지남 · 보통 3~6분</span></div></div>';
+}
+var _ccProgTimer=null;
+function _ccProgTick(){
+  var on=_saipReqActive((saipReq||{}).co);
+  if(on&&!_ccProgTimer)_ccProgTimer=setInterval(function(){if(!_saipReqActive((saipReq||{}).co)){clearInterval(_ccProgTimer);_ccProgTimer=null;}try{ccAutoRender();}catch(e){}},10000);
 }
 /* 자동 발주 단계(2026-10-06 영업2팀) — ①로그인 ②인쇄 ③주문건 ④도매발주서 ⑤출력 ⑥메일 초안 ⑦발송 준비 완료.
    끝난 단계는 초록, 멈춘 단계(다음 단계)는 빨강, 아직은 회색. 미리보기는 인쇄·출력·발송 준비가 없다 */

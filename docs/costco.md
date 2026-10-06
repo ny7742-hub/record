@@ -49,6 +49,9 @@
   같은 규칙을 자동화 `automation/dss-invoice.mjs`(DSS 송장 자동 입력, 만드는 중)도 쓴다.
 
 - **코스트코 자동 발주**(2026-10-01 영업2팀, `automation/costco-order.mjs` · 화면 `#ccAutoBox` `ccAutoGo`/`ccAutoRender`):
+  **진행 막대**(2026-10-06 영업2팀 — "오래 걸려 발주 중인지 몰라 계속 누르게 된다"): `costco-order.mjs`가 단계마다 `ws/ccOrderStatus`(`running:true`, `steps`, `startedAt`)를 올리고
+  자비스 카드가 `_ccProgBar`로 끝난 단계 수만큼 채운 줄무늬 막대 + '3/7 · 도매발주서 중' + 지난 시간(10초마다 `_ccProgTick`)을 그린다.
+  [발주하기] 버튼도 진행 중엔 '⏳ 발주 중 (n/7 · 단계)'. 끝나면 `running:false`로 마지막 결과.
   **평일 8:40 자동**(2026-10-06 영업2팀): `saip-watch ccAutoOrder`가 평일(주말·`KR_HOLIDAYS` 제외) 8:40~9:30 사이 한 번 `ws/saipReq.co`에 [발주하기]와 같은 요청(`mode:'save'`, `auto:true`, 서명 강민준)을 남긴다.
   오늘 발주 기록(`ws/ccOrderLog[오늘]`)·진행 중 요청·오늘 자동 요청 기록(`ws/ccAutoDaily[오늘]`)이 있으면 하지 않는다. 메일은 초안까지라 사람이 확인 후 보낸다.
   **공휴일표는 2026년만** 들어 있다 — 해마다 `saip-watch.mjs KR_HOLIDAYS`(자비스 `KR_HOLIDAYS`와 같게)에 새 해를 추가할 것.
