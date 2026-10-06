@@ -13218,6 +13218,7 @@ function ocParse(rows){
     }
   }
   if(hRow<0){alert("주문배분현황 형식을 인식할 수 없습니다.\n(매장코드·상품명 컬럼이 필요합니다)");return;}
+  var keepAn=orderConvRows.filter(function(r){return r.an;});   /* 따로 올린 아난티 줄은 PlayMD 주문배분현황을 새로 받아도 남긴다 */
   orderConvRows=[];
   for(var r=hRow+1;r<rows.length;r++){
     var row=rows[r];if(!row)continue;
@@ -13240,6 +13241,7 @@ function ocParse(rows){
       matched:!!st
     });
   }
+  orderConvRows=orderConvRows.concat(keepAn);
   ocRender();
 }
 function ocRender(){
@@ -13265,7 +13267,7 @@ function ocRender(){
     h+='<tr'+warn+'>';
     h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937">'+_escX(r.store||"")+(r.storeName?' · '+_escX(r.storeName):"")+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;white-space:normal">'+(r.added?'<span style="font-size:11px;font-weight:800;color:#7c3aed;background:#f3e8ff;border-radius:8px;padding:0 6px;margin-right:4px" title="직접 추가한 상품">＋추가</span>':'')+_escX(r.name||"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;white-space:normal">'+(r.added?'<span style="font-size:11px;font-weight:800;color:#7c3aed;background:#f3e8ff;border-radius:8px;padding:0 6px;margin-right:4px" title="직접 추가한 상품">＋추가</span>':'')+(r.an?'<span style="font-size:11px;font-weight:800;color:#0369a1;background:#e0f2fe;border-radius:8px;padding:0 6px;margin-right:4px" title="아난티 발주서에서 붙인 줄 ('+_escX(r.anFile||"")+')">🏨아난티</span>':'')+_escX(r.name||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;color:'+(_noSku?"#dc2626":"#1f2937")+'">'+(_noSku?"❗코드없음":_escX(r.code||""))+'</td>';
     /* 수량은 직접 고칠 수 있다(2026-10-02 영업2팀) — 고치면 창고재고 칸의 '부족'도 다시 계산된다 */
     h+='<td style="border:1px solid #e1e6ee;padding:2px 4px;text-align:right;color:#1f2937;white-space:nowrap"'+(r.cnt>1?' title="주문 '+r.cnt+'건 합산"':'')+'>'
@@ -13309,6 +13311,7 @@ function ocAddRender(){
     dl.dataset.sig=String(PL.sig);
   }
   var opts=ORDER_STORES.filter(function(s){return s.code;}).map(function(s){return '<option value="'+_escX(s.code)+'">'+_escX(s.code+" · "+s.name)+'</option>';}).join("");
+  var anOpts=(typeof ANANTI_STORES!=="undefined"?ANANTI_STORES:[]).map(function(s){var o=_ordStoreByCode(s.code);return '<option value="'+_escX(s.code)+'">'+_escX(s.code+" · "+((o&&o.name)||s.code))+'</option>';}).join("");
   slots.forEach(function(sl){
     if(sl.dataset.ready)return;                                   /* 한 번만 그린다(입력 중 값 보존) */
     var k=sl.dataset.k;
@@ -13318,7 +13321,13 @@ function ocAddRender(){
       +'<input id="ocAddProd_'+k+'" list="ocProdList" placeholder="상품명이나 자사코드" style="flex:1;min-width:220px;padding:4px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">'
       +'<input id="ocAddQty_'+k+'" inputmode="numeric" placeholder="수량" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;text-align:right" onkeydown="if(event.key===\'Enter\')ocAddItem(\''+k+'\')">'
       +'<button onclick="ocAddItem(\''+k+'\')" style="padding:4px 12px;font-size:12.5px;font-weight:700;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer">＋ 추가</button>'
-      +'<span id="ocAddMsg_'+k+'" style="font-size:11.5px;color:#5b6675"></span></div>';
+      +'<span id="ocAddMsg_'+k+'" style="font-size:11.5px;color:#5b6675"></span></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:#f0f9ff;border:1px dashed #7dd3fc;border-radius:8px;padding:6px 8px;margin-top:6px">'
+      +'<b style="font-size:12.5px;color:#0369a1">🏨 아난티 발주 같이 넣기</b>'
+      +'<select id="ocAnStore_'+k+'" title="비워 두면 파일 이름·상호로 매장을 고릅니다" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"><option value="">매장 자동(파일 이름)</option>'+anOpts+'</select>'
+      +'<label style="cursor:pointer"><span style="display:inline-block;padding:4px 12px;font-size:12.5px;font-weight:700;background:#0369a1;color:#fff;border-radius:6px">📂 아난티 발주서 올리기</span>'
+      +'<input type="file" accept=".xlsx,.xls" style="display:none" onchange="ocAnLoad(this,\''+k+'\')"></label>'
+      +'<span id="ocAnMsg_'+k+'" style="font-size:11.5px;color:#5b6675">아난티가 보낸 엑셀 — 바코드로 매칭해 이 도매발주서·발주 메일에 같이 나갑니다</span></div>';
     sl.dataset.ready="1";
   });
 }
@@ -13339,6 +13348,38 @@ function ocAddItem(k){
   say("✔ "+(st.name||sc)+" · "+o.label+" "+q+"개 추가 (표 "+orderConvRows.length+"줄)","#047857");
   var wq=typeof whQty==="function"?whQty(o.code):null;
   if(wq!==null&&wq<=WH_MIN_ORDER)say("⚠ 추가했지만 창고재고 "+wq+"개로 발주불가입니다 — 표에서 확인해 주세요","#b45309");
+}
+/* ── 도매 자동발주 — 아난티 발주 같이 넣기(2026-10-07 영업2팀) ──
+   아난티가 보낸 엑셀을 여기서 올리면 아난티 발주 화면과 똑같이 읽고(_anProcessFiles — 바코드 매칭·매장 추정, 그 화면 표도 채워져
+   5단계 거래명세서를 그대로 낼 수 있다) 매칭된 줄을 주문배분현황 표(orderConvRows)에 `an:true`로 붙인다 → ⬇ 다운로드·✉️ 발주 메일에 같이 나간다.
+   같은 파일을 다시 올리면 그 파일 줄만 바꾼다(anFile). 바코드로 못 찾은 줄은 빨간 ❗코드없음 줄로 붙여 눈에 띄게 한다 */
+function ocAnLoad(input,k){
+  var f=input.files;if(!f||!f[0])return;
+  var msg=document.getElementById("ocAnMsg_"+k),say=function(t,c){if(msg){msg.style.color=c||"#5b6675";msg.textContent=t;}};
+  say("읽는 중…");
+  _anProcessFiles(f,function(fn){ocAnMerge(fn,k);});
+  input.value="";
+}
+function ocAnMerge(fn,k){
+  var msg=document.getElementById("ocAnMsg_"+k),say=function(t,c){if(msg){msg.style.color=c||"#5b6675";msg.textContent=t;}};
+  var pick=(document.getElementById("ocAnStore_"+k)||{}).value||"",sel=document.getElementById("anStore");
+  if(pick&&sel){sel.value=pick;try{anRenderTable();}catch(e){}}
+  var code=(sel&&sel.value)||"ANG",st=_ordStoreByCode(code)||{};
+  var add=anRows.filter(function(r){return r.checked&&(Number(r.qty)||0)>0;}).map(function(r){
+    var sku=String(r.skuCode||"").trim();
+    var o={store:code,storeName:st.name||code,recv:st.recv||"",tel:st.tel||"",addr:st.addr||"",
+      name:(r.prodName?(r.prodName+" "+(r.colorName||"")).trim():(r.short||r.itemName||"")),code:sku,qty:String(r.qty),matched:!!st.code,an:true,anFile:fn};
+    if(!sku){o.skuMatched=false;o.src="아난티 "+(r.itemName||"")+(r.barcode?" · 바코드 "+r.barcode:"");}
+    return o;
+  });
+  if(!add.length){say("붙일 상품이 없습니다 (수량 0)","#b91c1c");return;}
+  var before=orderConvRows.length;
+  orderConvRows=orderConvRows.filter(function(r){return !(r.an&&r.anFile===fn);}).concat(add);
+  var replaced=before+add.length-orderConvRows.length;
+  ocRender();
+  var noSku=add.filter(function(r){return r.skuMatched===false;}).length,qty=add.reduce(function(a,r){return a+(Number(r.qty)||0);},0);
+  say("✔ "+(st.name||code)+" "+add.length+"줄 · "+qty+"개 붙임"+(replaced?" (같은 파일 "+replaced+"줄 바꿈)":"")+" — 표 "+orderConvRows.length+"줄"
+    +(noSku?" · ❗바코드 못 찾은 "+noSku+"줄은 빨간 줄(아난티 발주 화면에서 코드를 넣고 다시 올리거나 ✕로 빼세요)":"")+" · 거래명세서는 🏨 아난티 발주 화면 5단계",noSku?"#b45309":"#047857");
 }
 /* 발주불가 = 창고재고현황에 있고 재고가 WH_MIN_ORDER(10)개 이하(whCell과 같은 기준). 재고표에 없는 코드(?)는 발주불가로 보지 않는다 */
 function _ocNoOrder(r){
@@ -13419,6 +13460,7 @@ function ocAutoMail(){
   var cur=(saipReq||{}).wm;
   if(_saipReqActive(cur)){alert("발주 메일이 이미 "+(cur.state==="처리중"?"보내지는 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").");return;}
   var bad=orderConvRows.filter(function(r){return typeof _ocNoOrder==="function"&&_ocNoOrder(r);}).length;
+  var noSku=orderConvRows.filter(function(r){return r.skuMatched===false||!r.code;}).length;
   var stores={};orderConvRows.forEach(function(r){var k=r.storeName||r.store||"?";stores[k]=(stores[k]||0)+1;});
   var sl=Object.keys(stores).map(function(k){return k+" "+stores[k]+"줄";}).join(", ");
   var d=new Date(),subj="[도매] 발주서 - "+(d.getMonth()+1)+"/"+d.getDate()+"("+"일월화수목금토".charAt(d.getDay())+")";
@@ -13426,6 +13468,7 @@ function ocAutoMail(){
   if(!confirm((L?"⚠ 오늘 이미 보낸 발주 메일이 있습니다("+_saipFmtAt(L.at)+" · "+L.by+").\n\n":"")
     +"김구남 센터장(gnkim72@daum.net)께 도매 발주 메일을 보냅니다.\n\n제목: "+subj+"\n참조: 강민준·이유진·이다겸·김민희\n첨부: "+_wholesaleFileName()+" ("+orderConvRows.length+"줄 · "+sl+")\n서명: "+_saipMe()
     +(bad?"\n\n⚠ 창고재고 부족(발주불가) 줄이 "+bad+"줄 있습니다. 빼고 보내려면 취소 후 🗑 발주불가 일괄삭제를 누르세요.":"")
+    +(noSku?"\n\n⚠ 자사코드가 없는 줄(❗코드없음)이 "+noSku+"줄 있습니다. 물류에서 찾을 수 없으니 취소 후 ✕로 빼거나 코드를 넣어 주세요.":"")
     +"\n\n보낸 메일은 되돌릴 수 없습니다. 보낼까요?"))return;
   var b64=XLSX.write(_ocWorkbook(),{type:"base64",bookType:"xlsx"});
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send",
@@ -19755,7 +19798,7 @@ function _anGuessStore(){
   }
   return "ANG";
 }
-function _anProcessFiles(fileList){
+function _anProcessFiles(fileList,done){
   var file=(fileList||[])[0];if(!file)return;
   if(!/\.(xlsx|xls)$/i.test(file.name)){alert("엑셀 파일(.xlsx/.xls)만 업로드 가능합니다.");return;}
   var reader=new FileReader();
@@ -19781,6 +19824,7 @@ function _anProcessFiles(fileList){
       if(dn){var _raw=String(anMeta.docNo||"").trim();dn.value=/^\d+$/.test(_raw)?String(parseInt(_raw,10)+1):"";}
       var rt=document.getElementById("anRate");if(rt)rt.value=String(anMeta.rate);
       anRenderTable();
+      if(typeof done==="function")done(file.name);   /* 도매 자동발주에서 올렸을 때 — 그 표에 붙인다(ocAnMerge) */
     }catch(err){alert("파일 오류: "+err.message);}
   };
   reader.readAsArrayBuffer(file);
