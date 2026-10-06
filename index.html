@@ -17978,7 +17978,9 @@ function _ccAutoPaint1(b){
   }
   var fresh=Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000;
   var n=fresh?(+Q.total||0):0;
-  var st=L?(L.state==="draft"?["#ecfdf5","#86efac","#047857","📨 메일 발송 준비 완료"+(n?" · 다음 발주 "+n+"건 대기":"")]:["#ecfdf5","#86efac","#047857","✅ 오늘 발주 완료"+(n?" · 다음 발주 "+n+"건 대기":"")])
+  /* 초안만 만든 날(L.state=draft)의 n은 '아직 보낸 발주서에 없는 주문' = 초안에 든 주문(+ 그 뒤 새로 들어온 주문)이다(2026-10-07 영업2팀 — '다음 발주 28건 대기'가 헷갈렸다) */
+  var dIn=L&&L.state==="draft"?Math.min(n,+L.orders||0):0,dNew=L&&L.state==="draft"?Math.max(0,n-(+L.orders||0)):0;
+  var st=L?(L.state==="draft"?["#fff7ed","#fdba74","#9a3412","📨 초안 보내기 대기"+(dIn?" "+dIn+"건":"")+(dNew?" · 그 뒤 새 주문 "+dNew+"건":"")]:["#ecfdf5","#86efac","#047857","✅ 오늘 발주 완료"+(n?" · 다음 발주 "+n+"건 대기":"")])
     :n?["#7c3aed","#6d28d9","#fff","🚚 발주하기 · 발주 요망 "+n+"건"]
     :["#1b6e82","#1b6e82","#fff","🚚 발주하기"];
   b.style.background=st[0];b.style.borderColor=st[1];b.style.color=st[2];b.textContent=st[3];
@@ -18009,7 +18011,7 @@ function ccAutoRender(){
   _ccAutoPaint();
   var Q=ccOrderReady;
   if(Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000&&Q.total)
-    h+='<div style="color:'+(L?'#5b6675':'#6d28d9')+';font-weight:700">📦 '+(L?'다음 발주 대기':'발주 요망')+': '+(Q.accounts||[]).map(function(a){return _escX(a.who)+' '+a.orders+'건'+(a.printedUnsent?' <span style="color:#b91c1c">(DSS 출력은 됐는데 발주서 안 보냄 '+a.printedUnsent+')</span>':'');}).join(' · ')+' <span style="font-weight:400;color:#5b6675">('+_escX(_saipFmtAt(Q.at))+' 확인)</span></div>';
+    h+='<div style="color:'+(L?'#5b6675':'#6d28d9')+';font-weight:700">📦 '+(L?(L.state==="draft"?'아직 안 보낸 주문(오늘 초안 포함 — 임시보관함에서 보내면 0이 됩니다)':'다음 발주 대기'):'발주 요망')+': '+(Q.accounts||[]).map(function(a){return _escX(a.who)+' '+a.orders+'건'+(a.printedUnsent?' <span style="color:#b91c1c">(DSS 출력은 됐는데 발주서 안 보냄 '+a.printedUnsent+')</span>':'');}).join(' · ')+' <span style="font-weight:400;color:#5b6675">('+_escX(_saipFmtAt(Q.at))+' 확인)</span></div>';
   if(L)h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:4px;color:#047857;font-weight:700">'+(L.state==="draft"?'📨 메일 발송 준비 완료':'✅ 오늘 발주함')+' · '+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"?")+' · '+(L.orders||0)+'건 '+(L.qty||0)+'개'
     +(L.state==="draft"?'<div style="font-weight:600;color:#334155">하이웍스 <b>임시보관함</b>의 \''+_escX(L.subject||"")+'\' 메일을 열어 확인하고 [보내기]를 눌러 주세요</div>':'')+'</div>';
   if(R&&R.state){
