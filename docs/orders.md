@@ -282,3 +282,7 @@
   `ws/retLog`)을 모아 **처음 생긴 건만** 한 메시지로 보낸다(보낸 기록 `ws/saipNotify.ids` = `hs:2026-09-30`·`cr:<줄 열쇠>`, 60일 보관).
   밤(20~8시)에는 보내지 않고 기록도 안 해 아침에 모아 간다. 하이웍스 로그인이 풀리면 하루 한 번. 내용은 날짜·건수뿐(상품명·고객 정보 없음).
   전송은 슬랙 앱 **Jarvis Alert**(엔에이치 그룹)의 Incoming Webhook — `automation/slack-webhook.json` `{url, channel}`(이 PC에만, 저장소 금지). 채널을 바꾸려면 api.slack.com/apps → Jarvis Alert → Incoming Webhooks → Add New Webhook으로 새 채널 주소를 받아 `url`을 바꾼다(#영업2팀 주소는 앱에 남아 있지만 쓰지 않음). 파일이 없으면 건너뛴다. 연결 시험 `node slack-notify.mjs --test`.
+- **하이웍스 로그인 파일 되살리기**(2026-10-06 영업2팀 "코스트코 매출등록 요망이 안 뜹니다 · 슬랙이 안 옵니다"): `saip-ready`(등록할 건 살펴보기)·`playmd-hs-saip --kind=cc`는
+  `automation/hiworks-state.json`(쿠키)로 메일을 읽는데 하루쯤 지나 만료돼 10/6 하루 종일 `하이웍스 로그인 필요` → 코스트코 요망·슬랙 알림이 안 떴다(자동 발주는 포탈 창 하이웍스 탭을 써서 됐다).
+  이제 '로그인' 오류가 나면 `hiworks-session.mjs refreshHiworksState()`가 **자동화 포탈 창(9333) 하이웍스 탭의 하이웍스 쿠키만** 파일로 옮기고 한 번 더 한다(비밀번호 없음, 다른 사이트 쿠키는 안 옮김).
+  직접 실행: `node hiworks-session.mjs`. 슬랙 알림의 코스트코 줄은 `🛒 코스트코 매출등록 · DSS 송장 입력`(한 버튼으로 둘 다).
