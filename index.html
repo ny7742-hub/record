@@ -17875,7 +17875,7 @@ function ccAutoRender(){
   if(L)h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:4px;color:#047857;font-weight:700">'+(L.state==="draft"?'📨 메일 발송 준비 완료':'✅ 오늘 발주함')+' · '+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"?")+' · '+(L.orders||0)+'건 '+(L.qty||0)+'개'
     +(L.state==="draft"?'<div style="font-weight:600;color:#334155">하이웍스 <b>임시보관함</b>의 \''+_escX(L.subject||"")+'\' 메일을 열어 확인하고 [보내기]를 눌러 주세요</div>':'')+'</div>';
   if(R&&R.state){
-    var who=_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":"미리보기";
+    var who=(R.auto?'🤖 자동 · ':'')+_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":"미리보기";
     if(_saipReqActive(R))h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?'요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>'):'진행 중… ('+who+' · 2~5분)')+'</div>';
     else if(R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<24*3600*1000)h+='<div style="color:#b91c1c;font-weight:700">❗ '+what+' 요청('+who+')이 실패로 끝났습니다</div>';
   }
@@ -17893,6 +17893,8 @@ function ccAutoRender(){
     h+='</div>';
   }
   if(!h)h='<span style="color:#5b6675">아직 실행 기록이 없습니다. 처음에는 <b>미리보기</b>로 메일 초안을 확인해 주세요.</span>';
+  /* 평일 8:40 자동 발주(2026-10-06 영업2팀 — 자동화 PC saip-watch ccAutoOrder). 메일은 초안까지라 보내기는 사람이 */
+  h='<div style="font-size:12px;color:#5b6675;margin-bottom:3px">⏰ 평일(공휴일 제외) <b>8:40</b>에 자동화 PC가 자동으로 발주합니다 — 메일은 임시보관함 <b>초안</b>까지, 확인 후 직접 보내 주세요</div>'+h;
   box.innerHTML=h;
   _apCopy("ccAutoStatus","autoCcStatus");
 }
