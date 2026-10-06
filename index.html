@@ -2237,6 +2237,7 @@ label{font-size:14px!important}
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">📋 팝업 일정 관리</div>
       <button onclick="addPopupRow()" style="padding:5px 14px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">+ 행 추가</button>
+      <button onclick="popupDownload()" title="팝업 일정 표를 엑셀로 내려받습니다(화면 순서 그대로)" style="padding:5px 14px;background:#15803d;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">⬇ 엑셀 다운로드</button>
     </div>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
@@ -21647,6 +21648,24 @@ function _popSmartNeed(row){
   return e>=m;
 }
 
+/* 팝업 일정 엑셀 다운로드(2026-10-06 영업2팀) — 화면과 같은 순서(진행중·예정·협의 → 시작일 순, 종료는 최근 끝난 순),
+   스마트플레이스·로스품의서 상태도 같이 */
+function popupDownload(){
+  if(!popupDB.length){alert("내려받을 팝업 일정이 없습니다.");return;}
+  var all=popupDB.map(function(r,i){return{r:r,i:i};});
+  var cmpS=function(a,b){var x=a.r.start||"",y=b.r.start||"";if(!x&&!y)return 0;if(!x)return 1;if(!y)return -1;return x<y?-1:x>y?1:0;};
+  var cmpE=function(a,b){var x=a.r.end||a.r.start||"",y=b.r.end||b.r.start||"";if(!x&&!y)return 0;if(!x)return 1;if(!y)return -1;return x>y?-1:x<y?1:0;};
+  var list=all.filter(function(x){return x.r.status!=="종료";}).sort(cmpS).concat(all.filter(function(x){return x.r.status==="종료";}).sort(cmpE));
+  var loss=function(r){if(!_popLossNeed(r))return "";var st=_popLossState(r);return st==="done"?"품의완료":st==="none"?"로스 없음":"작성요망";};
+  var smart=function(r){return _popSmartNeed(r)?(r.smartDone?"등록완료":"등록요망"):"";};
+  var aoa=[["구분","매장","시작일","종료일","내용","주소","영업시간","프로모션","비고","스마트플레이스","로스품의서"]];
+  list.forEach(function(x){var r=x.r;aoa.push([r.status||"",r.store||"",r.start||"",r.end||"",r.content||"",r.addr||"",r.hours||"",r.promo||"",r.note||"",smart(r),loss(r)]);});
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=[{wch:9},{wch:22},{wch:11},{wch:11},{wch:50},{wch:36},{wch:18},{wch:30},{wch:20},{wch:14},{wch:12}];
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"팝업일정");
+  var d=new Date();
+  XLSX.writeFile(wb,"팝업일정_"+d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+".xlsx");
+}
 function addPopupRow(){
   popupDB.push({status:"진행예정",store:"",start:"",end:"",content:"",addr:"",hours:"",promo:"",note:""});
   savePopupDB();
