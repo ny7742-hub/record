@@ -2299,7 +2299,8 @@ label{font-size:14px!important}
           <button class="bs" onclick="lrAutoFillSales()" title="매장별 일별매출에서 다시 가져오기" style="padding:0 12px">🔄</button>
         </div>
       </div>
-      <div class="fg"><label>총판매수량(개)</label><input id="lrQty" type="text" inputmode="numeric" oninput="fmtTargetInput(this);lrSave()"></div>
+      <div class="fg"><label>총판매수량(개)</label><input id="lrQty" type="text" inputmode="numeric" oninput="fmtTargetInput(this);lrSave();lrRenderSummary()"></div>
+      <div class="fg"><label>로스 감면율 (판매수량 기준)</label><select id="lrRate" onchange="lrSave();lrRenderSummary()"><option value="1.5">판매수량의 1.5%</option><option value="1">판매수량의 1%</option></select></div>
       <div class="fg"><label>운영일수</label><input id="lrDays" type="text" disabled style="background:#f3f4f6"></div>
     </div>
     <div id="lrSalesMsg" style="font-size:11px;margin-top:6px"></div>
@@ -2322,7 +2323,7 @@ label{font-size:14px!important}
   <div class="card">
     <div class="fg"><label>제외 품목 안내문구</label><input id="lrNote" type="text" oninput="lrSave()"></div>
     <div class="fg" style="margin-top:12px">
-      <label>상계처리 거래처명 (선택 — 입력 시 "○○에 로스금액의 50%인 N원에 대하여 상계처리" 문구로 표시)</label>
+      <label>상계처리 거래처명 (선택 — 입력 시 "○○에 로스 감면 후 금액 N원에 대하여 상계처리" 문구로 표시)</label>
       <input id="lrPartner" type="text" placeholder="예: 앨리웁" oninput="lrSave()">
     </div>
     <div class="btn-row" style="margin-top:14px">
@@ -7541,6 +7542,7 @@ function lrSave(){
   lrDB.qty=document.getElementById("lrQty").value;
   lrDB.note=document.getElementById("lrNote").value;
   lrDB.partner=document.getElementById("lrPartner").value;
+  var _rt=document.getElementById("lrRate");if(_rt)lrDB.rate=_rt.value;
   localStorage.setItem("lrDB",JSON.stringify(lrDB));
 }
 function initLossReportTab(){
@@ -7551,6 +7553,7 @@ function initLossReportTab(){
   document.getElementById("lrQty").value=lrDB.qty||"";
   document.getElementById("lrNote").value=lrDB.note||LR_DEFAULT_NOTE;
   document.getElementById("lrPartner").value=lrDB.partner||"";
+  var _rt=document.getElementById("lrRate");if(_rt)_rt.value=(lrDB.rate==="1"||lrDB.rate==="1.5")?lrDB.rate:"1.5";
   if(!lrDB.rows.length)lrDB.rows.push({name:"",color:"",qty:"",tag:""});
   lrRenderRows();
   lrRenderSummary();
@@ -7769,6 +7772,20 @@ function lrRenderRows(){
   });
   tb.innerHTML=h;
 }
+/* 로스 감면(2026-10-06 영업2팀 — 예전 '로스금액의 50%'를 바꿈):
+   감면 수량 = 총판매수량 × 감면율(1.5% 또는 1%, 소수점 버림) · 개당 평균 = 로스금액 합계 ÷ 로스수량 합계
+   감면 금액 = 감면 수량 × 개당 평균(원 단위 반올림) · 감면 후 금액 = 로스금액 − 감면 금액(0 아래로 안 감)
+   예) 판매 100개 · 1% → 감면 1개, 로스 10개 10만원 → 평균 1만원 → 감면 후 9만원 */
+function _lrCalc(sumQty,sumAmt){
+  var sold=Number((document.getElementById("lrQty").value||"").replace(/,/g,""))||0;
+  var rate=Number((document.getElementById("lrRate")||{}).value||lrDB.rate||1.5)||1.5;
+  var lq=Math.abs(sumQty),la=Math.abs(sumAmt);
+  var free=Math.floor(sold*rate/100+1e-9);
+  var used=Math.min(free,lq);
+  var avg=lq?la/lq:0;
+  var cut=Math.round(used*avg);
+  return {sold:sold,rate:rate,free:free,used:used,avg:Math.round(avg),cut:cut,after:Math.max(0,la-cut),lq:lq,la:la};
+}
 function lrRenderSummary(){
   var sumQty=0,sumAmt=0;
   lrDB.rows.forEach(function(r){sumQty+=Number(r.qty)||0;sumAmt+=(Number(r.qty)||0)*(Number(r.tag)||0);});
@@ -7780,7 +7797,12 @@ function lrRenderSummary(){
   }
   var dEl=document.getElementById("lrDays");if(dEl)dEl.value=days?days+"일":"";
   var el=document.getElementById("lrSummary");
-  if(el)el.textContent="실 로스 발생 수량 "+Math.abs(sumQty).toLocaleString()+"개 · 최종 로스 금액 "+Math.abs(sumAmt).toLocaleString()+"원 · 50% 금액 "+Math.round(Math.abs(sumAmt)/2).toLocaleString()+"원";
+  var c=_lrCalc(sumQty,sumAmt);
+  if(el)el.innerHTML="실 로스 발생 수량 "+c.lq.toLocaleString()+"개 · 최종 로스 금액 "+c.la.toLocaleString()+"원"
+    +'<div style="margin-top:4px;font-weight:600;color:#334155">로스 감면: 판매수량 '+c.sold.toLocaleString()+'개의 '+c.rate+'% = <b>'+c.free.toLocaleString()+'개</b>'
+    +(c.used<c.free?' (로스수량 '+c.lq+'개까지만)':'')+' × 개당 평균 '+c.avg.toLocaleString()+'원 = '+c.cut.toLocaleString()+'원 감면</div>'
+    +'<div style="margin-top:2px;font-size:15px;color:#1b6e82">감면 후 로스 금액 <b>'+c.after.toLocaleString()+'원</b></div>'
+    +(!c.sold?'<div style="color:#b45309;font-weight:600">⚠ 총판매수량을 넣어야 감면이 계산됩니다</div>':'');
 }
 function lrClear(){
   if(!confirm("작성 중인 내용을 모두 지우고 새로 작성할까요?"))return;
@@ -7803,6 +7825,7 @@ function lrDownload(){
   var days="";
   if(start&&end){var d=Math.round((new Date(end)-new Date(start))/86400000)+1;if(d>0)days=d.toLocaleString();}
   function fdate(s){if(!s)return "";var p=s.split("-");return p[0]+"년 "+Number(p[1])+"월 "+Number(p[2])+"일";}
+  var lc=_lrCalc(sumQty,sumAmt);
 
   var rowsHtml=rows.map(function(r,i){
     var amt=(Number(r.qty)||0)*(Number(r.tag)||0);
@@ -7831,7 +7854,8 @@ function lrDownload(){
     +'<p><b>3. 로스 발생 현황</b><br>'
     +'● 실 로스 발생 수량: '+Math.abs(sumQty).toLocaleString()+'개<br>'
     +'● 최종 로스 금액: '+Math.abs(sumAmt).toLocaleString()+'원<br>'
-    +'● 최종 로스 금액의 50%: '+Math.round(Math.abs(sumAmt)/2).toLocaleString()+'원</p>'
+    +'● 로스 감면: 총판매수량 '+lc.sold.toLocaleString()+'개의 '+lc.rate+'% = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString()+'원 = '+lc.cut.toLocaleString()+'원<br>'
+    +'● 감면 후 로스 금액: '+lc.after.toLocaleString()+'원</p>'
     +'<p><b>4. 로스 세부내역</b></p>'
     +'<table><thead><tr><th>NO.</th><th>상품명</th><th>색상</th><th>수량</th><th>TAG가</th><th>로스 금액</th></tr></thead><tbody>'
     +rowsHtml
@@ -7840,7 +7864,7 @@ function lrDownload(){
     +(note?'<p style="font-size:9pt;color:#555">*'+_esc(note)+'</p>':'')
     +'<p><b>5. 승인 요청 사항</b><br>'
     +(partner
-      ? _esc(store)+' 팝업종료 후 재고 정리 과정에서 확인된 상기 상품의 최종 로스 수량 '+Math.abs(sumQty).toLocaleString()+'개, 로스 금액 '+Math.abs(sumAmt).toLocaleString()+'원이며, '+_esc(partner)+'에 로스금액의 50%인 '+Math.round(Math.abs(sumAmt)/2).toLocaleString()+'원에 대하여 상계처리 및 전산상 로스 처리, 상품 재고조정등록을 진행하고자 하오니, 검토 후 승인 부탁드립니다.</p>'
+      ? _esc(store)+' 팝업종료 후 재고 정리 과정에서 확인된 상기 상품의 최종 로스 수량 '+Math.abs(sumQty).toLocaleString()+'개, 로스 금액 '+Math.abs(sumAmt).toLocaleString()+'원이며, '+_esc(partner)+'에 로스 감면('+lc.used.toLocaleString()+'개 · '+lc.cut.toLocaleString()+'원) 후 금액 '+lc.after.toLocaleString()+'원에 대하여 상계처리 및 전산상 로스 처리, 상품 재고조정등록을 진행하고자 하오니, 검토 후 승인 부탁드립니다.</p>'
       : _esc(store)+' 팝업종료 후 재고 정리 과정에서 확인된 상기 상품의 최종 로스 수량 '+Math.abs(sumQty).toLocaleString()+'개, 로스 금액 '+Math.abs(sumAmt).toLocaleString()+'원에 대하여 전산상 로스 처리 및 상품 재고조정등록을 진행하고자 하오니, 검토 후 승인 부탁드립니다.</p>')
     +'</body></html>';
 
