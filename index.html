@@ -2315,7 +2315,7 @@ label{font-size:14px!important}
       </div>
     </div>
     <table style="margin-top:10px">
-      <thead><tr><th style="width:34px">NO</th><th>상품명</th><th style="width:100px">색상</th><th style="width:80px;text-align:right">수량</th><th style="width:100px;text-align:right">TAG가</th><th style="width:110px;text-align:right">로스금액</th><th style="width:34px"></th></tr></thead>
+      <thead><tr><th style="width:34px">NO</th><th>상품명</th><th style="width:100px">색상</th><th style="width:80px;text-align:right">수량</th><th style="width:100px;text-align:right">TAG가</th><th style="width:76px;text-align:right">할인율(%)</th><th style="width:110px;text-align:right">로스금액</th><th style="width:34px"></th></tr></thead>
       <tbody id="lrRows"></tbody>
     </table>
     <div id="lrSummary" style="margin-top:14px;padding-top:12px;border-top:2px solid #e5e7eb;font-size:13px;font-weight:700;color:#1b6e82"></div>
@@ -7633,6 +7633,7 @@ function lrLoadFile(input){
           if(H.color<0)H.color=_ocCol(row,["색상","칼라","컬러"]);
           H.qty=_ocCol(row,["수량","로스수량","조정수량","재고수량"]);
           H.tag=_ocCol(row,["TAG가","택가","TAG가격","단가","판매가"]);
+          H.disc=_ocCol(row,["할인율","할인율(%)","할인"]);
           H.store=_ocCol(row,["매장명"]);
           break;
         }
@@ -7648,7 +7649,8 @@ function lrLoadFile(input){
           name:name,
           color:H.color>=0?String(row[H.color]||"").trim():"",
           qty:H.qty>=0?String(row[H.qty]||"").replace(/,/g,"").trim():"",
-          tag:H.tag>=0?String(row[H.tag]||"").replace(/[,원]/g,"").trim():""
+          tag:H.tag>=0?String(row[H.tag]||"").replace(/[,원]/g,"").trim():"",
+          disc:H.disc>=0?String(row[H.disc]||"").replace(/[%\s]/g,"").trim():""
         });
       }
       if(!newRows.length){alert("불러올 로스 내역이 없습니다.");return;}
@@ -7677,10 +7679,13 @@ function lrLoadFile(input){
 }
 function lrAddRow(){lrDB.rows.push({name:"",color:"",qty:"",tag:""});lrSave();lrRenderRows();lrRenderSummary();}
 function lrDelRow(i){lrDB.rows.splice(i,1);lrSave();lrRenderRows();lrRenderSummary();}
+/* 로스금액 = 수량 × TAG가 × (1 − 할인율%) — 줄마다 원 단위 반올림(2026-10-06 영업2팀 "TAG가 옆에 할인율, 로스금액은 할인 들어간 금액") */
+function _lrDisc(r){var v=Number(String(r&&r.disc!=null?r.disc:"").replace(/[^0-9.]/g,""))||0;return Math.min(100,Math.max(0,v));}
+function _lrAmt(r){return Math.round((Number(r.qty)||0)*(Number(r.tag)||0)*(1-_lrDisc(r)/100));}
 function lrEditRow(i,field,val){
   lrDB.rows[i][field]=val;lrSave();lrRenderSummary();
   var td=document.getElementById("lrAmt_"+i);
-  if(td){var r=lrDB.rows[i];var amt=(Number(r.qty)||0)*(Number(r.tag)||0);td.textContent=amt.toLocaleString()+"원";}
+  if(td){var r=lrDB.rows[i];var amt=_lrAmt(r);td.textContent=amt.toLocaleString()+"원";}
 }
 /* ── 로스 품의서 상품 검색 (2026-09-23 영업2팀) ──
    상품명 칸에 일부만 쳐도 상품데이터(DB) 상품명이 목록으로 뜨고, 고르면 색상 목록·TAG가를 채운다.
@@ -7751,13 +7756,13 @@ function _lrPaintRow(i,o){
   var dl=document.getElementById("lrColList_"+i);
   if(dl)dl.innerHTML=o&&o.name?Object.keys(o.colors).map(function(c){return '<option value="'+_esc(c)+'">';}).join(""):"";
   var td=document.getElementById("lrAmt_"+i);
-  if(td){var amt=(Number(r.qty)||0)*(Number(r.tag)||0);td.textContent=amt.toLocaleString()+"원";}
+  if(td){var amt=_lrAmt(r);td.textContent=amt.toLocaleString()+"원";}
 }
 function lrRenderRows(){
   var tb=document.getElementById("lrRows");if(!tb)return;
   var h="";
   lrDB.rows.forEach(function(r,i){
-    var amt=(Number(r.qty)||0)*(Number(r.tag)||0);
+    var amt=_lrAmt(r);
     h+='<tr>';
     h+='<td style="text-align:center;color:#5b6675">'+(i+1)+'</td>';
     var mt=_lrFind(r.name);
@@ -7766,6 +7771,7 @@ function lrRenderRows(){
       +(mt&&mt.name?Object.keys(mt.colors).map(function(c){return '<option value="'+_esc(c)+'">';}).join(""):"")+'</datalist></td>';
     h+='<td><input id="lrQty_'+i+'" value="'+_esc(r.qty||"")+'" inputmode="numeric" oninput="lrEditRow('+i+',\'qty\',this.value)" style="width:70px;text-align:right"></td>';
     h+='<td><input id="lrTag_'+i+'" value="'+_esc(r.tag||"")+'" inputmode="numeric" oninput="lrEditRow('+i+',\'tag\',this.value);delete lrDB.rows['+i+'].tagAuto" style="width:90px;text-align:right"></td>';
+    h+='<td><input id="lrDisc_'+i+'" value="'+_esc(r.disc||"")+'" inputmode="decimal" placeholder="0" oninput="lrEditRow('+i+',\'disc\',this.value)" title="할인율(%) — 로스금액 = 수량 × TAG가 × (1 − 할인율)" style="width:60px;text-align:right"></td>';
     h+='<td id="lrAmt_'+i+'" style="text-align:right;font-weight:700">'+amt.toLocaleString()+'원</td>';
     h+='<td><button class="rb" onclick="lrDelRow('+i+')">✕</button></td>';
     h+='</tr>';
@@ -7788,7 +7794,7 @@ function _lrCalc(sumQty,sumAmt){
 }
 function lrRenderSummary(){
   var sumQty=0,sumAmt=0;
-  lrDB.rows.forEach(function(r){sumQty+=Number(r.qty)||0;sumAmt+=(Number(r.qty)||0)*(Number(r.tag)||0);});
+  lrDB.rows.forEach(function(r){sumQty+=Number(r.qty)||0;sumAmt+=_lrAmt(r);});
   var start=document.getElementById("lrStart").value,end=document.getElementById("lrEnd").value;
   var days="";
   if(start&&end){
@@ -7821,16 +7827,17 @@ function lrDownload(){
   var rows=lrDB.rows.filter(function(r){return r.name;});
   if(!rows.length){alert("로스 세부내역을 1건 이상 입력하세요.");return;}
   var sumQty=0,sumAmt=0;
-  rows.forEach(function(r){sumQty+=Number(r.qty)||0;sumAmt+=(Number(r.qty)||0)*(Number(r.tag)||0);});
+  rows.forEach(function(r){sumQty+=Number(r.qty)||0;sumAmt+=_lrAmt(r);});
   var days="";
   if(start&&end){var d=Math.round((new Date(end)-new Date(start))/86400000)+1;if(d>0)days=d.toLocaleString();}
   function fdate(s){if(!s)return "";var p=s.split("-");return p[0]+"년 "+Number(p[1])+"월 "+Number(p[2])+"일";}
   var lc=_lrCalc(sumQty,sumAmt);
 
   var rowsHtml=rows.map(function(r,i){
-    var amt=(Number(r.qty)||0)*(Number(r.tag)||0);
+    var amt=_lrAmt(r);
     return '<tr><td style="text-align:center">'+(i+1)+'</td><td>'+_esc(r.name)+'</td><td style="text-align:center">'+_esc(r.color||"")+'</td>'
       +'<td style="text-align:center">'+(Number(r.qty)||0)+'</td><td style="text-align:right">'+(Number(r.tag)||0).toLocaleString()+'원</td>'
+      +'<td style="text-align:center">'+(_lrDisc(r)?_lrDisc(r)+'%':'-')+'</td>'
       +'<td style="text-align:right">'+amt.toLocaleString()+'원</td></tr>';
   }).join("");
 
@@ -7857,9 +7864,9 @@ function lrDownload(){
     +'● 로스 감면: 총판매수량 '+lc.sold.toLocaleString()+'개의 '+lc.rate+'% = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString()+'원 = '+lc.cut.toLocaleString()+'원<br>'
     +'● 감면 후 로스 금액: '+lc.after.toLocaleString()+'원</p>'
     +'<p><b>4. 로스 세부내역</b></p>'
-    +'<table><thead><tr><th>NO.</th><th>상품명</th><th>색상</th><th>수량</th><th>TAG가</th><th>로스 금액</th></tr></thead><tbody>'
+    +'<table><thead><tr><th>NO.</th><th>상품명</th><th>색상</th><th>수량</th><th>TAG가</th><th>할인율</th><th>로스 금액</th></tr></thead><tbody>'
     +rowsHtml
-    +'<tr><td colspan="3" style="text-align:center;font-weight:bold">합계</td><td style="text-align:center;font-weight:bold">'+sumQty+'</td><td></td><td style="text-align:right;font-weight:bold">'+sumAmt.toLocaleString()+'원</td></tr>'
+    +'<tr><td colspan="3" style="text-align:center;font-weight:bold">합계</td><td style="text-align:center;font-weight:bold">'+sumQty+'</td><td></td><td></td><td style="text-align:right;font-weight:bold">'+sumAmt.toLocaleString()+'원</td></tr>'
     +'</tbody></table>'
     +(note?'<p style="font-size:9pt;color:#555">*'+_esc(note)+'</p>':'')
     +'<p><b>5. 승인 요청 사항</b><br>'
