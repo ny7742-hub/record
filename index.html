@@ -13392,13 +13392,38 @@ function ocAutoMail(){
   ocAutoRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 보냅니다.");
 }
+/* 도매 자동발주 진행 막대(2026-10-06 영업2팀 — 코스트코 자동 발주와 같이). 자동화 PC가 3초마다 올리는 마지막 줄(saipReq.wp/wm.progress)을
+   단계에 맞춰 채운다. 지나간 단계는 기억해 둔다(마지막 줄만 오므로 뒤로 가지 않게). 10초마다 지난 시간을 다시 그린다 */
+var OC_STAGES={
+  "PlayMD 불러오기":{typ:"보통 1~2분",list:[["접속",/===/],["확인구분(미확인)",/확인구분/],["주문일자",/주문일자/],["파일 받기",/받음|미확인 주문이 없/],["자비스에 올리기",/끝$/]]},
+  "발주 메일":{typ:"보통 1분",list:[["메일 쓰기",/===/],["첨부·받는 사람",/첨부|받는 사람|참조|쓰기/],["보냄",/메일 (보냄|임시저장)/],["마무리",/끝$/]]}
+};
+var _ocProgMax={};
+function _ocProgBar(R,what){
+  var D=OC_STAGES[what];if(!D||!_saipReqActive(R))return "";
+  var key=R.id||what,n=_ocProgMax[key]||0;
+  D.list.forEach(function(s,i){if(R.progress&&s[1].test(R.progress)&&i+1>n)n=i+1;});
+  _ocProgMax[key]=n;
+  var wait=R.state==="요청",total=D.list.length,cur=D.list[Math.min(n,total-1)][0];
+  var t0=!wait&&R.startedAt?new Date(R.startedAt).getTime():new Date(R.at).getTime(),sec=Math.max(0,Math.round((Date.now()-t0)/1000));
+  var pct=wait?3:Math.max(6,Math.round(n/total*100)),el=sec>=60?Math.floor(sec/60)+"분 "+(sec%60)+"초":sec+"초";
+  var lab=wait?"요청됨 — 자동화 PC가 곧 시작합니다":(n+"/"+total+" · "+cur+" 중");
+  return '<div style="margin:4px 0 4px">'
+    +'<div style="height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#7c3aed 0 10px,#9f67f5 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#5b21b6;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600">'+el+' 지남 · '+D.typ+'</span></div></div>';
+}
+var _ocProgTimer=null;
+function _ocProgTick(){
+  var on=function(){var q=saipReq||{};return _saipReqActive(q.wp)||_saipReqActive(q.wm);};
+  if(on()&&!_ocProgTimer)_ocProgTimer=setInterval(function(){if(!on()){clearInterval(_ocProgTimer);_ocProgTimer=null;}try{ocAutoRender();}catch(e){}},10000);
+}
 function ocAutoRender(){
   var box=document.getElementById("ocAutoStatus");if(!box)return;
   var h="",RQ=saipReq||{},S=orderConvSrc,W=wmStatus;
   var line=function(R,what){
     if(!R||!R.state)return "";
     var who=_escX(R.by||"?")+" · "+_escX(_saipFmtAt(R.at));
-    if(_saipReqActive(R))return '<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?"요청됨":"진행 중…")+' ('+who+')'+(R.progress?' <span style="font-weight:400;color:#475569">▸ '+_escX(R.progress)+'</span>':'')+'</div>';
+    if(_saipReqActive(R))return '<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?"요청됨":"진행 중…")+' ('+who+')'+(R.progress?' <span style="font-weight:400;color:#475569">▸ '+_escX(R.progress)+'</span>':'')+'</div>'+_ocProgBar(R,what);
     if(R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<12*3600*1000)return '<div style="color:#b91c1c;font-weight:700">❗ '+what+' 실패 ('+who+')'+(R.error?' — '+_escX(R.error):'')+'</div>';
     return "";
   };
@@ -13409,6 +13434,7 @@ function ocAutoRender(){
     +' <span style="font-weight:400;color:#475569">'+_escX(W.subject||"")+' · '+(W.lines||0)+'줄'+(W.stores?' ('+_escX(W.stores)+')':'')+'</span>'+(W.error?' — '+_escX(W.error):'')+'</div>';
   box.innerHTML=h;
   _apCopy("ocAutoStatus","autoOcStatus");
+  _ocProgTick();
 }
 function ocDownload(){
   if(!orderConvRows.length){alert("먼저 주문배분현황 파일을 업로드하세요.");return;}
