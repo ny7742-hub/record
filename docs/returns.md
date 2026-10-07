@@ -11,7 +11,7 @@
 - **줄 열쇠** = `입고일|주문번호|상품명(공백 뺌)`의 짧은 해시(`_retFnv`), 같은 줄이 또 있으면 `-2`… 팀 공유 등록 기록 `ws/retLog`
   (`{hr:{열쇠:{at,by,d,q,c,p,s}},cr}`, s = saved·savecheck·found)에 있으면 **다시 올리지 않는다** — 시트 정리(온라인(완료)로 옮기기)는 사람이 해서
   등록한 줄이 시트에 남아 있을 수 있다. 카드에 `📝 시트 정리 필요 N건`으로 알린다. 200일 지난 기록은 자동화가 정리한다.
-- 요망 여부는 **이 화면을 연 사람의 브라우저가** 시트를 직접 읽어 센다(`_retScan`, 탭 열 때 + 10분마다). 자동화 PC의 `saip-ready`와는 따로다.
+- 요망 여부는 **이 화면을 연 사람의 브라우저가** 시트를 직접 읽어 센다(`_retScan`, 탭 열 때 + 5분마다 — 반품등록 화면이나 🤖 자동화 탭이 열려 있을 때, 2026-10-07 예전 10분). 자동화 PC의 `saip-ready`와는 따로다.
 - 요청은 사입출고와 같은 `ws/saipReq[hr|cr]`(날짜 없음, `expect` = 미리보기 때 줄 열쇠 묶음) → `automation/saip-watch.mjs` →
   `playmd-return.mjs --kind --save --by --expect`. 결과 `ws/hrRetStatus`·`ws/crRetStatus`(status: preview·saved·savecheck·none·allfound·partial·unmatched·changed·error).
 - `playmd-return.mjs` 순서: 자비스에서 `_retCollect` → 기록에 있는 줄 빼기 → 코드·공급가가 빈 줄은 **반품등록 표(ws/hsrShare·ccrShare)에 사람이 채운 값**을 가져옴
