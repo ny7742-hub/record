@@ -7957,7 +7957,7 @@ function lrRenderRows(){
 /* 로스 공제(2026-10-07 영업2팀 — '감면'에서 이름을 바꾸고 공제율을 자동으로):
    자동 = 판매일보 할인(T.실)% 구간별 판매수량 — 할인 30% 이하(정상가 포함, 영업2팀 확인) × 1% + 31% 이상 × 1.5%, **소수 그대로**(버리지 않음).
    직접 = 총판매수량 × 1.5% 또는 1%(소수 그대로). 공제 수량은 로스수량까지만 ·
-   개당 평균 = 로스금액 ÷ 로스수량(원 반올림) · 공제 금액 = 공제 수량(소수째) × 개당 평균을 원 반올림 · 공제 후 금액 = 로스금액 − 공제 금액.
+   개당 평균 = 로스금액 ÷ 로스수량(소수째, 화면엔 원 단위) · 공제 금액 = 공제 수량(소수째) × 개당 평균을 원 반올림 · 공제 후 금액 = 로스금액 − 공제 금액.
    2026-10-07 영업2팀 확인 예: 현대 판교 로스 13개 148,300원 · 137개 × 1% = 1.37개 × 11,408원 = 15,628.96 → 15,629원 → 132,671원 */
 function _lrCalc(sumQty,sumAmt){
   var sold=Number((document.getElementById("lrQty").value||"").replace(/,/g,""))||0;
@@ -7978,10 +7978,10 @@ function _lrCalc(sumQty,sumAmt){
     desc="총판매수량 "+sold.toLocaleString()+"개의 "+rate+"%";
   }
   var used=Math.min(free,lq);
-  var avg=lq?Math.round(la/lq):0;   /* 개당 평균은 원 단위 반올림(2026-10-07 영업2팀: 148,300 ÷ 13 = 11,408) */
+  var avg=lq?la/lq:0;   /* 개당 평균은 소수째 계산하고 화면에만 원 단위로 보인다(2026-10-07 영업2팀: 천호 165,300 ÷ 14 = 11,807.14 × 6.015 = 71,020) */
   /* 공제 금액 = 공제 수량(소수째) × 개당 평균을 원 단위 반올림(2026-10-07 영업2팀: 판교 1.37 × 11,408 = 15,628.96 → 15,629, 148,300 − 15,629 = 132,671) */
   var cut=Math.round(used*avg);
-  return {sold:sold,auto:auto,noBand:auto&&!B,desc:desc,free:free,used:used,avg:avg,cut:cut,after:Math.max(0,la-cut),lq:lq,la:la};
+  return {sold:sold,auto:auto,noBand:auto&&!B,desc:desc,free:free,used:used,avg:Math.round(avg),cut:cut,after:Math.max(0,la-cut),lq:lq,la:la};
 }
 function lrRenderSummary(){
   var sumQty=0,sumAmt=0;
