@@ -2287,7 +2287,12 @@ label{font-size:14px!important}
     <div class="sec-title">🧾 팝업 종료 로스 품의서</div>
     <div class="fg" style="margin-bottom:12px">
       <label>🏪 팝업에서 불러오기</label>
-      <select id="lrPopupSel" onchange="lrLoadFromPopup()" style="padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:white"><option value="">팝업 선택...</option></select>
+      <!-- 매장 검색(2026-10-07 영업2팀 — '목동'을 치면 목동점 팝업이 나오게). 누르면 불러온다 -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input id="lrPopupQ" type="search" placeholder="🔍 매장 검색 (예: 목동)" oninput="lrPopupSearch()" onkeydown="if(event.key==='Enter'){var b=document.querySelector('#lrPopupHits button');if(b){b.click();event.preventDefault();}}" style="flex:1 1 180px;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px">
+        <select id="lrPopupSel" onchange="lrLoadFromPopup()" style="flex:2 1 240px;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:13px;background:white"><option value="">팝업 선택...</option></select>
+      </div>
+      <div id="lrPopupHits" style="display:flex;flex-direction:column;gap:3px;margin-top:4px"></div>
     </div>
     <div class="grid3">
       <div class="fg"><label>매장명</label><input id="lrStore" type="text" placeholder="예: 롯데백화점 평촌점" oninput="lrSave()" onblur="lrAutoFillSales()"></div>
@@ -7592,6 +7597,33 @@ function lrFillPopupSelect(){
     });
   }
   sel.innerHTML=opts;
+}
+/* 매장 검색 — 매장명·내용에 낱말이 모두 든 팝업(띄어쓰기 무시). 최근 시작일 순 10개, 누르면 불러온다 */
+function lrPopupSearch(){
+  var box=document.getElementById("lrPopupHits");if(!box)return;
+  var q=String((document.getElementById("lrPopupQ")||{}).value||"").toLowerCase().trim();
+  if(!q||typeof popupDB==="undefined"||!Array.isArray(popupDB)){box.innerHTML="";return;}
+  var ws=q.split(/\s+/),norm=function(x){return String(x||"").toLowerCase().replace(/\s+/g,"");};
+  var hits=[];
+  popupDB.forEach(function(p,i){
+    if(!p||!p.store)return;
+    var t=norm(p.store)+"|"+norm(p.content);
+    if(ws.every(function(w){return t.indexOf(norm(w))>=0;}))hits.push(i);
+  });
+  hits.sort(function(a,b){return String(popupDB[b].start||"").localeCompare(String(popupDB[a].start||""));});
+  if(!hits.length){box.innerHTML='<span style="font-size:12px;color:#5b6675">‘'+_esc(q)+'’ 팝업이 없습니다</span>';return;}
+  box.innerHTML=hits.slice(0,10).map(function(i){
+    var p=popupDB[i];
+    return '<button type="button" class="bs" onclick="lrPickPopup('+i+')" style="text-align:left;padding:6px 10px;font-size:13px;background:#fff;border:1px solid #cfe0e5;border-radius:6px;color:#1f2937">'
+      +'<b>'+_esc(p.store)+'</b> <span style="color:#5b6675">'+_esc((p.start||"")+(p.end?" ~ "+p.end:""))+(p.status?" · "+_esc(p.status):"")+'</span></button>';
+  }).join("")+(hits.length>10?'<span style="font-size:12px;color:#5b6675">… 외 '+(hits.length-10)+'건 — 낱말을 더 넣어 주세요</span>':'');
+}
+function lrPickPopup(i){
+  var sel=document.getElementById("lrPopupSel");if(!sel)return;
+  sel.value=String(i);
+  var q=document.getElementById("lrPopupQ");if(q)q.value="";
+  var box=document.getElementById("lrPopupHits");if(box)box.innerHTML="";
+  lrLoadFromPopup();
 }
 function lrLoadFromPopup(){
   var sel=document.getElementById("lrPopupSel");
