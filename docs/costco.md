@@ -57,10 +57,11 @@
   **공휴일표는 2026년만** 들어 있다 — 해마다 `saip-watch.mjs KR_HOLIDAYS`(자비스 `KR_HOLIDAYS`와 같게)에 새 해를 추가할 것.
   **2026-10-06 바뀐 것**(영업2팀 점검 요청): ① **메일은 보내지 않고 초안(임시보관함)까지** — 발주 버튼도 `메일 초안 → 메일 발송 준비 완료`에서 끝나고 사람이 하이웍스 임시보관함에서 [보내기].
   `ws/ccOrderLog[날짜].state='draft'`(같은 날 두 번 출력·초안 막음), 버튼 `📨 메일 발송 준비 완료`.
-  **슬랙 CX팀 주문건수 댓글**(2026-10-08 영업2팀, `automation/slack-cx.mjs` — saip-watch가 1분마다): 오늘 `ccOrderLog.state==='sent'`이고 `slackAt`이 없으면
-  CX팀 채널에서 오늘 'M/D(요일) 주문건수 공유' 글(코스트코 글 제외)을 찾아 **댓글로** `코스트코 M/D(요일) 주문건수 공유드립니다. / 1차 : N건`(N = `ccOrderLog.orders`).
-  평일 8~18시, CX팀 글이 없으면 다음 분에 다시, 12시가 지나도 없으면 채널에 새 글. 단 뒤 `slackAt`·`slackTs`. 댓글은 웹훅으로 못 달아 **봇 토큰** `automation/slack-bot.json`
-  (`{"token":"xoxb-…","channel":"C…"}`, 이 PC에만 — 권한 chat:write · channels:history(비공개면 groups:history), 봇을 채널에 초대). 하이웍스 임시보관함에서 직접 보낸 날은 `sent`가 안 돼 올리지 않는다.
+  **슬랙 CX팀 주문건수 글**(2026-10-08 영업2팀, `automation/slack-cx.mjs` — saip-watch가 1분마다. 처음엔 댓글이었다가 같은 날 "댓글이 아닌 글로"):
+  오늘 `ccOrderLog.state==='sent'`이고 `slackAt`이 없으면 CX팀 채널에 **새 글** `코스트코 M/D(요일) 주문건수 공유드립니다. / 1차 : N건`(N = `ccOrderLog.orders`). 평일 8~18시.
+  설정은 이 PC에만 둘 중 하나 — ① 봇 토큰 `automation/slack-bot.json`(`{"token":"xoxb-…","channel":"C…"}`, chat:write · channels:history, 봇 채널 초대):
+  CX팀 'M/D(요일) 주문건수 공유' 글이 올라온 **뒤에** 올려 그 밑에 온다(12시까지 없으면 그냥). ② 웹훅 `automation/slack-webhook-cx.json`(`{"url":…}`): 보낸 즉시.
+  올린 뒤 `slackAt`(·`slackTs`). 하이웍스 임시보관함에서 직접 보낸 날은 `sent`가 안 돼 올리지 않는다.
   **2026-10-07 — 누구나 보내기**(영업2팀: "발주한 사람도 보낼 수 있게"): 임시보관함 초안은 자동화 PC 하이웍스 계정에만 있어 다른 사람이 못 보냈다.
   초안 날에는 발주 버튼이 **`✉️ 발주 메일 보내기 N건`**(주황)으로 바뀌고, 누르면 `ws/saipReq.co` mode `send` → `costco-order.mjs --send`(sendMain)가
   발주 때 남긴 도매발주서(`KEEP` 폴더)를 **누른 사람 서명**으로 보낸다(보내는 주소는 자동화 계정 그대로). 지난 2일 보낸 발주서에 오늘 주문이 하나라도 있으면
