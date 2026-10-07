@@ -18056,7 +18056,7 @@ function _ccAutoPaint1(b){
   var n=fresh?(+Q.total||0):0;
   /* 초안만 만든 날(L.state=draft)의 n은 '아직 보낸 발주서에 없는 주문' = 초안에 든 주문(+ 그 뒤 새로 들어온 주문)이다(2026-10-07 영업2팀 — '다음 발주 28건 대기'가 헷갈렸다) */
   var dIn=L&&L.state==="draft"?Math.min(n,+L.orders||0):0,dNew=L&&L.state==="draft"?Math.max(0,n-(+L.orders||0)):0;
-  var st=L?(L.state==="draft"?["#fff7ed","#fdba74","#9a3412","📨 초안 보내기 대기"+(dIn?" "+dIn+"건":"")+(dNew?" · 그 뒤 새 주문 "+dNew+"건":"")]:["#ecfdf5","#86efac","#047857","✅ 오늘 발주 완료"+(n?" · 다음 발주 "+n+"건 대기":"")])
+  var st=L?(L.state==="draft"?["#ea580c","#c2410c","#fff","✉️ 발주 메일 보내기 "+((+L.orders||dIn)?(+L.orders||dIn)+"건":"")+(dNew?" · 그 뒤 새 주문 "+dNew+"건":"")]:["#ecfdf5","#86efac","#047857","✅ 오늘 발주 완료"+(n?" · 다음 발주 "+n+"건 대기":"")])
     :n?["#7c3aed","#6d28d9","#fff","🚚 발주하기 · 발주 요망 "+n+"건"]
     :["#1b6e82","#1b6e82","#fff","🚚 발주하기"];
   b.style.background=st[0];b.style.borderColor=st[1];b.style.color=st[2];b.textContent=st[3];
@@ -18070,7 +18070,20 @@ function ccAutoGo(mode){
   var cur=(saipReq||{}).co;
   if(_saipReqActive(cur)){alert("코스트코 자동 발주가 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").\n\n끝나면 결과가 이 칸에 나옵니다.");return;}
   var today=_ccToday(),L=(ccOrderLog||{})[today];
-  if(mode==="save"&&L){alert((L.state==="draft"?"오늘 발주 메일 초안까지 준비했습니다 — 하이웍스 임시보관함에서 열어 [보내기]만 누르면 됩니다.":"오늘 이미 발주했습니다.")+"\n\n"+_saipFmtAt(L.at)+" · "+(L.by||"?")+" · "+(L.orders||0)+"건\n\n같은 날 두 번 보내면 물류가 두 번 출고합니다. 추가 주문은 내일 발주에 들어갑니다.");return;}
+  /* 오늘 초안까지 한 날(L.state draft) — [발주하기]는 메일 보내기로 바뀐다(2026-10-07 영업2팀: 발주한 사람 누구나 보낼 수 있게).
+     자동화 PC가 그날 만든 도매발주서를 **누른 사람 서명**으로 보낸다(costco-order.mjs --send). 임시보관함 초안을 먼저 보냈으면 두 번 안 보낸다 */
+  if(mode==="save"&&L&&L.state==="draft")mode="send";
+  if(mode==="save"&&L){alert("오늘 이미 발주했습니다.\n\n"+_saipFmtAt(L.sentAt||L.at)+" · "+(L.sentBy||L.by||"?")+" · "+(L.orders||0)+"건\n\n같은 날 두 번 보내면 물류가 두 번 출고합니다. 추가 주문은 내일 발주에 들어갑니다.");return;}
+  if(mode==="send"&&!(L&&L.state==="draft")){alert(L?"오늘 발주 메일은 이미 보냈습니다("+(L.sentBy||L.by||"?")+").":"오늘 만든 발주서가 없습니다 — 먼저 [발주하기]를 눌러 주세요.");return;}
+  if(mode==="send"){
+    if(!confirm("오늘 코스트코 발주 메일을 보냅니다.\n\n받는 사람: 김구남 센터장(gnkim72@daum.net) · 참조 영업2팀·CX팀\n첨부: 오늘 만든 도매발주서 "+(L.orders||0)+"건 "+(L.qty||0)+"개 ("+_saipFmtAt(L.at)+" · "+(L.by||"?")+")\n서명: "+_saipMe()
+      +"\n\n하이웍스 임시보관함에 같은 제목 초안이 있으면, 보낸 뒤 그 초안은 지워 주세요(먼저 초안을 보냈으면 자동화가 알아채고 다시 보내지 않습니다).\n\n보낼까요?"))return;
+    var Rs={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:today.slice(5,7)+today.slice(8,10),date:today,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send"};
+    if(!saipReq||typeof saipReq!=="object")saipReq={};
+    saipReq.co=Rs;wsSetItem("saipReq",JSON.stringify(saipReq));ccAutoRender();
+    if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 보냅니다.");
+    return;
+  }
   var msg=mode==="save"
     ?"코스트코 발주를 진행합니다.\n\n① DSS 두 아이디 [인쇄] 화면을 열어 새 주문을 확인 처리하고\n② 도매발주서를 만든 뒤\n③ 그 주문들을 DSS [출력](출력완료, 20건씩 페이지를 넘겨 가며) 하고\n④ 김구남 님(gnkim72@daum.net, 참조 영업2팀·CX팀)께 갈 '화이트샌즈("+today.slice(5,7)+today.slice(8,10)+") - 영업2팀' 메일을 초안(임시보관함)으로 만들어 둡니다.\n\n메일은 보내지 않습니다 — '메일 발송 준비 완료'가 뜨면 하이웍스 임시보관함에서 열어 확인하고 [보내기]를 눌러 주세요.\n\n서명: "+_saipMe()+"\nDSS 출력은 되돌리기 어렵습니다. 진행할까요?"
     :"코스트코 발주 미리보기를 합니다.\n\nDSS는 읽기만 하고, 도매발주서를 만들어 하이웍스 임시보관함에 메일 초안만 저장합니다(보내지 않음).\n\n진행할까요?";
@@ -18089,9 +18102,9 @@ function ccAutoRender(){
   if(Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000&&Q.total)
     h+='<div style="color:'+(L?'#5b6675':'#6d28d9')+';font-weight:700">📦 '+(L?(L.state==="draft"?'아직 안 보낸 주문(오늘 초안 포함 — 임시보관함에서 보내면 0이 됩니다)':'다음 발주 대기'):'발주 요망')+': '+(Q.accounts||[]).map(function(a){return _escX(a.who)+' '+a.orders+'건'+(a.printedUnsent?' <span style="color:#b91c1c">(DSS 출력은 됐는데 발주서 안 보냄 '+a.printedUnsent+')</span>':'');}).join(' · ')+' <span style="font-weight:400;color:#5b6675">('+_escX(_saipFmtAt(Q.at))+' 확인)</span></div>';
   if(L)h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:4px;color:#047857;font-weight:700">'+(L.state==="draft"?'📨 메일 발송 준비 완료':'✅ 오늘 발주함')+' · '+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"?")+' · '+(L.orders||0)+'건 '+(L.qty||0)+'개'
-    +(L.state==="draft"?'<div style="font-weight:600;color:#334155">하이웍스 <b>임시보관함</b>의 \''+_escX(L.subject||"")+'\' 메일을 열어 확인하고 [보내기]를 눌러 주세요</div>':'')+'</div>';
+    +(L.state==="draft"?'<div style="font-weight:600;color:#334155">위 <b>✉️ 발주 메일 보내기</b>를 누르면 누른 사람 서명으로 보냅니다(누구나) — 하이웍스 <b>임시보관함</b>의 \''+_escX(L.subject||"")+'\' 초안을 직접 보내도 됩니다(둘 중 하나만)</div>':(L.sentBy?'<div style="font-weight:600;color:#334155">메일 보냄 · '+_escX(L.sentBy)+(L.sentAt?' · '+_escX(_saipFmtAt(L.sentAt)):'')+'</div>':''))+'</div>';
   if(R&&R.state){
-    var who=(R.auto?'🤖 자동 · ':'')+_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":"미리보기";
+    var who=(R.auto?'🤖 자동 · ':'')+_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":R.mode==="send"?"발주 메일 보내기":"미리보기";
     if(_saipReqActive(R))h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?'요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>'):'진행 중… ('+who+')')+'</div>'+_ccProgBar(R,S);
     else if(R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<24*3600*1000)h+='<div style="color:#b91c1c;font-weight:700">❗ '+what+' 요청('+who+')이 실패로 끝났습니다</div>';
   }
