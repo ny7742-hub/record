@@ -7623,18 +7623,61 @@ function lrPopupSearch(){
   });
   hits.sort(function(a,b){return String(popupDB[b].start||"").localeCompare(String(popupDB[a].start||""));});
   if(!hits.length){box.innerHTML='<span style="font-size:12px;color:#5b6675">‘'+_esc(q)+'’ 팝업이 없습니다</span>';return;}
-  box.innerHTML=hits.slice(0,10).map(function(i){
+  /* 연속 팝업 묶음(2026-10-07 영업2팀 "연속되는 목동점 팝업 2개를 동시에") — 같은 매장(띄어쓰기·백화점·끝 '점' 무시)이고
+     다음 팝업 시작일이 앞 팝업 종료일 다음 날 안이면 한 줄로 묶어 맨 위에 보인다. 누르면 첫 시작일 ~ 마지막 종료일로 불러온다 */
+  var chains=_lrPopChains(hits);
+  var btn='text-align:left;padding:6px 10px;font-size:13px;background:#fff;border:1px solid #cfe0e5;border-radius:6px;color:#1f2937';
+  box.innerHTML=chains.map(function(c){
+    var a=popupDB[c[0]],z=popupDB[c[c.length-1]];
+    return '<button type="button" class="bs" onclick="lrPickPopupRange(['+c.join(",")+'])" style="'+btn+';background:#ecfeff;border-color:#67c1d3">'
+      +'🔗 <b>'+_esc(a.store)+'</b> <span style="color:#155e75;font-weight:700">'+_esc(a.start+" ~ "+(z.end||z.start))+' · 연속 '+c.length+'개 합쳐서</span></button>';
+  }).join("")+hits.slice(0,10).map(function(i){
     var p=popupDB[i];
-    return '<button type="button" class="bs" onclick="lrPickPopup('+i+')" style="text-align:left;padding:6px 10px;font-size:13px;background:#fff;border:1px solid #cfe0e5;border-radius:6px;color:#1f2937">'
-      +'<b>'+_esc(p.store)+'</b> <span style="color:#5b6675">'+_esc((p.start||"")+(p.end?" ~ "+p.end:""))+(p.status?" · "+_esc(p.status):"")+'</span></button>';
+    return '<div style="display:flex;gap:4px"><button type="button" class="bs" onclick="lrPickPopup('+i+')" style="flex:1;'+btn+'">'
+      +'<b>'+_esc(p.store)+'</b> <span style="color:#5b6675">'+_esc((p.start||"")+(p.end?" ~ "+p.end:""))+(p.status?" · "+_esc(p.status):"")+'</span></button>'
+      +'<button type="button" class="bs" onclick="lrMergePopup('+i+')" title="지금 품의서 기간에 이 팝업 기간을 이어 붙입니다(시작일은 더 이른 날, 종료일은 더 늦은 날)" style="padding:6px 10px;font-size:12.5px;background:#fff;border:1px dashed #1b6e82;color:#1b6e82;border-radius:6px;white-space:nowrap">+ 이어 붙이기</button></div>';
   }).join("")+(hits.length>10?'<span style="font-size:12px;color:#5b6675">… 외 '+(hits.length-10)+'건 — 낱말을 더 넣어 주세요</span>':'');
+}
+function _lrPopNorm(x){return String(x||"").replace(/\s+/g,"").replace(/백화점|아울렛/g,"").replace(/점$/,"");}
+function _lrPopChains(idx){
+  var day=function(d){return new Date(d+"T00:00:00").getTime();};
+  var L=idx.filter(function(i){var p=popupDB[i];return p.start&&/^\d{4}-\d{2}-\d{2}$/.test(p.start);})
+    .sort(function(a,b){var x=_lrPopNorm(popupDB[a].store),y=_lrPopNorm(popupDB[b].store);return x<y?-1:x>y?1:String(popupDB[a].start).localeCompare(String(popupDB[b].start));});
+  var out=[],cur=[];
+  L.forEach(function(i){
+    var p=popupDB[i],prev=cur.length?popupDB[cur[cur.length-1]]:null;
+    if(prev&&_lrPopNorm(prev.store)===_lrPopNorm(p.store)&&day(p.start)<=day(prev.end||prev.start)+86400000)cur.push(i);
+    else{if(cur.length>1)out.push(cur);cur=[i];}
+  });
+  if(cur.length>1)out.push(cur);
+  /* 3개 이상 이어지면 이웃한 두 개씩도 따로(목동: 8/21~8/27 + 8/28~9/3) — 최근 것부터, 묶음은 5줄까지 */
+  var res=[];
+  out.forEach(function(c){for(var k=0;k+1<c.length;k++)res.push([c[k],c[k+1]]);if(c.length>2)res.push(c);});
+  return res.sort(function(a,b){var x=String(popupDB[b[0]].start).localeCompare(String(popupDB[a[0]].start));return x||a.length-b.length;}).slice(0,5);
+}
+function _lrSetPeriod(store,start,end){
+  document.getElementById("lrStore").value=store||"";
+  document.getElementById("lrStart").value=start||"";
+  document.getElementById("lrEnd").value=end||"";
+  var sel=document.getElementById("lrPopupSel");if(sel)sel.value="";
+  lrDB.band=null;lrSave();lrRenderSummary();lrAutoFillSales();
+}
+function lrPickPopupRange(list){
+  var ps=list.map(function(i){return popupDB[i];}).filter(Boolean);if(!ps.length)return;
+  var st=ps.map(function(p){return p.start;}).sort()[0],en=ps.map(function(p){return p.end||p.start;}).sort().pop();
+  _lrSetPeriod(ps[0].store,st,en);
+}
+function lrMergePopup(i){
+  var p=popupDB[i];if(!p)return;
+  var cs=(document.getElementById("lrStart")||{}).value,ce=(document.getElementById("lrEnd")||{}).value,cst=((document.getElementById("lrStore")||{}).value||"").trim();
+  if(!cs||!ce){lrPickPopup(i);return;}
+  if(cst&&_lrPopNorm(cst)!==_lrPopNorm(p.store)&&!confirm("지금 품의서 매장은 '"+cst+"'인데 '"+p.store+"' 팝업 기간을 이어 붙일까요?"))return;
+  _lrSetPeriod(cst||p.store,[cs,p.start].sort()[0],[ce,p.end||p.start].sort().pop());
 }
 function lrPickPopup(i){
   var sel=document.getElementById("lrPopupSel");if(!sel)return;
   sel.value=String(i);
-  var q=document.getElementById("lrPopupQ");if(q)q.value="";
-  var box=document.getElementById("lrPopupHits");if(box)box.innerHTML="";
-  lrLoadFromPopup();
+  lrLoadFromPopup();   /* 검색 목록은 남겨 둔다 — 이어서 '+ 이어 붙이기'를 누를 수 있게(2026-10-07) */
 }
 function lrLoadFromPopup(){
   var sel=document.getElementById("lrPopupSel");
