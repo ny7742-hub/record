@@ -2304,7 +2304,8 @@ label{font-size:14px!important}
         <label>총매출(원)</label>
         <div style="display:flex;gap:6px">
           <input id="lrSales" type="text" inputmode="numeric" oninput="fmtTargetInput(this);lrSave()" style="flex:1">
-          <button class="bs" onclick="lrAutoFillSales()" title="매장별 일별매출에서 다시 가져오기" style="padding:0 12px">🔄</button>
+          <button class="bs" onclick="lrAutoFillSales()" title="매장별 일별매출·판매일보에서 다시 가져오기" style="padding:0 12px">🔄</button>
+          <label class="bs" title="이 매장 판매일보(PlayMD 매장판매일보 엑셀)를 올려 판매수량·할인율을 채웁니다 — 파일에 든 매장만 바꿉니다" style="padding:0 10px;display:inline-flex;align-items:center;cursor:pointer;white-space:nowrap">📤 판매일보<input type="file" accept=".xlsx,.xls" style="display:none" onchange="lrSalesFile(this)"></label>
         </div>
       </div>
       <div class="fg"><label>총판매수량(개) — 판매일보 기준, 증정(0원) 제외</label><input id="lrQty" type="text" inputmode="numeric" oninput="fmtTargetInput(this);lrSave();lrRenderSummary()"></div>
@@ -5891,7 +5892,8 @@ function _ssSave(ym){
   if(_authState!=="member"&&_authState!=="open")return;
   try{fbDB.ref("ws/storeSales/"+ym).set(JSON.stringify(storeSalesDB[ym]));}catch(e){console.warn("매장판매 저장 오류",e);}
 }
-function _ssIngest(rows){
+/* opt.onlyStores — 파일에 든 매장만 바꾼다(한 매장만 뽑은 판매일보: 로스 품의서 📤, 2026-10-07). 없으면 같은 채널 매장의 그 날짜를 통째로 바꾼다 */
+function _ssIngest(rows,opt){
   var hRow=-1,H=null;
   for(var r=0;r<Math.min(10,rows.length);r++){
     var h=(rows[r]||[]).map(function(c){return String(c).replace(/\s/g,"");});
@@ -5938,6 +5940,7 @@ function _ssIngest(rows){
     Object.keys(cur.stores||{}).forEach(function(sc){
       var st=cur.stores[sc];
       if(!files[st.ch])return;
+      if(opt&&opt.onlyStores&&!M.stores[sc])return;
       Object.keys(M.days).forEach(function(d){delete st.d[d];if(st.lb2)delete st.lb2[d];if(st.lb)delete st.lb[d];});
       if(!Object.keys(st.d).length)delete cur.stores[sc];
     });
@@ -7689,6 +7692,26 @@ function _lrSoldFromSS(store,start,end){
   }
   out.sold=out.n0+out.n1+out.n15+out.unk;
   return out;
+}
+/* 📤 판매일보 — 자비스에 없는 기간(예: 9월 전 팝업)의 매장판매일보를 여기서 올린다(2026-10-07 영업2팀).
+   파일에 든 매장의 그 날짜만 팀 자료(storeSales)에 넣고(_ssIngest onlyStores), 판매수량·공제를 다시 센다 */
+function lrSalesFile(input){
+  var file=input.files&&input.files[0];if(!file)return;
+  var msg=document.getElementById("lrSalesMsg");
+  if(msg){msg.textContent="⏳ 판매일보 읽는 중…";msg.style.color="#1d4ed8";}
+  var rd=new FileReader();
+  rd.onload=function(e){setTimeout(function(){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+      var r=_ssIngest(rows,{onlyStores:true});
+      if(!r){alert("매장판매일보 형식이 아닙니다(판매일자·매장코드·상품코드·판매수량 열이 필요합니다).");if(msg)msg.textContent="";return;}
+      if(!r.stores){alert("백화점·팩토리 매장 줄이 없습니다.");if(msg)msg.textContent="";return;}
+      lrAutoFillSales();
+    }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
+  },30);};
+  rd.readAsArrayBuffer(file);
+  input.value="";
 }
 function lrAutoFillSales(){
   var msg=document.getElementById("lrSalesMsg");
