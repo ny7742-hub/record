@@ -1372,7 +1372,7 @@ label{font-size:14px!important}
         <!-- 창고간이동(2026-10-07 영업2팀) — OneDrive 날짜 폴더의 'MMDD 창고간이동.xlsx'·'창고간이동(화이트샌즈/블랙샌즈).xlsx'
              → PlayMD [EX]창고입고반품이동등록 [M] 창고간이동(automation/playmd-move.mjs). 받는 곳 이름 → 창고코드는 automation/warehouse-codes.json -->
         <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid #cfe0e5;border-radius:8px;padding:7px 8px">
-          <button class="bs" id="saipAutoMv" onclick="saipAutoGo('mv')" title="OneDrive 판매자료 날짜 폴더의 창고간이동 파일(화이트샌즈·블랙샌즈) → PlayMD 창고간이동 (기본 전 영업일)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border-color:#1b6e82">🏭 창고간이동 등록</button>
+          <button class="bs" id="saipAutoMv" onclick="saipAutoGo('mv')" title="OneDrive 판매자료 날짜 폴더의 창고간이동 파일(화이트샌즈·블랙샌즈) → PlayMD 창고간이동 (기본 오늘)" style="font-size:13px;font-weight:700;padding:7px 10px;background:#1b6e82;color:#fff;border-color:#1b6e82">🏭 창고간이동 등록</button>
           <input type="date" id="saipDate_mv" onchange="_saipTouched.mv=true;renderSaipAuto()" aria-label="🏭 창고간이동 등록 날짜" style="width:100%;box-sizing:border-box;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
           <button class="bs" onclick="saipPreviewGo('mv')" title="저장하지 않고 등록될 줄만 먼저 봅니다" style="font-size:12.5px;font-weight:700;padding:4px 8px;background:#fff;color:#1b6e82;border:1px dashed #1b6e82">🔍 미리보기</button>
           <span id="saipNote_mv" style="font-size:11.5px;color:#5b6675;line-height:1.4"></span>
@@ -18263,7 +18263,8 @@ function _saipFmtAt(iso){
 /* 버튼마다 날짜 칸이 따로 있다(saipDate_hs/ds/cc/xc). 직접 고른 칸은 그대로 두고, 안 고른 칸은 날이 바뀌면 기본값으로 */
 var _saipTouched={hs:false,ds:false,cc:false,mv:false,xc:false};
 function _saipDateEl(kind){return document.getElementById("saipDate_"+kind);}
-function _saipDefaultDate(kind){return kind==="cc"?_saipYmd(new Date()):_saipPrevBizDay();}
+/* 코스트코·창고간이동은 오늘(창고간이동: 2026-10-07 영업2팀 "금일 날짜 것으로"), 나머지는 전 영업일 */
+function _saipDefaultDate(kind){return kind==="cc"||kind==="mv"?_saipYmd(new Date()):_saipPrevBizDay();}
 /* 🔍 미리보기 — 자동화 PC가 저장만 빼고 다 한다(원본 받기 → 변환 → 플레이엠디 불러오기 → 중복 조회).
    결과 카드에 등록될 줄이 나오고, 문제가 없으면 '✅ 이대로 등록'으로 저장한다(2026-09-30 영업2팀). 등록 기록은 남기지 않는다. */
 function saipPreviewGo(kind){
@@ -18494,7 +18495,7 @@ function renderSaipAuto(){
     if(dd.getDay()===0||dd.getDay()===6)warn.push("주말");
     else if(_saipIsHoliday(dd))warn.push("법정휴무일");
     var src=k==="cc"?"하이웍스 메일 ("+mm+")":"OneDrive 폴더 "+mm+(k==="xc"?" · 발송후취소":k==="mv"?" · 창고간이동":"");
-    var def=k==="cc"?"기본 오늘":"기본 전 영업일";
+    var def=k==="cc"||k==="mv"?"기본 오늘":"기본 전 영업일";
     note.innerHTML=src+" · "+(_saipTouched[k]?"직접 고름":def)+(warn.length?' <span style="color:#b45309;font-weight:700">· '+warn.join(" · ")+'</span>':'');
     /* 등록할 건 — 날짜를 누르면 그 날짜로 바뀐다 */
     var rd=_saipReadyOf(k),er=((saipReady||{}).err||{})[k],tile=note.parentElement;
