@@ -17382,7 +17382,10 @@ function _retCard(kind){
     var who=_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="preview"?"미리보기":"등록";
     if(active){
       if(R.state==="요청")h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' 요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음 — 켜지면 처리됩니다</span>')+'</div>';
-      else h+='<div style="color:#1d4ed8;font-weight:700">⏳ 자동화 PC에서 '+what+' 중… ('+who+' · 1~3분)</div>';
+      else h+='<div style="color:#1d4ed8;font-weight:700">⏳ 자동화 PC에서 '+what+' 중… ('+who+')</div>';
+      h+=_saipProgBar(kind,R);
+      if(R.state==="처리중"&&R.progress)h+='<div style="color:#475569;font-size:13px;padding-left:18px">▸ '+_escX(R.progress)+'</div>';
+      if(R.state==="처리중"&&R.progressErr&&R.progressErr.length)h+=R.progressErr.map(function(e){return '<div style="color:#b91c1c;font-size:13px;padding-left:18px">'+_escX(e)+'</div>';}).join("");
     }else if(R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<24*3600*1000){
       h+='<div style="color:#b91c1c;font-weight:700">❗ '+what+' 요청('+who+')이 실패로 끝났습니다'+(R.error?' — '+_escX(R.error):'')+'</div>';
     }else if(R.state==="요청"||R.state==="처리중"){
@@ -17486,7 +17489,8 @@ function renderRetAuto(){
     if(MV)note.innerHTML+='<br><b style="color:#6d28d9">불량 창고간이동 대기 '+MV+'건</b> (반품은 등록됨 — 누르면 창고간이동만 합니다)';
     if(LF)note.innerHTML+='<br><b style="color:#6d28d9">시트 정리 대기 '+LF+'건</b> (반품은 등록됨 — 누르면 온라인(완료)로 옮깁니다)';
   });
-  box.innerHTML=_retCard("hr")+_retCard("cr")+_retOnCard()+'<div></div>';   /* 온라인(준비 중) · 미출고 반영 칸 자리 맞춤 */
+  box.innerHTML=_retCard("hr")+_retCard("cr")+_retOnCard()+'<div></div>';
+  if(typeof _saipProgTick==="function")_saipProgTick();   /* 온라인(준비 중) · 미출고 반영 칸 자리 맞춤 */
 }
 /* ── 코스트코 발주 탭 — 온라인 주문 내역을 사입출고양식으로 변환. 개인정보(수령인/연락처/주소 등)는 읽지도 저장하지도 않음.
    세션 메모리에만 두고(새로고침하면 사라짐) 원본 등록은 하지 않음 ── */
@@ -18365,14 +18369,17 @@ var SAIP_STAGES={
     ["저장",/저장 알림/,1],["저장 확인",/매장출고반품현황 확인/,1],["마무리",/^(자비스에 결과 알림|끝$)/]],
   dss:[["DSS 송장 — 회신 메일",/^DSS 송장: 도매발주서:/],["DSS 송장 — 첫 번째 아이디",/^DSS 송장: (\[ckr\.5834231\]|✖ 1번 창)/],["DSS 송장 — 두 번째 아이디",/^DSS 송장: (합계|✖ 2번 창|끝$)/]],
   mv:[["시작",/^===/],["파일 찾기",/^\d{4}: /],["창고코드 맞추기",/줄\(합침\)/],["이미 옮긴 것 확인",/창고간이동현황 \d+: |이미 모두 있음/],["플레이엠디 불러오기",/창고입고반품이동등록: 불러온/],
-    ["저장",/저장 알림/,1],["저장 확인",/창고간이동현황 확인|창고간이동현황과 다름/,1],["마무리",/^(자비스에 결과 알림|끝$)/]]
+    ["저장",/저장 알림/,1],["저장 확인",/창고간이동현황 확인|창고간이동현황과 다름/,1],["마무리",/^(자비스에 결과 알림|끝$)/]],
+  /* 반품등록(2026-10-07) — 플레이엠디 매장출고반품현황 조회(이미 있는지)가 30~40초로 가장 길다. 불량은 저장 뒤 창고간이동, 이어 시트 정리 */
+  ret:[["시작",/^===/],["반품리스트 읽기",/^반품리스트 /],["플레이엠디에 이미 있는지 확인",/^사입반품양식:/],["플레이엠디 불러오기",/^플레이엠디: 불러온/],
+    ["저장",/^저장 알림/,1],["저장 확인",/^(매장출고반품현황 확인|팀 공유 등록 기록|⚠ 저장 결과를)/,1],["불량 창고간이동·시트 정리",/^(시트 정리|자비스에 결과 알림)/],["마무리",/^(자비스에 결과 알림|끝)/]]
 };
-var SAIP_TYP={hs:"보통 1~3분",ds:"보통 1~3분",xc:"보통 1분",mv:"보통 1~3분",cc:"매출 2분 + DSS 송장 3~5분"};
+var SAIP_TYP={hr:"보통 2~4분",cr:"보통 2~4분",hs:"보통 1~3분",ds:"보통 1~3분",xc:"보통 1분",mv:"보통 1~3분",cc:"매출 2분 + DSS 송장 3~5분"};
 var _saipProgMax={};
 function _saipProgBar(kind,R){
   if(!_saipReqActive(R))return "";
   var pv=R.mode==="preview",dssOnly=kind==="cc"&&R.mode==="dss";
-  var list=(dssOnly?[]:(kind==="mv"?SAIP_STAGES.mv:SAIP_STAGES.sale)).concat(kind==="cc"?SAIP_STAGES.dss:[]).filter(function(s){return !(pv&&s[2]);});
+  var list=(dssOnly?[]:(kind==="mv"?SAIP_STAGES.mv:kind==="hr"||kind==="cr"?SAIP_STAGES.ret:SAIP_STAGES.sale)).concat(kind==="cc"?SAIP_STAGES.dss:[]).filter(function(s){return !(pv&&s[2]);});
   var key=R.id||kind,n=_saipProgMax[key]||0;
   list.forEach(function(s,i){if(R.progress&&s[1].test(R.progress)&&i+1>n)n=i+1;});
   _saipProgMax[key]=n;
@@ -18386,8 +18393,8 @@ function _saipProgBar(kind,R){
 }
 var _saipProgTimer=null;
 function _saipProgTick(){
-  var on=function(){var q=saipReq||{};return ["hs","ds","cc","mv","xc"].some(function(k){return _saipReqActive(q[k]);});};
-  if(on()&&!_saipProgTimer)_saipProgTimer=setInterval(function(){if(!on()){clearInterval(_saipProgTimer);_saipProgTimer=null;}try{renderSaipAuto();}catch(e){}},10000);
+  var on=function(){var q=saipReq||{};return ["hs","ds","cc","mv","xc","hr","cr"].some(function(k){return _saipReqActive(q[k]);});};
+  if(on()&&!_saipProgTimer)_saipProgTimer=setInterval(function(){if(!on()){clearInterval(_saipProgTimer);_saipProgTimer=null;}try{renderSaipAuto();}catch(e){}try{renderRetAuto();}catch(e){}},10000);
 }
 function _saipCard(kind){
   var K=SAIP_KINDS[kind],S=_saipStatusOf(kind),R=(saipReq||{})[kind];
