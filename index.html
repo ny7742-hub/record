@@ -17791,10 +17791,12 @@ function _hsCodeNormChannel(s){
 /* DEFAULT_DATA(판매일보 상품데이터)에서 쓰이는 컬러명 전체 목록(긴 이름부터) — 주문 상품명 끝에 붙은 컬러 텍스트를 잘라내는 데 사용 */
 var _hsColorNamesCache=null;
 function _hsColorNames(){
-  if(_hsColorNamesCache)return _hsColorNamesCache;
+  var src=_hsProdRows();   /* 최신 상품데이터의 칼라명도(2026-10-08 — 새 상품 색 '딥그린' 등) */
+  if(_hsColorNamesCache&&_hsColorNamesCache.src===src)return _hsColorNamesCache;
   var set={};
-  (typeof DEFAULT_DATA!=="undefined"?DEFAULT_DATA:[]).forEach(function(row){if(row&&row[4])set[row[4]]=true;});
+  src.concat(typeof DEFAULT_DATA!=="undefined"&&src!==DEFAULT_DATA?DEFAULT_DATA:[]).forEach(function(row){if(row&&row[4])set[row[4]]=true;});
   _hsColorNamesCache=Object.keys(set).sort(function(a,b){return b.length-a.length;});
+  _hsColorNamesCache.src=src;
   return _hsColorNamesCache;
 }
 /* 주문 상품명에서 [기본상품명]과 [컬러명]을 분리.
@@ -17841,9 +17843,10 @@ function _hsOrderWords(base){
    서로 다른 상품끼리 오매칭을 일으키므로 ambiguous로 표시해 매칭에서 제외한다. */
 var _hsDefaultDataModelsCache=null;
 function _hsDefaultDataModels(){
-  if(_hsDefaultDataModelsCache)return _hsDefaultDataModelsCache;
+  var src=_hsProdRows();
+  if(_hsDefaultDataModelsCache&&_hsDefaultDataModelsCache.src===src)return _hsDefaultDataModelsCache;   /* 상품데이터가 바뀌면 다시 만든다 */
   var seen={},out=[];
-  (typeof DEFAULT_DATA!=="undefined"?DEFAULT_DATA:[]).forEach(function(row){
+  src.forEach(function(row){
     if(!row||!row[1]||!row[2])return;
     var key=row[1]+"|"+row[2];
     if(seen[key])return;
@@ -17858,14 +17861,15 @@ function _hsDefaultDataModels(){
   out.forEach(function(o){
     o.ambiguous=o.model?Object.keys(modelProdSet[o.model]).length>1:true;
   });
+  out.src=src;
   _hsDefaultDataModelsCache=out;
   return out;
 }
 /* 상품코드(base)+컬러명으로 DEFAULT_DATA에서 정확한 상품컬러사이즈코드를 찾음 */
 function _hsResolveColorCode(baseProdCode,colorName){
-  if(!baseProdCode||typeof DEFAULT_DATA==="undefined")return "";
+  if(!baseProdCode)return "";
   var nColor=String(colorName||"").replace(/\s/g,"");
-  var candidates=DEFAULT_DATA.filter(function(row){return row&&row[1]===baseProdCode;});
+  var candidates=_hsProdRows().filter(function(row){return row&&row[1]===baseProdCode;});
   if(!candidates.length)return "";
   var exact=candidates.find(function(row){return String(row[4]||"").replace(/\s/g,"")===nColor;});
   if(exact)return exact[7]||"";
@@ -17884,9 +17888,20 @@ function _hsResolveColorCode(baseProdCode,colorName){
   return "";
 }
 /* 판매일보 상품데이터에서 모델명(단어 단위 매칭)+컬러명으로 폴백 매칭 */
+/* 상품데이터 = 최신 업로드(RAW, 상품코드리스트) — 없으면 내장 DEFAULT_DATA. 예전엔 내장만 봐서 새 상품(예: 26 코스트코 850 장우산 GLM104Z9Z)을
+   못 찾아 코스트코 반품등록이 '상품컬러코드 없음'으로 멈췄다(2026-10-08) */
+function _hsProdRows(){return (typeof RAW!=="undefined"&&RAW&&RAW.length)?RAW:(typeof DEFAULT_DATA!=="undefined"?DEFAULT_DATA:[]);}
 function _hsFindMatchFromDefaultData(prod){
-  if(typeof DEFAULT_DATA==="undefined")return null;
+  var rows=_hsProdRows();if(!rows.length)return null;
   var split=_hsSplitOrderProdName(prod);
+  /* 상품명이 통째로 같으면(대괄호 머리·띄어쓰기·대소문자 무시) 그 상품 — 영문 상품명(WHITE SANDS 850 UV Protection Parasol)처럼 모델명이 없는 경우 */
+  var nn=function(x){return String(x||"").replace(/^\s*[\[(【][^\]})】]*[\]})】]\s*/,"").replace(/\s+/g,"").toLowerCase();};
+  var nb=nn(split.base);
+  if(nb.length>=6){
+    var full={};rows.forEach(function(row){if(row&&row[1]&&nn(row[2])===nb)full[row[1]]=1;});
+    var fk=Object.keys(full);
+    if(fk.length===1){var cc0=_hsResolveColorCode(fk[0],split.color);if(cc0)return {colorCode:cc0,prodCode:fk[0],colorName:split.color};}
+  }
   var words=_hsOrderWords(split.base);
   var models=_hsDefaultDataModels();
   var cands=models.filter(function(m){return m.model&&m.model.length>=2&&!m.ambiguous&&words.indexOf(m.model)>=0;});

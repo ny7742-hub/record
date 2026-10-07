@@ -8,6 +8,10 @@
 - **진행 막대**(2026-10-07 영업2팀): 카드(`_retCard`, 자동화 탭 포함)에 사입출고와 같은 `_saipProgBar` + `▸ 지금 단계`·오류 줄.
   단계는 `SAIP_STAGES.ret` — 시작 · 반품리스트 읽기 · 플레이엠디에 이미 있는지 확인(30~40초, 가장 김) · 불러오기 · 저장 · 저장 확인 · 불량 창고간이동·시트 정리 · 마무리
   (`playmd-return.mjs` 로그 문구에 맞춘 정규식 — 문구를 바꾸면 같이 고칠 것). 저장 두 단계는 미리보기에서 뺀다.
+- **상품 맞추기는 최신 상품데이터로**(2026-10-08): `_hsFindMatchFromDefaultData`·`_hsResolveColorCode`·`_hsColorNames`가 내장 `DEFAULT_DATA`가 아니라
+  `_hsProdRows()`(팀 공유 상품코드리스트 `RAW`, 없으면 내장)를 본다. 상품명이 통째로 같으면(대괄호 머리·띄어쓰기·대소문자 무시) 그 상품으로 —
+  영문 이름 `WHITE SANDS 850 UV Protection Parasol 블랙` → `GLM104Z9ZBKX`(내장 목록에 없던 새 상품이라 10/8 등록이 '상품컬러코드 없음'으로 멈췄다).
+  `playmd-return.mjs`는 공유본 상품코드(앞·가운데·끝)가 화면 `RAW`에 들어올 때까지 30초까지 기다린 뒤 맞춘다.
 - **등록할 줄 = 1단계 불러오기와 같은 규칙**(`_retCollect`): 홈쇼핑 탭은 `_hsrSheetKeep` → `_hsrMapRows`, 온라인 탭은 `_ccrMapRow`(코스트코만) → `_ccrMatchRow`,
   그중 처리완료 + 입고일·처리일·해체일. 표(`hsrRows`/`ccrRows`)·공유본은 건드리지 않는다.
   1단계·붙여넣기도 이 함수들을 쓴다(떼어낸 것일 뿐 규칙은 그대로).
