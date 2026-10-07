@@ -3017,6 +3017,8 @@ function fbListen(){
     storeSalesDB=o;
     try{localStorage.setItem("storeSalesDB",JSON.stringify(o));}catch(e){}
     var pg=document.getElementById("page-dept");if(pg&&pg.style.display!=="none")renderDeptAllStores();
+    /* 판매일보가 늦게 들어와도 로스 품의서 자동 공제가 다시 셈하게 */
+    if(typeof lrRenderSummary==="function"&&typeof lrDB!=="undefined"&&lrDB&&!lrDB.band){try{lrRenderSummary();}catch(e){}}
   });
   /* 홈쇼핑몰 재고확인 완료 체크 (팀 공유) */
   apply("ws/hsStockMarks","hsStockMarks",
@@ -7989,6 +7991,16 @@ function _lrCalc(sumQty,sumAmt){
   return {sold:sold,auto:auto,noBand:auto&&!B,desc:desc,free:free,used:used,avg:Math.round(avg),cut:cut,after:Math.max(0,la-cut),lq:lq,la:la};
 }
 function lrRenderSummary(){
+  /* 자동 공제인데 판매일보 구간이 아직 없으면(🔄을 안 눌렀거나, 판매일보가 나중에 들어옴) 조용히 다시 센다 — 판매수량 칸이 비어 있을 때만 채운다(2026-10-07) */
+  var _rv=(document.getElementById("lrRate")||{}).value||lrDB.rate||"auto";
+  if(_rv==="auto"&&!lrDB.band&&lrDB.store&&lrDB.start&&lrDB.end&&typeof _lrSoldFromSS==="function"){
+    var _ss=_lrSoldFromSS(lrDB.store,lrDB.start,lrDB.end);
+    if(_ss.found){
+      lrDB.band={v:2,n0:_ss.n0,n1:_ss.n1,n15:_ss.n15,gift:_ss.gift,unk:_ss.unk,est:_ss.est,stores:Object.keys(_ss.stores)};
+      var _qe=document.getElementById("lrQty");if(_qe&&!String(_qe.value||"").trim())_qe.value=_ss.sold.toLocaleString();
+      lrSave();
+    }
+  }
   var sumQty=0,sumAmt=0;
   lrDB.rows.forEach(function(r){sumQty+=Number(r.qty)||0;sumAmt+=_lrAmt(r);});
   var start=document.getElementById("lrStart").value,end=document.getElementById("lrEnd").value;
