@@ -7941,8 +7941,10 @@ function _lrCalc(sumQty,sumAmt){
   var lq=Math.abs(sumQty),la=Math.abs(sumAmt),B=lrDB.band,free,desc,auto=rv==="auto";
   if(auto){
     var n1=B?Math.max(0,(B.n0||0)+B.n1):0,n15=B?Math.max(0,B.n15):0;
-    free=B?Math.floor(n1*0.01+n15*0.015+1e-9):0;
-    desc=B?"할인 30% 이하(정상가 포함) "+n1.toLocaleString()+"개 × 1% + 31% 이상 "+n15.toLocaleString()+"개 × 1.5%":"판매일보 할인율 없음";
+    /* 1%·1.5% 둘 다 있으면 소수점째 더한 뒤 버린다(2026-10-07 영업2팀) — 문구에도 소수를 보인다 */
+    var p1=Math.round(n1*0.01*1000)/1000,p15=Math.round(n15*0.015*1000)/1000,ps=Math.round((p1+p15)*1000)/1000;
+    free=B?Math.floor(ps+1e-9):0;
+    desc=B?"할인 30% 이하(정상가 포함) "+n1.toLocaleString()+"개 × 1% = "+p1+"개 + 31% 이상 "+n15.toLocaleString()+"개 × 1.5% = "+p15+"개, 합 "+ps+"개(소수점 버림)":"판매일보 할인율 없음";
   }else{
     var rate=Number(rv)||1.5;
     free=Math.floor(sold*rate/100+1e-9);
