@@ -2323,7 +2323,7 @@ label{font-size:14px!important}
         <button class="bs" onclick="lrAddRow()">+ 행 추가</button>
       </div>
     </div>
-    <div style="font-size:12px;color:#5b6675;margin-top:4px">📋 엑셀에서 여러 칸을 복사해 표의 칸을 누르고 <b>Ctrl+V</b> — 상품명 · 색상 · 수량 · TAG가 · 할인율 순서(머리줄을 같이 복사하면 열 이름대로)</div>
+    <div style="font-size:12px;color:#5b6675;margin-top:4px">📋 엑셀에서 여러 칸을 복사해 표의 칸을 누르고 <b>Ctrl+V</b> — 상품명 · 색상 · 수량 · TAG가 · 할인율 · 로스금액 순서(머리줄을 같이 복사하면 열 이름대로). <b>로스금액만 적어도 할인율이 자동으로 계산</b>됩니다.</div>
     <table style="margin-top:10px">
       <thead><tr><th style="width:34px">NO</th><th>상품명</th><th style="width:100px">색상</th><th style="width:80px;text-align:right">수량</th><th style="width:100px;text-align:right">TAG가</th><th style="width:76px;text-align:right">할인율(%)</th><th style="width:110px;text-align:right">로스금액</th><th style="width:34px"></th></tr></thead>
       <tbody id="lrRows" onpaste="lrPaste(event)"></tbody>
@@ -7771,24 +7771,27 @@ function _lrHeaderOf(row){
   H.qty=_ocCol(row,["수량","로스수량","조정수량","재고수량"]);
   H.tag=_ocCol(row,["TAG가","택가","TAG가격","단가","판매가"]);
   H.disc=_ocCol(row,["할인율","할인율(%)","할인"]);
+  H.amt=_ocCol(row,["로스금액","로스금액(원)","금액"]);
   H.store=_ocCol(row,["매장명"]);
   return H;
 }
 function _lrRowFrom(row,H){
   var g=function(c){return c>=0?String(row[c]==null?"":row[c]).trim():"";};
-  return {name:g(H.name),color:g(H.color),qty:g(H.qty).replace(/,/g,""),tag:g(H.tag).replace(/[,원]/g,""),disc:g(H.disc).replace(/[%\s]/g,"")};
+  var o={name:g(H.name),color:g(H.color),qty:g(H.qty).replace(/,/g,""),tag:g(H.tag).replace(/[,원]/g,""),disc:g(H.disc).replace(/[%\s]/g,"")};
+  var am=g(H.amt).replace(/[,원\s]/g,"");if(am!==""&&!o.disc)o.amtIn=am;   /* 할인율 칸이 비고 로스금액만 있으면 금액으로 할인율을 센다 */
+  return o;
 }
 /* 붙여넣기(2026-10-07 영업2팀) — 엑셀·구글시트에서 여러 칸을 복사해 표의 아무 칸에 Ctrl+V.
    머리줄(상품명…)이 있으면 그 열 이름대로, 없으면 붙여넣은 칸부터 오른쪽으로 상품명 · 색상 · 수량 · TAG가 · 할인율 순서.
    붙여넣은 줄부터 아래로 덮어쓰고 모자라면 줄을 늘린다. 한 칸짜리는 보통 붙여넣기 그대로 */
-var LR_COLS=["name","color","qty","tag","disc"],LR_COL_ID={Name:0,Color:1,Qty:2,Tag:3,Disc:4};
+var LR_COLS=["name","color","qty","tag","disc","amtIn"],LR_COL_ID={Name:0,Color:1,Qty:2,Tag:3,Disc:4,Amt:5};
 function lrPaste(e){
   var cd=e.clipboardData||window.clipboardData;if(!cd)return;
   var t=String(cd.getData("text")||"").replace(/\r/g,"").replace(/\n+$/,"");
   if(t.indexOf("\t")<0&&t.indexOf("\n")<0)return;
   e.preventDefault();
   var aoa=t.split("\n").map(function(l){return l.split("\t");});
-  var m=/^lr(Name|Color|Qty|Tag|Disc)_(\d+)$/.exec((e.target&&e.target.id)||"");
+  var m=/^lr(Name|Color|Qty|Tag|Disc|Amt)_(\d+)$/.exec((e.target&&e.target.id)||"");
   var r0=m?+m[2]:lrDB.rows.filter(function(r){return r.name;}).length,c0=m?LR_COL_ID[m[1]]:0;
   var H=_lrHeaderOf(aoa[0]),list=[];
   if(H)aoa.slice(1).forEach(function(row){var o=_lrRowFrom(row,H);if(o.name&&!/^합계/.test(o.name))list.push(o);});
@@ -7800,6 +7803,7 @@ function lrPaste(e){
     if(o.qty!=null)o.qty=o.qty.replace(/,/g,"");
     if(o.tag!=null)o.tag=o.tag.replace(/[,원]/g,"");
     if(o.disc!=null)o.disc=o.disc.replace(/[%\s]/g,"");
+    if(o.amtIn!=null){o.amtIn=o.amtIn.replace(/[,원\s]/g,"");if(o.amtIn==="")delete o.amtIn;}
     list.push(o);
   });
   if(!list.length)return;
@@ -7810,9 +7814,11 @@ function lrPaste(e){
     var r=lrDB.rows[k];
     Object.keys(o).forEach(function(f){r[f]=o[f];});
     if(o.tag!=null&&o.tag!=="")delete r.tagAuto;
+    if(o.disc!=null&&o.disc!==""&&o.amtIn==null)delete r.amtIn;   /* 할인율을 붙여넣었으면 그 값대로 */
+    _lrSyncDisc(r);
     touched.push(k);
   });
-  touched.forEach(function(k){if(lrDB.rows[k].name)lrMatchRow(k,true,true);});   /* 상품데이터로 정식 이름·색·TAG가 채움(붙여넣은 TAG가는 그대로) */
+  touched.forEach(function(k){if(lrDB.rows[k].name)lrMatchRow(k,true,true);_lrSyncDisc(lrDB.rows[k]);});   /* 상품데이터로 정식 이름·색·TAG가 채움(붙여넣은 TAG가는 그대로) */
   lrSave();lrRenderRows();lrRenderSummary();
   var msg=document.getElementById("lrUploadMsg");
   if(msg){msg.textContent="✔ "+list.length+"줄 붙여넣음";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},3000);}
@@ -7847,7 +7853,7 @@ function lrLoadFile(input){
       }else{
         lrDB.rows=newRows;
       }
-      lrDB.rows.forEach(function(r,k){lrMatchRow(k,true,true);});   /* 엑셀로 불러온 줄도 상품데이터로 색·TAG가 채움 */
+      lrDB.rows.forEach(function(r,k){lrMatchRow(k,true,true);_lrSyncDisc(r);});   /* 엑셀로 불러온 줄도 상품데이터로 색·TAG가 채움 · 로스금액만 있으면 할인율 */
       lrSave();lrRenderRows();lrRenderSummary();
       var storeInput=document.getElementById("lrStore");
       if(storeFromFile&&storeInput&&!storeInput.value.trim()){
@@ -7864,11 +7870,34 @@ function lrAddRow(){lrDB.rows.push({name:"",color:"",qty:"",tag:""});lrSave();lr
 function lrDelRow(i){lrDB.rows.splice(i,1);lrSave();lrRenderRows();lrRenderSummary();}
 /* 로스금액 = 수량 × TAG가 × (1 − 할인율%) — 줄마다 원 단위 반올림(2026-10-06 영업2팀 "TAG가 옆에 할인율, 로스금액은 할인 들어간 금액") */
 function _lrDisc(r){var v=Number(String(r&&r.disc!=null?r.disc:"").replace(/[^0-9.]/g,""))||0;return Math.min(100,Math.max(0,v));}
-function _lrAmt(r){return Math.round((Number(r.qty)||0)*(Number(r.tag)||0)*(1-_lrDisc(r)/100));}
+/* 로스금액을 직접 적으면(r.amtIn, 2026-10-07 영업2팀 "로스금액만 적어도 할인율이 자동으로") 그 금액을 그대로 쓰고
+   할인율 = 1 − 금액 ÷ (수량 × TAG가)를 소수 셋째 자리까지 채운다(예: 1개 49,000원 → 10,000원 = 79.592%).
+   할인율을 직접 고치면 적은 금액은 지우고 예전처럼 수량 × TAG가 × (1 − 할인율)로 센다. 수량 −면 금액도 − */
+function _lrAmtNum(v){return Number(String(v==null?"":v).replace(/[^0-9.\-]/g,""))||0;}
+function _lrAmt(r){
+  if(r.amtIn!=null&&r.amtIn!==""){var a=Math.abs(_lrAmtNum(r.amtIn));return (Number(r.qty)||0)<0?-a:a;}
+  return Math.round((Number(r.qty)||0)*(Number(r.tag)||0)*(1-_lrDisc(r)/100));
+}
+function _lrSyncDisc(r){
+  if(!r||r.amtIn==null||r.amtIn==="")return;
+  var a=Math.abs(_lrAmtNum(r.amtIn)),q=Math.abs(Number(r.qty)||0),t=_lrAmtNum(r.tag);
+  if(!q||!t)return;
+  var d=Math.round((1-a/(q*t))*100000)/1000;
+  r.disc=String(Math.min(100,Math.max(0,d)));
+}
+/* 금액·할인율 칸만 다시 칠한다(지금 치고 있는 칸은 건드리지 않음) */
+function _lrPaintAmt(i){
+  var r=lrDB.rows[i];if(!r)return;
+  var a=document.getElementById("lrAmt_"+i),d=document.getElementById("lrDisc_"+i);
+  if(a&&document.activeElement!==a){var v=_lrAmt(r);a.value=v||r.amtIn?v.toLocaleString():"";a.style.background=r.amtIn?"#fffbeb":"";}
+  if(d&&document.activeElement!==d)d.value=r.disc||"";
+}
 function lrEditRow(i,field,val){
-  lrDB.rows[i][field]=val;lrSave();lrRenderSummary();
-  var td=document.getElementById("lrAmt_"+i);
-  if(td){var r=lrDB.rows[i];var amt=_lrAmt(r);td.textContent=amt.toLocaleString()+"원";}
+  var r=lrDB.rows[i];if(!r)return;
+  if(field==="amt"){var c=String(val).replace(/[,원\s]/g,"");if(c==="")delete r.amtIn;else r.amtIn=c;}
+  else{r[field]=val;if(field==="disc")delete r.amtIn;}
+  _lrSyncDisc(r);
+  lrSave();lrRenderSummary();_lrPaintAmt(i);
 }
 /* ── 로스 품의서 상품 검색 (2026-09-23 영업2팀) ──
    상품명 칸에 일부만 쳐도 상품데이터(DB) 상품명이 목록으로 뜨고, 고르면 색상 목록·TAG가를 채운다.
@@ -7938,8 +7967,7 @@ function _lrPaintRow(i,o){
   if(tg)tg.value=r.tag||"";
   var dl=document.getElementById("lrColList_"+i);
   if(dl)dl.innerHTML=o&&o.name?Object.keys(o.colors).map(function(c){return '<option value="'+_esc(c)+'">';}).join(""):"";
-  var td=document.getElementById("lrAmt_"+i);
-  if(td){var amt=_lrAmt(r);td.textContent=amt.toLocaleString()+"원";}
+  _lrSyncDisc(r);_lrPaintAmt(i);
 }
 function lrRenderRows(){
   var tb=document.getElementById("lrRows");if(!tb)return;
@@ -7955,7 +7983,7 @@ function lrRenderRows(){
     h+='<td><input id="lrQty_'+i+'" value="'+_esc(r.qty||"")+'" inputmode="numeric" oninput="lrEditRow('+i+',\'qty\',this.value)" style="width:70px;text-align:right"></td>';
     h+='<td><input id="lrTag_'+i+'" value="'+_esc(r.tag||"")+'" inputmode="numeric" oninput="lrEditRow('+i+',\'tag\',this.value);delete lrDB.rows['+i+'].tagAuto" style="width:90px;text-align:right"></td>';
     h+='<td><input id="lrDisc_'+i+'" value="'+_esc(r.disc||"")+'" inputmode="decimal" placeholder="0" oninput="lrEditRow('+i+',\'disc\',this.value)" title="할인율(%) — 로스금액 = 수량 × TAG가 × (1 − 할인율)" style="width:60px;text-align:right"></td>';
-    h+='<td id="lrAmt_'+i+'" style="text-align:right;font-weight:700">'+amt.toLocaleString()+'원</td>';
+    h+='<td><input id="lrAmt_'+i+'" value="'+(amt||r.amtIn?amt.toLocaleString():"")+'" inputmode="numeric" placeholder="금액" oninput="lrEditRow('+i+',\'amt\',this.value)" onblur="_lrPaintAmt('+i+')" title="로스금액을 적으면 할인율이 자동으로 계산됩니다" style="width:100px;text-align:right;font-weight:700'+(r.amtIn?';background:#fffbeb':'')+'"></td>';
     h+='<td><button class="rb" onclick="lrDelRow('+i+')">✕</button></td>';
     h+='</tr>';
   });
