@@ -1943,6 +1943,7 @@ label{font-size:14px!important}
       <label style="font-size:11px;color:#5b6675;font-weight:600" title="이보다 적게 움직이는 건은 추천하지 않습니다 (물류비·업무 부담 대비 실익이 없음)">최소 이관수량 <input id="tfMin" type="number" min="0" max="999" value="0" style="width:52px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right">개</label>
       <label style="font-size:11px;color:#9a3412;font-weight:600" title="백화점 탭 종료일까지 남은 기간이 이보다 짧은 매장에는 재고를 보내지 않습니다. 보내도 팔 시간이 없기 때문입니다. 0을 넣으면 이 제외를 끕니다">곧 닫는 매장 제외 <input id="tfSoon" type="number" min="0" max="52" step="0.5" value="2" style="width:52px;padding:4px 6px;border:1px solid #fdba74;border-radius:6px;font-size:12px;text-align:right">주</label>
       <label style="font-size:11px;color:#5b6675;font-weight:600" title="주희물류 재고가 이보다 적으면 창고보충을 추천하지 않습니다. 0을 넣으면 이 제한이 꺼집니다">창고보충 최소재고 <input id="tfWhMin" type="number" min="0" max="9999" value="20" style="width:56px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right">개</label>
+      <label style="font-size:11px;color:#6d28d9;font-weight:700" title="상품코드리스트에 처음 생긴 지 이 주수 안의 상품은 ⭐추천 — 판매 이력이 없어도 무판매·사장재고로 보지 않고, 창고에 있는데 매장에 없으면 매장마다 '추천상품'으로 보내기를 추천합니다. 수량 0이면 보내기 추천을 끕니다">⭐ 추천상품(새 상품) 최근 <input id="tfNewWeeks" type="number" min="0" max="52" value="4" style="width:46px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right">주 · 매장당 <input id="tfNewQty" type="number" min="0" max="99" value="2" style="width:46px;padding:4px 6px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;text-align:right">개</label>
     </div>
     <div style="margin-top:9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 13px">
       <div style="font-size:11px;font-weight:700;color:#334155;margin-bottom:6px">기준값이 하는 일 <span style="font-weight:500;color:#5b6675">— 기본값은 <b>매장 발주 주 2~3회</b> 기준입니다. 발주 주기가 길어지면 목표 재고를 올리세요.</span></div>
@@ -2368,7 +2369,7 @@ var FB_PATH={
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
   "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","saipReady":"ws/saipReady",
-  "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder",
+  "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
@@ -2925,6 +2926,10 @@ function fbListen(){
     function(){if(typeof ccAutoRender==="function")ccAutoRender();}
   );
   /* 도매 발주 자동화(2026-10-02 영업2팀) — PlayMD에서 받은 주문배분현황 · 발주 메일 결과 */
+  apply("ws/prodFirstSeen","prodFirstSeen",
+    function(d){if(d&&typeof d==="object")prodFirstSeen=d;},
+    function(){}
+  );
   apply("ws/whMinOrder","whMinOrder",
     function(d){var v=parseInt(d,10);if(!isNaN(v)&&v>=0)WH_MIN_ORDER=v;},
     function(){if(typeof _whMinRerender==="function")_whMinRerender();}
@@ -3392,6 +3397,7 @@ function processFile(file){
       /* RAW도 같이 갱신 — 코스트코 발주 매칭이 RAW를 보므로, 새로고침 없이 바로 반영되게 한다 */
       RAW=_fixCostcoOnlyPrice(newData);
       DB=newData.map(function(r){var o={};COLS.forEach(function(c,ii){o[c]=r[ii];});return o;});
+      _prodFirstSeenUpdate(newData);
 
       status.textContent="✅ "+newData.length+"개 상품 업데이트 완료! (팀 전체에 공유됨)"+(fixed.changed?" (합쳐진 칼라명 자동 분리됨)":"");
       status.className="upload-status ok";
@@ -10308,6 +10314,27 @@ function whQty(sku,wh){
 /* 창고재고가 이 수량 **이하면 발주 불가**다(2026-09 영업2팀 지정 — 10개 이하는 발주 안 함).
    2026-10-02 영업2팀: 고정값이 아니라 **발주서 변환 화면에서 바꿀 수 있게** — 팀 공유(ws/whMinOrder), 기본 10 */
 var WH_MIN_ORDER=(function(){try{var v=parseInt(JSON.parse(localStorage.getItem("whMinOrder")||"10"),10);return isNaN(v)||v<0?10:v;}catch(e){return 10;}})();
+/* ── 새 상품 '처음 본 날'(2026-10-07 영업2팀, 재고이관 추천상품) ──
+   상품코드리스트가 올라올 때마다(평일 08:30 자동) 처음 보는 상품코드|칼라코드의 날짜를 팀 공유 ws/prodFirstSeen에 남긴다.
+   처음 한 번은 그때 있던 상품을 모두 'base'(신상품 아님)로 적는다 — 등록일 칸이 없어 그날부터 쌓인다.
+   여러 PC가 동시에 올려도 안 깨지게 Firebase transaction으로 읽고-고쳐-쓴다. */
+var prodFirstSeen=(function(){try{return JSON.parse(localStorage.getItem("prodFirstSeen")||"null")||{};}catch(e){return {};}})();
+function _prodFirstSeenUpdate(rows){
+  try{
+    if(typeof fbDB==="undefined"||!fbDB||!rows||!rows.length)return;
+    var keys={};rows.forEach(function(r){if(r&&r[1]&&r[3])keys[String(r[1]).trim()+"|"+String(r[3]).trim()]=1;});
+    var d=new Date(),today=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    fbDB.ref("ws/prodFirstSeen").transaction(function(cur){
+      var o={};try{o=cur?(typeof cur==="string"?JSON.parse(cur):cur):{};}catch(e){o={};}
+      var first=!Object.keys(o).length,n=0;
+      Object.keys(keys).forEach(function(k){if(!o[k]){o[k]=first?"base":today;n++;}});
+      if(!n)return;                                   /* 바뀐 게 없으면 쓰지 않음 */
+      return JSON.stringify(o);
+    },function(err,ok,snap){
+      if(!err&&ok&&snap){try{var v=snap.val();prodFirstSeen=typeof v==="string"?JSON.parse(v):v;localStorage.setItem("prodFirstSeen",JSON.stringify(prodFirstSeen));}catch(e){}}
+    });
+  }catch(e){}
+}
 function setWhMinOrder(v){
   var n=parseInt(String(v).replace(/[^0-9]/g,""),10);
   if(isNaN(n)||n<0||n>9999){alert("0 이상의 숫자를 넣어 주세요.");_whMinRerender();return;}
@@ -22635,6 +22662,29 @@ function tfAnalyze(){
     shortage[st2].sort(function(a,b){return (a.wos-b.wos)||(b.want-a.want);});
   });
 
+  /* 3-3) ⭐ 추천상품(2026-10-07 영업2팀) — 상품코드리스트에 최근 N주 안에 새로 생긴 상품(ws/prodFirstSeen).
+     판매 이력이 없어 위 계산으로는 안 나오므로, 창고에 있는데 매장에 없으면 매장마다 N개씩 보내기를 추천한다(창고 재고 안에서). */
+  var newWeeks=_tfV0("tfNewWeeks",4),newQty=_tfV0("tfNewQty",2);
+  var FS=(typeof prodFirstSeen==="object"&&prodFirstSeen)||{};
+  var newCut=_tfYmd(new Date(Date.now()-newWeeks*7*86400000));
+  skus.forEach(function(s){var d=FS[_tfKey(s.code,s.color)];if(newWeeks>0&&d&&d!=="base"&&d>=newCut)s.isNew=d;});
+  if(newQty>0)skus.forEach(function(s){
+    if(!s.isNew)return;
+    var dn="",dq=0;
+    depots.forEach(function(d){var q=s.inv[d]||0;if(q>dq){dq=q;dn=d;}});
+    if(!depots.length){dq=s.whInv;dn="물류창고";}
+    moves.forEach(function(m){if(m.code===s.code&&m.color===s.color&&m.type==="창고보충")dq-=m.qty;});
+    moveStores.forEach(function(st){
+      if(dq<=0||(s.inv[st]||0)>0)return;
+      if(moves.some(function(m){return m.code===s.code&&m.color===s.color&&m.to===st;}))return;
+      var q=Math.min(newQty,dq);
+      moves.push({type:"추천상품",code:s.code,color:s.color,colorName:s.colorName,name:s.name,
+        from:dn||"물류창고",to:st,qty:q,fromInv:dq,toInv:0,toWos:"",wk:s.wk,tag:s.tag,
+        totInv:s.totInv,storeInv:s.storeInv,whInv:s.whInv,at:_tfAt(s),
+        why:"새 상품("+String(s.isNew).slice(5).replace("-","/")+" 처음 등록) · 매장에 없음"});
+      dq-=q;
+    });
+  });
   moves.sort(function(a,b){
     var ao=a.toWos===""?1e9:Number(a.toWos)||0,bo=b.toWos===""?1e9:Number(b.toWos)||0;
     if(ao!==bo)return ao-bo;                      /* 급한 매장 먼저 */
@@ -22646,6 +22696,7 @@ function tfAnalyze(){
      월간 전체 점검의 사장재고로 넘긴다 (조회기간이 짧으면 시즌 상품이 통째로 무판매로 잡힌다) */
   var openStoreInv=function(s){var q=0;stores.forEach(function(n){q+=s.inv[n]||0;});return q;};
   var slow=skus.filter(function(s){
+    if(s.isNew)return false;                       /* 새 상품은 아직 팔 시간이 없었다 */
     if(s.grade==="저회전")return s.totInv>0;
     return s.grade==="무판매"&&openStoreInv(s)>0;
   }).sort(function(a,b){return b.amt-a.amt;});
@@ -22653,7 +22704,7 @@ function tfAnalyze(){
   /* 5) 월간 전체 점검 ── 사장재고: 조회기간 내 순판매가 0 이하인데 재고를 들고 있는 SKU.
      기간이 길수록(가능하면 3개월 이상) 진짜 사장재고가 걸러진다. */
   var dead=skus.filter(function(s){
-    if(s.periodQty>0)return false;
+    if(s.periodQty>0||s.isNew)return false;
     s.liveInv=s.totInv;return s.totInv>0;
   }).sort(function(a,b){return (b.liveInv*(b.tag||0))-(a.liveInv*(a.tag||0));});
   dead.forEach(function(s){s.at=_tfAt(s);s.deadAmt=s.liveInv*(s.tag||0);});
@@ -22715,6 +22766,11 @@ function tfAnalyze(){
     moves:moves.length,
     moveQty:moves.reduce(function(a,m){return a+m.qty;},0)};
 
+  /* 새 상품 이름 앞에 ⭐추천 — 표·매장별·엑셀 어디서나 보이게 */
+  skus.forEach(function(s){if(s.isNew&&s.name&&s.name.indexOf("⭐추천")!==0)s.name="⭐추천 "+s.name;});
+  moves.forEach(function(m){var sk=idx[_tfKey(m.code,m.color)];if(sk&&sk.isNew&&m.name.indexOf("⭐추천")!==0)m.name="⭐추천 "+m.name;});
+  stat.newSku=skus.filter(function(s){return s.isNew;}).length;
+  stat.newMoves=moves.filter(function(m){return m.type==="추천상품";}).length;
   tfResult={mode:perStoreMode?"store":"total",moves:moves,skus:skus,slow:slow,dead:dead,
     closedList:closedList,storeSum:storeSum,shortage:shortage,stat:stat,cfg:cfg,
     date:new Date().toISOString(),siDate:tfSiDate,whDate:tfWhDate,ssPeriod:tfSsPeriod};
@@ -22724,6 +22780,7 @@ function tfAnalyze(){
 }
 
 /* ── 화면 ── */
+function _tfTypeBg(t){return t==="창고보충"?'#e0e7ff;color:#3730a3':t==="추천상품"?'#f3e8ff;color:#6d28d9':'#fef3c7;color:#92400e';}
 function tfSetView(v){tfView=v;tfRender();}
 function _tfN(n,d){return (n==null||n==="")?"":Number(n).toFixed(d==null?0:d);}
 function _tfC(n){return (Number(n)||0).toLocaleString();}
@@ -22827,7 +22884,7 @@ function tfRender(){
         mlist.forEach(function(m){
           var isWh=m.type==="창고보충";
           h+='<tr>'
-            +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;background:'+(isWh?'#e0e7ff;color:#3730a3':'#fef3c7;color:#92400e')+'">'+m.type+'</span>')
+            +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;background:'+_tfTypeBg(m.type)+'">'+m.type+'</span>')
             +td(prodCell(m),"left","min-width:280px")
             +td(placeCell(m.from,m.fromInv,false),"center","white-space:nowrap")
             +td(placeCell(m.to,m.toInv,true),"center","white-space:nowrap")
@@ -22846,7 +22903,7 @@ function tfRender(){
         mlist.forEach(function(m){
           var isWh=m.type==="창고보충";
           h+='<tr>'
-            +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;background:'+(isWh?'#e0e7ff;color:#3730a3':'#fef3c7;color:#92400e')+'">'+m.type+'</span>')
+            +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;background:'+_tfTypeBg(m.type)+'">'+m.type+'</span>')
             +td(_tfEsc(m.code),"left","font-family:monospace;font-size:11px;white-space:nowrap")
             +td(nm(m.name),"left","min-width:260px")
             +td(_tfEsc(m.color+(m.colorName?" "+m.colorName:"")),"left","white-space:nowrap")
@@ -22976,7 +23033,7 @@ function tfRender(){
           inc2.forEach(function(m2){
             var isWh=m2.type==="창고보충";
             h+='<tr>'
-              +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;background:'+(isWh?'#e0e7ff;color:#3730a3':'#fef3c7;color:#92400e')+'">'+m2.type+'</span>')
+              +td('<span style="padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;background:'+_tfTypeBg(m2.type)+'">'+m2.type+'</span>')
               +td(prodCell(m2),"left","min-width:280px")
               +td(placeCell(m2.from,m2.fromInv,false),"center","white-space:nowrap")
               +td("<b>"+_tfC(m2.qty)+"</b>","right","color:#1d4ed8;font-size:15px")
