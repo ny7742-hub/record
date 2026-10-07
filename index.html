@@ -2095,7 +2095,7 @@ label{font-size:14px!important}
   <div class="ap-grid">
     <div class="ap-card"><div class="ap-h"><b>🔑 로그인 상태</b><span id="autoPlAge" class="ap-sub"></span></div>
       <div id="autoPlSites" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
-    <div class="ap-card"><div class="ap-h"><b>📤 PlayMD 자료 업로드</b><span class="ap-sub">평일 08:30 자동 · 판매일보는 10:00 한 번 더</span>
+    <div class="ap-card"><div class="ap-h"><b>📤 PlayMD 자료 업로드</b><span class="ap-sub">평일 08:30 · 9:30~16:30 매시 30분 · 17:00 자동</span>
       <a href="playmdrun:now" class="ap-btn sub" style="margin-left:auto;text-decoration:none" onclick="return auRunNow()" title="자동화 PC에서 PlayMD 4가지를 지금 받아 올립니다(3~5분)">▶ 지금 받기</a></div>
       <div id="autoUp"></div></div>
     <div class="ap-card"><div class="ap-h"><b>📥 도매 자동발주(주문배분현황)</b><span class="ap-sub">PlayMD [3] 미확인 → 발주서 변환 → 김구남 센터장 메일</span></div>
@@ -2956,7 +2956,7 @@ function fbListen(){
     function(d){if(d&&typeof d==="object")mvSaipStatus=d;},
     function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
   );
-  /* 등록할 건 미리 살펴보기 — 자동화 PC(saip-watch)가 10분마다 OneDrive·하이웍스를 보고 남긴다 */
+  /* 등록할 건 미리 살펴보기 — 자동화 PC(saip-watch)가 5분마다(2026-10-07, 예전 10분) OneDrive·하이웍스를 보고 남긴다 */
   apply("ws/saipReady","saipReady",
     function(d){if(d&&typeof d==="object")saipReady=d;},
     function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
@@ -17243,7 +17243,7 @@ function hsrDownload(){
      시트 정리(온라인(완료)로 옮기기)는 사람이 하므로 등록한 줄이 시트에 남아 있을 수 있다 — 열쇠가 기록에 있으면 다시 올리지 않는다.
    · 요청은 사입출고와 같은 ws/saipReq[hr|cr](mode preview|save, expect=미리보기 때 줄 열쇠 묶음) → 자동화 PC의
      saip-watch.mjs가 automation/playmd-return.mjs를 돌린다 → 결과 ws/hrRetStatus · ws/crRetStatus.
-   · 버튼 색: 등록할 반품이 있으면 보라(요망). 이 화면을 연 사람의 브라우저가 시트를 직접 읽어 센다(10분마다). */
+   · 버튼 색: 등록할 반품이 있으면 보라(요망). 이 화면을 연 사람의 브라우저가 시트를 직접 읽어 센다(5분마다 — 반품등록 화면이나 🤖 자동화 탭을 열어 두었을 때, 2026-10-07 예전 10분). */
 var RET_KINDS={hr:{label:"홈쇼핑 반품",icon:"🛍",gid:"hs"},cr:{label:"코스트코 반품",icon:"🛒",gid:"online"}};
 var retLog=(function(){try{return JSON.parse(localStorage.getItem("retLog")||"null")||{};}catch(e){return {};}})();
 var hrRetStatus=(function(){try{return JSON.parse(localStorage.getItem("hrRetStatus")||"null");}catch(e){return null;}})();
@@ -17303,7 +17303,7 @@ function _retBuildMoveXlsx(kind,rows,toWh){
 }
 /* 반품은 저장했는데 불량 창고간이동이 아직인 줄(실패·확인 필요) — 다음 실행 때 자동화가 다시 옮긴다 */
 function _retMovesPending(k){var L=_retLogOf(k);return Object.keys(L).filter(function(key){var e=L[key];return e&&e.b&&e.s==="saved"&&!(e.mv&&(e.mv.s==="moved"||e.mv.s==="found"));});}
-/* 이 브라우저가 센 등록 대상(10분마다) — {hr:{rows,skip,at,err}, cr:{…}} */
+/* 이 브라우저가 센 등록 대상(5분마다) — {hr:{rows,skip,at,err}, cr:{…}} */
 var _retPend={hr:null,cr:null},_retScanAt=0,_retScanBusy=false;
 function _retLogOf(k){return ((retLog||{})[k])||{};}
 function _retPendingOf(k){var P=_retPend[k];if(!P||!P.rows)return null;var L=_retLogOf(k);return P.rows.filter(function(r){return !L[r.key];});}
@@ -17313,7 +17313,7 @@ function _retLeftInSheet(k){var P=_retPend[k];if(!P||!P.rows)return [];var L=_re
 function _retCopiedLeft(k){var P=_retPend[k];if(!P||!P.rows)return [];var L=_retLogOf(k);return P.rows.filter(function(r){var e=L[r.key];return !!(e&&e.sh);});}
 function _retScan(force){
   if(_retScanBusy)return;
-  if(!force&&Date.now()-_retScanAt<10*60*1000)return;
+  if(!force&&Date.now()-_retScanAt<5*60*1000)return;
   _retScanBusy=true;_retScanAt=Date.now();
   var ks=["hr","cr"],left=ks.length;
   ks.forEach(function(k){
@@ -17322,7 +17322,7 @@ function _retScan(force){
       .then(function(){if(--left===0){_retScanBusy=false;renderRetAuto();}});
   });
 }
-setInterval(function(){var pg=document.getElementById("page-hsreturn");if(pg&&pg.style.display!=="none")_retScan(false);},60*1000);
+setInterval(function(){var vis=function(id){var pg=document.getElementById(id);return pg&&pg.style.display!=="none";};if(vis("page-hsreturn")||vis("page-auto"))_retScan(false);},60*1000);
 /* 마지막으로 저장한 등록(같은 at으로 묶인 줄) — 카드 1·2줄 */
 function _retLastRun(k){
   var L=_retLogOf(k),g={};
@@ -18357,6 +18357,38 @@ var SAIP_ITEM_TXT={
 function _saipWho(by){var s=String(by||"알 수 없음");var m=/^\(?등록자 기록 전 · (.*?)\)?$/.exec(s);return m?m[1]:s;}
 /* '0928은(는) 이미 등록했습니다(9/29 14:11 · …)' → '0928은 이미 등록했습니다' — 언제·누가는 그 날짜를 고르면 1줄에 나온다 */
 function _saipShortNote(n){return String(n||"").replace(/은\(는\)/g,"은").replace(/(이미 등록했습니다)\s*\(.*\)\s*$/,"$1");}
+/* 사입출고등록 진행 막대(2026-10-07 영업2팀 — 도매·코스트코 자동 발주와 같이). 자동화 PC가 3초마다 올리는 마지막 줄(saipReq[k].progress)로
+   단계를 채운다. 지나간 단계는 기억한다(마지막 줄만 오므로 뒤로 가지 않게). 단계 이름 = 그 줄이 나오기 전까지 하는 일.
+   코스트코는 PlayMD 뒤에 DSS 송장('DSS 송장: …' 줄, 두 아이디)까지 이어서 한다. 저장 단계(s)는 미리보기에서 뺀다 */
+var SAIP_STAGES={
+  sale:[["시작",/^===/],["파일 찾기",/^\d{4}: .*\.xlsx/],["양식 만들기",/자비스: \d+줄/],["플레이엠디 불러오기",/플레이엠디: 불러온/],
+    ["저장",/저장 알림/,1],["저장 확인",/매장출고반품현황 확인/,1],["마무리",/^(자비스에 결과 알림|끝$)/]],
+  dss:[["DSS 송장 — 회신 메일",/^DSS 송장: 도매발주서:/],["DSS 송장 — 첫 번째 아이디",/^DSS 송장: (\[ckr\.5834231\]|✖ 1번 창)/],["DSS 송장 — 두 번째 아이디",/^DSS 송장: (합계|✖ 2번 창|끝$)/]],
+  mv:[["시작",/^===/],["파일 찾기",/^\d{4}: /],["창고코드 맞추기",/줄\(합침\)/],["이미 옮긴 것 확인",/창고간이동현황 \d+: |이미 모두 있음/],["플레이엠디 불러오기",/창고입고반품이동등록: 불러온/],
+    ["저장",/저장 알림/,1],["저장 확인",/창고간이동현황 확인|창고간이동현황과 다름/,1],["마무리",/^(자비스에 결과 알림|끝$)/]]
+};
+var SAIP_TYP={hs:"보통 1~3분",ds:"보통 1~3분",xc:"보통 1분",mv:"보통 1~3분",cc:"매출 2분 + DSS 송장 3~5분"};
+var _saipProgMax={};
+function _saipProgBar(kind,R){
+  if(!_saipReqActive(R))return "";
+  var pv=R.mode==="preview",dssOnly=kind==="cc"&&R.mode==="dss";
+  var list=(dssOnly?[]:(kind==="mv"?SAIP_STAGES.mv:SAIP_STAGES.sale)).concat(kind==="cc"?SAIP_STAGES.dss:[]).filter(function(s){return !(pv&&s[2]);});
+  var key=R.id||kind,n=_saipProgMax[key]||0;
+  list.forEach(function(s,i){if(R.progress&&s[1].test(R.progress)&&i+1>n)n=i+1;});
+  _saipProgMax[key]=n;
+  var wait=R.state==="요청",total=list.length,cur=list[Math.min(n,total-1)][0];
+  var t0=!wait&&R.startedAt?new Date(R.startedAt).getTime():new Date(R.at).getTime(),sec=Math.max(0,Math.round((Date.now()-t0)/1000));
+  var pct=wait?3:Math.max(6,Math.min(100,Math.round(n/total*100))),el=sec>=60?Math.floor(sec/60)+"분 "+(sec%60)+"초":sec+"초";
+  var lab=wait?"요청됨 — "+(_saipWatchOk()?"자동화 PC가 곧 시작합니다":"자동화 PC 신호 없음"):(n>=total?"마무리 중":n+"/"+total+" · "+cur+" 중");
+  return '<div style="margin:3px 0 4px">'
+    +'<div style="height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
+    +'<div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;font-weight:700;color:#155e75;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600;white-space:nowrap">'+el+' 지남 · '+(pv?"미리보기 · ":"")+(SAIP_TYP[kind]||"")+'</span></div></div>';
+}
+var _saipProgTimer=null;
+function _saipProgTick(){
+  var on=function(){var q=saipReq||{};return ["hs","ds","cc","mv","xc"].some(function(k){return _saipReqActive(q[k]);});};
+  if(on()&&!_saipProgTimer)_saipProgTimer=setInterval(function(){if(!on()){clearInterval(_saipProgTimer);_saipProgTimer=null;}try{renderSaipAuto();}catch(e){}},10000);
+}
 function _saipCard(kind){
   var K=SAIP_KINDS[kind],S=_saipStatusOf(kind),R=(saipReq||{})[kind];
   var base=_saipBase(kind);
@@ -18377,7 +18409,8 @@ function _saipCard(kind){
     var what=R.mode==="preview"?"미리보기":"등록";
     if(active){
       if(R.state==="요청")h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+md2+' '+what+' 요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음 — 켜지면 처리됩니다</span>')+'</div>';
-      else h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+md2+' 자동화 PC에서 '+what+' 중… ('+who+' · 1~3분)</div>';
+      else h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+md2+' 자동화 PC에서 '+what+' 중… ('+who+')</div>';
+      h+=_saipProgBar(kind,R);
       /* 실시간 진행(2026-10-02 영업2팀) — 지금 하는 일 한 줄 + 끝나기 전에 난 오류 */
       if(R.state==="처리중"&&R.progress)h+='<div style="color:#475569;font-size:13px;padding-left:18px">▸ '+_escX(R.progress)+(R.progressAt?' <span style="color:#5b6675">('+_escX(_saipFmtAt(R.progressAt))+')</span>':'')+'</div>';
       if(R.state==="처리중"&&R.progressErr&&R.progressErr.length)h+=R.progressErr.map(function(e){return '<div style="color:#b91c1c;font-size:13px;padding-left:18px">'+_escX(e)+'</div>';}).join("");
@@ -18484,6 +18517,7 @@ function renderSaipAuto(){
     +(wOk?'🟢 자동화 PC 켜짐'+(W.pc?' ('+_escX(W.pc)+')':'')+(W.busy?' · 지금 등록 중 '+_escX(W.busy):' · 요청을 기다리는 중')
          :'🔴 자동화 PC 신호 없음'+(W&&W.at?' (마지막 '+_escX(_saipFmtAt(W.at))+')':'')+' — 요청은 남길 수 있고, 자동화 PC가 켜지면 처리됩니다')+'</div>';
   box.innerHTML=wLine+_saipCard("hs")+_saipCard("ds")+_saipCard("cc")+_saipCard("mv")+_saipCard("xc");
+  _saipProgTick();
 }
 /* 코스트코 버튼 아래 두 줄 — 📒 플레이엠디 매출등록 · 🚚 DSS 송장 입력을 **따로** 완료 표시(2026-10-06 영업2팀).
    버튼 하나가 둘을 차례로 한다(saip-watch: playmd-hs-saip → dss-invoice). 매출은 등록 기록(ws/saipLog.cc), 송장은 ws/ccDssStatus 기준 */
