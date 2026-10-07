@@ -2322,9 +2322,10 @@ label{font-size:14px!important}
         <button class="bs" onclick="lrAddRow()">+ 행 추가</button>
       </div>
     </div>
+    <div style="font-size:12px;color:#5b6675;margin-top:4px">📋 엑셀에서 여러 칸을 복사해 표의 칸을 누르고 <b>Ctrl+V</b> — 상품명 · 색상 · 수량 · TAG가 · 할인율 순서(머리줄을 같이 복사하면 열 이름대로)</div>
     <table style="margin-top:10px">
       <thead><tr><th style="width:34px">NO</th><th>상품명</th><th style="width:100px">색상</th><th style="width:80px;text-align:right">수량</th><th style="width:100px;text-align:right">TAG가</th><th style="width:76px;text-align:right">할인율(%)</th><th style="width:110px;text-align:right">로스금액</th><th style="width:34px"></th></tr></thead>
-      <tbody id="lrRows"></tbody>
+      <tbody id="lrRows" onpaste="lrPaste(event)"></tbody>
       <tfoot id="lrFoot"></tfoot>
     </table>
     <div id="lrSummary" style="margin-top:14px;padding-top:12px;border-top:2px solid #e5e7eb;font-size:13px;font-weight:700;color:#1b6e82"></div>
@@ -7725,6 +7726,62 @@ function lrAutoFillSales(){
   msg.innerHTML=lines.map(_esc).join("<br>");
   msg.style.color=ss.found?"#047857":"#dc2626";
 }
+/* 로스 세부내역 머리줄(상품명 열이 있는 줄) → 열 번호. 엑셀 업로드·붙여넣기가 같이 쓴다 */
+function _lrHeaderOf(row){
+  row=row||[];
+  var cName=_ocCol(row,["상품명","상품코드명"]);if(cName<0)return null;
+  var H={name:cName};
+  H.color=_ocCol(row,["칼라명","컬러명"]);
+  if(H.color<0)H.color=_ocCol(row,["색상","칼라","컬러"]);
+  H.qty=_ocCol(row,["수량","로스수량","조정수량","재고수량"]);
+  H.tag=_ocCol(row,["TAG가","택가","TAG가격","단가","판매가"]);
+  H.disc=_ocCol(row,["할인율","할인율(%)","할인"]);
+  H.store=_ocCol(row,["매장명"]);
+  return H;
+}
+function _lrRowFrom(row,H){
+  var g=function(c){return c>=0?String(row[c]==null?"":row[c]).trim():"";};
+  return {name:g(H.name),color:g(H.color),qty:g(H.qty).replace(/,/g,""),tag:g(H.tag).replace(/[,원]/g,""),disc:g(H.disc).replace(/[%\s]/g,"")};
+}
+/* 붙여넣기(2026-10-07 영업2팀) — 엑셀·구글시트에서 여러 칸을 복사해 표의 아무 칸에 Ctrl+V.
+   머리줄(상품명…)이 있으면 그 열 이름대로, 없으면 붙여넣은 칸부터 오른쪽으로 상품명 · 색상 · 수량 · TAG가 · 할인율 순서.
+   붙여넣은 줄부터 아래로 덮어쓰고 모자라면 줄을 늘린다. 한 칸짜리는 보통 붙여넣기 그대로 */
+var LR_COLS=["name","color","qty","tag","disc"],LR_COL_ID={Name:0,Color:1,Qty:2,Tag:3,Disc:4};
+function lrPaste(e){
+  var cd=e.clipboardData||window.clipboardData;if(!cd)return;
+  var t=String(cd.getData("text")||"").replace(/\r/g,"").replace(/\n+$/,"");
+  if(t.indexOf("\t")<0&&t.indexOf("\n")<0)return;
+  e.preventDefault();
+  var aoa=t.split("\n").map(function(l){return l.split("\t");});
+  var m=/^lr(Name|Color|Qty|Tag|Disc)_(\d+)$/.exec((e.target&&e.target.id)||"");
+  var r0=m?+m[2]:lrDB.rows.filter(function(r){return r.name;}).length,c0=m?LR_COL_ID[m[1]]:0;
+  var H=_lrHeaderOf(aoa[0]),list=[];
+  if(H)aoa.slice(1).forEach(function(row){var o=_lrRowFrom(row,H);if(o.name&&!/^합계/.test(o.name))list.push(o);});
+  else aoa.forEach(function(row){
+    if(!row.some(function(v){return String(v).trim();}))return;
+    var o={};
+    row.forEach(function(v,j){var k=LR_COLS[c0+j];if(k)o[k]=String(v).trim();});
+    if(o.name&&/^합계/.test(o.name))return;
+    if(o.qty!=null)o.qty=o.qty.replace(/,/g,"");
+    if(o.tag!=null)o.tag=o.tag.replace(/[,원]/g,"");
+    if(o.disc!=null)o.disc=o.disc.replace(/[%\s]/g,"");
+    list.push(o);
+  });
+  if(!list.length)return;
+  var touched=[];
+  list.forEach(function(o,j){
+    var k=r0+j;
+    while(lrDB.rows.length<=k)lrDB.rows.push({name:"",color:"",qty:"",tag:""});
+    var r=lrDB.rows[k];
+    Object.keys(o).forEach(function(f){r[f]=o[f];});
+    if(o.tag!=null&&o.tag!=="")delete r.tagAuto;
+    touched.push(k);
+  });
+  touched.forEach(function(k){if(lrDB.rows[k].name)lrMatchRow(k,true,true);});   /* 상품데이터로 정식 이름·색·TAG가 채움(붙여넣은 TAG가는 그대로) */
+  lrSave();lrRenderRows();lrRenderSummary();
+  var msg=document.getElementById("lrUploadMsg");
+  if(msg){msg.textContent="✔ "+list.length+"줄 붙여넣음";clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},3000);}
+}
 function lrLoadFile(input){
   var file=input.files[0];if(!file)return;
   var reader=new FileReader();
@@ -7734,20 +7791,7 @@ function lrLoadFile(input){
       var ws=wb.Sheets[wb.SheetNames[0]];
       var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
       var hRow=-1,H={};
-      for(var r=0;r<Math.min(10,rows.length);r++){
-        var row=rows[r]||[];
-        var cName=_ocCol(row,["상품명","상품코드명"]);
-        if(cName>=0){
-          hRow=r;H.name=cName;
-          H.color=_ocCol(row,["칼라명","컬러명"]);
-          if(H.color<0)H.color=_ocCol(row,["색상","칼라","컬러"]);
-          H.qty=_ocCol(row,["수량","로스수량","조정수량","재고수량"]);
-          H.tag=_ocCol(row,["TAG가","택가","TAG가격","단가","판매가"]);
-          H.disc=_ocCol(row,["할인율","할인율(%)","할인"]);
-          H.store=_ocCol(row,["매장명"]);
-          break;
-        }
-      }
+      for(var r=0;r<Math.min(10,rows.length);r++){var h0=_lrHeaderOf(rows[r]);if(h0){hRow=r;H=h0;break;}}
       if(hRow<0){alert("엑셀 형식을 인식할 수 없습니다.\n(상품명/상품코드명 열이 필요합니다)");return;}
       var newRows=[],storeFromFile="";
       for(var r=hRow+1;r<rows.length;r++){
@@ -7755,13 +7799,7 @@ function lrLoadFile(input){
         var name=String(row[H.name]||"").trim();
         if(!name||/^합계/.test(name))continue;
         if(!storeFromFile&&H.store>=0){var sv=String(row[H.store]||"").trim();if(sv)storeFromFile=sv;}
-        newRows.push({
-          name:name,
-          color:H.color>=0?String(row[H.color]||"").trim():"",
-          qty:H.qty>=0?String(row[H.qty]||"").replace(/,/g,"").trim():"",
-          tag:H.tag>=0?String(row[H.tag]||"").replace(/[,원]/g,"").trim():"",
-          disc:H.disc>=0?String(row[H.disc]||"").replace(/[%\s]/g,"").trim():""
-        });
+        newRows.push(_lrRowFrom(row,H));
       }
       if(!newRows.length){alert("불러올 로스 내역이 없습니다.");return;}
       var hasExisting=lrDB.rows.some(function(r){return r.name;});
