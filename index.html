@@ -2308,7 +2308,7 @@ label{font-size:14px!important}
         </div>
       </div>
       <div class="fg"><label>총판매수량(개) — 판매일보 기준, 증정(0원) 제외</label><input id="lrQty" type="text" inputmode="numeric" oninput="fmtTargetInput(this);lrSave();lrRenderSummary()"></div>
-      <div class="fg"><label>로스 공제율</label><select id="lrRate" onchange="lrSave();lrRenderSummary()"><option value="auto">자동 — 판매일보 할인율(1~30% 1% · 31% 이상 1.5%)</option><option value="1.5">판매수량의 1.5%</option><option value="1">판매수량의 1%</option></select></div>
+      <div class="fg"><label>로스 공제율</label><select id="lrRate" onchange="lrSave();lrRenderSummary()"><option value="auto">자동 — 판매일보 할인율(30% 이하 1% · 31% 이상 1.5%)</option><option value="1.5">판매수량의 1.5%</option><option value="1">판매수량의 1%</option></select></div>
       <div class="fg"><label>운영일수</label><input id="lrDays" type="text" disabled style="background:#f3f4f6"></div>
     </div>
     <div id="lrSalesMsg" style="font-size:11px;margin-top:6px"></div>
@@ -7725,7 +7725,7 @@ function lrAutoFillSales(){
   if(!msg)return;
   lines.push(found?"✔ 총매출: 매장별 일별매출 "+sumEdi.toLocaleString()+"원":ss.found?"✔ 총매출: 일별매출이 없어 판매일보 판매금액 "+Math.round(ss.amt).toLocaleString()+"원":"⚠ 총매출: 일별매출·판매일보에서 찾지 못했습니다 — 직접 입력하세요");
   if(ss.found)lines.push("✔ 판매수량: 판매일보("+Object.keys(ss.stores).join(", ")+") "+ss.sold.toLocaleString()+"개 — 증정(0원·할인 100%) "+ss.gift.toLocaleString()+"개 제외"
-    +" · 할인 1~30% "+ss.n1.toLocaleString()+"개 · 31% 이상 "+ss.n15.toLocaleString()+"개 · 할인 없음 "+ss.n0.toLocaleString()+"개(공제 없음)"
+    +" · 할인 30% 이하(정상가 포함) "+(ss.n0+ss.n1).toLocaleString()+"개 · 31% 이상 "+ss.n15.toLocaleString()+"개"
     +(ss.unk?" · 할인율 모름 "+ss.unk.toLocaleString()+"개":"")+(ss.est?" (할인율 칸 없이 올린 예전 자료 "+ss.est.toLocaleString()+"개는 TAG가로 어림)":""));
   else lines.push("⚠ 판매수량: 판매일보에서 '"+store+"' 매장의 해당 기간 자료를 찾지 못했습니다 — 직접 입력하고 공제율을 고르세요");
   msg.innerHTML=lines.map(_esc).join("<br>");
@@ -7932,7 +7932,7 @@ function lrRenderRows(){
   tb.innerHTML=h;
 }
 /* 로스 공제(2026-10-07 영업2팀 — '감면'에서 이름을 바꾸고 공제율을 자동으로):
-   자동 = 판매일보 할인(T.실)% 구간별 판매수량 — 할인 1~30% × 1% + 31% 이상 × 1.5%(할인 없는 정상가 판매는 공제 없음), 합을 소수점 버림.
+   자동 = 판매일보 할인(T.실)% 구간별 판매수량 — 할인 30% 이하(정상가 포함, 영업2팀 확인) × 1% + 31% 이상 × 1.5%, 합을 소수점 버림.
    직접 = 총판매수량 × 1.5% 또는 1%. 공제 수량은 로스수량까지만 · 개당 평균 = 로스금액 ÷ 로스수량 ·
    공제 금액 = 공제 수량 × 개당 평균(원 반올림) · 공제 후 금액 = 로스금액 − 공제 금액 */
 function _lrCalc(sumQty,sumAmt){
@@ -7940,9 +7940,9 @@ function _lrCalc(sumQty,sumAmt){
   var rv=String((document.getElementById("lrRate")||{}).value||lrDB.rate||"auto");
   var lq=Math.abs(sumQty),la=Math.abs(sumAmt),B=lrDB.band,free,desc,auto=rv==="auto";
   if(auto){
-    var n1=B?Math.max(0,B.n1):0,n15=B?Math.max(0,B.n15):0;
+    var n1=B?Math.max(0,(B.n0||0)+B.n1):0,n15=B?Math.max(0,B.n15):0;
     free=B?Math.floor(n1*0.01+n15*0.015+1e-9):0;
-    desc=B?"할인 1~30% "+n1.toLocaleString()+"개 × 1% + 31% 이상 "+n15.toLocaleString()+"개 × 1.5%":"판매일보 할인율 없음";
+    desc=B?"할인 30% 이하(정상가 포함) "+n1.toLocaleString()+"개 × 1% + 31% 이상 "+n15.toLocaleString()+"개 × 1.5%":"판매일보 할인율 없음";
   }else{
     var rate=Number(rv)||1.5;
     free=Math.floor(sold*rate/100+1e-9);
