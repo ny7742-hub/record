@@ -7934,8 +7934,8 @@ function lrRenderRows(){
 /* 로스 공제(2026-10-07 영업2팀 — '감면'에서 이름을 바꾸고 공제율을 자동으로):
    자동 = 판매일보 할인(T.실)% 구간별 판매수량 — 할인 30% 이하(정상가 포함, 영업2팀 확인) × 1% + 31% 이상 × 1.5%, **소수 그대로**(버리지 않음).
    직접 = 총판매수량 × 1.5% 또는 1%(소수 그대로). 공제 수량은 로스수량까지만 ·
-   개당 평균 = 로스금액 ÷ 로스수량 · 공제 금액 = 공제 수량 × 개당 평균(**소수째**) · 공제 후 금액 = 로스금액 − 공제 금액을 원 단위 버림.
-   2026-10-07 영업2팀 확인 예: 현대 판교 로스 13개 148,300원 · 137개 × 1% = 1.37개 × 11,407.69원 = 15,628.54원 → 132,671원 */
+   개당 평균 = 로스금액 ÷ 로스수량(원 반올림) · 공제 금액 = 공제 수량 × 개당 평균(**소수째**) · 공제 후 금액 = 로스금액 − 공제 금액을 원 단위 버림.
+   2026-10-07 영업2팀 확인 예: 현대 판교 로스 13개 148,300원 · 137개 × 1% = 1.37개 × 11,408원 = 15,628.96원 → 132,671원 */
 function _lrCalc(sumQty,sumAmt){
   var sold=Number((document.getElementById("lrQty").value||"").replace(/,/g,""))||0;
   var rv=String((document.getElementById("lrRate")||{}).value||lrDB.rate||"auto");
@@ -7953,10 +7953,10 @@ function _lrCalc(sumQty,sumAmt){
     desc="총판매수량 "+sold.toLocaleString()+"개의 "+rate+"%";
   }
   var used=Math.min(free,lq);
-  var avg=lq?la/lq:0;
+  var avg=lq?Math.round(la/lq):0;   /* 개당 평균은 원 단위 반올림(2026-10-07 영업2팀: 148,300 ÷ 13 = 11,408) */
   /* 공제 금액은 소수째 로스금액에서 뺀다 — 반올림하지 않고, 공제 후 금액만 원 단위 버림(2026-10-07 영업2팀: 판교 148,300 − 15,628.54 = 132,671) */
   var cut=Math.round(used*avg*100)/100;
-  return {sold:sold,auto:auto,noBand:auto&&!B,desc:desc,free:free,used:used,avg:Math.round(avg*100)/100,cut:cut,after:Math.max(0,Math.floor(la-used*avg+1e-6)),lq:lq,la:la};
+  return {sold:sold,auto:auto,noBand:auto&&!B,desc:desc,free:free,used:used,avg:avg,cut:cut,after:Math.max(0,Math.floor(la-used*avg+1e-6)),lq:lq,la:la};
 }
 function lrRenderSummary(){
   var sumQty=0,sumAmt=0;
@@ -7975,12 +7975,12 @@ function lrRenderSummary(){
   if(ft){
     var tdl='style="text-align:right;font-weight:700;padding:7px 8px;border-top:1px solid #e5e7eb"',tdv='style="text-align:right;font-weight:800;padding:7px 8px;border-top:1px solid #e5e7eb;white-space:nowrap"';
     ft.innerHTML='<tr><td></td><td colspan="2" '+tdl+'>합계</td><td '+tdl+'>'+sumQty.toLocaleString()+'</td><td></td><td></td><td '+tdv+'>'+sumAmt.toLocaleString()+'원</td><td></td></tr>'
-      +'<tr style="color:#b45309"><td></td><td colspan="5" '+tdl+'>로스 공제 ('+_esc(c.desc)+' = '+c.used.toLocaleString()+'개 × 개당 평균 '+c.avg.toLocaleString(undefined,{maximumFractionDigits:2})+'원)</td><td '+tdv+'>−'+c.cut.toLocaleString(undefined,{maximumFractionDigits:2})+'원</td><td></td></tr>'
+      +'<tr style="color:#b45309"><td></td><td colspan="5" '+tdl+'>로스 공제 ('+_esc(c.desc)+' = '+c.used.toLocaleString()+'개 × 개당 평균 '+c.avg.toLocaleString()+'원)</td><td '+tdv+'>−'+c.cut.toLocaleString(undefined,{maximumFractionDigits:2})+'원</td><td></td></tr>'
       +'<tr style="background:#ecfdf5;color:#047857"><td></td><td colspan="5" '+tdl+'>공제 후 로스 금액</td><td '+tdv+'>'+c.after.toLocaleString()+'원</td><td></td></tr>';
   }
   if(el)el.innerHTML="실 로스 발생 수량 "+c.lq.toLocaleString()+"개 · 최종 로스 금액 "+c.la.toLocaleString()+"원"
     +'<div style="margin-top:4px;font-weight:600;color:#334155">로스 공제: '+_esc(c.desc)+' = <b>'+c.free.toLocaleString()+'개</b>'
-    +(c.used<c.free?' (로스수량 '+c.lq+'개까지만)':'')+' × 개당 평균 '+c.avg.toLocaleString(undefined,{maximumFractionDigits:2})+'원 = '+c.cut.toLocaleString(undefined,{maximumFractionDigits:2})+'원 공제</div>'
+    +(c.used<c.free?' (로스수량 '+c.lq+'개까지만)':'')+' × 개당 평균 '+c.avg.toLocaleString()+'원 = '+c.cut.toLocaleString(undefined,{maximumFractionDigits:2})+'원 공제</div>'
     +'<div style="margin-top:2px;font-size:15px;color:#1b6e82">공제 후 로스 금액 <b>'+c.after.toLocaleString()+'원</b></div>'
     +(c.noBand?'<div style="color:#b45309;font-weight:600">⚠ 판매일보 할인율 자료가 없어 자동 공제를 계산하지 못했습니다 — 총매출 옆 🔄로 다시 가져오거나 공제율을 직접 고르세요</div>'
       :!c.auto&&!c.sold?'<div style="color:#b45309;font-weight:600">⚠ 총판매수량을 넣어야 공제가 계산됩니다</div>':'');
@@ -8036,14 +8036,14 @@ function lrDownload(){
     +'<p><b>3. 로스 발생 현황</b><br>'
     +'● 실 로스 발생 수량: '+Math.abs(sumQty).toLocaleString()+'개<br>'
     +'● 최종 로스 금액: '+Math.abs(sumAmt).toLocaleString()+'원<br>'
-    +'● 로스 공제: '+_esc(lc.desc)+' = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString(undefined,{maximumFractionDigits:2})+'원 = '+lc.cut.toLocaleString(undefined,{maximumFractionDigits:2})+'원<br>'
+    +'● 로스 공제: '+_esc(lc.desc)+' = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString()+'원 = '+lc.cut.toLocaleString(undefined,{maximumFractionDigits:2})+'원<br>'
     +'● 공제 후 로스 금액: '+lc.after.toLocaleString()+'원</p>'
     +'<p><b>4. 로스 세부내역</b></p>'
     +'<table><thead><tr><th>NO.</th><th>상품명</th><th>색상</th><th>수량</th><th>TAG가</th><th>할인율</th><th>로스 금액</th></tr></thead><tbody>'
     +rowsHtml
     +'<tr><td colspan="3" style="text-align:center;font-weight:bold">합계</td><td style="text-align:center;font-weight:bold">'+sumQty+'</td><td></td><td></td><td style="text-align:right;font-weight:bold">'+sumAmt.toLocaleString()+'원</td></tr>'
     /* 공제·공제 후 로스 금액도 표에(2026-10-07 영업2팀) */
-    +'<tr><td colspan="6" style="text-align:right">로스 공제 ('+_esc(lc.desc)+' = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString(undefined,{maximumFractionDigits:2})+'원)</td><td style="text-align:right">−'+lc.cut.toLocaleString(undefined,{maximumFractionDigits:2})+'원</td></tr>'
+    +'<tr><td colspan="6" style="text-align:right">로스 공제 ('+_esc(lc.desc)+' = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString()+'원)</td><td style="text-align:right">−'+lc.cut.toLocaleString(undefined,{maximumFractionDigits:2})+'원</td></tr>'
     +'<tr><td colspan="6" style="text-align:center;font-weight:bold;background:#eaf6ee">공제 후 로스 금액</td><td style="text-align:right;font-weight:bold;background:#eaf6ee">'+lc.after.toLocaleString()+'원</td></tr>'
     +'</tbody></table>'
     +(note?'<p style="font-size:9pt;color:#555">*'+_esc(note)+'</p>':'')
