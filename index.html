@@ -12266,15 +12266,11 @@ function unshipLoadOrder(file){
           shop:iShop>=0?String(row[iShop]||"").trim():"",
           store:iStore>=0?String(row[iStore]||"").trim():"",
           code:iCode>=0?String(row[iCode]||"").trim():"",
-          bar:"",un:0});
+          sku:null,un:0});
       }
-      /* 바코드는 도매발주서 칸이 비어 오는 게 보통이라 자사코드로 상품데이터에서 찾아 채운다.
-         못 찾은 줄은 표에서 직접 입력할 수 있다. */
-      var iBar=col("바코드");
-      out.forEach(function(r){
-        var b=(iBar>=0&&r.raw[iBar]!=null)?String(r.raw[iBar]).trim():"";
-        r.bar=b||_usBarcode(r.code);
-      });
+      /* 매장출고양식은 상품코드·칼라코드·사이즈코드로 낸다(2026-10-08 영업2팀, 예전 바코드) —
+         도매발주서의 상품컬러코드(자사코드)로 상품코드리스트에서 찾는다. 못 찾은 줄은 표에서 상품컬러코드를 고쳐 넣는다 */
+      out.forEach(function(r){r.sku=_usSku(r.code);});
       usOrder={name:file.name,head:rows[hRow]||[],rows:out};
       if(msg)msg.textContent="✔ "+out.length+"줄"+(out.filter(function(x){return x.inv;}).length?"":" · ⚠ 운송장번호가 비어 있습니다");
       renderUnship();
@@ -12344,11 +12340,11 @@ function _usMatch(){
     }
   });
 }
-/* 바코드를 못 찾은 줄은 표에서 직접 넣는다 — 숫자만 남긴다 */
-function usEditBar(i,v){
-  if(!usOrder.rows[i])return;
-  var t=String(v||"").replace(/[^0-9A-Za-z]/g,"");
-  usOrder.rows[i].bar=t;
+/* 상품코드리스트에서 못 찾은 줄은 표에서 상품컬러코드를 고쳐 넣는다 — 영문·숫자만 남기고 다시 찾는다 */
+function usEditCode(i,v){
+  var r=usOrder.rows[i];if(!r)return;
+  r.code=String(v||"").replace(/[^0-9A-Za-z]/g,"").toUpperCase();
+  r.sku=_usSku(r.code);
   renderUnship();
 }
 function renderUnship(){
@@ -12364,11 +12360,11 @@ function renderUnship(){
   var unQty=usOrder.rows.reduce(function(a,b){return a+b.un;},0);
   var leftover=usList.items.filter(function(it){return it.used<it.qty;});
   if(sum){
-    var noBar=usOrder.rows.filter(function(r){return (r.qty-r.un)>0&&!r.bar;}).length;
+    var noBar=usOrder.rows.filter(function(r){return (r.qty-r.un)>0&&!r.sku;}).length;
     sum.textContent=usOrder.rows.length+"줄 · 미출고 "+unRows.length+"줄 "+unQty+"개"
       +(usList.sheet?" ("+usList.sheet.trim()+")":"")
       +(leftover.length?" · 발주서에서 못 찾은 미출고 "+leftover.length+"건":"")
-      +(noBar?" · ❗바코드 없음 "+noBar+"줄 (표에서 입력)":"");
+      +(noBar?" · ❗상품코드리스트에 없음 "+noBar+"줄 (표에서 상품컬러코드 입력)":"");
   }
   var th='position:sticky;top:0;z-index:2;background:#ccfbf1;border:1px solid #99f6e4;padding:7px 8px;color:#115e59;font-weight:700';
   var h="";
@@ -12379,7 +12375,7 @@ function renderUnship(){
       +'<div style="font-weight:600;margin-top:3px">운송장번호가 이 발주서에 없거나(다른 차수) 상품명이 달라 못 맞춘 건입니다.</div></div>';
   }
   h+='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap"><thead><tr>';
-  [["#",""],["매장",""],["운송장번호",""],["상품명","min-width:300px"],["바코드","min-width:130px"],["발주수량",""],["미출고",""],["실출고",""]].forEach(function(c){
+  [["#",""],["매장",""],["운송장번호",""],["상품명","min-width:300px"],["상품컬러코드","min-width:130px"],["상품코드 · 칼라 · 사이즈",""],["발주수량",""],["미출고",""],["실출고",""]].forEach(function(c){
     h+='<th style="'+th+';'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
@@ -12391,8 +12387,10 @@ function renderUnship(){
         +(r.store?' <span style="font-family:monospace;font-size:12px;color:#0f766e;font-weight:700">('+_esc(r.store)+')</span>':"")+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;font-size:12px;color:#475569">'+_esc(r.inv)+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;white-space:normal">'+_esc(r.name)+'</td>'
-      +'<td contenteditable="true" onblur="usEditBar('+i+',this.textContent)" title="'+_esc(r.code||"")+'" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;font-family:monospace;font-size:12px'
-        +(r.bar?'':';background:#fef3c7;color:#b45309;font-weight:700')+'">'+(r.bar?_esc(r.bar):"직접 입력")+'</td>'
+      +'<td contenteditable="true" onblur="usEditCode('+i+',this.textContent)" title="상품코드리스트에 없으면 상품컬러코드를 고쳐 넣으세요" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;font-family:monospace;font-size:12px'
+        +(r.sku?'':';background:#fef3c7;color:#b45309;font-weight:700')+'">'+(r.code?_esc(r.code):"직접 입력")+'</td>'
+      +'<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;font-size:12px;color:'+(r.sku?'#0f766e':'#b45309')+'">'
+        +(r.sku?_esc(r.sku.pc)+' · '+_esc(r.sku.cc)+' · '+_esc(r.sku.sz):'상품코드리스트에 없음')+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right">'+r.qty+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;font-weight:700;color:'+(r.un>0?"#dc2626":"#5b6675")+'">'+(r.un||"")+'</td>'
       +'<td style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;font-weight:700;color:'+(out<=0?"#dc2626":"#15803d")+'">'+out+'</td>'
@@ -12400,6 +12398,22 @@ function renderUnship(){
   });
   h+='</tbody></table>';
   wrap.innerHTML=h;
+}
+/* 상품컬러코드(자사코드) → {pc 상품코드, cc 칼라코드, sz 사이즈코드} — 상품코드리스트(DB, 업로드본)가 먼저, 없으면 내장 스냅샷.
+   매장출고양식(2026-10-08 영업2팀 제공 8열)에 그대로 들어간다. 못 찾으면 null */
+function _usSku(sku){
+  var k=String(sku||"").trim().toUpperCase();
+  if(!k)return null;
+  var pick=function(pc,cc,sz){pc=String(pc||"").trim();cc=String(cc||"").trim();sz=String(sz||"").trim();return pc&&cc?{pc:pc,cc:cc,sz:sz}:null;};
+  if(typeof DB!=="undefined"&&DB.length){
+    for(var i=0;i<DB.length;i++)
+      if(String(DB[i]["자사코드"]||"").trim().toUpperCase()===k){var o=pick(DB[i]["상품코드"],DB[i]["칼라코드"],DB[i]["사이즈코드"]);if(o)return o;}
+  }
+  if(typeof DEFAULT_DATA!=="undefined"){
+    for(var j=0;j<DEFAULT_DATA.length;j++)
+      if(String(DEFAULT_DATA[j][7]||"").trim().toUpperCase()===k){var o2=pick(DEFAULT_DATA[j][1],DEFAULT_DATA[j][3],DEFAULT_DATA[j][5]);if(o2)return o2;}
+  }
+  return null;
 }
 /* 자사코드 → 바코드. 도매발주서의 바코드 칸은 비어 오므로 상품데이터에서 찾는다 */
 function _usBarcode(sku){
@@ -12422,26 +12436,27 @@ function _usYmd8(){
   var d=new Date();
   return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
 }
-/* 3단계 — **매장출고양식**(6열)으로 내려준다(2026-09 영업2팀 제공 양식).
+/* 3단계 — **매장출고양식**(8열)으로 내려준다(2026-10-08 영업2팀 제공 양식 — 예전 6열은 바코드였다).
    수량은 실출고(발주 − 미출고)이고, 전량 미출고인 줄은 내보낼 게 없어 뺀다. */
 function unshipDownload(){
   if(!usOrder.rows.length){alert("도매발주서를 먼저 올려주세요.");return;}
   _usMatch();
   var wh=String((document.getElementById("usWh")||{}).value||"NH").trim();
   var ymd=_usYmd8();
-  var aoa=[["출고창고코드","매장코드","출고일자(8자리 숫자만)","바코드","출고수량","비고"]];
-  var noBar=0;
+  var aoa=[["출고창고코드","매장코드","출고일자(8자리 숫자만)","상품코드","칼라코드","사이즈코드","출고수량","비고"]];
+  var noSku=[];
   usOrder.rows.forEach(function(r){
     var out=r.qty-r.un;
     if(out<=0)return;                              /* 전량 미출고 */
-    var bar=String(r.bar||"").trim();
-    if(!bar)noBar++;
-    aoa.push([wh,r.store||"",ymd,bar,out,""]);
+    var s=r.sku||_usSku(r.code);
+    if(!s)noSku.push((r.code||"코드 없음")+" "+r.name);
+    aoa.push([wh,r.store||"",ymd,s?s.pc:"",s?s.cc:"",s?s.sz:"",out,""]);
   });
   if(aoa.length<2){alert("내보낼 출고 수량이 없습니다.");return;}
-  if(noBar&&!confirm("바코드를 못 찾은 줄이 "+noBar+"건 있습니다.\n\n그대로 다운로드할까요?"))return;
+  if(noSku.length&&!confirm("상품코드리스트에서 못 찾은 줄이 "+noSku.length+"건 있습니다 — 상품코드·칼라·사이즈 칸이 비어 나갑니다.\n\n"
+    +noSku.slice(0,8).join("\n")+(noSku.length>8?"\n… 외 "+(noSku.length-8)+"건":"")+"\n\n표의 상품컬러코드 칸에서 고칠 수 있습니다. 그대로 다운로드할까요?"))return;
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[14,10,20,18,10,16].map(function(w){return {wch:w};});
+  ws["!cols"]=[14,10,20,12,10,11,10,16].map(function(w){return {wch:w};});
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"매장출고");
   /* 못 맞춘 미출고는 따로 한 시트에 남긴다 — 그냥 버리면 놓친다 */
