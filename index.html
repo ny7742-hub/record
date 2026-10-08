@@ -19876,7 +19876,9 @@ function _ccPdfSalesRowsFromTarget(){
   return out;
 }
 /* 매출 등록이 볼 자료 — 5단계 파일이 우선, 없으면 1단계 PDF(또는 저장해 둔 백업) */
+var _ccPdfSalesOverride=null;                    /* 자동 등록(ccRegisterSalesFromRows)이 잠깐 넣는 자료 */
 function _ccPdfSalesSource(){
+  if(_ccPdfSalesOverride)return _ccPdfSalesOverride;
   var t=_ccPdfSalesRowsFromTarget();
   if(t.length)return t;
   return ccPdfRows.length?ccPdfRows:(ccPdfSalesBackup||[]);
@@ -19943,6 +19945,36 @@ function ccPdfRegisterSales(){
   if(!plan||!plan.keys.length){closeCcPdfSalesModal();return;}
   _ccPdfSalesBusy=true;
   _ccPdfSalesPlan=null;                        /* 같은 계획을 두 번 반영하지 못하게 즉시 떼어낸다 */
+  _ccPdfApplyPlan(plan);
+  closeCcPdfSalesModal();
+  var n=plan.keys.length,q=plan.qty,a=plan.amt;
+  _ccPdfSalesBusy=false;
+  if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();
+  var _pds=Object.keys(plan.map).sort(function(x,y){return ccPeriodToMs(x)-ccPeriodToMs(y);}).join(", ");
+  alert("코스트코 탭에 매출을 등록했습니다.\n\n"+n+"줄 · "+q+"개 · "+a.toLocaleString()+"원"+(_pds?"\n판매일: "+_pds:""));
+}
+/* ── 코스트코 판매현황 자동 등록(2026-10-08 영업2팀 "코스트코 탭에 판매현황이 업데이트가 안 됨") ──
+   예전엔 코스트코 발주 5단계(발송일괄업로드 다운로드 뒤 '예')에서만 판매현황에 더했는데, 매출등록·DSS 송장 입력이 자동이 되면서
+   그 창을 아무도 안 열어 10/2 주문 뒤로 판매현황이 멈췄다. 자동화 PC(cc-sales-register.mjs)가 그날 코스트코 도매발주서(물류 회신)의
+   줄을 넘겨 이 함수를 부른다 — **같은 계획·같은 중복 방지**(_ccPdfBuildSalesPlan: ccPdfDone 키 · 판매현황 파일이 이미 올라온 날짜는 빼기).
+   rows: [{orderNo, prodName, rawName, colorCode, qty, orderDate:'YYYY/MM/DD'}] — 수취인·연락처·주소는 받지 않는다.
+   save=false면 계획만 돌려준다(미리보기). */
+function ccRegisterSalesFromRows(rows,save){
+  if(_ccPdfSalesBusy)return {error:"다른 등록이 도는 중"};
+  _ccPdfSalesOverride=Array.isArray(rows)?rows:[];
+  var plan;
+  try{plan=_ccPdfBuildSalesPlan(false);}finally{_ccPdfSalesOverride=null;}
+  var out={lines:plan.keys.length,qty:plan.qty,amt:plan.amt,dup:plan.dup,fileDup:plan.fileDup,fileDupPeriods:plan.fileDupPeriods,
+    noProd:plan.noProd,noColor:plan.noColor,map:plan.map,saved:false};
+  if(save&&plan.keys.length){
+    _ccPdfSalesBusy=true;
+    try{_ccPdfApplyPlan(plan);out.saved=true;}finally{_ccPdfSalesBusy=false;}
+    try{if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();}catch(e){}
+  }
+  return out;
+}
+/* 계획을 판매현황에 더하고 중복 방지 기록을 남긴 뒤 저장(팀 공유) — '예' 버튼과 자동 등록이 같이 쓴다 */
+function _ccPdfApplyPlan(plan){
   if(!costcoDB.sales)costcoDB.sales={};
   if(!costcoDB.periods)costcoDB.periods=[];
   if(!costcoDB.ccPdfDone)costcoDB.ccPdfDone={};
@@ -19975,12 +20007,6 @@ function ccPdfRegisterSales(){
   });
   costcoDB.periods.sort(function(a,b){return ccPeriodToMs(a)-ccPeriodToMs(b);});
   saveCostcoDB(true);
-  closeCcPdfSalesModal();
-  var n=plan.keys.length,q=plan.qty,a=plan.amt;
-  _ccPdfSalesBusy=false;
-  if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();
-  var _pds=Object.keys(plan.map).sort(function(x,y){return ccPeriodToMs(x)-ccPeriodToMs(y);}).join(", ");
-  alert("코스트코 탭에 매출을 등록했습니다.\n\n"+n+"줄 · "+q+"개 · "+a.toLocaleString()+"원"+(_pds?"\n판매일: "+_pds:""));
 }
 /* 초기화 — 업로드한 PDF 주문목록·누적 송장번호·대상 엑셀을 모두 비우고 처음 상태로 되돌림.
    (PDF 연속 업로드 누적은 그대로 유지되므로, 새 작업을 시작할 때만 사용) */
