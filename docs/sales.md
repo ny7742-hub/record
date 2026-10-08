@@ -262,7 +262,7 @@
   한 번 로그인하면 롯데가 세션을 끊기 전까지 같은 창을 다시 쓴다(떠 있으면 붙고, 없으면 새로 띄운다).
   비밀번호를 저장해 자동 로그인하는 방식은 만들지 않았다(Claude Code 안전 확인에서 막힘 — 영업2팀이 직접 허용해야 가능).
   **바로가기로 자동화 창에 로그인**(2026-10-01 영업2팀): 바로가기 줄의 `🖥 자동화 창으로 열기`(`qcPortalMode`, 이 브라우저에만 기억)를 켠 PC에서는
-  롯데 백화점 EDI · 현대 백화점 EDI · 코스트코 DSS · 메일함(하이웍스) 바로가기가 `portalopen:<lotte|hyundai|dss|hiworks>`로
+  롯데 백화점 EDI · 현대 백화점 EDI · 코스트코 DSS · 메일함(하이웍스) · 롯데 파트너오피스(`lotteoffice`) · 더현대 파트너스(`thehyundai`, 2026-10-08 — 백화점몰 상품리스트) 바로가기가 `portalopen:<lotte|hyundai|dss|hiworks>`로
   **자동화 포탈 창**(9333 · `edi-chrome-profile`)에 열린다(HKCU `portalopen` → `automation/portal-open.vbs` → `portal-open.mjs`).
   **🔑 로그인 창 모두 열기**(2026-10-02 영업2팀, `qcOpenAllLogins` → `portalopen:all`): 회사 PC라 퇴근 때 꺼서 매일 아침 로그인이 다 풀린다 →
   자동화 창 모드를 켠 PC에서 자비스를 열면 그날 처음 한 번 위에 알림(`_qcLoginNudge`, `qcLoginAllDay`)을 띄우고, [모두 열기]를 누르면
