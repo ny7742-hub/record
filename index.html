@@ -12450,22 +12450,18 @@ function unshipDownload(){
     if(out<=0)return;                              /* 전량 미출고 */
     var s=r.sku||_usSku(r.code);
     if(!s)noSku.push((r.code||"코드 없음")+" "+r.name);
-    aoa.push([wh,r.store||"",ymd,s?s.pc:"",s?s.cc:"",s?s.sz:"",out,""]);
+    aoa.push([wh,r.store||"",ymd,s?s.pc:"",s?s.cc:"","",out,""]);   /* 사이즈코드·비고는 비운다(2026-10-08 영업2팀) */
   });
   if(aoa.length<2){alert("내보낼 출고 수량이 없습니다.");return;}
-  if(noSku.length&&!confirm("상품코드리스트에서 못 찾은 줄이 "+noSku.length+"건 있습니다 — 상품코드·칼라·사이즈 칸이 비어 나갑니다.\n\n"
+  if(noSku.length&&!confirm("상품코드리스트에서 못 찾은 줄이 "+noSku.length+"건 있습니다 — 상품코드·칼라코드 칸이 비어 나갑니다.\n\n"
     +noSku.slice(0,8).join("\n")+(noSku.length>8?"\n… 외 "+(noSku.length-8)+"건":"")+"\n\n표의 상품컬러코드 칸에서 고칠 수 있습니다. 그대로 다운로드할까요?"))return;
+  /* **양식은 그대로** — 머리줄 8칸·시트 하나(매장출고)만. 칸 넓이·다른 시트를 붙이지 않는다(2026-10-08 영업2팀 "양식이라 수정하면 안 됨").
+     못 맞춘 미출고는 화면 위 노란 경고로만 보여 준다 */
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[14,10,20,12,10,11,10,16].map(function(w){return {wch:w};});
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"매장출고");
-  /* 못 맞춘 미출고는 따로 한 시트에 남긴다 — 그냥 버리면 놓친다 */
   var left=usList.items.filter(function(it){return it.used<it.qty;});
-  if(left.length){
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(
-      [["매장/차수","운송장번호","미출고 품목","미출고수량","발주서에서 못 찾음"]].concat(
-        left.map(function(it){return [it.who,it.inv,it.item,it.qty-it.used,"O"];}))),"미매칭 미출고");
-  }
+  if(left.length)alert("발주서에서 못 찾은 미출고 "+left.length+"건은 양식에 넣지 않았습니다 — 화면 위 노란 칸에서 확인해 주세요.");
   var d=new Date();
   XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 매장출고양식.xlsx");
 }
