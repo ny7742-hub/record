@@ -7444,7 +7444,7 @@ function renderAutoPage(){
         +(dv?'<span class="ap-sub">'+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+'</span>':'')
         +_apBtn("saipAuto"+k.charAt(0).toUpperCase()+k.slice(1),"saipAutoGo('"+k+"')","등록")
         +(typeof saipPreviewGo==="function"?'<button class="ap-btn sub" onclick="saipPreviewGo(\''+k+'\')">🔍 미리보기</button>':'')+'</div>'
-        +_saipCard(k)+_apOdLink(k,dv)+'</div>';
+        +_saipCard(k)+_apSrcLink(k,dv)+'</div>';
     }).join("");
   }
   /* 반품등록 2개 */
@@ -7463,16 +7463,24 @@ function renderAutoPage(){
   /* 복사본(로그인·코스트코·도매)은 원래 그리는 함수가 채운다 — 처음 열 때 한 번 불러 준다 */
   if(!pg._first){pg._first=1;try{renderPortalLogin();}catch(e){}try{ccAutoRender();}catch(e){}try{ocAutoRender();}catch(e){}}
 }
-/* 사입출고등록 칸 아래 OneDrive 바로가기(2026-10-08 영업2팀) — 그 등록의 **원본 파일이 있는 폴더**를 새 탭으로 연다.
-   코스트코(cc)는 자료가 OneDrive가 아니라 하이웍스 메일이라 넣지 않는다.
-   공유 폴더 링크라 날짜 폴더까지 바로 못 들어간다 — 글자에 날짜(MMDD)를 적어 어느 폴더를 열면 되는지 보인다. */
-function _apOdLink(k,dv){
-  if(k==="cc"||!OD_SALES_URL)return "";
+/* 사입출고등록 칸 아래 **원본 자료가 있는 곳** 바로가기(2026-10-08 영업2팀) — 새 탭으로 연다.
+   홈쇼핑·백화점몰·창고간이동·발송후취소 = OneDrive 판매자료 날짜 폴더(`OD_SALES_URL`).
+   **코스트코만 하이웍스 메일함** — 그 자료는 OneDrive가 아니라 물류가 보낸 `RE: 화이트샌즈(MMDD) - 영업2팀` 메일로 온다.
+   메일함은 ⚡ 바로가기 칩과 같게 자동화 창 모드를 따른다(`qcPortalOpen`) — 자동화 PC에서는 포탈 창에 열려야 로그인이 이어진다.
+   공유 폴더·메일함 모두 그날 것으로 바로 못 들어간다 — 글자와 title에 날짜(MMDD)를 적어 무엇을 찾으면 되는지 보인다. */
+var AP_MAIL_URL="https://mails.office.hiworks.com/list/inbox?page=1";
+function _apSrcLink(k,dv){
   var md=dv?dv.slice(5,7)+dv.slice(8,10):"";
+  var A='class="ap-btn sub" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block"';
+  if(k==="cc")
+    return '<div style="margin-top:6px"><a '+A+' href="'+AP_MAIL_URL+'" onclick="return qcPortalOpen(event,&#39;hiworks&#39;)"'
+      +' title="자료가 오는 하이웍스 메일함을 엽니다'+(md?' — RE: 화이트샌즈('+md+') - 영업2팀 메일':'')+'"'
+      +'>📧 하이웍스 메일함'+(md?' · '+md+' 메일':'')+'</a></div>';
+  if(!OD_SALES_URL)return "";
   var what=k==="xc"?"발송후취소":k==="mv"?"창고간이동":SAIP_KINDS[k].label;
-  return '<div style="margin-top:6px"><a class="ap-btn sub" href="'+OD_SALES_URL+'" target="_blank" rel="noopener"'
-    +' title="원본 파일이 있는 OneDrive 판매자료 폴더를 새 탭으로 엽니다'+(md?' — '+md+' 폴더의 '+_escX(md+' '+what+'.xlsx'):'')+'"'
-    +' style="text-decoration:none;display:inline-block">📂 OneDrive 판매자료'+(md?' · '+md+' 폴더':'')+'</a></div>';
+  return '<div style="margin-top:6px"><a '+A+' href="'+OD_SALES_URL+'"'
+    +' title="원본 파일이 있는 OneDrive 판매자료 폴더를 엽니다'+(md?' — '+md+' 폴더의 '+_escX(md+' '+what+'.xlsx'):'')+'"'
+    +'>📂 OneDrive 판매자료'+(md?' · '+md+' 폴더':'')+'</a></div>';
 }
 /* 원래 화면의 등록 단추(사입출고 saipAutoHs… · 반품 retAutoHr…)가 칠해진 색·글자(요망·완료·진행 중)를 그대로 쓴다 */
 function _apBtn(srcId,onclick,fallback){
