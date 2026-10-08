@@ -19961,7 +19961,16 @@ function ccPdfRegisterSales(){
    save=false면 계획만 돌려준다(미리보기). */
 function ccRegisterSalesFromRows(rows,save){
   if(_ccPdfSalesBusy)return {error:"다른 등록이 도는 중"};
-  _ccPdfSalesOverride=Array.isArray(rows)?rows:[];
+  /* 색상은 상품컬러코드(자사코드)로 상품데이터의 칼라명을 찾아 같이 넘긴다 — 상품명이 영문인 상품(장우산 850 =
+     `WHITE SANDS 850 UV Protection Parasol 블랙`)은 상품명 꼬리에서 색을 못 뽑았다(10/6 회신 40줄) */
+  var cn={};
+  if(typeof DB!=="undefined")DB.forEach(function(x){var k=String(x["자사코드"]||"").trim().toUpperCase();if(k&&!cn[k])cn[k]=String(x["칼라명"]||"").trim();});
+  if(typeof DEFAULT_DATA!=="undefined")DEFAULT_DATA.forEach(function(x){var k=String(x[7]||"").trim().toUpperCase();if(k&&!cn[k])cn[k]=String(x[4]||"").trim();});
+  _ccPdfSalesOverride=(Array.isArray(rows)?rows:[]).map(function(r){
+    var o=Object.assign({},r);
+    if(!o.ccColor){var c=cn[String(o.colorCode||"").trim().toUpperCase()];if(c)o.ccColor=c;}
+    return o;
+  });
   var plan;
   try{plan=_ccPdfBuildSalesPlan(false);}finally{_ccPdfSalesOverride=null;}
   var out={lines:plan.keys.length,qty:plan.qty,amt:plan.amt,dup:plan.dup,fileDup:plan.fileDup,fileDupPeriods:plan.fileDupPeriods,
