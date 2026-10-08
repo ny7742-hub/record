@@ -15568,6 +15568,9 @@ function mgCt(){
   if(MG_CT_TOS.indexOf(c.to)<0)c.to=MG_CT_TOS[0];
   if(MG_CT_CHANNELS.indexOf(c.channel)<0)c.channel=MG_CT_CHANNELS[0];
   if(!Array.isArray(c.items)||!c.items.length)c.items=[_mgCtNewItem()];
+  /* 발송일자는 늘 오늘(2026-10-08 영업2팀) — 오늘 직접 고친 날짜(sendDateDay=오늘)만 그대로 둔다. 문서번호 NH-MMDD-01도 따라 바뀐다 */
+  var _td=_mgCtYmd(new Date());
+  if(c.sendDateDay!==_td&&c.sendDate!==_td){c.sendDate=_td;delete c.sendDateDay;}
   c.items.forEach(function(it){var n=_mgCtNewItem();Object.keys(n).forEach(function(k){if(it[k]===undefined)it[k]=n[k];});});
   return c;
 }
@@ -15669,7 +15672,7 @@ function mgRenderSealBar(){
   el.innerHTML=h;
 }
 
-function mgCtSet(k,v){var c=mgCt();c[k]=v;saveMargin();mgRenderContractPreview();}
+function mgCtSet(k,v){var c=mgCt();c[k]=v;if(k==="sendDate")c.sendDateDay=_mgCtYmd(new Date());saveMargin();mgRenderContractPreview();}
 function mgCtSetItem(i,k,v){var c=mgCt();if(!c.items[i])return;c.items[i][k]=v;saveMargin();mgRenderContractPreview();}
 function mgCtAddItem(){var c=mgCt();c.items.push(_mgCtNewItem());saveMargin();mgRenderContractForm();mgRenderContractPreview();}
 function mgCtDelItem(i){var c=mgCt();if(c.items.length<=1)return;c.items.splice(i,1);saveMargin();mgRenderContractForm();mgRenderContractPreview();}
