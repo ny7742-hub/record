@@ -15301,6 +15301,21 @@ function _mgCstcQty(p){
   });
   return {cstc:cstc,nh:nh,date:ccsWh.date||"",parts:parts};
 }
+/* 사전원가를 상품코드로 — 상품리스트 상품명이 코스트코 이름과 다를 때(장우산 850 = `WHITE SANDS 850 UV Protection Parasol`, 2026-10-08 원가 빈칸)
+   코스트코 코드 → 자사 상품코드(CC_PDF_CODE_MAP)로 상품리스트(DB)의 그 상품코드 줄을 찾아 사전원가 최빈값 */
+function _mgCostByCcCode(ccCode){
+  if(typeof DB==="undefined"||!DB.length||typeof CC_PDF_CODE_MAP==="undefined")return "";
+  var cm=CC_PDF_CODE_MAP[String(ccCode||"")],base=cm&&cm.base;if(!base)return "";
+  var cnt={},best="",bestN=0;
+  for(var i=0;i<DB.length;i++){
+    if(String(DB[i]["상품코드"]||"").trim()!==base)continue;
+    var c=String(DB[i]["사전원가"]||"").trim();
+    if(!c||c==="0")continue;
+    cnt[c]=(cnt[c]||0)+1;
+    if(cnt[c]>bestN){bestN=cnt[c];best=c;}
+  }
+  return best;
+}
 /* 마진계산: 상품명 입력 시 상품코드·컬러·판매가는 코스트코 상품등록부, 사전원가는 상품리스트에서 자동 불러오기 */
 function mgAutofillFromCostco(i){
   var r=marginDB.rows[i];if(!r)return false;
@@ -15315,7 +15330,7 @@ function mgAutofillFromCostco(i){
   var _pv=(p.mgPrice!=null&&p.mgPrice!=="")?p.mgPrice:p.price;
   r.price=(_pv!=null&&_pv!=="")?String(_pv):"";
   /* 사전원가: 상품리스트 우선, 아직 안 올렸거나 값이 없으면 코스트코 상품관리에 등록된 값 */
-  var plCost=_mgCostFromProductList(pn);
+  var plCost=_mgCostFromProductList(pn)||_mgCostByCcCode(p.code);
   if(plCost)r.cost=plCost;
   else if(p.cost!=null&&p.cost!=="")r.cost=String(p.cost);
   /* 전체수량이 비어 있으면 CSTC 재고로(직접 적은 값은 안 덮음 — 약정서로 올릴 때는 mgLoadContract가 새로 넣는다) */
