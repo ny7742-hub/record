@@ -2374,7 +2374,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
-  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
+  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg",
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
@@ -2876,6 +2876,11 @@ function fbListen(){
     function(){var pg=document.getElementById("page-stock");if(pg&&pg.style.display!=="none"&&typeof renderStockCheckResults==="function")renderStockCheckResults();}
   );
   /* 코스트코 재고확인 몰 상태(판매중/품절) */
+  /* 행사 공문 직인(팀 공유, 2026-10-08) */
+  apply("ws/mgSeal","mgSealDB",
+    function(d){if(d&&typeof d==="object")mgSealDB=d;},
+    function(){try{mgRenderSealBar();mgRenderContractPreview();var f=document.getElementById("mgCtForm");if(f&&f.style.display!=="none")mgRenderContractForm();}catch(e){}}
+  );
   apply("ws/ccsMall","ccsMallDB",
     function(d){if(d&&typeof d==="object")ccsMallDB=d;},
     function(){var pg=document.getElementById("page-ccstock");if(pg&&pg.style.display!=="none")ccsRender();}
@@ -15578,14 +15583,38 @@ function _mgCtTitle(c,items){
 }
 function _mgCtChannelWord(c){return /온라인/.test(String(c.channel||""))?"온라인":"인라인";}
 
-/* 직인 이미지 — 용량이 크고 개인 도장이라 팀 공유(Firebase)에 올리지 않고 이 브라우저에만 둔다 */
-function mgCtSeal(){try{return localStorage.getItem("mgSealImg")||"";}catch(e){return "";}}
+/* 직인 이미지 — **팀 공유로 저장한다**(2026-10-08 영업2팀 "직인은 저장해주세요" — 예전엔 이 브라우저(localStorage mgSealImg)에만 있어
+   다른 PC·브라우저나 사이트 데이터를 지우면 사라졌다). ws/mgSeal = {img:dataURL, at, by}. 올릴 때 긴 변 400px로 줄여 PNG로(용량 — 보통 수십 KB).
+   이 브라우저에만 있던 예전 직인은 공유본이 없을 때 한 번 올린다(_mgSealMigrate) */
+var mgSealDB=(function(){try{return JSON.parse(localStorage.getItem("mgSealDB")||"null")||{};}catch(e){return {};}})();
+function mgCtSeal(){
+  if(mgSealDB&&mgSealDB.img)return mgSealDB.img;
+  try{return localStorage.getItem("mgSealImg")||"";}catch(e){return "";}
+}
 function mgCtSetSeal(dataUrl){
-  try{
-    if(dataUrl)localStorage.setItem("mgSealImg",dataUrl);
-    else localStorage.removeItem("mgSealImg");
-  }catch(e){alert("직인 이미지 저장에 실패했습니다(용량 초과일 수 있습니다).");return;}
+  mgSealDB={img:dataUrl||"",at:new Date().toISOString(),by:(typeof _saipMe==="function"?_saipMe():"")};
+  wsSetItem("mgSealDB",JSON.stringify(mgSealDB));
+  try{localStorage.removeItem("mgSealImg");}catch(e){}
   mgRenderContractForm();mgRenderSealBar();mgRenderContractPreview();
+}
+function _mgSealMigrate(){
+  if(_mgSealMigrate.done)return;
+  var old="";try{old=localStorage.getItem("mgSealImg")||"";}catch(e){}
+  if(!old||(mgSealDB&&mgSealDB.img))return;
+  if(typeof _authState!=="undefined"&&_authState!=="member"&&_authState!=="open")return;   /* 로그인 뒤에 다시 */
+  _mgSealMigrate.done=true;
+  mgCtSetSeal(old);
+}
+/* 긴 변 400px로 줄여 PNG(투명 배경 유지) */
+function _mgSealShrink(src,cb){
+  var im=new Image();
+  im.onload=function(){
+    var s=Math.min(1,400/Math.max(im.width,im.height)),w=Math.max(1,Math.round(im.width*s)),h=Math.max(1,Math.round(im.height*s));
+    try{var cv=document.createElement("canvas");cv.width=w;cv.height=h;cv.getContext("2d").drawImage(im,0,0,w,h);cb(cv.toDataURL("image/png"));}
+    catch(e){cb(src);}
+  };
+  im.onerror=function(){cb(src);};
+  im.src=src;
 }
 function mgCtUploadSeal(input){
   var f=input.files&&input.files[0];input.value="";
@@ -15593,13 +15622,14 @@ function mgCtUploadSeal(input){
   if(!/^image\//.test(f.type)){alert("이미지 파일만 올릴 수 있습니다.");return;}
   if(f.size>1500000){alert("직인 이미지는 1.5MB 이하로 올려주세요.");return;}
   var r=new FileReader();
-  r.onload=function(e){mgCtSetSeal(e.target.result);};
+  r.onload=function(e){_mgSealShrink(e.target.result,mgCtSetSeal);};
   r.readAsDataURL(f);
 }
 function mgCtClearSeal(){if(confirm("등록된 직인 이미지를 지울까요?"))mgCtSetSeal("");}
 /* 직인은 공문에 꼭 찍혀야 하는 것이라 **입력값을 접어 둬도 늘 보이게** 카드 머리에 둔다 */
 function mgRenderSealBar(){
   var el=document.getElementById("mgCtSealBar");if(!el)return;
+  try{_mgSealMigrate();}catch(e){}
   var seal=mgCtSeal();
   var h='<span style="font-size:11.5px;color:#5b6675;font-weight:700">직인</span>';
   if(seal){
@@ -15738,7 +15768,7 @@ function mgRenderContractForm(){
   }
   h+='<label style="cursor:pointer"><span class="bs" style="padding:4px 10px;font-size:11px;display:inline-block">'+(seal?"직인 변경":"직인 업로드")+'</span>'
     +'<input type="file" accept="image/*" style="display:none" onchange="mgCtUploadSeal(this)"></label>';
-  h+='<span style="font-size:11px;color:#5b6675">직인 이미지는 이 브라우저에만 저장됩니다(팀 공유 안 함)</span>';
+  h+='<span style="font-size:11px;color:#5b6675">직인 이미지는 팀 공유로 저장됩니다(다른 PC에서도 그대로)</span>';
   h+='</div>';
   el.innerHTML=h;
 }
