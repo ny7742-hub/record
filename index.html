@@ -15286,6 +15286,21 @@ function _mgCostFromProductList(ccName){
   }
   return best;
 }
+/* 전체수량 = 코스트코 창고(CSTC) 재고(2026-10-08 영업2팀 "전체수량도 자동으로") — 온라인몰 주문은 CSTC에서 나간다.
+   코스트코 코드 → 자사 상품코드는 발주 매칭표(CC_PDF_CODE_MAP), 컬러별 재고는 코스트코 재고확인과 같은 ccsWh(창고재고현황 CSTC·NH)와 _ccsColor.
+   그 상품의 코스트코 컬러(p.colors)만 더하고 음수는 0으로 본다. 못 구하면 null(칸을 건드리지 않음) */
+function _mgCstcQty(p){
+  if(!p||typeof CC_PDF_CODE_MAP==="undefined"||typeof ccsWh==="undefined"||!ccsWh||!ccsWh.byCode)return null;
+  var cm=CC_PDF_CODE_MAP[String(p.code||"")],base=cm&&cm.base;if(!base)return null;
+  var by=ccsWh.byCode[base];if(!by)return {cstc:0,nh:0,date:ccsWh.date||"",parts:[]};
+  var cstc=0,nh=0,parts=[];
+  (p.colors&&p.colors.length?p.colors:Object.keys(by).map(function(k){return by[k].cn;})).forEach(function(cn){
+    var w=_ccsColor(by,cn);if(!w)return;
+    var c=Math.max(0,Number(w.cstc)||0),n=Math.max(0,Number(w.nh)||0);
+    cstc+=c;nh+=n;parts.push(cn+" "+c);
+  });
+  return {cstc:cstc,nh:nh,date:ccsWh.date||"",parts:parts};
+}
 /* 마진계산: 상품명 입력 시 상품코드·컬러·판매가는 코스트코 상품등록부, 사전원가는 상품리스트에서 자동 불러오기 */
 function mgAutofillFromCostco(i){
   var r=marginDB.rows[i];if(!r)return false;
@@ -15303,6 +15318,8 @@ function mgAutofillFromCostco(i){
   var plCost=_mgCostFromProductList(pn);
   if(plCost)r.cost=plCost;
   else if(p.cost!=null&&p.cost!=="")r.cost=String(p.cost);
+  /* 전체수량이 비어 있으면 CSTC 재고로(직접 적은 값은 안 덮음 — 약정서로 올릴 때는 mgLoadContract가 새로 넣는다) */
+  if(!String(r.qty||"").trim()){var sq=_mgCstcQty(p);if(sq)r.qty=String(sq.cstc);}
   return true;
 }
 /* ── 행사약정서(KO COUPON CONTRACT) PDF → 마진 계산서 행(2026-10-08 영업2팀) ──
@@ -15312,7 +15329,7 @@ function mgAutofillFromCostco(i){
    예) 696151 장우산: Online 17,264 · 쿠폰 3,636 · Costco Fund 1,818 → 판매가 18,990 · 쿠폰적용가 14,990 · 코스트코부담 2,000 · 당사부담 2,000
    상품은 Item #(코스트코 상품코드)로 코스트코 상품등록부에서 찾는다 — 같은 코드가 둘이면(장우산 850 / 장우산 850 직매입) 판매가가 맞는 쪽.
    상품명을 넣으면 컬러·사전원가는 기존 자동 채우기(mgAutofillFromCostco)가 넣는다. 같은 상품 행이 있으면 그 행을 고치고, 없으면 빈 행 또는 새 행.
-   기간은 맨 위 행사기간으로, 아래 공문(docLoadContract)도 같은 파일로 같이 채운다. 전체수량은 약정서에 없어 그대로 둔다 */
+   기간은 맨 위 행사기간으로, 아래 공문(docLoadContract)도 같은 파일로 같이 채운다. 전체수량은 약정서에 없어 CSTC 재고로 넣는다(_mgCstcQty) */
 function _mgVat10(v){return Math.round((Number(v)||0)*1.1/10)*10;}
 function _mgSellValues(lines){
   /* Sell Value 칸 — `Inline ₩15,445` · `Online ₩17,264`(앞에 Sell/Value가 붙어 올 수도 있음). 품목이 여럿이면 같은 줄에 ₩가 여러 개 */
@@ -15349,7 +15366,12 @@ async function mgLoadContract(file){
       if(P)mgAutofillFromCostco(idx);                 /* 컬러·사전원가(상품리스트) */
       row.code=String(it.code);
       row.price=String(price);row.sale=String(sale);row.costcoBear=String(cbear);
-      done.push(nm+" 판매가 "+price.toLocaleString()+" · 쿠폰적용가 "+sale.toLocaleString()+" · 코스트코부담 "+cbear.toLocaleString()+(P?"":" (상품등록부에 없음)"));
+      var sq=P?_mgCstcQty(P):null;
+      if(sq)row.qty=String(sq.cstc);
+      done.push(nm+" 판매가 "+price.toLocaleString()+" · 쿠폰적용가 "+sale.toLocaleString()+" · 코스트코부담 "+cbear.toLocaleString()
+        +(sq?" · 전체수량 "+sq.cstc.toLocaleString()+"(CSTC "+(sq.parts.join(", ")||"재고 없음")+(sq.date?" · "+sq.date.slice(5)+" 기준":"")+(sq.nh?" / NH "+sq.nh.toLocaleString()+"개 별도":"")+")"
+          :" · 전체수량은 재고를 못 찾아 비워 둠")
+        +(P?"":" (상품등록부에 없음)"));
     });
     if(r.start&&r.end)marginDB.period=r.start+"~"+r.end;
     saveMargin();renderMargin();
