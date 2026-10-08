@@ -1702,7 +1702,7 @@ label{font-size:14px!important}
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">💰 코스트코 온라인몰 행사 마진 계산서</div>
       <label style="font-size:12px;color:#1b6e82;font-weight:600">행사기간 <input type="text" id="mgPeriod" placeholder="예: 6/8~6/21" onchange="mgSetPeriod(this.value)" style="width:130px;font-size:12px;padding:4px 8px"></label>
-      <label style="font-size:12px;color:#1b6e82;font-weight:600">수수료율(%) <input type="number" id="mgFee" step="0.1" onchange="marginDB.fee=(parseFloat(this.value)||0)/100;saveMargin()" style="width:70px;font-size:12px;padding:4px 8px;text-align:right"></label>
+      <label style="font-size:12px;color:#1b6e82;font-weight:600">수수료율(%) <input type="number" id="mgFee" step="0.01" onchange="marginDB.fee=(parseFloat(this.value)||0)/100;saveMargin()" style="width:70px;font-size:12px;padding:4px 8px;text-align:right"></label>
       <label style="font-size:12px;color:#1b6e82;font-weight:600">택배비(원) <input type="number" id="mgDeliv" onchange="marginDB.deliv=parseInt(this.value)||0;saveMargin()" style="width:80px;font-size:12px;padding:4px 8px;text-align:right"></label>
       <button onclick="mgAddRow()" class="bs" style="padding:6px 14px;font-size:12px">+ 행 추가</button>
       <label class="bs" style="cursor:pointer;padding:6px 14px;font-size:12px;font-weight:700;background:#f5f3ff;border-color:#c4b5fd;color:#5b21b6" title="코스트코 행사약정서(KO COUPON CONTRACT) PDF — 판매가·쿠폰적용가·코스트코부담·행사기간이 자동으로 들어가고 아래 공문도 같이 채워집니다">📎 행사약정서 PDF<input type="file" accept=".pdf" style="display:none" onchange="mgLoadContract(this.files[0]);this.value=''"></label>
@@ -15425,7 +15425,7 @@ function _mgPct(n){return (n*100).toFixed(1)+"%";}
 function renderMargin(){
   var wrap=document.getElementById("marginTableWrap");if(!wrap)return;
   var fEl=document.getElementById("mgFee"),dEl=document.getElementById("mgDeliv"),pEl=document.getElementById("mgPeriod");
-  if(fEl&&document.activeElement!==fEl)fEl.value=((marginDB.fee||0)*100).toFixed(1);
+  if(fEl&&document.activeElement!==fEl)fEl.value=String(parseFloat(((marginDB.fee||0)*100).toFixed(2)));   /* 소수 둘째 자리까지(14.02%, 2026-10-08) */
   if(dEl&&document.activeElement!==dEl)dEl.value=marginDB.deliv||0;
   if(pEl&&document.activeElement!==pEl)pEl.value=marginDB.period||"";
   /* 통합 컬럼 정의 (순서: 입력+계산 혼합) */
@@ -15891,7 +15891,7 @@ function mgBuildNote(){
       +"판매가 : "+price.toLocaleString()+"원 > "+sale.toLocaleString()+"원\n"
       +"쿠폰금액 : "+coupon.toLocaleString()+"원 (VAT+) > 자사 부담 "+Math.round(c.ourBear).toLocaleString()+"원 / 코코 부담 "+costcoBear.toLocaleString()+"원\n"
       +"원가 : "+cost.toLocaleString()+"원\n"
-      +"수수료 ("+(fee*100).toFixed(1)+"%) : "+Math.floor((price||sale)*fee).toLocaleString()+"원\n"
+      +"수수료 ("+parseFloat((fee*100).toFixed(2))+"%) : "+Math.floor((price||sale)*fee).toLocaleString()+"원\n"
       +(deliv?("택배비 : "+deliv.toLocaleString()+"원\n"):"")
       +"마진 : 약 "+Math.round(c.profit).toLocaleString()+"원\n"
       +"확인 및 검토 부탁드립니다.";
