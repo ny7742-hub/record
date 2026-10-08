@@ -2163,9 +2163,19 @@ label{font-size:14px!important}
 
 <div id="page-invcount" style="display:none">
 <div class="main" style="max-width:1200px;padding:16px 20px">
+  <!-- 메일 자동 집계(2026-10-08 영업2팀) — 자동화 PC invoice-count.mjs가 30분마다 하이웍스 물류 회신 첨부를 세어 ws/invCount에 올린다 -->
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <div class="sec-title" style="margin:0;font-size:13px">📬 메일 자동 집계</div>
+      <span style="font-size:12px;color:#5b6675">김구남 센터장 <b>회신 메일</b>(도매·코스트코 발주서)의 운송장번호를 자동으로 셉니다 — 파일을 받아 올릴 필요 없음</span>
+      <select id="icAutoMonth" onchange="icAutoRender()" style="margin-left:auto;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"></select>
+      <button class="bg" style="padding:6px 14px;font-size:12.5px;background:#0f766e" onclick="icAutoDownload()">📥 월 송장건수 엑셀</button>
+    </div>
+    <div id="icAutoBox"></div>
+  </div>
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-      <div class="sec-title" style="margin:0;font-size:13px">📦 송장건수</div>
+      <div class="sec-title" style="margin:0;font-size:13px">📦 송장건수 (파일 직접 올리기)</div>
       <span style="font-size:12px;color:#5b6675">물류에서 <b>운송장번호가 채워져</b> 돌아온 도매발주서를 <b>여러 개 한 번에</b> 올리면 송장이 몇 건인지 셉니다</span>
       <button class="bg" style="padding:6px 14px;font-size:12.5px;margin-left:auto;background:#0f766e" onclick="icDownload()">📥 엑셀 한 번에 다운로드</button>
       <button class="bs" style="padding:5px 12px;font-size:12px;color:#dc2626" onclick="icClear()">초기화</button>
@@ -2382,7 +2392,7 @@ var FB_PATH={
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
-  "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks",
+  "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg",
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
@@ -2971,6 +2981,10 @@ function fbListen(){
   apply("ws/portalLogin","portalLogin",
     function(d){if(d&&typeof d==="object")portalLogin=d;},
     function(){if(typeof renderPortalLogin==="function")renderPortalLogin();if(typeof renderSaipAuto==="function")renderSaipAuto();}
+  );
+  apply("ws/invCount","invCount",
+    function(d){if(d&&typeof d==="object")invCount=d;},
+    function(){if(typeof icAutoRender==="function")icAutoRender();}
   );
   apply("ws/xcSaipStatus","xcSaipStatus",
     function(d){if(d&&typeof d==="object")xcSaipStatus=d;},
@@ -12058,6 +12072,67 @@ function renderDocPage(){
   }
 }
 
+/* ── 송장건수 메일 자동 집계(2026-10-08 영업2팀 — "회신 받은 파일을 따로 다운해서 보관해서 진행 → 자동으로 월단위로") ──
+   invCount = { at, from, days:{'YYYY-MM-DD':{ws,cc}}, files:[{date,name,received,ws,cc,dup,noInv,err}] } — automation/invoice-count.mjs가 30분마다 쓴다.
+   날짜는 첨부 이름의 (MMDD), 같은 운송장은 먼저 받은 메일에 한 번만(손으로 올리는 아래 송장건수와 같은 규칙). */
+var invCount=(function(){try{return JSON.parse(localStorage.getItem("invCount")||"null");}catch(e){return null;}})();
+function _icAutoMonths(){
+  var D=(invCount&&invCount.days)||{},set={};
+  Object.keys(D).forEach(function(d){set[d.slice(0,7)]=1;});
+  var now=new Date(),cur=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");set[cur]=1;
+  return Object.keys(set).sort().reverse();
+}
+function icAutoRender(){
+  var box=document.getElementById("icAutoBox"),sel=document.getElementById("icAutoMonth");if(!box||!sel)return;
+  var ms=_icAutoMonths(),keep=sel.value;
+  sel.innerHTML=ms.map(function(m){return '<option value="'+m+'">'+(+m.slice(0,4))+'년 '+(+m.slice(5,7))+'월</option>';}).join("");
+  sel.value=ms.indexOf(keep)>=0?keep:ms[0];
+  if(!invCount||!invCount.days){box.innerHTML='<div style="font-size:12.5px;color:#5b6675">아직 집계가 없습니다 — 자동화 PC가 켜져 있으면 30분 안에 채워집니다.</div>';return;}
+  var ym=sel.value,D=invCount.days,days=Object.keys(D).filter(function(d){return d.slice(0,7)===ym;}).sort();
+  var sw=0,sc=0;days.forEach(function(d){sw+=D[d].ws;sc+=D[d].cc;});
+  var TH='padding:5px 10px;background:#eef6f7;border:1px solid #d7e5e8;font-size:12px;text-align:center',TD='padding:4px 10px;border:1px solid #e5edef;text-align:right;font-size:12.5px';
+  var dw=["일","월","화","수","목","금","토"];
+  var h='<div style="display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px">'
+    +'<div><span style="font-size:12px;color:#5b6675;font-weight:700">'+(+ym.slice(5,7))+'월 송장건수</span> <b style="font-size:20px;color:#0f766e">'+(sw+sc).toLocaleString()+'건</b></div>'
+    +'<div style="font-size:13px">도매 <b>'+sw.toLocaleString()+'</b> · 코스트코 <b>'+sc.toLocaleString()+'</b></div>'
+    +'<div style="font-size:11.5px;color:#5b6675;margin-left:auto">마지막 집계 '+_escX(_saipFmtAt(invCount.at))+(invCount.err&&invCount.errAt>invCount.at?' · <span style="color:#b91c1c">'+_escX(invCount.err)+'</span>':'')+'</div></div>';
+  if(!days.length)h+='<div style="font-size:12.5px;color:#5b6675">이 달에 받은 회신이 아직 없습니다.</div>';
+  else{
+    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:360px"><thead><tr><th style="'+TH+'">날짜</th><th style="'+TH+'">도매</th><th style="'+TH+'">코스트코</th><th style="'+TH+'">합계</th><th style="'+TH+'">회신 파일</th></tr></thead><tbody>';
+    days.forEach(function(d){
+      var v=D[d],dt=new Date(d+"T00:00:00");
+      var fs=(invCount.files||[]).filter(function(f){return f.date===d;});
+      var ft=fs.map(function(f){return f.name+" — 도매 "+f.ws+" · 코스트코 "+f.cc+(f.dup?" · 중복 제외 "+f.dup:"")+(f.err?" · ⚠ "+f.err:"");}).join("\n");
+      h+='<tr><td style="'+TD+';text-align:center">'+(+d.slice(5,7))+'/'+(+d.slice(8,10))+'('+dw[dt.getDay()]+')</td><td style="'+TD+'">'+v.ws+'</td><td style="'+TD+'">'+v.cc+'</td><td style="'+TD+';font-weight:700">'+(v.ws+v.cc)+'</td>'
+        +'<td style="'+TD+';text-align:left;color:#5b6675;font-size:11.5px" title="'+_escX(ft)+'">'+fs.length+'개'+(fs.some(function(f){return f.err;})?' <span style="color:#b91c1c">⚠</span>':'')+'</td></tr>';
+    });
+    h+='<tr style="background:#f0fdfa;font-weight:800"><td style="'+TD+';text-align:center">합계</td><td style="'+TD+'">'+sw+'</td><td style="'+TD+'">'+sc+'</td><td style="'+TD+'">'+(sw+sc)+'</td><td style="'+TD+'"></td></tr></tbody></table></div>';
+  }
+  box.innerHTML=h;
+}
+/* 영업2팀 월간 송장건수 양식 그대로(A 날짜 · B 도매 · C 코스트코 · D 합계, B1:C1·D1:D2 병합) + 파일별 시트 */
+function icAutoDownload(){
+  var sel=document.getElementById("icAutoMonth"),ym=sel&&sel.value;
+  if(!invCount||!invCount.days||!ym){alert("집계 자료가 없습니다.");return;}
+  var D=invCount.days,days=Object.keys(D).filter(function(d){return d.slice(0,7)===ym;}).sort();
+  if(!days.length){alert("이 달에 받은 회신이 없습니다.");return;}
+  var m0=[["날짜","송장건수","","합계"],["","도매","코스트코",""]],sw=0,sc=0;
+  days.forEach(function(d){m0.push([null,D[d].ws,D[d].cc,D[d].ws+D[d].cc]);sw+=D[d].ws;sc+=D[d].cc;});
+  m0.push(["합계",sw,sc,sw+sc]);
+  var wsM=XLSX.utils.aoa_to_sheet(m0);
+  days.forEach(function(d,i){
+    var serial=Math.round((Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10))-Date.UTC(1899,11,30))/86400000);
+    wsM["A"+(i+3)]={t:"n",v:serial,z:'mm"월" dd"일"'};
+  });
+  wsM["!merges"]=[{s:{r:0,c:1},e:{r:0,c:2}},{s:{r:0,c:3},e:{r:1,c:3}}];
+  wsM["!cols"]=[{wch:11},{wch:9},{wch:9},{wch:9}];
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,wsM,"송장건수");
+  var f1=[["날짜","회신 파일","받은 시각","도매","코스트코","중복 제외","운송장 없음(줄)"]];
+  (invCount.files||[]).filter(function(f){return f.date.slice(0,7)===ym;}).forEach(function(f){f1.push([f.date,f.name,_saipFmtAt(f.received),f.ws,f.cc,f.dup||0,f.noInv||0]);});
+  var w1=XLSX.utils.aoa_to_sheet(f1);w1["!cols"]=[{wch:11},{wch:48},{wch:16},{wch:7},{wch:9},{wch:9},{wch:13}];
+  XLSX.utils.book_append_sheet(wb,w1,"회신파일별");
+  XLSX.writeFile(wb,(+ym.slice(5,7))+"월 영업2팀 송장건수.xlsx");
+}
 /* ── 송장건수 (등록 탭) ──
    물류에서 운송장번호가 채워져 돌아온 도매발주서(27열)를 **여러 개 한 번에** 올리면 운송장번호 개수를 센다.
    품목이 여러 줄이어도 운송장이 같으면 **송장 1건**(0911 발주서: 청량리 21줄·센텀 6줄 → 2건).
@@ -12243,6 +12318,7 @@ function icCopy(){
   else prompt("복사하세요",t);
 }
 function icRender(){
+  try{icAutoRender();}catch(e){}
   var box=document.getElementById("icResult");if(!box)return;
   if(!icData.files.length){
     box.innerHTML='<div class="card" style="padding:30px;text-align:center;color:#5b6675;font-size:13px">도매발주서를 올리면 송장건수가 나옵니다. 여러 파일을 한 번에 선택하거나 끌어와도 됩니다.</div>';
