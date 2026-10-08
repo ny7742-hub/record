@@ -7310,6 +7310,9 @@ function qcSave(label,field,val){
   quickCreds[label][field]=val;
   wsSetItem("quickCreds",JSON.stringify(quickCreds));
 }
+/* OneDrive 「판매자료」 — ⚡ 바로가기 칩과 자동화 탭 사입출고등록 칸이 **같은 주소**를 쓴다.
+   주소를 고칠 일이 생기면 여기 한 곳만 고친다. */
+var OD_SALES_URL="https://onedrive.live.com/?id=FEBA372AF61138D3%21187394&cid=FEBA372AF61138D3&redeem=aHR0cHM6Ly8xZHJ2Lm1zL2YvYy9mZWJhMzcyYWY2MTEzOGQzL1F0TTRFZllxTjdvZ2dQNEMzQUlBQUFBQXhmTllYWVJMUVpZWUt3";
 function renderQuickLaunch(){
   var _extLinkIcon='<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/>';
   /* 타팀 협업 페이지(cowork.html)는 우리 저장소의 다른 페이지다 — 같은 창을 뺏지 않게 새 탭으로 연다 */
@@ -7347,7 +7350,7 @@ function renderQuickLaunch(){
     {label:"영업2팀 P&L",url:"https://docs.google.com/spreadsheets/d/15sXsB_s-1Cbe5jIMAa8YYCBQMSu0e_eJt01kL8aXXm8/edit?gid=0#gid=0",icon:_extLinkIcon,noCred:true},
     {label:"27FW 로드쇼",url:"https://docs.google.com/spreadsheets/d/1E5vzQL8Fp-E3k3T6GCnZ4jB-XL1AgwK_MtJW_dzWEiQ/edit?pli=1&gid=2077254804#gid=2077254804",icon:_extLinkIcon,noCred:true},
     {label:"반품리스트",url:"https://docs.google.com/spreadsheets/d/1Cjoo-x9lBA5pFtGoxftdAxdoKrzt770XcPGeXOidPiI/edit?gid=0#gid=0",icon:_extLinkIcon,noCred:true},
-    {label:"OneDrive",url:"https://onedrive.live.com/?id=FEBA372AF61138D3%21187394&cid=FEBA372AF61138D3&redeem=aHR0cHM6Ly8xZHJ2Lm1zL2YvYy9mZWJhMzcyYWY2MTEzOGQzL1F0TTRFZllxTjdvZ2dQNEMzQUlBQUFBQXhmTllYWVJMUVpZWUt3",icon:_extLinkIcon,noCred:true}
+    {label:"OneDrive",url:OD_SALES_URL,icon:_extLinkIcon,noCred:true}
   ];
   var qw=document.getElementById("homeQuick");
   function renderCard(q){
@@ -7441,7 +7444,7 @@ function renderAutoPage(){
         +(dv?'<span class="ap-sub">'+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+'</span>':'')
         +_apBtn("saipAuto"+k.charAt(0).toUpperCase()+k.slice(1),"saipAutoGo('"+k+"')","등록")
         +(typeof saipPreviewGo==="function"?'<button class="ap-btn sub" onclick="saipPreviewGo(\''+k+'\')">🔍 미리보기</button>':'')+'</div>'
-        +_saipCard(k)+'</div>';
+        +_saipCard(k)+_apOdLink(k,dv)+'</div>';
     }).join("");
   }
   /* 반품등록 2개 */
@@ -7459,6 +7462,17 @@ function renderAutoPage(){
   }
   /* 복사본(로그인·코스트코·도매)은 원래 그리는 함수가 채운다 — 처음 열 때 한 번 불러 준다 */
   if(!pg._first){pg._first=1;try{renderPortalLogin();}catch(e){}try{ccAutoRender();}catch(e){}try{ocAutoRender();}catch(e){}}
+}
+/* 사입출고등록 칸 아래 OneDrive 바로가기(2026-10-08 영업2팀) — 그 등록의 **원본 파일이 있는 폴더**를 새 탭으로 연다.
+   코스트코(cc)는 자료가 OneDrive가 아니라 하이웍스 메일이라 넣지 않는다.
+   공유 폴더 링크라 날짜 폴더까지 바로 못 들어간다 — 글자에 날짜(MMDD)를 적어 어느 폴더를 열면 되는지 보인다. */
+function _apOdLink(k,dv){
+  if(k==="cc"||!OD_SALES_URL)return "";
+  var md=dv?dv.slice(5,7)+dv.slice(8,10):"";
+  var what=k==="xc"?"발송후취소":k==="mv"?"창고간이동":SAIP_KINDS[k].label;
+  return '<div style="margin-top:6px"><a class="ap-btn sub" href="'+OD_SALES_URL+'" target="_blank" rel="noopener"'
+    +' title="원본 파일이 있는 OneDrive 판매자료 폴더를 새 탭으로 엽니다'+(md?' — '+md+' 폴더의 '+_escX(md+' '+what+'.xlsx'):'')+'"'
+    +' style="text-decoration:none;display:inline-block">📂 OneDrive 판매자료'+(md?' · '+md+' 폴더':'')+'</a></div>';
 }
 /* 원래 화면의 등록 단추(사입출고 saipAutoHs… · 반품 retAutoHr…)가 칠해진 색·글자(요망·완료·진행 중)를 그대로 쓴다 */
 function _apBtn(srcId,onclick,fallback){
