@@ -875,6 +875,14 @@ label{font-size:14px!important}
   </div>
    </div>
   </div>
+  <!-- 백화점 매장별 월별 판매금액 · 올해 vs 작년(2026-10-08 영업2팀) — renderHomeDeptMonthly -->
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px">
+    <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none" id="homeDeptMonTitle">🏬 백화점 매장별 월별 판매금액</div>
+    <span style="font-size:11px;color:#5b6675">매장별 일별매출 <b>EDI 합계</b> · 단위 만원 · 이번 달은 작년 같은 날까지 견줌</span>
+  </div>
+  <div class="card" style="margin-bottom:14px;padding:12px 16px">
+    <div id="homeDeptMon" style="overflow-x:auto"></div>
+  </div>
   <div class="sec-title" style="margin-top:4px">🛍️ 카테고리</div>
   <div id="homeShelfRev" class="home-shelf-rev"></div>
   <div id="homeShelf" class="home-shelf"></div>
@@ -6732,7 +6740,71 @@ window.addEventListener("resize",function(){
   clearTimeout(_ytdMonthlyScale._t);
   _ytdMonthlyScale._t=setTimeout(_ytdMonthlyScale,150);
 });
+/* 홈 🏬 백화점 매장별 월별 판매금액 — 올해·작년·전년비(2026-10-08 영업2팀 "백화점 월별 매장별 판매금액 2026년, 2025년 전년대비").
+   자료는 매장별 일별매출 EDI 합계(dailySalesDB.data[YYYY-MM][일][매장].edi — 백화점+온라인). 코스트코 매장은 뺀다.
+   매장 이름이 달마다 달라(롯데 잠실 · 롯데 잠실점 · 롯데 잠실 LJS) _dsNormStoreName으로 묶고, 이름은 가장 최근 달 표기(코드 뺀 것).
+   이번 달은 작년도 같은 날까지만 더해 견준다. 작년 1~5월은 매장별 일별매출이 없어 '–'(2025-06부터 있음).
+   합계 열의 전년비는 작년 자료가 있는 달끼리만 견준다(없는 달까지 넣으면 늘 크게 오른 것처럼 보인다). */
+function renderHomeDeptMonthly(){
+  var box=document.getElementById("homeDeptMon");if(!box)return;
+  var D=(typeof dailySalesDB!=="undefined"&&dailySalesDB&&dailySalesDB.data)||null;
+  if(!D){box.innerHTML='<div style="font-size:13px;color:#5b6675;padding:6px 2px">매장별 일별매출 자료가 없습니다.</div>';return;}
+  var now=new Date(),Y=now.getFullYear(),P=Y-1,cm=now.getMonth()+1,cd=now.getDate();
+  var num=function(v){return Number(String(v==null?"":v).replace(/,/g,""))||0;};
+  var S={},pHas={};   /* S[키] = {name,at,y:{월:금액},p:{월:금액}} · pHas[월] = 작년 그 달 자료가 있나 */
+  Object.keys(D).forEach(function(ym){
+    var yr=+ym.slice(0,4),m=+ym.slice(5,7);
+    if(yr!==Y&&yr!==P)return;
+    if(yr===Y&&m>cm)return;
+    Object.keys(D[ym]||{}).forEach(function(day){
+      if(yr===P&&m===cm&&+day>cd)return;   /* 이번 달은 작년도 같은 날까지 */
+      var dd=D[ym][day]||{};
+      Object.keys(dd).forEach(function(st){
+        if(/코스트코/.test(st))return;
+        var e=num((dd[st]||{}).edi);if(!e)return;
+        var k=_dsNormStoreName(st),o=S[k]||(S[k]={name:"",at:"",y:{},p:{}});
+        var w=yr===Y?o.y:o.p;w[m]=(w[m]||0)+e;
+        if(yr===P)pHas[m]=1;
+        if(ym>=o.at){o.at=ym;o.name=String(_storeNoCode(st)||st).trim();}
+      });
+    });
+  });
+  var keys=Object.keys(S);
+  if(!keys.length){box.innerHTML='<div style="font-size:13px;color:#5b6675;padding:6px 2px">표시할 백화점 매출이 없습니다.</div>';return;}
+  var sum=function(o,set){var t=0;Object.keys(o).forEach(function(m){if(!set||set[m])t+=o[m];});return t;};
+  keys.sort(function(a,b){return sum(S[b].y)-sum(S[a].y)||sum(S[b].p)-sum(S[a].p);});
+  var titleEl=document.getElementById("homeDeptMonTitle");if(titleEl)titleEl.textContent="🏬 백화점 매장별 월별 판매금액 ("+Y+" vs "+P+")";
+  var T={name:"백화점 합계",y:{},p:{}};
+  keys.forEach(function(k){["y","p"].forEach(function(w){Object.keys(S[k][w]).forEach(function(m){T[w][m]=(T[w][m]||0)+S[k][w][m];});});});
+  var man=function(v){return v?Math.round(v/10000).toLocaleString():"";};
+  var pct=function(a,b){
+    if(!b)return a?'<span style="color:#1d4ed8">신규</span>':'';
+    var r=(a/b-1)*100,c=r>=0?"#047857":"#b91c1c";
+    return '<span style="color:'+c+';font-weight:700">'+(r>=0?"+":"")+r.toFixed(0)+'%</span>';
+  };
+  var td='style="text-align:right;padding:4px 6px;white-space:nowrap"',tdL='style="text-align:left;padding:4px 8px;white-space:nowrap;font-weight:700"';
+  var months=[];for(var m=1;m<=12;m++)months.push(m);
+  var block=function(o,isTot){
+    /* 합계는 1월~이번 달까지(작년 11·12월은 칸에는 보이지만 합계엔 안 넣는다) */
+    var upTo={};months.forEach(function(m){if(m<=cm)upTo[m]=1;});
+    var cmp={};months.forEach(function(m){if(m<=cm&&pHas[m])cmp[m]=1;});
+    var yT=sum(o.y,upTo),pT=sum(o.p,upTo),yC=sum(o.y,cmp),pC=sum(o.p,cmp),bg=isTot?"background:#ecfeff;":"";
+    var line=function(lab,cells,tot,sty){return '<tr style="'+bg+(sty||"")+'"><td '+tdL+'>'+(lab===Y?_esc(o.name):"")+'</td><td style="padding:4px 6px;color:#5b6675;white-space:nowrap">'+lab+'</td>'+cells+'<td '+td+'><b>'+tot+'</b></td></tr>';};
+    var cy=months.map(function(m){return '<td '+td+' title="'+(o.y[m]?o.y[m].toLocaleString()+'원':'')+'">'+(m>cm?'':man(o.y[m]))+'</td>';}).join("");
+    var cp=months.map(function(m){return '<td style="text-align:right;padding:4px 6px;white-space:nowrap;color:#5b6675" title="'+(o.p[m]?o.p[m].toLocaleString()+'원':'')+'">'+(pHas[m]?man(o.p[m]):'–')+'</td>';}).join("");
+    var cr=months.map(function(m){return '<td '+td+'>'+(m>cm||!pHas[m]?'':pct(o.y[m]||0,o.p[m]||0))+'</td>';}).join("");
+    return line(Y,cy,man(yT),"border-top:2px solid #cfe0e5")+line(P,cp,man(pT))+line("전년비",cr,pct(yC,pC));
+  };
+  var h='<table class="ytd-tbl" style="font-size:12.5px;border-collapse:collapse;min-width:100%"><thead><tr><th style="text-align:left;padding:4px 8px">매장</th><th></th>'
+    +months.map(function(m){return '<th style="text-align:right;padding:4px 6px;'+(m===cm?'color:#1b6e82':'')+'">'+m+'월'+(m===cm?'<br><span style="font-weight:400;font-size:10.5px">~'+cd+'일</span>':'')+'</th>';}).join("")
+    +'<th style="text-align:right;padding:4px 6px">합계<br><span style="font-weight:400;font-size:10.5px">1~'+cm+'월</span></th></tr></thead><tbody>'
+    +block(T,true)+keys.map(function(k){return block(S[k],false);}).join("")+'</tbody></table>';
+  var noP=months.filter(function(m){return m<=cm&&!pHas[m];});
+  if(noP.length)h+='<div style="font-size:11.5px;color:#5b6675;margin-top:6px">– '+P+'년 '+noP[0]+(noP.length>1?'~'+noP[noP.length-1]:'')+'월은 매장별 일별매출 자료가 없습니다. 합계 열 전년비는 작년 자료가 있는 달('+months.filter(function(m){return pHas[m]&&m<=cm;}).join('·')+'월)끼리 견준 값입니다.</div>';
+  box.innerHTML=h;
+}
 function renderHomeYtd(now){
+  try{renderHomeDeptMonthly();}catch(e){console.warn("백화점 월별",e);}
   var wrap=document.getElementById("homeYtd");
   if(!wrap)return;
   var M=now.getMonth()+1,Y=now.getFullYear();
