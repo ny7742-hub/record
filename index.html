@@ -15417,8 +15417,12 @@ function _mgCalc(r){
   var basePrice=price||sale;
   var cost=_mgNum(r.cost), costcoBear=_mgNum(r.costcoBear), qty=_mgNum(r.qty);
   var ourBear=(price-sale)-costcoBear;    /* 당사부담금 자동 = (판매가-행사가)-코코부담 */
-  var feeAmt=Math.round(basePrice*fee);   /* 수수료 = 판매가 × 수수료율 */
-  var supply=basePrice-feeAmt;            /* 판매가 - 수수료 */
+  /* 6/19 영업2팀 방식(2026-10-08 다시 확인): 이익 = 판매가 − 판매가×수수료율 − 당사부담 − 사전원가 − 택배비.
+     수수료 금액은 **버림**으로 보이고(16,990×14.2% = 2,412.58 → 2,412 — 검토 요청 문구와 같음), 이익은 버리기 전 수수료로 계산해 반올림한다
+     (장우산 포시타 16,990 · 2,000 · 8,809 → 약 3,768원, 영업2팀 예시와 같음) */
+  var feeExact=basePrice*fee;
+  var feeAmt=Math.floor(feeExact+1e-9);   /* 수수료 = 판매가 × 수수료율(버림) */
+  var supply=basePrice-feeExact;          /* 판매가 - 수수료 */
   var profit=supply-ourBear-cost-deliv;   /* 이익 = 판매가-수수료-당사부담-사전원가-택배비 */
   var mPrice=sale?profit/sale:0;
   var mSupply=supply?profit/supply:0;
