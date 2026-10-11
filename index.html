@@ -1480,6 +1480,7 @@ label{font-size:14px!important}
         <b style="font-size:16px;color:#0f4c5c">🤖 코스트코 자동 발주</b>
         <button id="ccAutoSaveBtn" onclick="ccAutoGo('save')" style="font-size:14px;font-weight:800;padding:6px 14px;background:#1b6e82;color:#fff;border:1px solid #1b6e82;border-radius:8px;cursor:pointer" title="DSS 출력완료 처리 + 메일 발송까지 합니다">🚚 발주하기</button>
         <button class="bs" onclick="ccAutoGo('preview')" style="font-size:14px;font-weight:700;padding:6px 12px" title="DSS는 읽기만 하고, 도매발주서를 만들어 하이웍스 임시보관함에 메일 초안만 저장합니다">🔍 미리보기(메일 초안)</button>
+        <button class="bs" onclick="ccCountGo()" style="font-size:14px;font-weight:700;padding:6px 12px" title="DSS 두 아이디의 새 주문 수만 지금 읽어 옵니다(DSS 상태는 바뀌지 않음)">🔢 건수 확인</button>
         <span style="font-size:13px;color:#5b6675">DSS 두 아이디 새 주문 → 도매발주서 → DSS [출력] → 주희물류 메일(참조 영업2팀·CX팀, 서명 = 누른 사람)</span>
       </div>
       <div id="ccAutoStatus" style="margin-top:6px;font-size:14px;line-height:1.6"></div>
@@ -2117,7 +2118,8 @@ label{font-size:14px!important}
       <div id="autoOcStatus" style="font-size:13px;line-height:1.6"></div></div>
     <div class="ap-card"><div class="ap-h"><b>🛒 코스트코 자동 발주</b><span class="ap-sub">평일 08:35 · DSS 두 아이디 → 도매발주서 → 출력 → 김구남 센터장 메일</span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button id="autoCcSaveBtn" class="ap-btn" onclick="ccAutoGo('save')">🚚 발주하기</button>
-        <button class="ap-btn sub" onclick="ccAutoGo('preview')">🔍 미리보기(메일 초안)</button></div>
+        <button class="ap-btn sub" onclick="ccAutoGo('preview')">🔍 미리보기(메일 초안)</button>
+        <button class="ap-btn sub" onclick="ccCountGo()">🔢 건수 확인</button></div>
       <div id="autoCcStatus" style="font-size:13px;line-height:1.6"></div></div>
     <div class="ap-card" style="grid-column:1/-1"><div class="ap-h"><b>🚚 사입출고등록</b><span class="ap-sub">홈쇼핑 · 백화점몰 · 코스트코(+DSS 송장) · 발송후취소 — 날짜는 사입출고등록 탭의 날짜 칸을 따릅니다</span>
       <button class="ap-btn sub" style="margin-left:auto" onclick="switchTab('ccorder')">사입출고등록 탭 열기</button></div>
@@ -2399,7 +2401,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccCountReq":"ws/ccCountReq","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -2959,6 +2961,10 @@ function fbListen(){
   );
   apply("ws/ccOrderReady","ccOrderReady",
     function(d){if(d&&typeof d==="object")ccOrderReady=d;},
+    function(){if(typeof ccAutoRender==="function")ccAutoRender();}
+  );
+  apply("ws/ccCountReq","ccCountReq",
+    function(d){if(d&&typeof d==="object")ccCountReq=d;},
     function(){if(typeof ccAutoRender==="function")ccAutoRender();}
   );
   /* 도매 발주 자동화(2026-10-02 영업2팀) — PlayMD에서 받은 주문배분현황 · 발주 메일 결과 */
@@ -11361,6 +11367,7 @@ var ORDER_STORES=[
   {code:"HDMB",name:"현대백화점 목동점 지하행사",recv:"화이트샌즈", tel:"010-9165-9755", addr:"서울특별시 양천구 목동동로 257 별관 지하2층 화이트샌즈"},
   {code:"LSC", name:"롯데백화점 센텀시티점",    recv:"화이트샌즈", tel:"010-9371-5884", addr:"부산광역시 해운대구 센텀남대로 59 롯데백화점 센텀시티점 1층 화이트샌즈"},
   {code:"LDB", name:"롯데몰 동부산점",          recv:"화이트샌즈", tel:"010-3409-5997", addr:"부산광역시 기장군 기장해안로147, 롯데몰 동부산점 2층 화이트샌즈"},
+  {code:"LKP", name:"롯데몰 김포공항점",        recv:"한선옥",     tel:"010-5605-1216", addr:"서울특별시 강서구 하늘길 77 롯데몰김포공항점 MF층 화이트샌즈"},   /* 2026-10-12 영업2팀 */
   /* 백화점몰(온라인) 매장 — 오프라인 매장과 코드가 다르다(2026-09-18 영업2팀).
      수령인·연락처·주소는 아직 받지 못해 비워 둔다(행에서 직접 채우거나 알려주면 넣는다). */
   {code:"LTOA",name:"(백)롯데본점",             recv:"",           tel:"",              addr:""},
@@ -18706,6 +18713,16 @@ var ccDssStatus=(function(){try{return JSON.parse(localStorage.getItem("ccDssSta
 var ccOrderStatus=(function(){try{return JSON.parse(localStorage.getItem("ccOrderStatus")||"null");}catch(e){return null;}})();
 var ccOrderLog=(function(){try{return JSON.parse(localStorage.getItem("ccOrderLog")||"null")||{};}catch(e){return {};}})();
 var ccOrderReady=(function(){try{return JSON.parse(localStorage.getItem("ccOrderReady")||"null");}catch(e){return null;}})();
+var ccCountReq=(function(){try{return JSON.parse(localStorage.getItem("ccCountReq")||"null");}catch(e){return null;}})();
+/* [🔢 건수 확인](2026-10-12 영업2팀 — "자동 발주는 버튼으로만, 누르기 전에 건수를 미리 보게") — ws/ccCountReq를 남기면 자동화 PC(saip-watch ccCountTick)가
+   DSS 두 아이디 새 주문 수를 바로 읽어(GET만, DSS 상태는 안 바뀜) ws/ccOrderReady에 올리고 ccCountReq.doneAt·note를 적는다 */
+function _ccCountWaiting(){var q=ccCountReq;return !!(q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<5*60*1000);}
+function ccCountGo(){
+  if(_ccCountWaiting()){alert("건수 확인 중입니다 — 잠시 뒤 이 칸에 나옵니다.");return;}
+  ccCountReq={id:Date.now().toString(36),by:_saipMe(),at:new Date().toISOString()};
+  wsSetItem("ccCountReq",JSON.stringify(ccCountReq));ccAutoRender();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 확인합니다.");
+}
 /* [발주하기] 색·글자 — 새 주문이 있고 오늘 아직 발주 안 했으면 보라 '발주 요망 N건', 오늘 발주했으면 '✅ 오늘 발주 완료',
    그 밖은 평소(청록). 새 주문 수는 3시간 넘은 값이면 쓰지 않는다(자동화 PC가 꺼졌을 수 있음) */
 function _ccAutoPaint(){
@@ -18753,8 +18770,13 @@ function ccAutoGo(mode){
     if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 보냅니다.");
     return;
   }
+  /* 발주 전에 건수를 보여 준다(2026-10-12 영업2팀) — 30분 안에 확인한 값만, 아니면 [건수 확인]을 먼저 */
+  var Q=ccOrderReady,qOk=Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<30*60*1000;
+  if(mode==="save"&&!qOk&&!confirm("새 주문 건수를 최근 30분 안에 확인하지 않았습니다"+(Q&&Q.at?" (마지막 확인 "+_saipFmtAt(Q.at)+")":"")+".\n\n[취소]를 누르고 🔢 건수 확인을 먼저 하는 것을 권합니다.\n그래도 바로 발주할까요?"))return;
+  if(mode==="save"&&qOk&&!(+Q.total)&&!confirm("방금 확인한 새 주문이 0건입니다 ("+_saipFmtAt(Q.at)+").\n\n그래도 발주를 진행할까요?"))return;
+  var cntLine=qOk?"발주할 새 주문: "+(Q.accounts||[]).map(function(a){return a.who+" "+a.orders+"건";}).join(" · ")+" → 합계 "+(+Q.total||0)+"건 ("+_saipFmtAt(Q.at)+" 확인)\n\n":"";
   var msg=mode==="save"
-    ?"코스트코 발주를 진행합니다.\n\n① DSS 두 아이디 [인쇄] 화면을 열어 새 주문을 확인 처리하고\n② 도매발주서를 만든 뒤\n③ 그 주문들을 DSS [출력](출력완료, 20건씩 페이지를 넘겨 가며) 하고\n④ 김구남 님(gnkim72@daum.net, 참조 영업2팀·CX팀)께 갈 '화이트샌즈("+today.slice(5,7)+today.slice(8,10)+") - 영업2팀' 메일을 초안(임시보관함)으로 만들어 둡니다.\n\n메일은 보내지 않습니다 — '메일 발송 준비 완료'가 뜨면 하이웍스 임시보관함에서 열어 확인하고 [보내기]를 눌러 주세요.\n\n서명: "+_saipMe()+"\nDSS 출력은 되돌리기 어렵습니다. 진행할까요?"
+    ?cntLine+"코스트코 발주를 진행합니다.\n\n① DSS 두 아이디 [인쇄] 화면을 열어 새 주문을 확인 처리하고\n② 도매발주서를 만든 뒤\n③ 그 주문들을 DSS [출력](출력완료, 20건씩 페이지를 넘겨 가며) 하고\n④ 김구남 님(gnkim72@daum.net, 참조 영업2팀·CX팀)께 갈 '화이트샌즈("+today.slice(5,7)+today.slice(8,10)+") - 영업2팀' 메일을 초안(임시보관함)으로 만들어 둡니다.\n\n메일은 보내지 않습니다 — '메일 발송 준비 완료'가 뜨면 하이웍스 임시보관함에서 열어 확인하고 [보내기]를 눌러 주세요.\n\n서명: "+_saipMe()+"\nDSS 출력은 되돌리기 어렵습니다. 진행할까요?"
     :"코스트코 발주 미리보기를 합니다.\n\nDSS는 읽기만 하고, 도매발주서를 만들어 하이웍스 임시보관함에 메일 초안만 저장합니다(보내지 않음).\n\n진행할까요?";
   if(!confirm(msg))return;
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:today.slice(5,7)+today.slice(8,10),date:today,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:mode};
@@ -18767,7 +18789,10 @@ function ccAutoRender(){
   var box=document.getElementById("ccAutoStatus");if(!box)return;
   var h="",R=(saipReq||{}).co,S=ccOrderStatus,L=(ccOrderLog||{})[_ccToday()];
   _ccAutoPaint();
-  var Q=ccOrderReady;
+  var Q=ccOrderReady,CQ=ccCountReq;
+  if(_ccCountWaiting())h+='<div style="color:#1d4ed8;font-weight:700">🔢 건수 확인 중… ('+_escX(CQ.by||"?")+' · '+_escX(_saipFmtAt(CQ.at))+') — '+(_saipWatchOk()?'자동화 PC가 DSS에서 읽는 중':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>')+'</div>';
+  else if(CQ&&CQ.doneAt&&CQ.note&&Date.now()-new Date(CQ.doneAt).getTime()<30*60*1000)h+='<div style="color:#b91c1c;font-weight:700">🔢 건수 확인: '+_escX(CQ.note)+'</div>';
+  if(Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000&&!Q.total&&!(ccOrderLog||{})[_ccToday()])h+='<div style="color:#5b6675;font-weight:700">📦 새 주문 0건 <span style="font-weight:400">('+_escX(_saipFmtAt(Q.at))+' 확인)</span></div>';
   if(Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000&&Q.total)
     h+='<div style="color:'+(L?'#5b6675':'#6d28d9')+';font-weight:700">📦 '+(L?(L.state==="draft"?'아직 안 보낸 주문(오늘 초안 포함 — 임시보관함에서 보내면 0이 됩니다)':'다음 발주 대기'):'발주 요망')+': '+(Q.accounts||[]).map(function(a){return _escX(a.who)+' '+a.orders+'건'+(a.printedUnsent?' <span style="color:#b91c1c">(DSS 출력은 됐는데 발주서 안 보냄 '+a.printedUnsent+')</span>':'');}).join(' · ')+' <span style="font-weight:400;color:#5b6675">('+_escX(_saipFmtAt(Q.at))+' 확인)</span></div>';
   if(L)h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:4px;color:#047857;font-weight:700">'+(L.state==="draft"?'📨 메일 발송 준비 완료':'✅ 오늘 발주함')+' · '+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"?")+' · '+(L.orders||0)+'건 '+(L.qty||0)+'개'
@@ -18792,7 +18817,8 @@ function ccAutoRender(){
   }
   if(!h)h='<span style="color:#5b6675">아직 실행 기록이 없습니다. 처음에는 <b>미리보기</b>로 메일 초안을 확인해 주세요.</span>';
   /* 평일 8:30 자동 발주(2026-10-06 영업2팀 8:40 → 10-08 8:30 — 자동화 PC saip-watch ccAutoOrder, 로그인이 풀려 있으면 로그인 창·슬랙 요청 뒤 기다림). 메일은 초안까지라 보내기는 사람이 */
-  h='<div style="font-size:12px;color:#5b6675;margin-bottom:3px">⏰ 평일(공휴일 제외) <b>8:30</b>에 자동화 PC가 자동으로 발주합니다(DSS·메일 로그인이 풀려 있으면 로그인 창을 띄우고 슬랙으로 요청한 뒤 기다림) — 메일은 임시보관함 <b>초안</b>까지, 확인 후 직접 보내 주세요</div>'+h;
+  /* 2026-10-12 영업2팀: 8:30 자동 발주를 끄고 버튼으로만 — 누르기 전에 [🔢 건수 확인]으로 건수를 본다 */
+  h='<div style="font-size:12px;color:#5b6675;margin-bottom:3px">🖐 <b>[🚚 발주하기]를 눌러야</b> 발주합니다(아침 자동 발주는 껐습니다). 먼저 <b>🔢 건수 확인</b>으로 새 주문 수를 보고 누르세요 — 메일은 임시보관함 <b>초안</b>까지, 확인 후 보내 주세요</div>'+h;
   box.innerHTML=h;
   _apCopy("ccAutoStatus","autoCcStatus");
   _ccProgTick();

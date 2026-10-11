@@ -56,6 +56,10 @@
   같은 규칙을 자동화 `automation/dss-invoice.mjs`(DSS 송장 자동 입력, 만드는 중)도 쓴다.
 
 - **코스트코 자동 발주**(2026-10-01 영업2팀, `automation/costco-order.mjs` · 화면 `#ccAutoBox` `ccAutoGo`/`ccAutoRender`):
+  **2026-10-12 — 버튼으로만 · 건수 먼저**(영업2팀 "자동발주는 버튼을 누르면 되게, 그전에 미리 건수를 볼 수 있게"): 아침 자동 요청(`saip-watch ccAutoOrder`)은 `CC_AUTO.off=true`로 껐다(아래 8:30 설명은 다시 켤 때 참고).
+  [🚚 발주하기] 옆 **`🔢 건수 확인`**(`ccCountGo`) → 팀 공유 `ws/ccCountReq {id,by,at}` → 자동화 PC `saip-watch ccCountTick`이 15초 안에 `keepAndCount`(DSS GET만, 상태 안 바뀜)로
+  `ws/ccOrderReady`를 새로 올리고 `ccCountReq.doneAt·note`(못 읽은 까닭)를 적는다. [발주하기] 확인창 맨 위에 '발주할 새 주문: 아이디별 N건 → 합계 N건 (시각 확인)'.
+  30분 넘게 건수를 확인하지 않았으면 먼저 확인하라고 묻고, 0건이면 한 번 더 묻는다.
   **진행 막대**(2026-10-06 영업2팀 — "오래 걸려 발주 중인지 몰라 계속 누르게 된다"): `costco-order.mjs`가 단계마다 `ws/ccOrderStatus`(`running:true`, `steps`, `startedAt`)를 올리고
   자비스 카드가 `_ccProgBar`로 끝난 단계 수만큼 채운 줄무늬 막대 + '3/7 · 도매발주서 중' + 지난 시간(10초마다 `_ccProgTick`)을 그린다.
   [발주하기] 버튼도 진행 중엔 '⏳ 발주 중 (n/7 · 단계)'. 끝나면 `running:false`로 마지막 결과.
