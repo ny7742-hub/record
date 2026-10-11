@@ -2111,6 +2111,9 @@ label{font-size:14px!important}
     <div class="ap-card"><div class="ap-h"><b>📤 PlayMD 자료 업로드</b><span class="ap-sub">평일 08:30 · 9:30~16:30 매시 30분 · 17:00 자동</span>
       <a href="playmdrun:now" class="ap-btn sub" style="margin-left:auto;text-decoration:none" onclick="return auRunNow()" title="자동화 PC에서 PlayMD 4가지를 지금 받아 올립니다(3~5분)">▶ 지금 받기</a></div>
       <div id="autoUp"></div></div>
+    <!-- 세일즈 매니지먼트 판매일보 자동 등록(2026-10-12 영업2팀) — automation/wssales-upload.mjs, 평일 16:00 · 올리기 전·뒤 미등록 날짜 -->
+    <div class="ap-card"><div class="ap-h"><b>📊 세일즈 매니지먼트 판매일보</b><span class="ap-sub">평일 16:00 자동 · 백화점·홈쇼핑·코스트코 · 중복은 건너뜀</span></div>
+      <div id="autoWs" style="font-size:13px;line-height:1.6"></div></div>
     <div class="ap-card"><div class="ap-h"><b>📥 도매 자동발주(주문배분현황)</b><span class="ap-sub">PlayMD [3] 미확인 → 발주서 변환 → 김구남 센터장 메일</span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button class="ap-btn" style="background:#7c3aed;border-color:#6d28d9" onclick="ocAutoPull()">🔄 PlayMD에서 불러오기</button>
         <button class="ap-btn sub" onclick="switchTab('orderconv')" title="표를 확인·수정한 뒤 그 화면에서 ✉️ 발주 메일 전달을 누르세요">📥 발주서 변환 열기(확인 후 메일 전달)</button></div>
@@ -2394,7 +2397,7 @@ var FB_PATH={
   "deptStores":"ws/deptStores","deptStoresMeta":"ws/deptMeta","costcoDB":"ws/costco",
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
-  "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount",
+  "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg",
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
@@ -2987,6 +2990,10 @@ function fbListen(){
   apply("ws/portalLogin","portalLogin",
     function(d){if(d&&typeof d==="object")portalLogin=d;},
     function(){if(typeof renderPortalLogin==="function")renderPortalLogin();if(typeof renderSaipAuto==="function")renderSaipAuto();}
+  );
+  apply("ws/wssalesUpload","wssalesUpload",
+    function(d){if(d&&typeof d==="object")wssalesUpload=d;},
+    function(){if(typeof renderWsAuto==="function")renderWsAuto();}
   );
   apply("ws/invCount","invCount",
     function(d){if(d&&typeof d==="object")invCount=d;},
@@ -7434,7 +7441,31 @@ var PL_SITES=[
 ];
 /* ── 🤖 자동화 탭 그리기(2026-10-02 영업2팀) — 원래 화면의 카드 함수(_saipCard·_retCard)와 같은 내용을 쓰고,
    로그인 상태·코스트코·도매 발주 칸은 원래 화면을 그릴 때 같이 복사한다(renderPortalLogin·ccAutoRender·ocAutoRender 끝) */
+/* 📊 세일즈 매니지먼트 판매일보 — 마지막 확인·업로드와 미등록 날짜(wssalesUpload: {at, ok, results, before, after, checkAt, check, err, errAt}) */
+var wssalesUpload=(function(){try{return JSON.parse(localStorage.getItem("wssalesUpload")||"null");}catch(e){return null;}})();
+function _wsMissHtml(c){
+  if(!c)return "";
+  var md=function(y){return (+y.slice(5,7))+"/"+(+y.slice(8,10));};
+  var by=function(arr){var t={};arr.forEach(function(x){(t[x.type]=t[x.type]||[]).push(md(x.ymd));});return Object.keys(t).map(function(k){return "<b>"+_escX(k)+"</b> "+t[k].join("·");}).join(" / ");};
+  var tip=function(arr){return arr.map(function(x){return md(x.ymd)+" "+x.type+" — 판매일보 "+x.fileN+"줄 "+Number(x.fileAmt).toLocaleString()+"원 · 세일즈 "+x.dbN+"줄 "+Number(x.dbAmt).toLocaleString()+"원";}).join("\n");};
+  return (c.missing&&c.missing.length?'<span style="color:#b91c1c" title="'+_escX(tip(c.missing))+'">미등록 '+by(c.missing)+'</span>':'<span style="color:#047857">미등록 없음</span>')
+    +(c.partial&&c.partial.length?' · <span style="color:#b45309" title="'+_escX(tip(c.partial))+'">일부만 '+by(c.partial)+'</span>':'');
+}
+function renderWsAuto(){
+  var box=document.getElementById("autoWs");if(!box)return;
+  var W=wssalesUpload;
+  if(!W){box.innerHTML='<span style="color:#5b6675">아직 기록이 없습니다 — 평일 16:00에 처음 올립니다.</span>';return;}
+  var h="";
+  if(W.at)h+='<div>'+(W.ok?'✅':'❗')+' 마지막 업로드 '+_escX(_saipFmtAt(W.at))+'</div>'
+    +(W.results||[]).map(function(r){return '<div style="color:#334155;font-size:12.5px;padding-left:18px">'+_escX(r.msg||"")+'</div>';}).join("")
+    +(W.before?'<div style="padding-left:18px">올리기 전: '+_wsMissHtml(W.before)+'</div>':'')
+    +(W.after?'<div style="padding-left:18px">올린 뒤: '+_wsMissHtml(W.after)+'</div>':'');
+  if(W.checkAt&&(!W.at||W.checkAt>W.at))h+='<div style="margin-top:3px">🔍 확인 '+_escX(_saipFmtAt(W.checkAt))+' — '+_wsMissHtml(W.check)+'</div>';
+  if(W.err&&W.errAt&&(!W.at||W.errAt>W.at))h+='<div style="color:#b91c1c">❗ '+_escX(_saipFmtAt(W.errAt))+' '+_escX(W.err)+'</div>';
+  box.innerHTML=h||'<span style="color:#5b6675">아직 기록이 없습니다.</span>';
+}
 function renderAutoPage(){
+  try{renderWsAuto();}catch(e){}
   var pg=document.getElementById("page-auto");if(!pg||pg.style.display==="none")return;
   try{ocAddRender();}catch(e){}   /* 도매 자동발주 카드의 '＋ 상품 추가' 칸 */
   /* PlayMD 자료 업로드 4종 */
