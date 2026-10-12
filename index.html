@@ -685,6 +685,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
   <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">🏪 팝업</button>
   <button class="tab-btn" id="tab-lossreport" onclick="switchTab('lossreport')">🧾 로스 품의서</button>
+  <button class="tab-btn" id="tab-motion" onclick="switchTab('motion')">🎬 모션</button>
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
   <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">📅 매장별 일별매출</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
@@ -2150,6 +2151,82 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-auto -->
+<!-- ── 🎬 모션 탭(2026-10-12 영업2팀) — 16:9 모션그래픽 「일이 완성되는 일곱 단계」 3D 카드 캐러셀.
+     1280×720 무대를 화면 폭에 맞춰 줄인다(_moFit). 탭을 열면 처음부터 재생(moPlay), 떠나면 멈춘다(moStop) -->
+<div id="page-motion" style="display:none">
+  <style>
+    #page-motion .mo-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+    #page-motion .mo-bar b{font-size:15px;color:#0f4c5c}
+    #page-motion .mo-sub{font-size:12.5px;color:#5b6675}
+    #page-motion .mo-btn{font-size:12.5px;font-weight:800;padding:5px 11px;border-radius:8px;cursor:pointer;border:1px solid #1b6e82;background:#1b6e82;color:#fff}
+    #page-motion .mo-btn.sub{background:#fff;color:#1b6e82;border-style:dashed}
+    #page-motion .mo-lp{white-space:nowrap;font-size:12.5px;color:#374151;display:flex;align-items:center;gap:4px;cursor:pointer}
+    #page-motion .mo-wrap{position:relative;width:100%;max-width:1280px;aspect-ratio:16/9;background:#05070b;border-radius:14px;overflow:hidden;margin:0 auto}
+    #page-motion .mo-wrap:fullscreen{max-width:none;border-radius:0}
+    #page-motion .mo-stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;overflow:hidden;color:#fff;
+      background:radial-gradient(ellipse 55% 50% at 50% 60%,#0c1b30 0%,#070b13 55%,#04060a 100%);transition:opacity .45s}
+    #page-motion .mo-stage.out{opacity:0}
+    #page-motion .mo-head{position:absolute;left:64px;top:52px;z-index:5}
+    #page-motion .mo-kick{font-size:11px;font-weight:800;letter-spacing:.32em;color:#2d8cff}
+    #page-motion .mo-title{font-size:25px;font-weight:800;margin-top:8px;letter-spacing:-.01em}
+    #page-motion .mo-count{position:absolute;right:64px;top:34px;z-index:5;display:flex;align-items:baseline;gap:6px}
+    #page-motion .mo-count span{font-size:68px;font-weight:900;color:#8cc4ff;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+    #page-motion .mo-count em{font-style:normal;font-size:19px;font-weight:700;color:#6b7280}
+    #page-motion .mo-scene{position:absolute;inset:0;perspective:1700px;perspective-origin:50% 22%}
+    #page-motion .mo-world{position:absolute;left:640px;top:352px;width:0;height:0;transform-style:preserve-3d;transform:translateZ(-420px) rotateX(-13deg)}
+    #page-motion .mo-floor{position:absolute;left:-560px;top:-560px;width:1120px;height:1120px;border-radius:50%;transform:translateY(152px) rotateX(90deg);
+      background:radial-gradient(circle,rgba(40,120,255,.10) 0,rgba(40,120,255,.03) 45%,transparent 66%)}
+    #page-motion .mo-floor i{position:absolute;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%)}
+    #page-motion .mo-tk{width:960px;height:960px;background:repeating-conic-gradient(rgba(140,180,255,.38) 0 .35deg,transparent .35deg 5deg);
+      -webkit-mask:radial-gradient(circle,transparent 466px,#000 467px 479px,transparent 480px);mask:radial-gradient(circle,transparent 466px,#000 467px 479px,transparent 480px)}
+    #page-motion .mo-r1{width:1080px;height:1080px;border:1px dashed rgba(120,170,255,.16)}
+    #page-motion .mo-r2{width:560px;height:560px;border:1px solid rgba(120,170,255,.12)}
+    #page-motion .mo-spot{width:400px;height:400px;margin-top:390px;border:2px solid var(--acc,#3ea0ff);
+      box-shadow:0 0 30px var(--acc,#3ea0ff),inset 0 0 40px var(--acc,#3ea0ff);opacity:0;transition:opacity .4s,border-color .4s,box-shadow .4s}
+    #page-motion .mo-stage.lit .mo-spot{opacity:.75}
+    #page-motion .mo-ring{position:absolute;left:0;top:0;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.3,1.45,.45,1)}
+    #page-motion .mo-pos{position:absolute;left:-130px;top:-200px;width:260px;height:340px;transform-style:preserve-3d}
+    #page-motion .mo-rise{position:absolute;inset:0;transform-style:preserve-3d;animation:mo-rise .5s cubic-bezier(.2,.9,.3,1.12) var(--d) both}
+    #page-motion .mo-card,#page-motion .mo-back{animation:mo-fade .35s ease-out var(--d) both}
+    @keyframes mo-rise{from{transform:translateY(360px)}to{transform:none}}
+    @keyframes mo-fade{from{opacity:0}to{opacity:1}}
+    #page-motion .mo-card{position:absolute;inset:0;border-radius:22px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;
+      padding:26px 26px 28px;display:flex;flex-direction:column;box-sizing:border-box;
+      background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/26px 26px,linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/26px 26px,var(--g);
+      border:1.5px solid rgba(255,255,255,.14);box-shadow:0 24px 50px rgba(0,0,0,.55);
+      -webkit-box-reflect:below 16px linear-gradient(transparent 60%,rgba(255,255,255,.2));
+      transition:transform .45s cubic-bezier(.3,1.4,.4,1),filter .45s,border-color .35s,box-shadow .35s}
+    #page-motion .mo-gl{position:absolute;inset:0;pointer-events:none;background:linear-gradient(116deg,rgba(255,255,255,.16) 0%,rgba(255,255,255,.04) 40%,transparent 40.4%)}
+    #page-motion .mo-big{position:absolute;right:-8px;bottom:-46px;font-size:190px;font-weight:900;color:rgba(255,255,255,.07);letter-spacing:-.05em;line-height:1}
+    #page-motion .mo-step{position:relative;font-size:11px;font-weight:800;letter-spacing:.26em;color:rgba(255,255,255,.6)}
+    #page-motion .mo-ic{position:relative;width:66px;height:66px;border-radius:17px;margin-top:20px;display:grid;place-items:center;
+      background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12);transition:background .35s}
+    #page-motion .mo-ic svg{width:32px;height:32px;fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+    #page-motion .mo-name{position:relative;margin-top:auto;font-size:52px;font-weight:900;letter-spacing:-.03em;line-height:1.05}
+    #page-motion .mo-desc{position:relative;margin-top:10px;font-size:15.5px;font-weight:600;color:rgba(255,255,255,.88);opacity:0;transform:translateY(10px);transition:opacity .3s,transform .3s}
+    #page-motion .mo-ln{position:relative;width:38px;height:3px;border-radius:2px;margin-top:14px;background:var(--a);transform:scaleX(0);transform-origin:left;transition:transform .35s}
+    #page-motion .mo-card.on{transform:scale(1.15);border-color:var(--a);
+      box-shadow:0 0 0 1px var(--a),0 0 36px var(--a),0 0 90px color-mix(in srgb,var(--a) 45%,transparent)}
+    #page-motion .mo-card.on .mo-ic{background:var(--a)}
+    #page-motion .mo-card.on .mo-desc{opacity:1;transform:none;transition-delay:.25s}
+    #page-motion .mo-card.on .mo-ln{transform:none;transition-delay:.35s}
+    #page-motion .mo-back{position:absolute;inset:0;border-radius:22px;transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;
+      background:linear-gradient(160deg,#111a28,#06090f);border:1px solid rgba(255,255,255,.06);filter:blur(1.5px) brightness(.7)}
+    #page-motion .mo-prog{position:absolute;left:258px;right:258px;bottom:40px;display:flex;gap:12px;z-index:5}
+    #page-motion .mo-seg{flex:1}
+    #page-motion .mo-seg b{display:block;height:2px;background:rgba(255,255,255,.12);border-radius:1px;overflow:hidden}
+    #page-motion .mo-seg b i{display:block;height:100%;width:0;background:#cbd5e1}
+    #page-motion .mo-seg span{display:block;margin-top:10px;font-size:11.5px;font-weight:600;color:#7b8494;transition:color .3s}
+    #page-motion .mo-seg.cur span{color:#fff;font-weight:800}
+  </style>
+  <div class="mo-bar">
+    <b>🎬 모션</b><span class="mo-sub">일이 완성되는 일곱 단계 · 16:9 · 약 6.5초</span>
+    <button class="mo-btn" onclick="moPlay()">▶ 처음부터</button>
+    <label class="mo-lp"><input type="checkbox" id="moLoop" checked onchange="if(this.checked&&!_moT.length)moPlay()"> 반복 재생</label>
+    <button class="mo-btn sub" onclick="moFull()">⛶ 전체화면</button>
+  </div>
+  <div class="mo-wrap" id="moWrap"><div class="mo-stage" id="moStage"></div></div>
+</div><!-- /page-motion -->
 <div id="page-unship" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
@@ -7753,7 +7830,95 @@ function switchTab(tab){
   if(tab==="orderconv"){ ocRender(); ocDropZoneInit(); document.querySelectorAll(".wh-min-in").forEach(function(el){el.value=WH_MIN_ORDER;}); }
   if(tab==="popup") renderPopupPage();
   if(tab==="lossreport") initLossReportTab();
+  document.getElementById("page-motion").style.display=tab==="motion"?"block":"none";
+  document.getElementById("tab-motion").classList.toggle("active",tab==="motion");
+  if(tab==="motion")moPlay();else moStop();
 }
+
+/* ── 🎬 모션 탭: 3D 카드 캐러셀(2026-10-12 영업2팀) ──
+   0~1초 카드 7장이 바닥에서 하나씩 솟아 원을 이루고, 1초에 첫 카드가 정면, 1.8초부터 0.8초마다 한 칸씩 탁 돌아 6.6초에 마지막 카드.
+   정면 카드는 커지고 강조색 테두리·설명, 뒤쪽 카드는 각도만큼 어둡고 흐리게(_moShow). 반복 재생이면 7.6초에 처음부터. */
+var MO_CARDS=[
+  ["기획","무엇을 왜 만들지 정한다","linear-gradient(155deg,#3a3f9e,#161a4a 72%)","#7c83ff",'<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>'],
+  ["디자인","생각을 화면으로 그린다","linear-gradient(155deg,#8a2c78,#2c0f2f 72%)","#ff5cc8",'<path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.6 7.6"/><circle cx="11" cy="11" r="2"/>'],
+  ["개발","아이디어를 코드로 짓는다","linear-gradient(155deg,#1f5fc4,#0b2148 72%)","#3ea0ff",'<path d="M8.5 7l-5 5 5 5M15.5 7l5 5-5 5M13.5 4.5l-3 15"/>'],
+  ["테스트","빈틈을 찾아 메운다","linear-gradient(155deg,#137a72,#06302e 72%)","#2ee6c8",'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.8"/>'],
+  ["배포","세상에 내보낸다","linear-gradient(155deg,#b8561c,#3a1606 72%)","#ff9a3c",'<path d="M5 15c-1.6 1-2 4-2 6 2 0 5-.4 6-2"/><path d="M9 15l-3-3c1.6-4.2 5.2-9 12.5-9 0 7.3-4.8 10.9-9.5 12z"/><circle cx="14.5" cy="9.5" r="1.6"/>'],
+  ["분석","숫자로 반응을 읽는다","linear-gradient(155deg,#5b2fb0,#1b0c3c 72%)","#a879ff",'<path d="M3 21h18M6 17v-5M11 17V6M16 17v-8M21 17V4" transform="translate(-1 0)"/>'],
+  ["개선","더 나은 다음을 만든다","linear-gradient(155deg,#2b8a3e,#0b2b14 72%)","#4ade80",'<path d="M20 11a8 8 0 0 0-14.5-4.6L3 9M3 4v5h5"/><path d="M4 13a8 8 0 0 0 14.5 4.6L21 15M21 20v-5h-5"/>']
+];
+var MO_N=MO_CARDS.length,MO_R=390,MO_DEG=360/MO_N,_moT=[];
+function moStop(){_moT.forEach(clearTimeout);_moT=[];}
+function _moAt(ms,fn){_moT.push(setTimeout(fn,ms));}
+function _moFit(){
+  var w=document.getElementById("moWrap"),s=document.getElementById("moStage");if(!w||!s)return;
+  var W=w.clientWidth,H=w.clientHeight;if(!W||!H)return;
+  var k=Math.min(W/1280,H/720);
+  s.style.transform="translate("+((W-1280*k)/2)+"px,"+((H-720*k)/2)+"px) scale("+k+")";
+}
+function _moBuild(){
+  var s=document.getElementById("moStage");if(!s)return;
+  var h='<div class="mo-head"><div class="mo-kick">PRODUCT CYCLE</div><div class="mo-title">일이 완성되는 일곱 단계</div></div>'
+    +'<div class="mo-count"><span id="moNum">01</span><em>/ '+("0"+MO_N).slice(-2)+'</em></div>'
+    +'<div class="mo-scene"><div class="mo-world">'
+    +'<div class="mo-floor"><i class="mo-r1"></i><i class="mo-tk"></i><i class="mo-r2"></i><i class="mo-spot"></i></div>'
+    +'<div class="mo-ring" id="moRing">';
+  MO_CARDS.forEach(function(c,i){
+    var n=("0"+(i+1)).slice(-2);
+    h+='<div class="mo-pos" style="transform:rotateY('+(i*MO_DEG)+'deg) translateZ('+MO_R+'px)">'
+      +'<div class="mo-rise" style="--d:'+(i*0.085).toFixed(3)+'s">'
+      +'<div class="mo-card" id="moC'+i+'" style="--g:'+c[2]+';--a:'+c[3]+'"><div class="mo-gl"></div><div class="mo-big">'+n+'</div>'
+      +'<div class="mo-step">STEP '+n+'</div><div class="mo-ic"><svg viewBox="0 0 24 24">'+c[4]+'</svg></div>'
+      +'<div class="mo-name">'+c[0]+'</div><div class="mo-desc">'+c[1]+'</div><div class="mo-ln"></div></div>'
+      +'<div class="mo-back"></div></div></div>';
+  });
+  h+='</div></div></div><div class="mo-prog">';
+  MO_CARDS.forEach(function(c,i){h+='<div class="mo-seg" id="moS'+i+'"><b><i></i></b><span>'+("0"+(i+1)).slice(-2)+' '+c[0]+'</span></div>';});
+  s.innerHTML=h+'</div>';
+  s.className="mo-stage";
+}
+/* k = 몇 칸 돌았는지(계속 커진다 — 마지막에서 처음으로 넘어갈 때 거꾸로 감기지 않게). lit=false면 정면 강조 없이 깊이만 */
+function _moShow(k,lit){
+  var s=document.getElementById("moStage"),ring=document.getElementById("moRing");if(!s||!ring)return;
+  var f=k%MO_N;
+  ring.style.transform="rotateY("+(-k*MO_DEG)+"deg)";
+  for(var i=0;i<MO_N;i++){
+    var c=document.getElementById("moC"+i);if(!c)continue;
+    var rel=((i-f)%MO_N+MO_N)%MO_N,t=(1+Math.cos(rel*MO_DEG*Math.PI/180))/2;   /* 정면 1 → 맨 뒤 0 */
+    var on=lit&&i===f;
+    c.classList.toggle("on",on);
+    c.style.filter=on?"none":"brightness("+(0.28+0.5*t).toFixed(2)+") saturate("+(0.45+0.45*t).toFixed(2)+") blur("+((1-t)*3.5).toFixed(1)+"px)";
+  }
+  if(!lit)return;
+  s.classList.add("lit");
+  s.style.setProperty("--acc",MO_CARDS[f][3]);
+  document.getElementById("moNum").textContent=("0"+(f+1)).slice(-2);
+  for(var j=0;j<MO_N;j++){
+    var g=document.getElementById("moS"+j);if(!g)continue;
+    var bar=g.querySelector("i");
+    g.classList.toggle("cur",j===f);
+    bar.style.transition="none";bar.style.background=j===f?MO_CARDS[f][3]:"#cbd5e1";
+    bar.style.width=j<f?"100%":"0";
+    if(j===f){void bar.offsetWidth;bar.style.transition="width .8s linear";bar.style.width="100%";}
+  }
+}
+function moPlay(){
+  moStop();
+  var pg=document.getElementById("page-motion");if(!pg||pg.style.display==="none")return;
+  _moBuild();_moFit();_moShow(0,false);
+  _moAt(1000,function(){_moShow(0,true);});
+  for(var k=1;k<MO_N;k++)(function(k){_moAt(1000+800*k,function(){_moShow(k,true);});})(k);
+  var end=1000+800*(MO_N-1)+800;
+  _moAt(end+300,function(){var l=document.getElementById("moLoop");if(l&&l.checked)document.getElementById("moStage").classList.add("out");});
+  _moAt(end+800,function(){var l=document.getElementById("moLoop");if(l&&l.checked)moPlay();else _moT=[];});
+}
+function moFull(){
+  var w=document.getElementById("moWrap");if(!w)return;
+  if(document.fullscreenElement){document.exitFullscreen();return;}
+  if(w.requestFullscreen)w.requestFullscreen().then(function(){setTimeout(_moFit,50);});
+}
+document.addEventListener("fullscreenchange",function(){setTimeout(_moFit,50);});
+window.addEventListener("resize",function(){var pg=document.getElementById("page-motion");if(pg&&pg.style.display!=="none")_moFit();});
 
 /* ── 팝업 종료 로스 품의서 ── */
 var LR_DEFAULT_NOTE="쇼핑백, 지퍼백, 선물박스, 증정용 이너패치는 제외함.";
