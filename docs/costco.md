@@ -57,6 +57,9 @@
 
 - **코스트코 자동 발주**(2026-10-01 영업2팀, `automation/costco-order.mjs` · 화면 `#ccAutoBox` `ccAutoGo`/`ccAutoRender`):
   **2026-10-12 — 버튼으로만 · 건수 먼저**(영업2팀 "자동발주는 버튼을 누르면 되게, 그전에 미리 건수를 볼 수 있게"): 아침 자동 요청(`saip-watch ccAutoOrder`)은 `CC_AUTO.off=true`로 껐다(아래 8:30 설명은 다시 켤 때 참고).
+  **멈춤은 두 겹이다** — ① 워처 `CC_AUTO.off=true` ② 작업 스케줄러 `Costco-Order-Auto` **사용 안 함(Disabled)**. 둘 다여야 아침에 안 돈다.
+  마지막 자동 실행은 **10/12 08:30**(`ws/ccAutoDaily["2026-10-12"].requested=true`), 그 뒤로는 전부 사람이 누른 것(`ws/saipReq.co.auto=false`).
+  **2026-10-13**: 화면에 남아 있던 `평일 08:35`(자동화 탭 카드 머리 · 로그인 상태 DSS 칩 `use`)를 `🖐 버튼으로만` · `발주(버튼)`으로 고쳤다 — 꺼 놓고 화면만 자동이라고 말하고 있었다.
   [🚚 발주하기] 옆 **`🔢 건수 확인`**(`ccCountGo`) → 팀 공유 `ws/ccCountReq {id,by,at}` → 자동화 PC `saip-watch ccCountTick`이 15초 안에 `keepAndCount`(DSS GET만, 상태 안 바뀜)로
   `ws/ccOrderReady`를 새로 올리고 `ccCountReq.doneAt·note`(못 읽은 까닭)를 적는다. [발주하기] 확인창 맨 위에 '발주할 새 주문: 아이디별 N건 → 합계 N건 (시각 확인)'.
   30분 넘게 건수를 확인하지 않았으면 먼저 확인하라고 묻고, 0건이면 한 번 더 묻는다.
