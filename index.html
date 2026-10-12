@@ -867,6 +867,11 @@ label{font-size:14px!important}
     #homeDash .hd-rev.on{clip-path:inset(0 0 0 0);transition:clip-path 1.6s cubic-bezier(.65,0,.35,1)}
     #homeDash .hd-dot{position:absolute;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;background:#0B0F17;border:2.5px solid #007EEC;box-sizing:border-box}
     #homeDash .hd-dot.end{width:16px;height:16px;margin:-8px 0 0 -8px;background:#fff;border:none;box-shadow:0 0 14px 4px rgba(0,126,236,.75)}
+    /* 흰 빛이 파란 선을 하루 칸씩 1초마다 지나간다(_hdComet, 2026-10-12 영업2팀) — 지나가는 날의 점이 잠깐 하얗게 */
+    #homeDash .hd-dot{transition:background .6s,box-shadow .6s}
+    #homeDash .hd-dot.hit{background:#fff;box-shadow:0 0 10px 3px rgba(255,255,255,.75);transition:none}
+    #homeDash .hd-cmh{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#fff;pointer-events:none;opacity:0;
+      box-shadow:0 0 10px 3px rgba(255,255,255,.85),0 0 26px 8px rgba(0,126,236,.6)}
     #homeDash .hd-xl{position:absolute;top:100%;margin-top:9px;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,.4);white-space:nowrap}
     #homeDash .hd-vl{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed rgba(255,255,255,.2);display:none;pointer-events:none}
     #homeDash .hd-tip{position:absolute;display:none;pointer-events:none;background:#141A26;border:1px solid rgba(0,126,236,.6);border-radius:10px;padding:8px 12px;white-space:nowrap;z-index:2}
@@ -6064,6 +6069,34 @@ function _hdCount(el,to,fmt){
   var t0=performance.now(),dur=1400;
   (function step(now){var p=Math.min(1,(now-t0)/dur),e=1-Math.pow(1-p,3);el.textContent=fmt(to*e);if(p<1)requestAnimationFrame(step);})(t0);
 }
+/* 흰 빛 — 파란 선(점 P[i], viewBox 0~1000) 위를 하루 칸(점→다음 점)마다 1초씩, 칸 안에서는 천천히 출발·도착(ease-in-out).
+   꼬리는 길이·진하기가 다른 흰 선 세 겹(hdCm1~3), 머리는 빛나는 점(hdCmH). 마지막 날에 닿으면 1초 동안 사라졌다가 처음부터 다시.
+   다시 그리면(자료 갱신) 앞의 것을 멈추고 새로 시작 · 화면에서 빠지면 스스로 멈춘다 · '동작 줄이기' 설정이면 하지 않는다 */
+var _hdCmRaf=0;
+function _hdComet(P,delay){
+  cancelAnimationFrame(_hdCmRaf);
+  if(!P||P.length<2||(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches))return;
+  var head=document.getElementById("hdCmH"),C=[document.getElementById("hdCm1"),document.getElementById("hdCm2"),document.getElementById("hdCm3")],TAIL=[.9,.55,.28];
+  var dots=document.querySelectorAll("#homeDash .hd-dot");
+  if(!head||!C[2])return;
+  var n=P.length-1,SEG=1000,cyc=(n+1)*SEG,t0=performance.now()+delay,last=-1;
+  var pt=function(s){s=Math.max(0,Math.min(n,s));var i=Math.min(n-1,Math.floor(s)),f=s-i;return [P[i][0]+(P[i+1][0]-P[i][0])*f,P[i][1]+(P[i+1][1]-P[i][1])*f];};
+  var sub=function(a,b){a=Math.max(0,a);b=Math.min(n,b);if(b<=a)return "";var d="M"+pt(a).join(" ");for(var k=Math.floor(a)+1;k<b;k++)d+=" L"+P[k].join(" ");return d+" L"+pt(b).join(" ");};
+  var ease=function(f){return f<.5?2*f*f:1-2*(1-f)*(1-f);};
+  (function step(now){
+    if(!head.isConnected)return;
+    var e=now-t0;
+    if(e>=0){
+      var s=(e%cyc)/SEG,on=s<=n,i=Math.min(n-1,Math.floor(s)),hd=on?i+ease(Math.min(1,s-i)):n,op=on?1:Math.max(0,1-(s-n)*2);
+      C.forEach(function(c,j){c.setAttribute("d",sub(hd-TAIL[j],hd));c.style.opacity=op;});
+      var p=pt(hd);head.style.left=(p[0]/10)+"%";head.style.top=(p[1]/10)+"%";head.style.opacity=op;
+      var di=on&&hd-Math.floor(hd)<.08?Math.round(hd):-1;                     /* 점에 닿는 순간 */
+      if(di>=0&&di!==last&&dots[di]){last=di;var dt=dots[di];dt.classList.add("hit");setTimeout(function(){dt.classList.remove("hit");},380);}
+      if(!on)last=-1;
+    }
+    _hdCmRaf=requestAnimationFrame(step);
+  })(performance.now());
+}
 function renderHomeDash(){
   var box=document.getElementById("homeDash");if(!box)return;
   var A=typeof allSalesDB!=="undefined"?allSalesDB:{};
@@ -6102,9 +6135,12 @@ function renderHomeDash(){
   h+='<div class="hd-rev'+(first?'':' on')+'" id="hdRev"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">'
     +'<defs><linearGradient id="hdGr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#007EEC" stop-opacity=".42"/><stop offset="1" stop-color="#007EEC" stop-opacity="0"/></linearGradient></defs>'
     +'<path d="'+ln+' L1000 1000 L0 1000 Z" fill="url(#hdGr)"/>'
-    +'<path d="'+ln+'" fill="none" stroke="#007EEC" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round" style="filter:drop-shadow(0 0 6px rgba(0,126,236,.8))"/></svg>';
+    +'<path d="'+ln+'" fill="none" stroke="#007EEC" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linejoin="round" style="filter:drop-shadow(0 0 6px rgba(0,126,236,.8))"/>'
+    +'<path id="hdCm1" d="" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="7" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/>'
+    +'<path id="hdCm2" d="" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="4" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/>'
+    +'<path id="hdCm3" d="" fill="none" stroke="#fff" stroke-width="3" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px #fff)"/></svg>';
   L.forEach(function(x,i){h+='<div class="hd-dot'+(i===11?' end':'')+'" style="left:'+px(i)+'%;top:'+py(x.v)+'%"></div>';});
-  h+='</div>';
+  h+='<div class="hd-cmh" id="hdCmH"></div></div>';
   L.forEach(function(x,i){h+='<div class="hd-xl'+(i%2?' odd':'')+'" style="left:'+px(i)+'%">'+md(x.k)+'</div>';});   /* 좁은 화면엔 하루 걸러 */
   h+='<div class="hd-vl" id="hdVl"></div><div class="hd-tip" id="hdTip"></div></div></div>';
   /* 막대 */
@@ -6133,6 +6169,7 @@ function renderHomeDash(){
     setTimeout(function(){document.querySelectorAll("#homeDash .hd-don .seg").forEach(function(c){var p=+c.getAttribute("data-p");c.setAttribute("stroke-dasharray",p+" "+(100-p));});
       _hdCount(document.getElementById("hdDp"),Math.round(top[0][1]/chT*100),function(v){return Math.round(v)+"%";});},700);
   }
+  _hdComet(L.map(function(x,i){return [px(i)*10,py(x.v)*10];}),first?2100:300);   /* 선이 다 그려진 뒤부터 */
   /* 툴팁 — 마우스가 지나가면 가까운 날의 점선·값 */
   var line=document.getElementById("hdLine"),vl=document.getElementById("hdVl"),tip=document.getElementById("hdTip");
   if(line){
