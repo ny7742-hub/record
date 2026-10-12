@@ -7872,6 +7872,11 @@ function qcPortalOpen(e,key){
   if(!_qcPortalMode())return true;               /* 꺼져 있으면 평소처럼 새 탭 */
   if(e)e.preventDefault();
   location.href="portalopen:"+key;
+  /* 자동화 창은 다른 창 뒤에 열릴 수 있어 '안 된다'로 보였다(2026-10-12 영업2팀) — 어디에 열렸는지 알린다(창은 portal-open.vbs가 앞으로 부름) */
+  var n=document.getElementById("qcPortalToast");
+  if(!n){n=document.createElement("div");n.id="qcPortalToast";n.style.cssText="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99999;background:#0f4c5c;color:#fff;font-size:13.5px;font-weight:700;padding:10px 16px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:92vw;line-height:1.5";document.body.appendChild(n);}
+  n.innerHTML="🖥 자동화 크롬 창에 열었습니다 — 앞으로 안 나오면 작업 표시줄의 크롬 창을 눌러 주세요<br><span style=\"font-weight:500;font-size:12px;opacity:.85\">이 PC에서만 · 다른 PC에서 새 탭으로 열려면 바로가기 줄의 '🖥 자동화 창으로 열기'를 끄세요</span>";
+  n.style.display="block";clearTimeout(n._t);n._t=setTimeout(function(){n.style.display="none";},5000);
   return false;
 }
 renderQuickLaunch();
