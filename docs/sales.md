@@ -74,7 +74,8 @@
   업로드는 그 계정 이름으로 남는다. 결과 `ws/wssalesUpload`·`logs/wssales-날짜.log`.
   **올리기 전·뒤 미등록 날짜 확인**(2026-10-12 영업2팀 "올리기 전에 몇월 며칠자 미등록 되어 있는지"): `checkMissing` — 앱이 로그인해 둔 `sb`로 `sales_data`(원본 거래)를
   그 기간·백화점/홈쇼핑/코스트코로 읽어 날짜·채널(코스트코는 매장명으로 온라인/직매입)별 줄 수·실판매금액을 판매일보와 견준다(읽기만). **미등록** = 세일즈에 0건, **일부만** = 금액이 1,000원 넘게 적음.
-  `node wssales-upload.mjs --check`는 올리지 않고 확인만(`check`/`checkAt`). 자비스 **🤖 자동화 탭 `📊 세일즈 매니지먼트 판매일보`**(`renderWsAuto`)에
+  `node wssales-upload.mjs --check`는 올리지 않고 확인만(`check`/`checkAt`). 자비스 카드의 **`🔍 미등록 확인`·`📤 지금 올리기`** 버튼(`wsAutoGo`)은 팀 공유 요청 `ws/saipReq.wsu`(mode check|upload)를 남기고
+  saip-watch가 `wssales-upload.mjs --check`/`--force`로 돌린다(다른 등록이 돌면 기다림, 16:00 자동과 겹치지 않음). **진행 막대**(`_wsProgBar`, `WS_STAGES` — 판매일보 나누기 · 세일즈 매니지먼트 열기 · 미등록 확인 · 올리는 중(파일 이름) · 마무리)는 progress 줄로 채운다. 자비스 **🤖 자동화 탭 `📊 세일즈 매니지먼트 판매일보`**(`renderWsAuto`)에
   마지막 업로드 결과와 올리기 전·뒤 미등록/일부만 날짜가 나온다(날짜에 마우스 → 판매일보·세일즈 줄 수·금액).
 
 - **판매일보 한 번으로 세 곳이 채워진다**(2026-09-22 영업2팀) — 홈에서 판매일보를 올리면 `salesIngestFile`이
