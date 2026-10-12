@@ -7537,7 +7537,7 @@ function renderAutoPage(){
         +(dv?'<span class="ap-sub">'+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+'</span>':'')
         +_apBtn("saipAuto"+k.charAt(0).toUpperCase()+k.slice(1),"saipAutoGo('"+k+"')","등록")
         +(typeof saipPreviewGo==="function"?'<button class="ap-btn sub" onclick="saipPreviewGo(\''+k+'\')">🔍 미리보기</button>':'')+'</div>'
-        +_saipCard(k)+_apSrcLink(k,dv)+'</div>';
+        +_saipCard(k,{noReg:true})+_apSrcLink(k,dv)+'</div>';
     }).join("");
   }
   /* 반품등록 2개 */
@@ -19160,7 +19160,8 @@ function _saipProgTick(){
   var on=function(){var q=saipReq||{};return ["hs","ds","cc","mv","xc","hr","cr","wsu"].some(function(k){return _saipReqActive(q[k]);});};
   if(on()&&!_saipProgTimer)_saipProgTimer=setInterval(function(){if(!on()){clearInterval(_saipProgTimer);_saipProgTimer=null;}try{renderSaipAuto();}catch(e){}try{renderRetAuto();}catch(e){}},10000);
 }
-function _saipCard(kind){
+/* opt.noReg — 🤖 자동화 탭: 미리보기 결과에 '✅ 이대로 등록'을 띄우지 않는다(2026-10-12 영업2팀 "미리보기들은 등록이 아닌 미리보기로만") */
+function _saipCard(kind,opt){
   var K=SAIP_KINDS[kind],S=_saipStatusOf(kind),R=(saipReq||{})[kind];
   var base=_saipBase(kind);
   /* 글자를 키웠다(12→14px) · '마지막 실행' 줄과 '저장 완료 · 확인됨' 줄은 뺐다 — 위 '등록됨' 줄과 겹친다(2026-09-30 영업2팀) */
@@ -19222,7 +19223,8 @@ function _saipCard(kind){
       });
       h+='</table></div>';
       /* 이대로 등록 — 문제 없는 미리보기, 아직 등록 안 된 날짜, 진행 중인 요청 없음, 2시간 안 */
-      if(it.status==="preview"&&!it.already&&!_saipLogOf(kind,it.date)&&!active&&fresh)
+      if(it.status==="preview"&&opt&&opt.noReg)h+='<div style="font-size:12px;color:#5b6675;margin-top:4px">🔍 미리보기만 했습니다 — 저장하지 않았습니다(등록은 위 [등록] 버튼)</div>';
+      else if(it.status==="preview"&&!it.already&&!_saipLogOf(kind,it.date)&&!active&&fresh)
         h+='<div style="margin-top:6px"><button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:6px 14px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ 이대로 등록</button>'
           +' <span style="font-size:12px;color:#5b6675">미리보기 뒤 원본이 바뀌었으면 저장하지 않습니다</span></div>';
       else if(it.status==="preview"&&!fresh)h+='<div style="font-size:12px;color:#5b6675;margin-top:4px">미리보기가 2시간이 지나 다시 미리보기 해 주세요</div>';
