@@ -985,6 +985,7 @@ label{font-size:14px!important}
 
     /* ── 모든 탭 공통(2026-10-13) — 나머지 색은 _jvFix가 화면을 읽어 바꾼다. 여기는 마우스를 올렸을 때(:hover)처럼 JS가 못 읽는 것과 자주 쓰는 틀 ── */
     body.jv-dark{color-scheme:dark}
+    html.jv-busy *,html.jv-busy *::before,html.jv-busy *::after{transition:none!important}
     body.jv-dark ::placeholder{color:rgba(255,255,255,.35)}
     body.jv-dark .card{background:#0B0F17!important;border:1px solid rgba(255,255,255,.07)!important;box-shadow:none!important}
     body.jv-dark .sec-title,body.jv-dark .m-sec-title{color:#fff!important;border-bottom-color:#007EEC!important}
@@ -999,7 +1000,9 @@ label{font-size:14px!important}
     body.jv-dark .rb:hover,body.jv-dark .ci-del:hover,body.jv-dark .meeting-del-btn:hover{background:#3a1418!important}
     body.jv-dark .upload-zone:hover,body.jv-dark .drop-zone:hover{background:#0F1C2E!important;border-color:#007EEC!important}
     body.jv-dark .modal-cancel:hover{background:#1c2535!important}
-    body.jv-dark ::-webkit-scrollbar-track{background:#0B0F17}
+    body.jv-dark ::-webkit-scrollbar-track{background:#0B0F17!important}
+    body.jv-dark ::-webkit-scrollbar-thumb{background:#2A3A55!important;border-color:#0B0F17!important}
+    body.jv-dark ::-webkit-scrollbar-thumb:hover{background:#007EEC!important}
   </style>
   <div id="homeDash"></div>
   <!-- 전체 매출(모든 매장구분)을 먼저, 연 누적 매출(영업2팀 6채널)을 그 **아래**에 둔다(2026-09-29 영업2팀).
@@ -8074,7 +8077,7 @@ document.addEventListener("click",function(e){
 /* ── 모든 탭 어두운 톤(2026-10-13 영업2팀 "다른 탭도 톤 변경") ──
    홈 대시보드 색(#05070D 배경 · #0B0F17 판 · #007EEC 강조)을 모든 탭에. 화면마다 인라인 색이 수백 군데라 CSS로는 다 못 덮어서,
    보이는 요소의 계산된 색을 읽어 밝은 배경 → 어두운 판(옅은 색 배경은 같은 색조의 어두운 판), 어두운 글자 → 밝은 글자, 청록 → 파랑으로
-   인라인 !important로 덮는다(_jvEl). 원래 인라인 값은 data-jv에 두고, 다시 볼 때 되돌린 뒤 새로 읽는다(클래스·인라인이 바뀌어도 맞게).
+   인라인 !important로 덮는다(_jvPlan · _jvFix). 원래 인라인 값은 data-jv에 두고, 다시 볼 때 되돌린 뒤 새로 읽는다(클래스·인라인이 바뀌어도 맞게).
    글자는 바탕이 어두울 때만 밝힌다(노란 배지 위 진한 글자 같은 건 그대로). 새로 그려지는 부분은 MutationObserver로 따라가고,
    숨은 탭은 건너뛰었다가 보일 때(style 변경) 칠한다. PDF로 찍는 종이 미리보기(JV_SKIP)와 홈 대시보드·모션 무대는 건드리지 않는다.
    body에서 jv-dark 클래스를 빼면 원래 밝은 화면. */
@@ -8096,7 +8099,7 @@ function _jvBg(c){
     if(_jvTeal(h))return ["#0F1C2E",{r:15,g:28,b:46,a:1}];
     var s="hsl("+Math.round(h.h)+","+Math.round(Math.min(h.s,.55)*100)+"%,15%)";return [s,null];
   }
-  if(_jvTeal(h)&&h.l>.12&&h.l<.62)return h.l<.24?["#0B3F73",{r:11,g:63,b:115,a:1}]:["#007EEC",{r:0,g:126,b:236,a:1}];
+  if(_jvTeal(h)&&h.l>.12&&h.l<.62)return h.l<.24?["#0B3F73",{r:11,g:63,b:115,a:1}]:["#0068C9",{r:0,g:104,b:201,a:1}];
   return null;
 }
 function _jvFg(c){
@@ -8113,66 +8116,85 @@ function _jvBd(c){
   if(_jvTeal(h)&&h.l<.62)return "#007EEC";
   return null;
 }
-function _jvSet(el,saved,p,v){
-  if(!(p in saved))saved[p]=[el.style.getPropertyValue(p),el.style.getPropertyPriority(p)];
-  el.style.setProperty(p,v,"important");
-}
-/* 한 요소: 예전에 덮은 것 되돌리기 → 계산된 색 읽기 → 다시 덮기. 반환 = 이 요소 위 글자가 놓이는 바탕(rgb) */
-function _jvEl(el,pBg,pOrigColor,origColors){
-  if(el.dataset.jv){try{var o=JSON.parse(el.dataset.jv);Object.keys(o).forEach(function(p){if(el.style.getPropertyPriority(p)!=="important")return;   /* 그새 화면 코드가 새 값을 넣었으면 그대로 */
-    if(o[p][0])el.style.setProperty(p,o[p][0],o[p][1]);else el.style.removeProperty(p);});}catch(e){}delete el.dataset.jv;}
-  var cs=getComputedStyle(el),saved={},bg=pBg;
+/* 한 요소의 계산된 색(cs) → 덮을 값 {속성:값}과 이 요소 위 글자가 놓이는 바탕(rgb) */
+function _jvPlan(cs,pBg){
+  var w={},bg=pBg;
   var bc=_jvRgb(cs.backgroundColor),nb=_jvBg(bc);
-  if(nb){_jvSet(el,saved,"background-color",nb[0]);bg=nb[1]||{r:30,g:30,b:40,a:1};}
+  if(nb){w["background-color"]=nb[0];bg=nb[1]||{r:30,g:30,b:40,a:1};}
   else if(bc&&bc.a>.5)bg=bc;
   var bi=cs.backgroundImage;
   if(bi&&bi.indexOf("gradient")>=0){
     var cols=(bi.match(/rgba?\([^)]+\)/g)||[]).map(_jvRgb).filter(function(x){return x&&x.a>.3;});
     if(cols.length){
       var hs=cols.map(_jvHsl),avg=hs.reduce(function(a,b){return a+b.l;},0)/hs.length,teal=hs.every(function(x){return _jvTeal(x)||x.c<.08;})&&hs.some(_jvTeal);
-      if(avg>.72){_jvSet(el,saved,"background-image","none");_jvSet(el,saved,"background-color","#0B0F17");bg=_jvPanel;}
-      else if(teal){_jvSet(el,saved,"background-image","linear-gradient(120deg,#0d1a2e,#0B0F17 65%)");bg=_jvPanel;}
+      if(avg>.72){w["background-image"]="none";w["background-color"]="#0B0F17";bg=_jvPanel;}
+      else if(teal){w["background-image"]="linear-gradient(120deg,#0d1a2e,#0B0F17 65%)";bg=_jvPanel;}
     }
   }
-  var col=cs.color;origColors.set(el,col);
-  if(col!==pOrigColor||nb){          /* 물려받은 글자색이면 부모가 이미 바꿨다 */
-    if(_jvLum(bg)<.2){var nf=_jvFg(_jvRgb(col));if(nf)_jvSet(el,saved,"color",nf);}
-  }
+  /* 글자색은 요소마다 원래 값을 보고 정한다(물려받은 것도 같은 값이 나오므로 그대로 둬도 된다) */
+  if(_jvLum(bg)<.2){var nf=_jvFg(_jvRgb(cs.color));if(nf)w.color=nf;}
   ["top","right","bottom","left"].forEach(function(s){
-    if(parseFloat(cs["border-"+s+"-width"])>0&&cs["border-"+s+"-style"]!=="none"){var nd=_jvBd(_jvRgb(cs["border-"+s+"-color"]));if(nd)_jvSet(el,saved,"border-"+s+"-color",nd);}
+    if(parseFloat(cs["border-"+s+"-width"])>0&&cs["border-"+s+"-style"]!=="none"){var nd=_jvBd(_jvRgb(cs["border-"+s+"-color"]));if(nd)w["border-"+s+"-color"]=nd;}
   });
-  if(Object.keys(saved).length)el.dataset.jv=JSON.stringify(saved);
-  return bg;
+  return {w:w,bg:bg};
 }
 function _jvHidden(el){return el.id&&el.id.indexOf("page-")===0&&el.style.display==="none";}
 var _jvObs=null,_jvQ=new Set(),_jvT=0;
-function _jvFix(root){
-  if(!document.body.classList.contains("jv-dark")||!root||!root.isConnected)return;
-  if(root.nodeType!==1)root=root.parentElement;if(!root)return;
-  if(root.closest(JV_SKIP))return;
-  for(var a=root;a&&a!==document.body;a=a.parentElement)if(_jvHidden(a))return;   /* 숨은 탭은 보일 때 */
-  /* 바탕·원래 글자색은 조상에서 */
-  var pBg=_jvPanel,pCol=null;
-  for(var p=root.parentElement;p;p=p.parentElement){var c=_jvRgb(getComputedStyle(p).backgroundColor);if(c&&c.a>.5){pBg=c;break;}}
-  if(root.parentElement)pCol=getComputedStyle(root.parentElement).color;
-  var bgs=new WeakMap(),cols=new WeakMap();
-  bgs.set(root,_jvEl(root,pBg,pCol,cols));
-  var tw=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT,{acceptNode:function(n){
-    if(n.matches(JV_SKIP)||_jvHidden(n))return NodeFilter.FILTER_REJECT;
-    if(n instanceof SVGElement&&n.tagName.toLowerCase()!=="svg")return NodeFilter.FILTER_REJECT;
-    return NodeFilter.FILTER_ACCEPT;}});
-  for(var n=tw.nextNode();n;n=tw.nextNode()){var par=n.parentElement;bgs.set(n,_jvEl(n,bgs.get(par)||pBg,cols.has(par)?cols.get(par):pCol,cols));}
+/* 여러 뿌리를 한 번에 — 읽기와 쓰기를 섞으면 요소마다 화면을 다시 계산해 느려서(933개에 2.4초)
+   ① 되돌리기(쓰기만) ② 모두 읽기 ③ 모두 쓰기 로 나눈다 */
+function _jvFix(roots){
+  if(!document.body.classList.contains("jv-dark"))return;
+  var list=[],rootBg=new Map();
+  roots.forEach(function(root){
+    if(!root||!root.isConnected)return;
+    if(root.nodeType!==1)root=root.parentElement;if(!root||root.closest(JV_SKIP))return;
+    for(var a=root;a&&a!==document.body;a=a.parentElement)if(_jvHidden(a))return;   /* 숨은 탭은 보일 때 */
+    rootBg.set(root,null);list.push(root);
+    var tw=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT,{acceptNode:function(n){
+      if(n.matches(JV_SKIP)||_jvHidden(n))return NodeFilter.FILTER_REJECT;
+      if(n instanceof SVGElement&&n.tagName.toLowerCase()!=="svg")return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;}});
+    for(var n=tw.nextNode();n;n=tw.nextNode())list.push(n);
+  });
+  if(!list.length)return;
+  /* ① 예전에 덮은 것 되돌리기 — 그새 화면 코드가 새 값을 넣었으면(!important가 아니면) 그대로 */
+  list.forEach(function(el){
+    if(!el.dataset.jv)return;
+    try{var o=JSON.parse(el.dataset.jv);Object.keys(o).forEach(function(p){
+      if(el.style.getPropertyPriority(p)!=="important")return;
+      if(o[p][0])el.style.setProperty(p,o[p][0],o[p][1]);else el.style.removeProperty(p);});}catch(e){}
+    delete el.dataset.jv;
+  });
+  /* ② 읽기 — 뿌리의 바탕은 조상에서 */
+  rootBg.forEach(function(v,root){
+    var b=_jvPanel;for(var p=root.parentElement;p;p=p.parentElement){var c=_jvRgb(getComputedStyle(p).backgroundColor);if(c&&c.a>.5){b=c;break;}}
+    rootBg.set(root,b);
+  });
+  var bgs=new Map(),plans=list.map(function(el){
+    var pb=rootBg.has(el)?rootBg.get(el):(bgs.get(el.parentElement)||_jvPanel);
+    var r=_jvPlan(getComputedStyle(el),pb);bgs.set(el,r.bg);return r.w;
+  });
+  /* ③ 쓰기 */
+  list.forEach(function(el,i){
+    var w=plans[i],ks=Object.keys(w);if(!ks.length)return;
+    var saved={};
+    ks.forEach(function(p){saved[p]=[el.style.getPropertyValue(p),el.style.getPropertyPriority(p)];el.style.setProperty(p,w[p],"important");});
+    el.dataset.jv=JSON.stringify(saved);
+  });
 }
 function _jvRun(){
   _jvT=0;var roots=Array.from(_jvQ);_jvQ.clear();
   /* 안에 든 것은 바깥 것이 칠한다 */
   roots=roots.filter(function(r){return r.isConnected&&!roots.some(function(o){return o!==r&&o.contains(r);});});
-  roots.forEach(function(r){try{_jvFix(r);}catch(e){console.warn("어두운 톤",e);}});
+  /* 색이 바뀔 때 transition이 걸린 요소는 읽는 순간 옛 색을 돌려준다 — 칠하는 동안만 transition을 끈다 */
+  var de=document.documentElement;de.classList.add("jv-busy");
+  try{_jvFix(roots);}catch(e){console.warn("어두운 톤",e);}
+  void de.offsetWidth;de.classList.remove("jv-busy");
   if(_jvObs)_jvObs.takeRecords();   /* 내가 바꾼 style은 다시 보지 않는다 */
 }
 function _jvStart(){
   if(_jvObs)return;
-  _jvFix(document.body);
+  _jvQ.add(document.body);_jvRun();
   _jvObs=new MutationObserver(function(recs){
     recs.forEach(function(r){
       var t=r.target;if(t.nodeType!==1)t=t.parentElement;if(!t)return;
