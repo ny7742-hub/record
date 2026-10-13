@@ -353,8 +353,12 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .cc-tbl .cc-sticky-2{position:sticky;left:var(--ccL2,76px);z-index:3}
 .cc-tbl .cc-sticky-3{position:sticky;left:var(--ccL3,76px);z-index:3}
 .cc-tbl .cc-sticky-4{position:sticky;left:var(--ccL4,146px);z-index:3}
-.cc-tbl thead .cc-sticky-1,.cc-tbl thead .cc-sticky-2,.cc-tbl thead .cc-sticky-3,.cc-tbl thead .cc-sticky-4{z-index:5;background:#374151}
-.cc-tbl .cc-total-row .cc-sticky-1,.cc-tbl .cc-total-row .cc-sticky-2,.cc-tbl .cc-total-row .cc-sticky-3,.cc-tbl .cc-total-row .cc-sticky-4{background:#e8eaf0}
+.cc-tbl .cc-sticky-5{position:sticky;left:var(--ccL5,120px);z-index:3}
+.cc-tbl .cc-stk-cell{background:#f0fdfa;text-align:right;font-weight:700;white-space:nowrap;padding-left:6px;padding-right:6px}
+.cc-tbl .cc-stk-cell.cc-stk-low{color:#c2410c}
+.cc-tbl .cc-stk-cell.cc-stk-out{color:#dc2626;background:#fef2f2}
+.cc-tbl thead .cc-sticky-1,.cc-tbl thead .cc-sticky-2,.cc-tbl thead .cc-sticky-3,.cc-tbl thead .cc-sticky-4,.cc-tbl thead .cc-sticky-5{z-index:5;background:#374151}
+.cc-tbl .cc-total-row .cc-sticky-1,.cc-tbl .cc-total-row .cc-sticky-2,.cc-tbl .cc-total-row .cc-sticky-3,.cc-tbl .cc-total-row .cc-sticky-4,.cc-tbl .cc-total-row .cc-sticky-5{background:#e8eaf0}
 .cc-tbl .cc-prod-cell.cc-sticky-1{background:#f1f5f9}
 .cc-tbl .cc-cumul-cell.cc-sticky-2{background:#fef08a}
 .cc-tbl .cc-color-cell.cc-sticky-3{background:#f9fafb}
@@ -381,7 +385,8 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
   .cc-tbl .cc-num-cell,.cc-tbl .cc-amt-cell{min-width:40px;font-size:12px}
   .cc-tbl .cc-total-row td{font-size:12px!important}
   /* 모바일은 **구분·색상만 고정**한다 — 묶음·단종까지 고정하면 화면 절반을 덮어 일자별 수량·금액이 안 보였다 */
-  .cc-tbl .cc-sticky-0,.cc-tbl .cc-sticky-4{position:static!important}
+  .cc-tbl .cc-sticky-0,.cc-tbl .cc-sticky-4,.cc-tbl .cc-sticky-5{position:static!important}
+  .cc-tbl .cc-stk-cell{font-size:11px!important}
   .cc-tbl .cc-grp-cell{font-size:10px!important;padding:2px 1px!important;letter-spacing:0}
   .cc-tbl .cc-prod-cell{max-width:74px}
   .cc-tbl .cc-prod-cell br+span,.cc-tbl .cc-prod-cell span{font-size:9.5px!important}
@@ -11934,6 +11939,7 @@ function _ccsFromRows(rows){
   var m=/재고일자\s*:\s*(\d{8})/.exec(String((rows[0]&&rows[0][0])||""));
   ccsWh={date:m?(m[1].slice(0,4)+"-"+m[1].slice(4,6)+"-"+m[1].slice(6,8)):"",at:new Date().toISOString(),byCode:by,hasCstc:has,names:names};
   var pg=document.getElementById("page-ccstock");if(pg&&pg.style.display!=="none")ccsRender();
+  var pc=document.getElementById("page-costco");if(pc&&pc.style.display!=="none"&&typeof renderCostcoPage==="function")try{renderCostcoPage();}catch(e){}
 }
 /* 코스트코 탭 상품 목록(진열 순서) — 직매입 줄은 같은 상품이면 한 번만 */
 function _ccsProducts(){
@@ -22755,6 +22761,7 @@ function ccSyncStickyOffsets(){
     var c1=headRow.querySelector('.cc-sticky-1');
     var c3=headRow.querySelector('.cc-sticky-3');
     var c4=headRow.querySelector('.cc-sticky-4');
+    var c5=headRow.querySelector('.cc-sticky-5');
     if(!c1||!c3||!c4)return;
     /* **CSS 픽셀(offsetWidth)로 더한다** — 화면이 `body{zoom:1.12}`로 확대돼 있어
        getBoundingClientRect(확대된 픽셀)로 잰 값을 left에 넣으면 한 번 더 확대되어
@@ -22764,7 +22771,8 @@ function ccSyncStickyOffsets(){
     var isSticky=function(e){return e&&getComputedStyle(e).position==='sticky';};
     var acc=0;
     if(isSticky(c0))acc=Math.max(0,c0.offsetWidth-1);
-    [[c1,'--ccL1'],[c3,'--ccL3'],[c4,'--ccL4']].forEach(function(p){
+    [[c1,'--ccL1'],[c3,'--ccL3'],[c5,'--ccL5'],[c4,'--ccL4']].forEach(function(p){
+      if(!p[0])return;
       tbl.style.setProperty(p[1],acc+'px');
       if(isSticky(p[0]))acc+=Math.max(0,p[0].offsetWidth-1);
     });
@@ -23159,6 +23167,24 @@ function _ccOrderIdx(name){
   var k=String(name||"").replace(/\s/g,"");
   return (_CC_ORDER_IDX[k]===undefined)?CC_PROD_ORDER.length:_CC_ORDER_IDX[k];
 }
+/* 코스트코 탭 색상 옆 '코스트코 재고'(2026-10-13 영업2팀) — 플레이엠디 창고재고현황의 [CSTC] 코스트코 창고 재고를 컬러별로.
+   코스트코 재고확인과 같은 자료·같은 맞춤(ccsWh · 발주 매칭표 CC_PDF_CODE_MAP · _ccsColor). 창고에 그 색 줄이 없으면 상품데이터로 색을 찾아 0.
+   매칭표에 없는 상품은 '–', 색을 못 맞추면 '?'. 기준(코스트코 재고확인의 품절 기준 ccsOutMin) 미만은 주황, 0 이하는 빨강. */
+function _ccStkCell(prod,color,seen){
+  var td=function(cls,txt,tip){return '<td class="cc-sticky-5 cc-stk-cell'+(cls?' '+cls:'')+'"'+(tip?' title="'+_escX(tip)+'"':'')+'>'+txt+'</td>';};
+  if(typeof ccsWh==="undefined"||!ccsWh||!ccsWh.at)return td("",'<span style="color:#cbd5e1;font-weight:400">·</span>',"창고재고현황이 아직 없습니다");
+  if(!ccsWh.hasCstc)return td("",'<span style="color:#cbd5e1;font-weight:400">·</span>',"창고재고현황에 [CSTC] 코스트코 창고가 없습니다");
+  var cm=(typeof CC_PDF_CODE_MAP!=="undefined")?CC_PDF_CODE_MAP[String(prod.code||"")]:null,base=cm&&cm.base;
+  if(!base)return td("",'<span style="color:#cbd5e1;font-weight:400">–</span>',"발주 매칭표에 이 코스트코 코드가 없습니다");
+  var w=_ccsColor(ccsWh.byCode[base],color);
+  if(!w){var pr={};_wsProductRows().forEach(function(x){if(x&&x[1]===base&&x[3])pr[x[3]]={cc:x[3],cn:x[4]||"",cstc:0,nh:0};});w=_ccsColor(pr,color);}
+  if(!w)return td("",'<span style="color:#5b6675">?</span>',base+" — 창고 칼라와 '"+color+"'를 맞추지 못했습니다");
+  var q=Number(w.cstc)||0,k=base+"|"+(w.cc||w.cn);
+  if(!seen.keys[k]){seen.keys[k]=1;seen.sum+=Math.max(0,q);}
+  seen.any=true;
+  var min=(typeof ccsOutMin==="function")?ccsOutMin():30;
+  return td(q<=0?"cc-stk-out":(q<min?"cc-stk-low":""),fmtCC(q)||"0",base+(w.cc||"")+" "+(w.cn||"")+" · CSTC "+q+"개 · 주희물류(NH) "+(Number(w.nh)||0)+"개 · 재고일자 "+(ccsWh.date||"-"));
+}
 function renderCostcoPage(){
   var _yEl=document.getElementById("ccYear"),_mEl=document.getElementById("ccMonth");
   var _year=_yEl?parseInt(_yEl.value):new Date().getFullYear();
@@ -23182,7 +23208,7 @@ function renderCostcoPage(){
   monthKeys.forEach(function(k){var t=ccPeriodTotal(k);monthTotQty+=t.qty;monthTotAmt+=t.amount;});
 
   var h='<table class="cc-tbl"><colgroup>';
-  h+='<col style="width:54px"><col style="width:1px"><col style="width:1px"><col style="width:1px">';
+  h+='<col style="width:54px"><col style="width:1px"><col style="width:1px"><col style="width:1px"><col style="width:1px">';
   if(monthKeys.length){
     monthKeys.forEach(function(){h+='<col style="width:56px"><col style="width:88px">';});
     h+='<col style="width:60px"><col style="width:90px">';
@@ -23199,6 +23225,7 @@ function renderCostcoPage(){
   h+='<th rowspan="2" class="cc-sticky-1">구분 <button onclick="ccToggleFilterMenu(event)" title="상품 숨김/표시" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#1b6e82;vertical-align:middle">👁</button>'
     +(_hidN?'<div style="font-size:10.5px;font-weight:700;color:#fcd34d;margin-top:2px;white-space:nowrap;cursor:pointer" onclick="ccToggleFilterMenu(event)" title="숨긴 상품 보기">숨김 '+_hidN+'</div>':'')+'</th>';
   h+='<th rowspan="2" class="cc-sticky-3">색상</th>';
+  h+='<th rowspan="2" class="cc-sticky-5" title="플레이엠디 창고재고현황 [CSTC] 코스트코 창고 재고(컬러별)" style="white-space:nowrap">코스트코<br>재고'+(ccsWh&&ccsWh.date?'<div style="font-size:10px;font-weight:400;color:#cbd5e1">'+ccsWh.date.slice(5).replace("-","/")+'</div>':'')+'</th>';
   h+='<th rowspan="2" class="cc-sticky-4">단종</th>';
   if(monthKeys.length){
     monthKeys.forEach(function(k){
@@ -23226,6 +23253,7 @@ function renderCostcoPage(){
   h+='<td class="cc-sticky-0" style="background:#e8eaf0"></td>';
   h+='<td class="cc-sticky-1" style="background:#e8eaf0;font-size:16px;font-weight:700">누계</td>';
   h+='<td class="cc-sticky-3" style="background:#e8eaf0;font-size:16px;color:#475569">컬러</td>';
+  h+='<td class="cc-sticky-5 cc-stk-cell" id="ccStkTotal" style="background:#e8eaf0"></td>';
   h+='<td class="cc-sticky-4" style="background:#e8eaf0"></td>';
   if(monthKeys.length){
     monthKeys.forEach(function(k){
@@ -23246,6 +23274,7 @@ function renderCostcoPage(){
      기본 등록 상품은 아직 실적이 없어도 수기 입력용으로 보여준다.
      그래도 거슬리는 이름은 '구분 ▼' 필터에서 개별로 숨긴다(`hiddenProds`). */
   var _hidden=costcoDB.hiddenProds||{};
+  var _stkSeen={sum:0,keys:{},any:false};          /* 코스트코 재고 합계 — 직매입 줄(같은 코드)은 한 번만 */
   var visibleProds=prods.filter(function(prod){
     if(_hidden[prod.name])return false;
     if(ccGetSalePriceForMonth(prod.name))return true;      /* 세일 등록 상품 */
@@ -23285,6 +23314,7 @@ function renderCostcoPage(){
         h+='</td>';
       }
       h+='<td class="cc-color-cell cc-sticky-3">'+color+'</td>';
+      h+=_ccStkCell(prod,color,_stkSeen);
       h+='<td class="cc-disc-cell cc-sticky-4" onclick="ccToggleDisc(\''+prod.name+'\',\''+color+'\')" title="클릭하여 단종 표시 전환">'+(isDisc?'<span style="color:#dc2626;font-weight:700;font-size:14px">단종</span>':'<span style="color:#cbd5e1;font-size:12px">–</span>')+'</td>';
       if(monthKeys.length){
         var mQty=0,mAmt=0;
@@ -23314,6 +23344,7 @@ function renderCostcoPage(){
     }); /* prod.colors */
   }); /* visibleProds */
   h+='</tbody></table>';
+  if(_stkSeen.any)h=h.replace('<td class="cc-sticky-5 cc-stk-cell" id="ccStkTotal" style="background:#e8eaf0"></td>','<td class="cc-sticky-5 cc-stk-cell" id="ccStkTotal" style="background:#e8eaf0">'+fmtCC(_stkSeen.sum)+'</td>');
   /* 상품 숨김/표시 패널 (구분 헤더의 👁) — 숨긴 상품도 목록에 남아야 다시 켤 수 있다 */
   var allNames=prods.map(function(p){return p.name;});
   var _hidNames=allNames.filter(function(nm){return _hidden[nm];});
