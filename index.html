@@ -126,6 +126,7 @@ tr.kb-focus td:first-child{border-left:3px solid #6366f1}
 .tab-drop-menu .tab-btn{display:block;width:100%;text-align:left;padding:10px 14px;color:#334155;font-size:13px;border-bottom:none;border-radius:6px;white-space:nowrap}
 .tab-drop-menu .tab-btn:hover{background:#eef4f6;color:#0f172a;border-radius:6px}
 .tab-drop-menu .tab-btn.active{background:#1b6e82;color:#fff;border-bottom:none;border-radius:6px}
+.tab-hidden{display:none!important}
 .tab-drop.has-active>.tab-drop-btn{color:#a5b4fc;border-bottom-color:#818cf8;background:rgba(129,140,248,.1);border-radius:6px 6px 0 0}
 .meeting-textarea{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#111;background:white;resize:vertical;min-height:90px;font-family:inherit;line-height:1.6;transition:border .15s}
 .meeting-textarea:focus{outline:none;border-color:#6366f1}
@@ -700,7 +701,9 @@ label{font-size:14px!important}
     </div>
   </div>
   <button class="tab-btn" id="tab-transfer" onclick="switchTab('transfer')">🔄 재고이관</button>
+  <button class="tab-btn" id="tabHideBtn" onclick="tabHideOpen(event)" title="탭 감추기 / 다시 보이기 (이 브라우저에만 기억)" style="margin-left:auto">⚙ 탭</button>
 </div>
+<div id="tabHidePanel" style="display:none;position:fixed;z-index:300;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.25);padding:12px 14px;width:260px;max-height:75vh;overflow:auto;font-size:13px;color:#334155"></div>
 
 <div id="qcBarHome"></div>
 <div id="qcBar" style="background:#fff;border-bottom:1px solid var(--ec-line);padding:10px 20px">
@@ -8057,6 +8060,80 @@ function tabDropToggle(e,id){
     else d.classList.remove("open");   /* 다른 메뉴는 닫는다 */
   });
 }
+/* ── 탭 감추기 (⚙ 탭) — 이 브라우저에만 기억한다(localStorage). 홈은 감출 수 없다.
+   묶음 메뉴(발주·등록·재고확인)는 안의 탭이 전부 감춰지면 묶음 버튼도 감춘다. ── */
+var TAB_HIDE_KEY="jvHiddenTabs";
+function _tabHideGet(){try{var v=JSON.parse(localStorage.getItem(TAB_HIDE_KEY)||"[]");return Array.isArray(v)?v:[];}catch(e){return [];}}
+function _tabHideSet(a){try{localStorage.setItem(TAB_HIDE_KEY,JSON.stringify(a));}catch(e){}}
+function _tabHideList(){   /* [{id,label,group}] — 탭 줄 순서대로 */
+  var out=[];
+  document.querySelectorAll(".tab-nav [id^='tab-']").forEach(function(b){
+    if(b.id==="tab-home")return;
+    var d=b.closest(".tab-drop"),g="";
+    if(d){var gb=d.querySelector(".tab-drop-btn");g=gb?gb.textContent.replace("▾","").trim():"";}
+    out.push({id:b.id,label:b.textContent.trim(),group:g});
+  });
+  return out;
+}
+function tabHideApply(){
+  var h=_tabHideGet();
+  _tabHideList().forEach(function(t){var b=document.getElementById(t.id);if(b)b.classList.toggle("tab-hidden",h.indexOf(t.id)>=0);});
+  TAB_DROPS.forEach(function(k){
+    var d=document.getElementById(k);if(!d)return;
+    d.classList.toggle("tab-hidden",!d.querySelector(".tab-drop-menu .tab-btn:not(.tab-hidden)"));
+  });
+  var hb=document.getElementById("tabHideBtn");
+  if(hb)hb.textContent="⚙ 탭"+(h.length?" (숨김 "+h.length+")":"");
+}
+function tabHideToggle(id,show){
+  var h=_tabHideGet().filter(function(x){return x!==id;});
+  if(!show)h.push(id);
+  _tabHideSet(h);tabHideApply();
+  var b=document.getElementById(id);
+  if(!show&&b&&b.classList.contains("active"))switchTab("home");   /* 보고 있던 탭을 감추면 홈으로 */
+}
+function tabHideAll(show){
+  _tabHideSet(show?[]:_tabHideList().map(function(t){return t.id;}));
+  tabHideApply();
+  if(!show)switchTab("home");
+  tabHideRender();
+}
+function tabHideRender(){
+  var p=document.getElementById("tabHidePanel");if(!p)return;
+  var h=_tabHideGet(),g0=null;
+  var s='<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><b style="font-size:13.5px;color:#154f5e">탭 감추기</b>'
+    +'<button onclick="tabHidePanelClose()" style="margin-left:auto;border:none;background:none;font-size:16px;cursor:pointer;color:#5b6675">✕</button></div>'
+    +'<div style="font-size:11.5px;color:#5b6675;margin-bottom:8px;line-height:1.5">체크를 끄면 탭 줄에서 감춥니다. 이 브라우저에만 기억합니다. 홈은 항상 보입니다.</div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px">'
+    +'<button onclick="tabHideAll(true)" style="flex:1;font-size:12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:5px;padding:4px;cursor:pointer;font-weight:700">모두 보이기</button>'
+    +'<button onclick="tabHideAll(false)" style="flex:1;font-size:12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:5px;padding:4px;cursor:pointer;font-weight:700">모두 감추기</button></div>';
+  _tabHideList().forEach(function(t){
+    if(t.group!==g0){g0=t.group;if(g0)s+='<div style="font-size:11.5px;font-weight:800;color:#5b6675;margin:8px 0 2px">'+g0+'</div>';}
+    var on=h.indexOf(t.id)<0;
+    s+='<label style="display:flex;align-items:center;gap:7px;padding:4px 2px;cursor:pointer;'+(t.group?'padding-left:12px;':'')+(on?'':'color:#9a3412;')+'">'
+      +'<input type="checkbox" '+(on?'checked':'')+' onchange="tabHideToggle(\''+t.id+'\',this.checked);tabHideRender()" style="margin:0;width:15px;height:15px;flex:none">'
+      +'<span style="flex:1">'+t.label+'</span>'+(on?'':'<span style="font-size:11px;font-weight:700">숨김</span>')+'</label>';
+  });
+  p.innerHTML=s;
+}
+function tabHideOpen(e){
+  if(e){e.preventDefault();e.stopPropagation();}
+  var p=document.getElementById("tabHidePanel");if(!p)return;
+  if(p.style.display==="block"){tabHidePanelClose();return;}
+  tabHideRender();
+  var r=document.getElementById("tabHideBtn").getBoundingClientRect();
+  p.style.display="block";
+  p.style.top=Math.round(r.bottom+4)+"px";
+  p.style.left=Math.max(8,Math.min(window.innerWidth-p.offsetWidth-8,Math.round(r.right-p.offsetWidth)))+"px";
+}
+function tabHidePanelClose(){var p=document.getElementById("tabHidePanel");if(p)p.style.display="none";}
+document.addEventListener("click",function(e){
+  var p=document.getElementById("tabHidePanel");
+  if(!p||p.style.display!=="block")return;
+  if(e.target&&typeof e.target.closest==="function"&&(e.target.closest("#tabHidePanel")||e.target.closest("#tabHideBtn")))return;
+  tabHidePanelClose();
+});
+tabHideApply();
 /* 하위 탭이 선택되면 상위 버튼도 활성 표시 + 메뉴 닫기 */
 function _tabDropSync(){
   TAB_DROPS.forEach(function(k){
