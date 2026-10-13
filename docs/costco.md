@@ -191,6 +191,8 @@
   코스트코 재고확인과 같은 자료·맞춤(`ccsWh` · `CC_PDF_CODE_MAP` · `_ccsColor`, 창고에 그 색 줄이 없으면 상품데이터로 색을 찾아 0).
   매칭표에 없는 코드 `–`, 색 못 맞춤 `?`, 창고재고 없음 `·`. 품절 기준(`ccsOutMin`) 미만 주황, 0 이하 빨강. 칸에 마우스 → 상품컬러코드·CSTC·NH·재고일자.
   헤더에 재고일자, 누계 줄에 합계(직매입처럼 같은 코드·색은 한 번만). 창고재고가 나중에 들어오면 `_ccsFromRows`가 코스트코 탭을 다시 그린다.
+  **코스트코 재고 앞 `주희물류 재고` 열**(2026-10-13 영업2팀, `_ccStkCell(…,"nh")` · sticky `cc-sticky-7` / `--ccL7`): 같은 창고재고현황의 **[NH] 주희물류** 재고(코스트코 창고로 보낼 수 있는 물량).
+  `WH_MIN_ORDER`(보충 불가 기준, 기본 10) 이하 주황, 0 이하 빨강. 열 순서: 색상 · 주희물류 · 코스트코 · DSS · 단종.
   **그 옆 `DSS 재고` 열**(2026-10-13 영업2팀, `_ccDssCell` · sticky `cc-sticky-6` / `--ccL6`): DSS **작업 > 재고 업데이트의 DELTA QTY**(= 수량 − 발송완료 − ORDERED(미발송 주문)).
   ORDERED는 Stock API 응답에 없어 **화면 표 글자를 그대로 읽는다** — 자동화 PC `automation/dss-stock.mjs`(saip-watch가 30분마다 7~21시, busy면 건너뜀)가
   두 DSS 창(9333 DSS26 · 9334 DSS31)에서 `dropship/StockUpdate`를 **새 탭으로 열어 읽고 닫는다**(저장·업로드 안 누름, 송장·발주 lock 중엔 건너뜀) → `ws/ccDssStock`
