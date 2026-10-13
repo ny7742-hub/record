@@ -3,7 +3,9 @@
 `page-ecount` · `tab-ecount` · `renderEcount` (2026-10-12 영업2팀 "매장은 창고이동, 매장에서 주문을 넣고 본사에서 승인").
 이카운트 [재고Ⅰ › 기타이동 › 창고이동]의 '미확인 → 확인' 흐름을 자비스에서 먼저 돌리고, 결과를 엑셀로 이카운트·물류에 넘긴다.
 
-- **① 발주 요청(누구나)**: 매장(`_ecStores` — `ORDER_STORES`에서 아난티·트래블메이트·백화점몰·CX 제외) + 상품(`#ocProdList`, 상품데이터 자사코드) + 수량 → `ecSubmit`.
+- **① 발주 요청(누구나)**: 매장(`_ecStores` — `ORDER_STORES`에서 아난티·트래블메이트·백화점몰·CX 제외) + 상품 + 수량 → `ecSubmit`.
+  **상품 검색은 수기발주와 같은 방식**(2026-10-13 영업2팀): `#ecSearch`에 상품명·칼라·자사코드 낱말 → 상품명 칩(`ecPickChip`)으로 좁히기 → 결과 클릭·↑↓·Enter(`ecAddResult`)로 담기, 수량 칸 비우면 1개. 결과 줄에 창고재고.
+  검색칸·결과는 처음 한 번만 만들고(`#ecSr`) 담은 목록만 `#ecDraftBox`에 다시 그린다 — 다른 사람이 저장해 화면이 갱신돼도 입력이 안 날아가게.
   담을 때 주희물류 창고재고(`whQty`)를 보여 주고 `WH_MIN_ORDER` 이하면 경고만 한다.
 - **저장**: 주문마다 `ws/ecOrders/{id}`에 **객체로** 따로 쓴다(`_ecPut`) — 여러 매장이 동시에 요청·승인해도 서로 덮지 않게(다른 팀 자료처럼 통째 문자열로 쓰지 않음).
   리스너는 `apply` 대신 직접 `on("value")` — 다 지워졌을 때도 비우려고. 필드: store·storeName·by·at·memo·state(요청/승인/반려/출고)·items[{code,name,qty,ok}]·okBy/okAt·reason·shipDate/shipBy/shipAt.

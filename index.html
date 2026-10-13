@@ -8438,25 +8438,69 @@ function _ecStock(code,x){
   return '<span style="color:'+(q<=WH_MIN_ORDER?"#b91c1c":"#334155")+';font-weight:'+(q<=WH_MIN_ORDER?700:400)+'">'+q+'</span>';
 }
 /* ── ① 발주 담기 ── */
-function ecAddItem(){
-  var pv=String((document.getElementById("ecProd")||{}).value||"").trim(),q=parseInt(String((document.getElementById("ecQty")||{}).value||"").replace(/[^0-9]/g,""),10);
+/* 상품 검색(2026-10-13 영업2팀 "발주탭 수기발주처럼") — 상품명·칼라 낱말로 찾기 → 상품명 칩으로 좁히기 → 결과 클릭·↑↓·Enter로 담기(수량 칸, 비우면 1).
+   검색칸은 처음 한 번만 만든다(_ecFormInit) — 다른 사람이 저장해 화면이 다시 그려져도 입력·결과가 날아가지 않게 */
+var _ecM=[],_ecChips=[],_ecChipSel=-1,_ecRes=[],_ecResSel=-1,_ecClickT=null;
+function ecSearchInput(){
+  var q=String((document.getElementById("ecSearch")||{}).value||"").trim();
+  _ecChipSel=-1;
+  if(!q){_ecM=[];_ecChips=[];_ecRes=[];_ecResSel=-1;ecRenderSearch();return;}
+  var terms=q.split(/\s+/),src=(typeof DB!=="undefined"&&DB.length)?DB:[];
+  _ecM=src.filter(function(d){if(!d["자사코드"])return false;var c=norm(d["상품명"])+norm(d["칼라명"])+norm(d["자사코드"]);return terms.every(function(t){return c.indexOf(norm(t))>=0;});});
+  var seen={};_ecChips=[];_ecM.forEach(function(d){var nm=d["상품명"]||"";if(nm&&!seen[nm]){seen[nm]=1;_ecChips.push(nm);}});
+  _ecRes=_ecM.slice(0,300);_ecResSel=_ecRes.length?0:-1;
+  ecRenderSearch();
+}
+function ecPickChip(k){
+  _ecChipSel=k;
+  _ecRes=(k<0?_ecM:_ecM.filter(function(d){return (d["상품명"]||"")===_ecChips[k];})).slice(0,300);
+  _ecResSel=_ecRes.length?0:-1;ecRenderSearch();
+  var si=document.getElementById("ecSearch");if(si)si.focus();
+}
+function ecRenderSearch(){
+  var box=document.getElementById("ecSr");if(!box)return;
+  var q=String((document.getElementById("ecSearch")||{}).value||"").trim();
+  if(!q){box.innerHTML="";return;}
+  if(!_ecM.length){box.innerHTML='<div style="padding:6px;color:#5b6675;font-size:12px">검색 결과 없음</div>';return;}
+  var chip=function(on,label,k){return '<span onclick="ecPickChip('+k+')" style="cursor:pointer;font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid '+(on?"#2563eb":"#cbd5e1")+';background:'+(on?"#dbeafe":"#fff")+';color:'+(on?"#1e40af":"#334155")+';font-weight:'+(on?"700":"500")+'">'+label+'</span>';};
+  var h='<div style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 5px">'+chip(_ecChipSel<0,'전체('+_ecM.length+')',-1)
+    +_ecChips.slice(0,40).map(function(nm,k){return chip(k===_ecChipSel,_escX(nm),k);}).join("")+'</div>'
+    +'<div style="font-size:11px;color:#5b6675;margin-bottom:4px">↑↓ 이동 · Enter·클릭 = 담기(수량 칸 숫자, 비우면 1개) · 현재 '+_ecRes.length+'개'+(_ecM.length>_ecRes.length&&_ecChipSel<0?' (앞 300개 — 칩으로 좁혀 주세요)':'')+'</div>'
+    +'<div id="ecSrList" style="max-height:260px;overflow-y:auto;border:1px solid #e1e6ee;border-radius:8px;background:#fff">';
+  _ecRes.forEach(function(d,k){
+    var on=k===_ecResSel,code=d["자사코드"]||"";
+    h+='<div id="ecSr_'+k+'" onclick="ecResultClick('+k+')" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(on?"#dbeafe":"")+'\'" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;background:'+(on?"#dbeafe":"")+'">'
+      +'<span style="flex:1;color:#1f2937">'+_escX((d["상품명"]+" "+(d["칼라명"]||"")).trim())+'</span>'
+      +'<span style="color:#6366f1;font-family:monospace">'+_escX(code)+'</span>'
+      +(_ecKind==="ret"?'':'<span style="min-width:62px;text-align:right" title="주희물류 창고재고">재고 '+_ecStock(code)+'</span>')+'</div>';
+  });
+  box.innerHTML=h+'</div>';
+  var el=document.getElementById("ecSr_"+_ecResSel);if(el)el.scrollIntoView({block:"nearest"});
+}
+function ecResultClick(k){_ecResSel=k;ecAddResult(k);}
+function ecSearchKey(e){
+  if(!_ecRes.length)return;
+  if(e.key==="ArrowDown"){e.preventDefault();_ecResSel=Math.min(_ecRes.length-1,_ecResSel+1);ecRenderSearch();}
+  else if(e.key==="ArrowUp"){e.preventDefault();_ecResSel=Math.max(0,_ecResSel-1);ecRenderSearch();}
+  else if(e.key==="Enter"){e.preventDefault();ecAddResult(_ecResSel>=0?_ecResSel:0);}
+}
+function ecAddItem(){if(_ecRes.length)ecAddResult(_ecResSel>=0?_ecResSel:0);else{var m=document.getElementById("ecMsg");if(m){m.style.color="#b91c1c";m.textContent="상품을 검색해 골라 주세요";}}}
+function ecAddResult(k){
+  var d=_ecRes[k];if(!d)return;
   var msg=document.getElementById("ecMsg"),say=function(t,c){if(msg){msg.style.color=c||"#5b6675";msg.textContent=t;}};
+  var qs=String((document.getElementById("ecQty")||{}).value||"").replace(/[^0-9]/g,""),q=qs?parseInt(qs,10):1;
+  if(!(q>0)){say("수량을 확인해 주세요","#b91c1c");return;}
   _ecDraft.store=(document.getElementById("ecStore")||{}).value||_ecDraft.store;
-  if(!pv){say("상품을 골라 주세요","#b91c1c");return;}
-  if(!(q>0)){say("수량을 적어 주세요","#b91c1c");return;}
-  var P=_ocProdList(),m=/\[([A-Za-z0-9]+)\]\s*$/.exec(pv),code=(m?m[1]:pv).toUpperCase(),o=P.by[code];
-  if(!o){var hit=P.list.filter(function(x){return x.label===pv;});if(hit.length===1)o=hit[0];}
-  if(!o){say("상품데이터에서 못 찾았습니다 — 목록에서 골라 주세요","#b91c1c");return;}
-  var same=_ecDraft.items.filter(function(x){return x.code===o.code;})[0];
+  var code=String(d["자사코드"]||"").trim(),label=(String(d["상품명"]||"")+" "+String(d["칼라명"]||"")).trim();
   var bad=_ecKind==="ret"&&!!(document.getElementById("ecBad")||{}).checked;
-  same=_ecDraft.items.filter(function(x){return x.code===o.code&&!!x.bad===bad;})[0];
-  if(same)same.qty+=q;else _ecDraft.items.push(bad?{code:o.code,name:o.label,qty:q,bad:true}:{code:o.code,name:o.label,qty:q});
-  document.getElementById("ecProd").value="";document.getElementById("ecQty").value="";
+  var same=_ecDraft.items.filter(function(x){return x.code===code&&!!x.bad===bad;})[0];
+  if(same)same.qty+=q;else _ecDraft.items.push(bad?{code:code,name:label,qty:q,bad:true}:{code:code,name:label,qty:q});
+  var qi=document.getElementById("ecQty");if(qi)qi.value="";
   renderEcount();
-  if(_ecKind==="ret"){say("✔ "+o.label+" "+q+"개 담음"+(bad?" (불량)":""),"#047857");var p0=document.getElementById("ecProd");if(p0)p0.focus();return;}
-  var wq=typeof whQty==="function"?whQty(o.code):null;
-  say(wq!==null&&wq<=WH_MIN_ORDER?"⚠ 담았지만 창고재고 "+wq+"개(발주 기준 "+WH_MIN_ORDER+"개 이하)입니다":"✔ "+o.label+" "+q+"개 담음",wq!==null&&wq<=WH_MIN_ORDER?"#b45309":"#047857");
-  var p=document.getElementById("ecProd");if(p)p.focus();
+  var wq=_ecKind!=="ret"&&typeof whQty==="function"?whQty(code):null;
+  if(wq!==null&&wq<=WH_MIN_ORDER)say("⚠ "+label+" "+q+"개 담았지만 창고재고 "+wq+"개(발주 기준 "+WH_MIN_ORDER+"개 이하)입니다","#b45309");
+  else say("✔ "+label+" "+q+"개 담음"+(bad?" (불량)":""),"#047857");
+  var si=document.getElementById("ecSearch");if(si)si.focus();
 }
 function ecDelItem(i){_ecDraft.items.splice(i,1);renderEcount();}
 function ecSubmit(){
@@ -8587,16 +8631,21 @@ function renderEcount(){
   _ecProdDl();
   var f=document.getElementById("ecForm");
   if(f){
-    var keep={store:(document.getElementById("ecStore")||{}).value,prod:(document.getElementById("ecProd")||{}).value,qty:(document.getElementById("ecQty")||{}).value,memo:(document.getElementById("ecMemo")||{}).value};
-    var sc=keep.store||_ecDraft.store||"";
-    var h='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
-      +'<select id="ecStore" onchange="_ecDraft.store=this.value" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"><option value="">매장 선택</option>'
-      +_ecStores().map(function(s){return '<option value="'+_escX(s.code)+'"'+(s.code===sc?" selected":"")+'>'+_escX(s.name+" ("+s.code+")")+'</option>';}).join("")+'</select>'
-      +'<input id="ecProd" list="ocProdList" placeholder="상품명이나 자사코드" style="flex:1;min-width:240px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">'
-      +'<input id="ecQty" inputmode="numeric" placeholder="수량" style="width:64px;padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;text-align:right" onkeydown="if(event.key===\'Enter\')ecAddItem()">'
-      +(ret?'<label style="font-size:12.5px;color:#b91c1c;font-weight:700;display:flex;align-items:center;gap:3px"><input type="checkbox" id="ecBad"> 불량</label>':'')
-      +'<button class="bs" onclick="ecAddItem()" style="padding:5px 14px;font-size:13px;font-weight:700">＋ 담기</button>'
-      +'<span id="ecMsg" style="font-size:12px;color:#5b6675"></span></div>';
+    var keep={memo:(document.getElementById("ecMemo")||{}).value};
+    if(!document.getElementById("ecSearch")){
+      f.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+        +'<select id="ecStore" onchange="_ecDraft.store=this.value" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"><option value="">매장 선택</option>'
+        +_ecStores().map(function(s){return '<option value="'+_escX(s.code)+'">'+_escX(s.name+" ("+s.code+")")+'</option>';}).join("")+'</select>'
+        +'<input id="ecSearch" oninput="ecSearchInput()" onkeydown="ecSearchKey(event)" autocomplete="off" placeholder="상품명·칼라·자사코드 (예: 루시 베이지)" style="flex:1;min-width:240px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
+        +'<input id="ecQty" inputmode="numeric" placeholder="수량(1)" style="width:70px;padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;text-align:right" onkeydown="if(event.key===\'Enter\')ecAddItem()">'
+        +'<label id="ecBadLab" style="font-size:12.5px;color:#b91c1c;font-weight:700;display:none;align-items:center;gap:3px"><input type="checkbox" id="ecBad"> 불량</label>'
+        +'<button class="bs" onclick="ecAddItem()" style="padding:5px 14px;font-size:13px;font-weight:700">＋ 담기</button>'
+        +'<span id="ecMsg" style="font-size:12px;color:#5b6675"></span></div>'
+        +'<div id="ecSr"></div><div id="ecDraftBox"></div>';
+    }
+    var stSel=document.getElementById("ecStore");if(stSel&&!stSel.value&&_ecDraft.store)stSel.value=_ecDraft.store;
+    var bl=document.getElementById("ecBadLab");if(bl)bl.style.display=ret?"flex":"none";
+    var h='';
     if(_ecDraft.items.length){
       h+='<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px"><tr style="background:#f1f5f9"><th style="text-align:left;padding:4px 6px">상품</th><th style="padding:4px 6px">자사코드</th><th style="padding:4px 6px;text-align:right">수량</th><th style="padding:4px 6px;text-align:right" title="'+(ret?'불량이면 불량창고로 들어갑니다':'주희물류 창고재고(홈에서 올린 창고재고현황 기준)')+'">'+(ret?'구분':'창고재고')+'</th><th></th></tr>'
         +_ecDraft.items.map(function(x,i){return '<tr style="border-top:1px solid #e2e8f0"><td style="padding:4px 6px">'+_escX(x.name)+'</td><td style="padding:4px 6px;color:#5b6675">'+_escX(x.code)+'</td><td style="padding:4px 6px;text-align:right;font-weight:700">'+x.qty+'</td><td style="padding:4px 6px;text-align:right">'+_ecStock(x.code,x)+'</td><td style="padding:4px 6px;text-align:right"><button class="bs" style="padding:2px 8px;font-size:11.5px;color:#b91c1c" onclick="ecDelItem('+i+')">빼기</button></td></tr>';}).join("")
@@ -8604,9 +8653,7 @@ function renderEcount(){
     }
     h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px"><input id="ecMemo" placeholder="'+_escX(T.memo)+'" style="flex:1;min-width:220px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">'
       +'<button onclick="ecSubmit()" style="padding:6px 16px;font-size:13.5px;font-weight:800;background:#1b6e82;color:#fff;border:0;border-radius:8px;cursor:pointer"'+(_ecDraft.items.length?'':' disabled')+'>'+T.btn+(_ecDraft.items.length?' ('+_ecDraft.items.length+'품목 · '+_ecSum(_ecDraft)+'개)':'')+'</button></div>';
-    f.innerHTML=h;
-    if(keep.prod)document.getElementById("ecProd").value=keep.prod;
-    if(keep.qty)document.getElementById("ecQty").value=keep.qty;
+    var db=document.getElementById("ecDraftBox");if(db)db.innerHTML=h;
     if(keep.memo)document.getElementById("ecMemo").value=keep.memo;
   }
   /* ② 목록 */
