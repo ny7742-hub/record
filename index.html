@@ -20247,7 +20247,7 @@ function _saipCheck(k,date){
   if(!S||S.mode!=="preview"||!S.at||!date)return null;
   if(Date.now()-new Date(S.at).getTime()>12*3600*1000)return null;
   var it=(S.items||[]).filter(function(x){return x&&x.date===date;})[0];
-  if(!it)return null;
+  if(!it||it.status==="nofile")return null;
   if(it.already)return {s:"dup",at:S.at,txt:it.already};
   if(it.status==="preview")return {s:"ok",at:S.at,qty:it.qty||0,amt:it.amt||0,rows:(it.rows||[]).length};
   return {s:"err",at:S.at,txt:it.error||(it.bad||[]).join(" ")||"확인이 필요합니다"};
@@ -20317,18 +20317,33 @@ function _saipDateEl(kind){return document.getElementById("saipDate_"+kind);}
 function _saipDefaultDate(kind){return kind==="cc"?_saipYmd(new Date()):_saipPrevBizDay();}
 /* 🔍 미리보기 — 자동화 PC가 저장만 빼고 다 한다(원본 받기 → 변환 → 플레이엠디 불러오기 → 중복 조회).
    결과 카드에 등록될 줄이 나오고, 문제가 없으면 '✅ 이대로 등록'으로 저장한다(2026-09-30 영업2팀). 등록 기록은 남기지 않는다. */
+/* 🔍 중복 확인할 날짜 — 고른 날짜 + 최근 일주일(오늘부터 6일 전까지)의 영업일 중 **등록 기록이 없는 날**(2026-10-14 영업2팀
+   "1013만 돼요 — 오늘부터 이전 일주일 정도 중복검사"). 자동화 PC가 날짜마다 미리보기를 돌려 결과를 한 장으로 모은다(saip-watch runPreviewDates).
+   오늘은 코스트코만 넣는다 — 홈쇼핑·백화점몰 등은 다음 날 폴더가 생긴다. */
+function _saipWeekDates(kind,v){
+  var out=[],d=new Date(),today=_saipYmd(d);
+  for(var i=0;i<7;i++){
+    var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()-i),y=_saipYmd(x);
+    if(x.getDay()===0||x.getDay()===6||_saipIsHoliday(x))continue;
+    if(y===today&&kind!=="cc")continue;
+    out.push(y);
+  }
+  if(v&&out.indexOf(v)<0)out.push(v);
+  return out.filter(function(y){return !_saipLogOf(kind,y)&&!((kind==="hs"||kind==="ds")&&y<=SAIP_BASELINE);}).sort();
+}
 function saipPreviewGo(kind){
   var el=_saipDateEl(kind),v=el&&el.value;
   if(!v){alert("날짜를 골라 주세요.");return;}
   var K=SAIP_KINDS[kind],mmdd=v.slice(5,7)+v.slice(8,10),md=(+v.slice(5,7))+"/"+(+v.slice(8,10));
-  var L=_saipLogOf(kind,v);
-  if(L||((kind==="hs"||kind==="ds")&&v<=SAIP_BASELINE)){
+  var L=_saipLogOf(kind,v),dates=_saipWeekDates(kind,v);
+  if(!dates.length){
     alert(K.label+" "+md+"는 이미 등록되었습니다."+(L?"\n\n등록 시각: "+_saipFmtAt(L.at)+"\n등록자: "+(L.by||"알 수 없음"):"")+"\n\n미리보기할 것이 없습니다.");
     return;
   }
   var cur=(saipReq||{})[kind];
   if(_saipReqActive(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
-  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview"};
+  if(dates.indexOf(v)<0){v=dates[dates.length-1];mmdd=v.slice(5,7)+v.slice(8,10);}   /* 고른 날짜가 이미 등록됨 — 나머지 날짜만 */
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,dates:dates,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview"};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   saipReq[kind]=R;
   wsSetItem("saipReq",JSON.stringify(saipReq));
@@ -20491,13 +20506,19 @@ function _saipCard(kind,opt){
   if(S.error)h+='<div style="color:#b91c1c;font-weight:700">❗ '+_escX(S.error)+'</div>';
   if(S.note)h+='<div style="color:#b45309;font-weight:700">ℹ️ '+_escX(_saipShortNote(S.note))+'</div>';
   var fresh=S.at&&Date.now()-new Date(S.at).getTime()<2*3600*1000;   /* 미리보기는 2시간 안의 것만 '이대로 등록'을 띄운다 */
+  /* 일주일 중복 확인(S.dates)이면 날짜마다 접어 두고 고른 날짜만 펼친다. 파일 없는 날은 한 줄로 모은다(2026-10-14) */
+  var multi=(S.items||[]).length>1,noFile=[];
+  if(multi)h+='<div style="margin-top:4px;font-size:12.5px;color:#5b6675">🔍 최근 '+(S.items||[]).length+'일 중복 확인 · '+_escX(_saipFmtAt(S.at))+' — 날짜를 누르면 펼칩니다</div>';
   (S.items||[]).forEach(function(it){
     if(it.status==="saved")return;                                    /* 저장 완료는 위 '등록됨' 줄로 충분하다 */
-    var t=SAIP_ITEM_TXT[it.status]||["•",it.status||"",""];
     var imd=it.mmdd?(+it.mmdd.slice(0,2))+'/'+(+it.mmdd.slice(2,4)):"";
-    h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">';
-    h+='<b>'+imd+'</b> <span style="color:'+t[2]+';font-weight:700">'+t[0]+' '+t[1]+'</span>';
-    if(it.rows)h+=' <span style="color:#334155">· '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</span>';
+    if(multi&&it.status==="nofile"){noFile.push(imd);return;}
+    var t=SAIP_ITEM_TXT[it.status]||["•",it.status||"",""];
+    var head='<b>'+imd+'</b> <span style="color:'+t[2]+';font-weight:700">'+t[0]+' '+t[1]+'</span>';
+    if(it.rows)head+=' <span style="color:#334155">· '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</span>';
+    if(multi&&it.already)head+=' <span style="color:#b45309;font-weight:800">· 이미 있음</span>';
+    if(multi)h+='<details'+(it.date===dv?' open':'')+' style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0"><summary style="cursor:pointer;list-style-position:inside">'+head+'</summary>';
+    else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+head;
     if(it.skipped&&it.skipped.length)h+='<div style="color:#5b6675">⏭ 발송후취소 중 Cafe24 '+it.skipped.length+'줄은 뺐습니다(매장코드 미정)</div>';
     if(it.bad&&it.bad.length)h+='<div style="color:#b91c1c">'+it.bad.map(_escX).join("<br>")+'<br><span style="color:#5b6675">'+(kind==="so"||kind==="mv"?'→ 모르는 창고·매장 이름은 자동화 PC의 코드표(warehouse-codes.json·store-codes.json)에 더한 뒤 다시 누르세요':'→ 아래 홈쇼핑 코드매칭표에 추가한 뒤 다시 누르세요')+'</span></div>';
     if(it.error&&it.status!=="unmatched")h+='<div style="color:#b91c1c">'+_escX(it.error)+'</div>';
@@ -20505,18 +20526,18 @@ function _saipCard(kind,opt){
     if(it.already)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>';
     /* 미리보기 — 등록될 줄을 표로 */
     if(S.mode==="preview"&&it.rows&&it.rows.length){
-      var th='style="text-align:left;padding:3px 5px;border-bottom:1px solid #cfe0e5;color:#475569;font-weight:700;background:#f1f5f9"';
-      var td='style="padding:3px 5px;border-bottom:1px solid #eef2f6"';
-      var tdn='style="padding:3px 5px;border-bottom:1px solid #eef2f6;text-align:right;white-space:nowrap"';
-      h+='<div style="max-height:260px;overflow:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse;font-size:13px">'
-        +'<tr><th '+th+'>매장</th><th '+th+'>상품</th><th '+th+'>코드</th><th '+th+' align="right">수량</th><th '+th+' align="right">공급가</th></tr>';
+      /* 줄마다 두 줄로 — 위: 상품명(전부) · 아래: 매장 · 코드 | 수량 · 공급가. 좁은 카드(자동화 탭 ~290px)에서 5칸 표는
+         상품명이 한 글자씩 꺾이고 수량·공급가가 잘려 안 보였다(2026-10-14 영업2팀) */
+      h+='<div style="max-height:300px;overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px">'
+        +'<div style="display:flex;justify-content:space-between;gap:6px;padding:3px 8px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:700;position:sticky;top:0"><span>상품 · 매장 · 코드</span><span>수량 · 공급가</span></div>';
       it.rows.forEach(function(r){
-        h+='<tr><td '+td+'>'+_escX(r.store||"")+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+'</td>'
-          +'<td '+td+' title="'+_escX(r.prod||"")+'">'+_escX(String(r.prod||"").slice(0,26))+'</td>'
-          +'<td '+td+'>'+_escX(r.code||"")+'</td>'
-          +'<td '+tdn+'>'+(r.qty||0)+'</td><td '+tdn+'>'+Number(r.unit||0).toLocaleString()+'</td></tr>';
+        h+='<div style="padding:4px 8px;border-top:1px solid #eef2f6;font-size:13px;line-height:1.4">'
+          +'<div style="color:#1e293b;font-weight:600;word-break:keep-all;overflow-wrap:anywhere">'+_escX(r.prod||"")+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+'</div>'
+          +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">'
+          +'<span style="color:#5b6675;font-size:12px">'+_escX(r.store||"")+' · <span style="font-family:Consolas,monospace">'+_escX(r.code||"")+'</span></span>'
+          +'<span style="white-space:nowrap;color:#334155"><b>'+(r.qty||0)+'개</b> · '+Number(r.unit||0).toLocaleString()+'원</span></div></div>';
       });
-      h+='</table></div>';
+      h+='</div>';
       /* 이대로 등록 — 문제 없는 미리보기, 아직 등록 안 된 날짜, 진행 중인 요청 없음, 2시간 안 */
       if(it.status==="preview"&&opt&&opt.noReg)h+='<div style="font-size:12px;color:#5b6675;margin-top:4px">🔍 미리보기만 했습니다 — 저장하지 않았습니다(등록은 위 [등록] 버튼)</div>';
       else if(it.status==="preview"&&!it.already&&!_saipLogOf(kind,it.date)&&!active&&fresh)
@@ -20524,8 +20545,9 @@ function _saipCard(kind,opt){
           +' <span style="font-size:12px;color:#5b6675">미리보기 뒤 원본이 바뀌었으면 저장하지 않습니다</span></div>';
       else if(it.status==="preview"&&!fresh)h+='<div style="font-size:12px;color:#5b6675;margin-top:4px">미리보기가 2시간이 지나 다시 미리보기 해 주세요</div>';
     }
-    h+='</div>';
+    h+=multi?'</details>':'</div>';
   });
+  if(noFile.length)h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0;color:#5b6675;font-size:13px">📭 '+(kind==="cc"?"회신 메일":"파일")+' 없음: '+noFile.join(", ")+'</div>';
   if(kind==="cc")h+=_ccDssLine();
   return h+'</div>';
 }

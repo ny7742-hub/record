@@ -134,6 +134,11 @@
   기록 `ws/saipCheckDaily={'2026-10-13':{hs:{date,at}}}`(최근 7일). 요청은 `by:'자동 중복 검수'` · `auto:true` · `mode:'preview'`. 끄려면 `CHK.off=true`.
   코스트코(cc)는 DSS·메일 로그인이 필요해 **맨 뒤**에 둔다(미리보기면 `dss-invoice`·`cc-sales-register`도 `--save` 없이 돈다).
   ② **버튼** — 각 칸의 `🔍 중복 확인`(예전 이름 `🔍 미리보기`, `saipPreviewGo`). 같은 미리보기를 그 자리에서 돌린다.
+  **최근 일주일을 한꺼번에**(2026-10-14 영업2팀 "1013만 돼요"): `_saipWeekDates` = 고른 날짜 + 오늘부터 6일 전까지 영업일 중 **등록 기록(saipLog)이 없는 날**
+  (오늘은 코스트코만). 요청에 `dates:[…]`를 넣으면 `saip-watch runPreviewDates`가 날짜마다 미리보기를 돌리고 `ws/<kind>SaipStatus`를
+  **items 여러 개 한 장으로** 다시 쓴다(아침 자동 검수도 등록할 날짜 전부를 넣는다). 코스트코 DSS 송장·판매현황 미리보기는 고른 날짜(`mmdd`) 하나만.
+  카드는 날짜마다 `<details>`로 접고 고른 날짜만 펼친다. 파일·메일 없는 날은 `📭 … 없음: 10/8` 한 줄.
+  미리보기 줄은 **두 줄 목록**(위 상품명 전부 · 아래 매장·코드 | 수량·공급가) — 좁은 자동화 탭 카드에서 5칸 표가 잘려 안 보였다.
   **등록(저장)은 언제나 사람이 [등록] 버튼을 눌러야 한다.**
   자비스 쪽: `_saipCheck(k,date)`가 `ws/*SaipStatus`(mode preview, **12시간 안**)에서 그 날짜 결과를 읽어 `dup`(it.already) · `ok`(status preview) · `err`로 가른다.
   `_saipCheckLine`이 카드에 한 줄, 버튼 색은 **`dup`=✅ 이미 등록돼 있음(민트, 등록요망 끔) · `todook`=요망 ✔검수(보라) · `todo`=요망(검수 전, 보라)**.
