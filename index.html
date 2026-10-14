@@ -20587,6 +20587,21 @@ function _saipCard(kind,opt){
     if(it.already)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>';
     /* 미리보기 — 등록될 줄을 표로 */
     if(S.mode==="preview"&&it.rows&&it.rows.length){
+     if(kind==="mv"){
+      /* 창고간이동은 색상(상품명 끝 '올보르/스카이블루') · 수량 · 수령인 · 주문자명만(2026-10-15 영업2팀).
+         수령인·주문자명은 그 뒤 미리보기부터 실린다(playmd-move.mjs) — 예전 결과는 빈칸 */
+      h+='<div style="max-height:300px;overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px">'
+        +'<div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:2px 10px;padding:3px 8px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:700;position:sticky;top:0"><span>상품</span><span>수량</span><span>수령인</span><span>주문자명</span></div>';
+      it.rows.forEach(function(r){
+        var nm=String(r.prod||"").trim().split(/\s+/).pop();
+        h+='<div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:2px 10px;padding:4px 8px;border-top:1px solid #eef2f6;font-size:13px;line-height:1.4;align-items:baseline">'
+          +'<span style="color:#1e293b;font-weight:600;overflow-wrap:anywhere" title="'+_escX(r.prod||"")+'">'+_escX(nm)+'</span>'
+          +'<b style="white-space:nowrap;color:#334155">'+(r.qty||0)+'개</b>'
+          +'<span style="white-space:nowrap;color:#334155">'+_escX(r.recv||"")+'</span>'
+          +'<span style="white-space:nowrap;color:#334155">'+_escX(r.orderer||"")+'</span></div>';
+      });
+      h+='</div>';
+     }else{
       /* 줄마다 두 줄로 — 위: 상품명(전부) · 아래: 매장 · 코드 | 수량 · 공급가. 좁은 카드(자동화 탭 ~290px)에서 5칸 표는
          상품명이 한 글자씩 꺾이고 수량·공급가가 잘려 안 보였다(2026-10-14 영업2팀) */
       h+='<div style="max-height:300px;overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px">'
@@ -20599,6 +20614,7 @@ function _saipCard(kind,opt){
           +'<span style="white-space:nowrap;color:#334155"><b>'+(r.qty||0)+'개</b> · '+Number(r.unit||0).toLocaleString()+'원</span></div></div>';
       });
       h+='</div>';
+     }
       /* 이대로 등록 — 문제 없는 미리보기, 아직 등록 안 된 날짜, 진행 중인 요청 없음, 2시간 안 */
       /* '🔍 미리보기만 했습니다 — 저장하지 않았습니다' 문구는 뺐다(2026-10-14 영업2팀 "문구 필요없습니다") */
       if(it.status==="preview"&&opt&&opt.noReg){}
