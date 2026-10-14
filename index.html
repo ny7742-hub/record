@@ -26088,22 +26088,32 @@ function draw2d(){
   });
 }
 function hit(px,py){
-  var mx=(px-ox)/sc,mz=(py-oy)/sc;
-  for(var i=ST.items.length-1;i>=0;i--){var r=rectOf(ST.items[i]);if(mx>=r.x0&&mx<=r.x1&&mz>=r.z0&&mz<=r.z1)return ST.items[i];}
-  return null;
+  var mx=(px-ox)/sc,mz=(py-oy)/sc,i,r;
+  for(i=ST.items.length-1;i>=0;i--){r=rectOf(ST.items[i]);if(mx>=r.x0&&mx<=r.x1&&mz>=r.z0&&mz<=r.z1)return ST.items[i];}
+  /* 작은 집기(원형 집기·스탠딩 거울)는 화면에서 몇 px밖에 안 돼 — 둘레 10px 안이면 가장 가까운 집기를 잡는다 */
+  var tol=10/sc,best=null,bd=Infinity;
+  for(i=0;i<ST.items.length;i++){
+    r=rectOf(ST.items[i]);
+    var dx=Math.max(r.x0-mx,0,mx-r.x1),dz=Math.max(r.z0-mz,0,mz-r.z1),d=Math.hypot(dx,dz);
+    if(d<=tol&&d<bd){bd=d;best=ST.items[i];}
+  }
+  return best;
 }
+/* 마우스 위치 → 캔버스 CSS px. 자비스는 body{zoom:1.12}라 getBoundingClientRect·clientX는 확대된 값 —
+   그대로 쓰면 오른쪽·아래로 갈수록 어긋나 작은 집기를 못 잡았다(2026-10-14). 화면 크기/CSS 크기 비율로 나눈다 */
+function cvPt(cv,e){var r=cv.getBoundingClientRect(),k=(r.width/(cv.offsetWidth||r.width))||1;return {x:(e.clientX-r.left)/k,y:(e.clientY-r.top)/k};}
 function bind2d(){
   var cv=$("fpCv");
   cv.addEventListener("pointerdown",function(e){
-    var r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,it=hit(px,py);
+    var q=cvPt(cv,e),px=q.x,py=q.y,it=hit(px,py);
     ST.sel=it?it.id:null;
-    if(it){cv.setPointerCapture(e.pointerId);drag={id:it.id,dx:(px-ox)/sc-it.x,dz:(py-oy)/sc-it.z};}
+    if(it){try{cv.setPointerCapture(e.pointerId);}catch(er){}drag={id:it.id,dx:(px-ox)/sc-it.x,dz:(py-oy)/sc-it.z};}
     draw2d();renderSel();rebuild3d();
   });
   cv.addEventListener("pointermove",function(e){
     if(!drag)return;
     var it=findItem(drag.id);if(!it)return;
-    var r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+    var q=cvPt(cv,e),px=q.x,py=q.y;
     it.x=snap((px-ox)/sc-drag.dx);it.z=snap((py-oy)/sc-drag.dz);
     draw2d();rebuild3d();
   });
