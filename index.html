@@ -2532,7 +2532,7 @@ label{font-size:14px!important}
 </div><!-- /page-popup -->
 
 <div id="page-floor" style="display:none">
-<div class="main" style="max-width:1400px;padding:16px 20px">
+<div class="main" style="max-width:none;padding:12px 12px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">🧊 3D 집기</div>
@@ -2556,8 +2556,11 @@ label{font-size:14px!important}
   </div>
   <style>
   /* 3D 집기 배치(2026-10-14 영업2팀): 위 = 평면도(1) · 3D(2, 크게) / 아래 = 집기 수량 표(체크·사이즈·보유 고침) · 예상 자리 이미지. 좁으면 한 줄씩 */
+  #page-floor .fp-nm{padding:3px 6px;border:1px solid transparent;border-radius:5px;background:transparent;font:inherit;font-size:13px;font-weight:700;color:#0f172a;max-width:260px}
+  #page-floor .fp-nm:hover{border-color:#e2e8f0}
+  #page-floor .fp-nm:focus{border-color:#94a3b8;background:#fff;outline:none}
   #page-floor .fp-top{display:grid;grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:12px;align-items:start}
-  #page-floor .fp-bottom{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,1fr);gap:12px 24px;align-items:start}
+  #page-floor .fp-bottom{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(300px,1fr);gap:12px 24px;align-items:start}
   #page-floor #fpView{height:600px}
   @media (max-width:900px){#page-floor .fp-top,#page-floor .fp-bottom{grid-template-columns:1fr}#page-floor #fpView{height:420px}}
   </style>
@@ -25757,7 +25760,7 @@ function foot(it){var c=CAT[it.t];if(!c)return {w:0,d:0};return (it.r%180===0)?{
 function rectOf(it){var f=foot(it);return {x0:it.x-f.w/2,x1:it.x+f.w/2,z0:it.z-f.d/2,z1:it.z+f.d/2};}
 function mkItem(t,x,z,r,f){return {id:ST.next++,t:t,x:x,z:z,r:r||0,f:!!f};}
 function findItem(id){for(var i=0;i<ST.items.length;i++)if(ST.items[i].id===id)return ST.items[i];return null;}
-function enabled(k){return !!(CAT[k]&&ST.use[k]&&ST.use[k].on);}
+function enabled(k){return !!(CAT[k]&&ST.use[k]&&ST.use[k].on&&!ST.use[k].del);}
 function qtyOf(k){return ST.use[k]?ST.use[k].qty:0;}
 function countOf(k){var n=0;ST.items.forEach(function(i){if(i.t===k)n++;});return n;}
 function leftOf(k){return qtyOf(k)-countOf(k);}
@@ -25771,7 +25774,8 @@ function buildCat(){
   CAT={};
   Object.keys(DEF).forEach(function(k){CAT[k]=Object.assign({},DEF[k]);});
   ST.cus.forEach(function(c,i){CAT[c.k]={n:c.n,s:c.n.slice(0,6),w:c.w,d:c.d,h:c.h,c:c.col||CUS_COLORS[i%CUS_COLORS.length],k:({cyl:"cyl",pbox:"pbox",pcyl:"pcyl",panel:"panel"})[c.shape]||"box",inv:1,est:false,cus:true,photo:!!c.img};});
-  Object.keys(CAT).forEach(function(k){var u=ST.use[k];if(u){["w","d","h","bw","bd","bh","ly","mix"].forEach(function(a){if(u[a])CAT[k][a]=u[a];});}});
+  Object.keys(CAT).forEach(function(k){var u=ST.use[k];if(u){["w","d","h","bw","bd","bh","ly","mix"].forEach(function(a){if(u[a])CAT[k][a]=u[a];});
+    if(u.n){CAT[k].n=u.n;CAT[k].s=u.n.slice(0,8);}}});   /* 바꾼 이름(2026-10-14 영업2팀) — 평면도 글자는 앞 8자 */
   Object.keys(CAT).forEach(function(k){var c=CAT[k];if(c.k==="pallet")c.h=150+(c.ly||4)*c.bh;});   /* 팔레트 높이 = 팔레트 150 + 층 × 박스 높이 */
   Object.keys(CAT).forEach(function(k){if(isRound(CAT[k]))CAT[k].d=CAT[k].w;});
 }
@@ -25782,7 +25786,7 @@ function loadUse(){
   var u={};
   Object.keys(DEF).forEach(function(k){u[k]={on:true,qty:DEF[k].inv};});
   ST.cus.forEach(function(c){u[c.k]={on:true,qty:1};});
-  if(saved)Object.keys(u).forEach(function(k){var s=saved[k];if(!s)return;u[k].on=!!s.on;u[k].qty=Math.max(0,Math.min(99,parseInt(s.qty,10)||0));["w","d","h","bw","bd","bh","ly","mix"].forEach(function(a){if(s[a])u[k][a]=s[a];});});
+  if(saved)Object.keys(u).forEach(function(k){var s=saved[k];if(!s)return;u[k].on=!!s.on;u[k].qty=Math.max(0,Math.min(99,parseInt(s.qty,10)||0));["w","d","h","bw","bd","bh","ly","mix","n","del"].forEach(function(a){if(s[a])u[k][a]=s[a];});});
   ST.use=u;
   try{var o=JSON.parse(localStorage.getItem(KEY_OPT)||"null");if(o){ST.autoOn=o.autoOn!==false;ST.photoFloor=o.photoFloor!==false;if(o.op!=null)ST.photoOp=o.op;}}catch(e){}
   buildCat();
@@ -25840,6 +25844,26 @@ window.fpDim=function(k,a,v){
   msg(CAT[k].n+" 사이즈를 "+CAT[k].w+"×"+CAT[k].d+"×"+CAT[k].h+" mm로 바꿨습니다.");
   autoIfOn();
 };
+/* 집기 이름 바꾸기 · 지우기(2026-10-14 영업2팀 "집기수량에 집기 삭제 · 집기명 한 줄 · 이름 변경") —
+   기본 집기는 지워도 정의(DEF)는 남기고 ST.use[k].del로 표에서 숨긴다(배치된 것은 뺌, 표 아래 '지운 기본 집기'에서 되돌리기). 직접·사진 집기는 fpCusDel로 완전히 지운다.
+   이름은 ST.use[k].n(원래 이름과 같거나 비우면 원래대로) — 팀 공유 use에 같이 실린다 */
+window.fpName=function(k,v){
+  var c=CAT[k];if(!c||!ST.use[k])return;v=String(v||"").trim().slice(0,40);
+  var base=DEF[k]?DEF[k].n:((ST.cus.filter(function(x){return x.k===k;})[0]||{}).n||c.n);
+  if(!v||v===base)delete ST.use[k].n;else ST.use[k].n=v;
+  saveUse();buildCat();renderPalette();renderSel();draw2d();renderUse();
+  msg("집기 이름을 '"+CAT[k].n+"'(으)로 바꿨습니다.");
+};
+window.fpTypeDel=function(k){
+  var c=CAT[k];if(!c)return;
+  if(c.cus){window.fpCusDel(k);return;}
+  var n=countOf(k);
+  if(!window.confirm("'"+c.n+"'을(를) 집기 수량 표에서 지울까요?"+(n?" 배치된 "+n+"개도 빠집니다.":"")+"\n(기본 집기라 표 아래 '지운 기본 집기'에서 되돌릴 수 있습니다)"))return;
+  ST.use[k].del=true;ST.use[k].on=false;
+  ST.items=ST.items.filter(function(i){return i.t!==k;});if(ST.sel&&!findItem(ST.sel))ST.sel=null;
+  saveUse();renderUse();autoIfOn();
+};
+window.fpUndel=function(k){if(!ST.use[k])return;delete ST.use[k].del;ST.use[k].on=true;saveUse();renderUse();autoIfOn();};
 /* 팔레트 박스 크기 · 색(2026-10-14 영업2팀 "RRP박스인데 팔레트에 쌓아올려주세요") */
 window.fpBox=function(k,a,v){
   if(a==="mix"){ST.use[k].mix=v;}
@@ -26415,24 +26439,27 @@ function renderSum(){
   var area=0,tot=0,own=0,rows="",pr=problems(),td='padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:middle';
   var inp='width:58px;padding:3px 4px;border:1px solid #cbd5e1;border-radius:5px;font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums';
   ST.items.forEach(function(it){var f=foot(it);area+=f.w*f.d;tot++;});
+  var gone=[];
   Object.keys(CAT).forEach(function(k){
     var c=CAT[k],u=ST.use[k],on=!!(u&&u.on),n=countOf(k),q=qtyOf(k),short=n>q,th=THUMB[k],dim=on?'':'opacity:.45;';
+    if(u&&u.del){gone.push(k);return;}
     if(on)own+=q;
     rows+='<tr>'
       +'<td style="'+td+';width:26px"><input type="checkbox" '+(on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" title="평면도에 쓰기" style="width:15px;height:15px;margin:0"></td>'
       +'<td style="'+td+';width:80px;'+dim+'">'+(th?'<img src="'+th+'" alt="" style="width:72px;height:54px;object-fit:contain;display:block;background:#f1f5f9;border-radius:6px">':'<span style="display:block;width:72px;height:54px;border-radius:6px;background:'+c.c+'"></span>')+'</td>'
-      +'<td style="'+td+';'+dim+'"><b style="font-size:13px">'+esc(c.n)+'</b>'+(c.est?' <span style="font-size:11px;color:#9a3412">(추정)</span>':'')
-        +(c.cus?' <button onclick="fpCusDel(\''+k+'\')" title="직접 추가한 집기 지우기" style="border:0;background:none;color:#9a3412;font-size:11px;cursor:pointer;padding:0 2px">지우기</button>':'')+'</td>'
+      +'<td style="'+td+';white-space:nowrap;'+dim+'"><input class="fp-nm" value="'+esc(c.n)+'" onchange="fpName(\''+k+'\',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()" title="이름 바꾸기 — 눌러서 고치고 Enter"'
+        +' style="width:'+Math.max(4,Math.min(20,c.n.length+1))+'em">'+(c.est?'<span style="font-size:11px;color:#9a3412">(추정)</span>':'')+'</td>'
       +'<td style="'+td+';white-space:nowrap;color:#5b6675;font-size:12px;'+dim+'">'
         +(isRound(c)?'Ø<input type="number" min="100" max="9000" step="50" value="'+c.w+'" onchange="fpDim(\''+k+'\',\'w\',this.value)" title="지름 mm" style="'+inp+'">'
              :'<input type="number" min="100" max="9000" step="50" value="'+c.w+'" onchange="fpDim(\''+k+'\',\'w\',this.value)" title="가로 mm" style="'+inp+'">×<input type="number" min="100" max="9000" step="50" value="'+c.d+'" onchange="fpDim(\''+k+'\',\'d\',this.value)" title="깊이 mm" style="'+inp+'">')
         +(c.k==="pallet"?' · 높이 자동':'×<input type="number" min="100" max="4000" step="50" value="'+c.h+'" onchange="fpDim(\''+k+'\',\'h\',this.value)" title="높이 mm" style="'+inp+'">')
-        +(c.k==="pallet"?'<div style="margin-top:4px"><input type="number" min="1" max="10" value="'+(c.ly||4)+'" onchange="fpBox(\''+k+'\',\'ly\',this.value)" title="층 수" style="'+inp+';width:40px">층 · 박스(창 폭×깊이×높이) <input type="number" min="100" max="2000" step="10" value="'+c.bw+'" onchange="fpBox(\''+k+'\',\'bw\',this.value)" title="박스 가로 mm" style="'+inp+';width:52px">×<input type="number" min="100" max="2000" step="10" value="'+c.bd+'" onchange="fpBox(\''+k+'\',\'bd\',this.value)" title="박스 깊이 mm" style="'+inp+';width:52px">×<input type="number" min="100" max="2000" step="10" value="'+c.bh+'" onchange="fpBox(\''+k+'\',\'bh\',this.value)" title="박스 높이 mm" style="'+inp+';width:52px">'
+        +(c.k==="pallet"?'<div style="margin-top:4px;white-space:normal;max-width:300px;line-height:1.9"><input type="number" min="1" max="10" value="'+(c.ly||4)+'" onchange="fpBox(\''+k+'\',\'ly\',this.value)" title="층 수" style="'+inp+';width:40px">층 · 박스(창 폭×깊이×높이) <input type="number" min="100" max="2000" step="10" value="'+c.bw+'" onchange="fpBox(\''+k+'\',\'bw\',this.value)" title="박스 가로 mm" style="'+inp+';width:52px">×<input type="number" min="100" max="2000" step="10" value="'+c.bd+'" onchange="fpBox(\''+k+'\',\'bd\',this.value)" title="박스 깊이 mm" style="'+inp+';width:52px">×<input type="number" min="100" max="2000" step="10" value="'+c.bh+'" onchange="fpBox(\''+k+'\',\'bh\',this.value)" title="박스 높이 mm" style="'+inp+';width:52px">'
           +' <select onchange="fpBox(\''+k+'\',\'mix\',this.value)" style="padding:2px 3px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px"><option value="alt"'+(c.mix==="alt"?" selected":"")+'>657C·7686C 층마다</option><option value="grey"'+(c.mix==="grey"?" selected":"")+'>657C(연하늘)만</option><option value="navy"'+(c.mix==="navy"?" selected":"")+'>7686C(남색)만</option></select>'
           +'<div style="font-size:11px;color:#5b6675">'+palletInfo(c)+'</div></div>':'')
         +'</td>'
       +'<td style="'+td+';text-align:right;'+dim+'"><input type="number" min="0" max="99" value="'+q+'" onchange="fpQty(\''+k+'\',this.value)" title="보유 수량" style="'+inp+';width:50px;font-weight:700"></td>'
-      +'<td style="'+td+';text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:'+(short?'#b91c1c':'#1f2937')+';'+dim+'">'+n+(short?' <span style="font-size:11px;font-weight:400">(보유 초과)</span>':'')+'</td></tr>';
+      +'<td style="'+td+';text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:'+(short?'#b91c1c':'#1f2937')+';'+dim+'">'+n+(short?' <span style="font-size:11px;font-weight:400">(보유 초과)</span>':'')+'</td>'
+      +'<td style="'+td+';text-align:center;width:34px"><button onclick="fpTypeDel(\''+k+'\')" title="이 집기를 표에서 지우기" style="border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:6px;font-size:12px;cursor:pointer;padding:2px 7px">✕</button></td></tr>';
   });
   var occ=ST.W*ST.D?Math.round(area/(ST.W*ST.D)*1000)/10:0;
   var h='<div style="display:flex;gap:6px 20px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px"><b style="font-size:13.5px;color:#154f5e">③ 집기 수량</b>'
@@ -26440,8 +26467,9 @@ function renderSum(){
     +'<div style="font-size:12px;color:#5b6675;margin-bottom:6px">체크한 집기만 평면도에 씁니다. 사이즈(가로×깊이×높이 mm)와 보유 수량은 표에서 바로 고칩니다.</div>';
   if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:6px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'공간 밖으로 나간 집기 '+pr.oob+'개':'')+'</div>';
   h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;width:100%"><thead><tr style="background:#f1f5f9;color:#334155">'
-    +'<th style="padding:5px 8px" title="평면도에 쓰기">쓰기</th><th style="padding:5px 8px"></th><th style="padding:5px 8px;text-align:left">집기</th><th style="padding:5px 8px;text-align:left">사이즈 (mm)</th><th style="padding:5px 8px;text-align:right">보유</th><th style="padding:5px 8px;text-align:right">배치</th></tr></thead><tbody>'
-    +rows+'<tr><td></td><td></td><td style="padding:6px 8px;font-weight:700" colspan="2">합계 (체크한 집기)</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+own+'</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+tot+'</td></tr></tbody></table></div>';
+    +'<th style="padding:5px 8px" title="평면도에 쓰기">쓰기</th><th style="padding:5px 8px"></th><th style="padding:5px 8px;text-align:left">집기</th><th style="padding:5px 8px;text-align:left">사이즈 (mm)</th><th style="padding:5px 8px;text-align:right">보유</th><th style="padding:5px 8px;text-align:right">배치</th><th style="padding:5px 8px" title="지우기"></th></tr></thead><tbody>'
+    +rows+'<tr><td></td><td></td><td style="padding:6px 8px;font-weight:700" colspan="2">합계 (체크한 집기)</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+own+'</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+tot+'</td><td></td></tr></tbody></table></div>'
+    +(gone.length?'<div style="margin-top:6px;font-size:12px;color:#5b6675">지운 기본 집기: '+gone.map(function(k){return esc(CAT[k].n)+' <button onclick="fpUndel(\''+k+'\')" style="border:1px solid #cbd5e1;background:#fff;border-radius:5px;font-size:11.5px;cursor:pointer;padding:1px 6px">되돌리기</button>';}).join(' · ')+'</div>':'');
   el.innerHTML=h;
 }
 
