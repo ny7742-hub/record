@@ -13896,35 +13896,38 @@ function _usYmd8(){
   var d=new Date();
   return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
 }
-/* 3단계 — **매장출고양식**(8열)으로 내려준다(2026-10-08 영업2팀 제공 양식 — 예전 6열은 바코드였다).
+/* 3단계 — **매장출고양식**(6열)으로 내려준다(2026-09 영업2팀 제공 양식).
+   2026-10-14 영업2팀 "처음 9/10일자 방식으로" — 10/8의 8열(상품코드·칼라코드·사이즈코드)에서 9/10 그대로 되돌렸다:
+   바코드 = 도매발주서 바코드 칸(16번째), 비면 상품코드리스트의 바코드1(_usBarcode) · 칸 넓이 · 못 맞춘 미출고는 `미매칭 미출고` 시트.
    수량은 실출고(발주 − 미출고)이고, 전량 미출고인 줄은 내보낼 게 없어 뺀다. */
 function unshipDownload(){
   if(!usOrder.rows.length){alert("도매발주서를 먼저 올려주세요.");return;}
   _usMatch();
   var wh=String((document.getElementById("usWh")||{}).value||"NH").trim();
   var ymd=_usYmd8();
-  var aoa=[["출고창고코드","매장코드","출고일자(8자리 숫자만)","상품코드","칼라코드","사이즈코드","출고수량","비고"]];
-  var noSku=[];
+  var aoa=[["출고창고코드","매장코드","출고일자(8자리 숫자만)","바코드","출고수량","비고"]];
+  var noBar=0;
   usOrder.rows.forEach(function(r){
     var out=r.qty-r.un;
     if(out<=0)return;                              /* 전량 미출고 */
-    var s=r.sku||_usSku(r.code);
-    if(!s)noSku.push((r.code||"코드 없음")+" "+r.name);
-    /* 넣는 칸은 출고창고코드(NH) · 매장코드 · 출고일자 · 상품컬러코드 · 실출고수량뿐(2026-10-08 영업2팀).
-       상품컬러코드(자사코드 WLF09N9SBKX)는 넷째 칸(상품코드)에 통째로 넣고 칼라코드·사이즈코드·비고는 비운다 —
-       같은 틀의 창고간이동양식(ccrMoveDownload)이 이렇게 넣어 플레이엠디에 올라간다. 상품코드리스트는 코드가 맞는지 확인용(_usSku) */
-    aoa.push([wh,r.store||"",ymd,String(r.code||"").trim().toUpperCase(),"","",out,""]);
+    var bar=r.raw[15]?String(r.raw[15]).trim():"";
+    if(!bar)bar=_usBarcode(r.code);
+    if(!bar)noBar++;
+    aoa.push([wh,r.store||"",ymd,bar,out,""]);
   });
   if(aoa.length<2){alert("내보낼 출고 수량이 없습니다.");return;}
-  if(noSku.length&&!confirm("상품코드리스트에서 못 찾은 줄이 "+noSku.length+"건 있습니다 — 코드가 틀렸을 수 있습니다.\n\n"
-    +noSku.slice(0,8).join("\n")+(noSku.length>8?"\n… 외 "+(noSku.length-8)+"건":"")+"\n\n표의 상품컬러코드 칸에서 고칠 수 있습니다. 그대로 다운로드할까요?"))return;
-  /* **양식은 그대로** — 머리줄 8칸·시트 하나(매장출고)만. 칸 넓이·다른 시트를 붙이지 않는다(2026-10-08 영업2팀 "양식이라 수정하면 안 됨").
-     못 맞춘 미출고는 화면 위 노란 경고로만 보여 준다 */
+  if(noBar&&!confirm("바코드를 못 찾은 줄이 "+noBar+"건 있습니다.\n\n그대로 다운로드할까요?"))return;
   var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=[14,10,20,18,10,16].map(function(w){return {wch:w};});
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"매장출고");
+  /* 못 맞춘 미출고는 따로 한 시트에 남긴다 — 그냥 버리면 놓친다 */
   var left=usList.items.filter(function(it){return it.used<it.qty;});
-  if(left.length)alert("발주서에서 못 찾은 미출고 "+left.length+"건은 양식에 넣지 않았습니다 — 화면 위 노란 칸에서 확인해 주세요.");
+  if(left.length){
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(
+      [["매장/차수","운송장번호","미출고 품목","미출고수량","발주서에서 못 찾음"]].concat(
+        left.map(function(it){return [it.who,it.inv,it.item,it.qty-it.used,"O"];}))),"미매칭 미출고");
+  }
   var d=new Date();
   XLSX.writeFile(wb,"화이트샌즈("+_ord2(d.getMonth()+1)+_ord2(d.getDate())+") - 매장출고양식.xlsx");
 }
