@@ -695,6 +695,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
   <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">🏪 팝업</button>
   <button class="tab-btn" id="tab-lossreport" onclick="switchTab('lossreport')">🧾 로스 품의서</button>
+  <button class="tab-btn" id="tab-floor" onclick="switchTab('floor')">🧊 3D 평면도</button>
   <button class="tab-btn" id="tab-ecount" onclick="switchTab('ecount')">🧮 이카운트</button>
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
   <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">📅 매장별 일별매출</button>
@@ -2529,6 +2530,67 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-popup -->
+
+<div id="page-floor" style="display:none">
+<div class="main" style="max-width:1400px;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:13px">🧊 3D 평면도</div>
+      <span style="font-size:12.5px;color:#5b6675">매장 가로</span>
+      <input id="fpW" type="number" step="100" min="1000" max="30000" value="4200" onchange="fpSize()" style="width:84px;padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+      <span style="font-size:12.5px;color:#5b6675">× 세로</span>
+      <input id="fpD" type="number" step="100" min="1000" max="30000" value="3500" onchange="fpSize()" style="width:84px;padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+      <span style="font-size:12.5px;color:#5b6675">mm</span>
+      <button onclick="fpAuto()" style="padding:5px 14px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✨ 선택한 집기로 자동 배치</button>
+      <button onclick="fpSample()" style="padding:5px 14px;background:#334155;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📷 샘플 매장 재현</button>
+      <button onclick="fpClear()" style="padding:5px 14px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">배치 비우기</button>
+      <span style="flex:1"></span>
+      <select id="fpSaved" onchange="fpLoad()" style="padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;max-width:170px"></select>
+      <button onclick="fpSave()" style="padding:5px 14px;background:#15803d;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">💾 저장</button>
+      <button onclick="fpDelSaved()" style="padding:5px 10px;background:#f8fafc;color:#9a3412;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">삭제</button>
+    </div>
+    <div id="fpMsg" style="font-size:12.5px;color:#5b6675;margin-top:8px;line-height:1.5"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;align-items:start">
+    <div class="card" style="padding:12px 16px">
+      <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">① 집기 목록</div>
+      <div style="font-size:12px;color:#5b6675;margin-bottom:8px;line-height:1.5">체크한 집기만 평면도에 쓸 수 있습니다. 수량은 보유 재고 기준입니다.</div>
+      <div id="fpUse"></div>
+      <div style="font-size:13px;font-weight:700;color:#154f5e;margin:14px 0 6px">② 매장 사진</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <button onclick="document.getElementById('fpPhotoIn').click()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">사진 올리기</button>
+        <button onclick="fpClearPhoto()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#9a3412;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">사진 지우기</button>
+        <input id="fpPhotoIn" type="file" accept="image/*" onchange="fpPhotoPick(this)" style="display:none">
+      </div>
+      <label style="display:block;font-size:12px;color:#5b6675;margin-top:8px">사진 진하기 <span id="fpOpV">50%</span>
+        <input id="fpOp" type="range" min="0" max="100" value="50" oninput="fpOpChange(this.value)" style="width:100%"></label>
+      <div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.5">사진은 위에서 본 평면도(도면 캡처)일 때 잘 맞습니다. 사진은 매장 가로×세로 칸에 맞춰 늘어납니다. 사진은 이 브라우저에만 보이고 저장되지 않습니다.</div>
+    </div>
+    <div class="card" style="padding:12px 16px">
+      <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">③ 평면도 (끌어서 배치)</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="fpPalette"></div>
+      <div style="text-align:center"><canvas id="fpCv" style="touch-action:none;border-radius:8px;max-width:100%"></canvas></div>
+      <div style="font-size:12px;color:#5b6675;margin-top:6px">빨간색은 겹치거나 매장 밖으로 나간 집기입니다. 집기의 진한 선은 앞면입니다. 방향키 이동 · Shift+방향키 500mm · R 회전 · Delete 삭제</div>
+      <div id="fpSel" style="margin-top:10px"></div>
+    </div>
+    <div class="card" style="padding:12px 16px">
+      <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">④ 3D 보기</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button onclick="fpView(0,1.3)" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">정면</button>
+        <button onclick="fpView(0.7,1.0)" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">사선</button>
+        <button onclick="fpView(0,0.12)" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">위에서</button>
+        <button onclick="fpZoom(0.85)" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">＋</button>
+        <button onclick="fpZoom(1.18)" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">－</button>
+        <span style="flex:1"></span>
+        <button onclick="fpPng()" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🖼 3D 이미지 저장</button>
+      </div>
+      <div id="fpView" style="width:100%;height:380px;position:relative;touch-action:none;cursor:grab;border-radius:8px;background:#eef1f4;overflow:hidden"><div id="fpLoad3d" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#5b6675">3D 화면을 불러오는 중…</div></div>
+      <div style="font-size:12px;color:#5b6675;margin-top:6px">드래그로 회전, 마우스 휠이나 두 손가락으로 확대·축소합니다. 사진을 올리면 바닥에도 씌워집니다.</div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px;padding:12px 16px"><div id="fpSum"></div></div>
+</div>
+</div><!-- /page-floor -->
 
 <div id="page-lossreport" style="display:none">
 <div class="main" style="max-width:1000px">
@@ -8340,6 +8402,8 @@ function switchTab(tab){
   document.getElementById("page-orderconv").style.display=tab==="orderconv"?"block":"none";
   document.getElementById("page-popup").style.display=tab==="popup"?"block":"none";
   document.getElementById("page-lossreport").style.display=tab==="lossreport"?"block":"none";
+  document.getElementById("page-floor").style.display=tab==="floor"?"block":"none";
+  document.getElementById("tab-floor").classList.toggle("active",tab==="floor");
   document.getElementById("page-ecount").style.display=tab==="ecount"?"block":"none";
   document.getElementById("tab-ecount").classList.toggle("active",tab==="ecount");
   if(tab==="ecount")renderEcount();
@@ -8386,6 +8450,7 @@ function switchTab(tab){
   if(tab==="orderconv"){ ocRender(); ocDropZoneInit(); document.querySelectorAll(".wh-min-in").forEach(function(el){el.value=WH_MIN_ORDER;}); }
   if(tab==="popup") renderPopupPage();
   if(tab==="lossreport") initLossReportTab();
+  if(tab==="floor") renderFloorPage();
 }
 
 /* ── 🧮 이카운트 매장 발주(2026-10-12 영업2팀) ──
@@ -25505,5 +25570,547 @@ function initTransferTab(){tfDropInit();tfAutoFill();tfRenderChips();tfRender();
   </div>
 </div>
 
+<script>
+/* ── 🧊 3D 평면도 탭 (2026-10-13 영업2팀, 2026-10-14 확장) ──
+   · 집기 목록에서 체크한 집기와 수량만 평면도·자동 배치에 쓴다.
+   · 매장 사진을 올리면 평면도 밑과 3D 바닥에 깔린다(위에서 본 도면 사진일 때 잘 맞는다).
+   · 집기 규격은 화이트샌즈 집기 목록 기준. 카운터·스탠딩 거울은 사진으로 잡은 추정값.
+   좌표: x=오른쪽, z=아래(앞쪽 통로). 집기 중심 기준 mm. rot 0=앞면 아래, 90=오른쪽, 180=위, 270=왼쪽. docs/floorplan.md */
+(function(){
+var CAT={
+  shelfImg:{n:"선반집기 이미지형",s:"선반(이미지)",w:1200,d:600,h:1800,c:"#85B7EB",k:"shelf",p:1,pc:0x85B7EB,inv:8,est:false},
+  shelfMir:{n:"선반집기 거울형",s:"선반(거울)",w:1200,d:600,h:1800,c:"#A8CBDD",k:"shelf",p:-1,pc:0xcfe3ee,inv:9,est:false},
+  logoTbl:{n:"로고테이블",s:"로고테이블",w:1000,d:600,h:750,c:"#D3D1C7",k:"table",inv:2,est:false},
+  wooyang:{n:"우양산 집기",s:"우양산",w:1000,d:800,h:1650,c:"#FAC775",k:"rack",inv:12,est:false},
+  counter:{n:"카운터",s:"카운터",w:1000,d:800,h:1000,c:"#9FE1CB",k:"counter",inv:1,est:true},
+  stdMir:{n:"스탠딩 거울",s:"스탠딩거울",w:500,d:300,h:1700,c:"#C0DD97",k:"mirror",inv:2,est:true}
+};
+var KEY_CUR="jvFloorCur",KEY_SAVED="jvFloorPlans",KEY_USE="jvFloorUse",SNAP=50;
+var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},photo:null,photoOp:0.5};
+var sc=1,ox=30,oy=30,drag=null;
+var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false};
+var R3={scene:null,cam:null,ren:null,root:null,EDGE:null,photoTex:null};
+function $(id){return document.getElementById(id);}
+function pageOn(){var p=$("page-floor");return !!p&&p.style.display==="block";}
+function snap(v){return Math.round(v/SNAP)*SNAP;}
+function foot(it){var c=CAT[it.t];return (it.r%180===0)?{w:c.w,d:c.d}:{w:c.d,d:c.w};}
+function rectOf(it){var f=foot(it);return {x0:it.x-f.w/2,x1:it.x+f.w/2,z0:it.z-f.d/2,z1:it.z+f.d/2};}
+function mkItem(t,x,z,r,f){return {id:ST.next++,t:t,x:x,z:z,r:r||0,f:!!f};}
+function findItem(id){for(var i=0;i<ST.items.length;i++)if(ST.items[i].id===id)return ST.items[i];return null;}
+function enabled(k){return !!(ST.use[k]&&ST.use[k].on);}
+function qtyOf(k){return ST.use[k]?ST.use[k].qty:0;}
+function countOf(k){var n=0;ST.items.forEach(function(i){if(i.t===k)n++;});return n;}
+function leftOf(k){return qtyOf(k)-countOf(k);}
+function msg(t,warn){var e=$("fpMsg");if(e){e.textContent=t||"";e.style.color=warn?"#9a3412":"#5b6675";}}
+
+function defaultUse(){var u={};Object.keys(CAT).forEach(function(k){u[k]={on:true,qty:CAT[k].inv};});return u;}
+function loadUse(){
+  var u=defaultUse();
+  try{
+    var saved=JSON.parse(localStorage.getItem(KEY_USE)||"null");
+    if(saved)Object.keys(CAT).forEach(function(k){if(saved[k]){u[k].on=!!saved[k].on;u[k].qty=Math.max(0,Math.min(99,parseInt(saved[k].qty,10)||0));}});
+  }catch(e){}
+  ST.use=u;
+}
+function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));}catch(e){}}
+function persist(){try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next}));}catch(e){}}
+function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
+
+function problems(){
+  var bad={},over=0,oob=0,i,j,a,b;
+  for(i=0;i<ST.items.length;i++){
+    a=rectOf(ST.items[i]);
+    if(a.x0<-0.5||a.z0<-0.5||a.x1>ST.W+0.5||a.z1>ST.D+0.5){bad[ST.items[i].id]=1;oob++;}
+    for(j=i+1;j<ST.items.length;j++){
+      b=rectOf(ST.items[j]);
+      if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1){bad[ST.items[i].id]=1;bad[ST.items[j].id]=1;over++;}
+    }
+  }
+  return {bad:bad,over:over,oob:oob};
+}
+function setState(W,D,items){
+  ST.W=W;ST.D=D;ST.items=[];ST.next=1;ST.sel=null;
+  items.forEach(function(o){ST.items.push(mkItem(o.t,o.x,o.z,o.r||0,o.f));});
+  $("fpW").value=W;$("fpD").value=D;
+}
+function changed(){persist();renderPalette();renderSel();renderSum();draw2d();rebuild3d();}
+
+/* ── 집기 목록 ── */
+function renderUse(){
+  var el=$("fpUse");if(!el)return;
+  var h="";
+  Object.keys(CAT).forEach(function(k){
+    var c=CAT[k],u=ST.use[k],n=countOf(k);
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #e2e8f0">'
+      +'<input type="checkbox" '+(u.on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" style="width:15px;height:15px;margin:0;flex:none">'
+      +'<span style="width:12px;height:12px;border-radius:3px;background:'+c.c+';border:1px solid #64748b;flex:none"></span>'
+      +'<span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:700">'+c.n+(c.est?' <span style="font-size:11px;color:#9a3412;font-weight:400">(추정)</span>':'')+'</span>'
+      +'<span style="display:block;font-size:11.5px;color:#5b6675">'+c.w+'×'+c.d+'×'+c.h+' mm · 배치 '+n+'개</span></span>'
+      +'<span style="font-size:12px;color:#5b6675">수량</span>'
+      +'<input type="number" min="0" max="99" value="'+u.qty+'" onchange="fpQty(\''+k+'\',this.value)" style="width:56px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">'
+      +'</div>';
+  });
+  el.innerHTML=h;
+}
+window.fpToggle=function(k,on){
+  if(!on){
+    var n=countOf(k);
+    if(n>0){
+      if(!window.confirm(CAT[k].n+" "+n+"개를 평면도에서 뺄까요?")){renderUse();return;}
+      ST.items=ST.items.filter(function(i){return i.t!==k;});
+      if(ST.sel&&!findItem(ST.sel))ST.sel=null;
+    }
+  }
+  ST.use[k].on=!!on;saveUse();changed();renderUse();
+};
+window.fpQty=function(k,v){
+  var n=parseInt(v,10);if(isNaN(n)||n<0)n=0;if(n>99)n=99;
+  ST.use[k].qty=n;saveUse();
+  if(countOf(k)>n)msg(CAT[k].n+"은(는) 배치 "+countOf(k)+"개로 수량("+n+")보다 많습니다. 배치를 줄이거나 수량을 늘리세요.",true);
+  else msg("");
+  changed();renderUse();
+};
+
+/* ── 팔레트: 선택한 집기만 ── */
+function renderPalette(){
+  var el=$("fpPalette");if(!el)return;
+  var h="",any=false;
+  Object.keys(CAT).forEach(function(k){
+    if(!enabled(k))return;
+    any=true;
+    var c=CAT[k],left=leftOf(k),ok=left>0;
+    h+='<button '+(ok?'onclick="fpAdd(\''+k+'\')"':'disabled')+' title="'+c.w+'×'+c.d+'×'+c.h+' mm · 남은 수량 '+Math.max(0,left)+'" style="padding:5px 10px;border:1px solid #cbd5e1;background:'+(ok?'#f8fafc':'#f1f5f9')+';color:'+(ok?'#334155':'#94a3b8')+';border-radius:8px;font-size:12px;font-weight:700;cursor:'+(ok?'pointer':'not-allowed')+';display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:'+c.c+';border:1px solid #64748b"></span>+ '+c.n+' <span style="font-weight:400">('+Math.max(0,left)+')</span></button>';
+  });
+  el.innerHTML=any?h:'<div style="font-size:12.5px;color:#9a3412">선택한 집기가 없습니다. ① 집기 목록에서 체크하세요.</div>';
+}
+
+/* ── 배치 만들기 ── */
+window.fpSample=function(){
+  var W=6600,D=3200,cx=W/2;
+  ST.use=defaultUse();saveUse();
+  setState(W,D,[
+    {t:"shelfImg",x:cx-1900,z:500},{t:"shelfMir",x:cx,z:500},{t:"shelfImg",x:cx+1900,z:500,f:true},
+    {t:"logoTbl",x:cx-1200,z:2000},{t:"logoTbl",x:cx-100,z:2000},{t:"counter",x:cx+1000,z:2000},
+    {t:"stdMir",x:cx-3000,z:1300},{t:"stdMir",x:cx+3000,z:1300}
+  ]);
+  renderUse();msg("사진 속 매장을 재현했습니다. 간격은 사진 비율로 맞춘 근사치입니다.");
+  changed();
+};
+window.fpClear=function(){ST.items=[];ST.sel=null;msg("");changed();};
+window.fpAuto=function(){
+  var W=ST.W,D=ST.D,GAP=300,MARG=300,out=[],warn=[],i;
+  function outCount(t){var n=0;out.forEach(function(o){if(o.t===t)n++;});return n;}
+  /* 뒷줄: 선택된 선반집기만, 수량 안에서 번갈아 */
+  var shelfTypes=["shelfImg","shelfMir"].filter(enabled);
+  var shelfCap=0;shelfTypes.forEach(function(t){shelfCap+=qtyOf(t);});
+  var n=Math.max(0,Math.floor((W-2*MARG+GAP)/(1200+GAP)));
+  var usedW=n*1200+Math.max(0,n-1)*GAP,x0=(W-usedW)/2+600,zb=400;
+  var placedShelf=0;
+  if(shelfTypes.length&&shelfCap>0&&n>0){
+    for(i=0;i<n;i++){
+      var cands=shelfTypes.filter(function(t){return outCount(t)<qtyOf(t);});
+      if(!cands.length)break;
+      var t=cands[i%cands.length];
+      out.push({t:t,x:x0+i*(1200+GAP),z:zb,f:(i>=Math.ceil(n/2))});
+      placedShelf++;
+    }
+  }
+  if(!shelfTypes.length)warn.push("선반집기를 선택하지 않아 뒷줄을 비웠습니다");
+  else if(n===0)warn.push("가로가 좁아 선반집기를 놓지 못했습니다");
+  else if(placedShelf<n&&shelfCap<n)warn.push("선반 재고("+shelfCap+")가 부족해 "+(n-placedShelf)+"칸을 비웠습니다");
+  /* 앞줄: 선택된 로고테이블·우양산·카운터를 수량 안에서 */
+  var backEdge=zb+300,zt=D-900-300,minZt=backEdge+800+300;
+  if(zt<minZt){zt=Math.max(minZt-300,backEdge+600+300);warn.push("세로가 짧아 앞 통로가 900mm보다 좁습니다");}
+  var seq=[];
+  ["logoTbl","wooyang","counter"].forEach(function(t){if(enabled(t)){for(i=0;i<qtyOf(t);i++)seq.push(t);}});
+  var m=Math.max(0,Math.floor((W-2*MARG)/1000));
+  if(seq.length>m){warn.push("가로가 좁아 앞줄 집기 "+(seq.length-m)+"개를 뺐습니다");seq=seq.slice(0,m);}
+  if(seq.length){
+    var rowW=seq.length*1000,rx=(W-rowW)/2+500;
+    seq.forEach(function(t,j){out.push({t:t,x:rx+j*1000,z:zt});});
+  }
+  /* 양옆: 스탠딩 거울 */
+  var mirN=enabled("stdMir")?Math.min(2,qtyOf("stdMir")):0;
+  if(mirN>0&&W>=4000){
+    out.push({t:"stdMir",x:250,z:backEdge+400});
+    if(mirN>1)out.push({t:"stdMir",x:W-250,z:backEdge+400});
+  }else if(mirN>0)warn.push("가로가 좁아 스탠딩 거울을 놓지 못했습니다");
+  setState(W,D,out);
+  ST.sel=null;
+  var parts=[];
+  Object.keys(CAT).forEach(function(k){var c=outCount(k);if(c)parts.push(CAT[k].n+" "+c+"개");});
+  msg((parts.length?parts.join(" · "):"선택한 집기가 없습니다")+(warn.length?" — "+warn.join(", "):""),warn.length>0);
+  changed();
+};
+window.fpSize=function(){
+  var w=parseInt($("fpW").value,10),d=parseInt($("fpD").value,10);
+  if(!(w>=1000))w=1000;if(!(d>=1000))d=1000;if(w>30000)w=30000;if(d>30000)d=30000;
+  ST.W=w;ST.D=d;$("fpW").value=w;$("fpD").value=d;
+  T3.rad=Math.max(w,d)/1000*1.5+2;
+  changed();
+};
+window.fpSave=function(){
+  var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다)","");
+  if(!name)return;name=name.trim();if(!name)return;
+  var all=savedAll();all[name]={W:ST.W,D:ST.D,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
+  try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){msg("저장하지 못했습니다(브라우저 저장공간).",true);return;}
+  fillSaved(name);msg("'"+name+"' 배치를 저장했습니다. 이 브라우저에만 보관됩니다.");
+};
+window.fpLoad=function(){
+  var v=$("fpSaved").value;if(!v)return;
+  var o=savedAll()[v];if(!o)return;
+  setState(o.W,o.D,o.items||[]);T3.rad=Math.max(o.W,o.D)/1000*1.5+2;
+  msg("'"+v+"' 배치를 불러왔습니다.");changed();
+};
+window.fpDelSaved=function(){
+  var v=$("fpSaved").value;if(!v){msg("삭제할 저장 배치를 먼저 고르세요.",true);return;}
+  if(!window.confirm("'"+v+"' 저장 배치를 삭제할까요?"))return;
+  var all=savedAll();delete all[v];
+  try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){}
+  fillSaved("");msg("삭제했습니다.");
+};
+function fillSaved(sel){
+  var s=$("fpSaved");if(!s)return;
+  var all=savedAll(),h='<option value="">저장한 배치 불러오기</option>';
+  Object.keys(all).forEach(function(k){h+='<option value="'+k.replace(/"/g,"&quot;")+'"'+(k===sel?" selected":"")+'>'+k.replace(/</g,"&lt;")+'</option>';});
+  s.innerHTML=h;
+}
+
+/* ── 매장 사진 ── */
+window.fpPhotoPick=function(input){
+  var f=input.files&&input.files[0];
+  if(!f)return;
+  var url=URL.createObjectURL(f);
+  var img=new Image();
+  img.onload=function(){
+    ST.photo=img;
+    URL.revokeObjectURL(url);
+    setupPhotoTex();
+    msg("매장 사진을 올렸습니다. 평면도 밑과 3D 바닥에 깔립니다.");
+    draw2d();rebuild3d();
+  };
+  img.onerror=function(){msg("사진을 열지 못했습니다. 이미지 파일을 다시 골라 주세요.",true);};
+  img.src=url;
+  input.value="";
+};
+window.fpClearPhoto=function(){
+  ST.photo=null;
+  if(R3.photoTex){R3.photoTex.dispose();R3.photoTex=null;}
+  msg("사진을 지웠습니다.");
+  draw2d();rebuild3d();
+};
+window.fpOpChange=function(v){
+  ST.photoOp=Math.max(0,Math.min(100,parseInt(v,10)||0))/100;
+  var e=$("fpOpV");if(e)e.textContent=Math.round(ST.photoOp*100)+"%";
+  draw2d();rebuild3d();
+};
+function setupPhotoTex(){
+  if(!ST.photo||!T3.ready||!window.THREE)return;
+  if(R3.photoTex)R3.photoTex.dispose();
+  R3.photoTex=new THREE.Texture(ST.photo);
+  R3.photoTex.needsUpdate=true;
+}
+
+/* ── 2D 평면 ── */
+function draw2d(){
+  var cv=$("fpCv");if(!cv)return;
+  var box=cv.parentNode,avail=Math.max(300,box.clientWidth||340),pad=30;
+  sc=Math.min((avail-2*pad)/ST.W,(560-2*pad)/ST.D);
+  var cw=Math.round(ST.W*sc+2*pad),ch=Math.round(ST.D*sc+2*pad),dpr=window.devicePixelRatio||1;
+  ox=pad;oy=pad;
+  cv.style.width=cw+"px";cv.style.height=ch+"px";cv.width=Math.round(cw*dpr);cv.height=Math.round(ch*dpr);
+  var g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,cw,ch);
+  g.fillStyle="#ffffff";g.fillRect(ox,oy,ST.W*sc,ST.D*sc);
+  if(ST.photo){g.globalAlpha=ST.photoOp;g.drawImage(ST.photo,ox,oy,ST.W*sc,ST.D*sc);g.globalAlpha=1;}
+  g.strokeStyle="#e2e8f0";g.lineWidth=1;g.beginPath();
+  var v;
+  for(v=500;v<ST.W;v+=500){g.moveTo(ox+v*sc,oy);g.lineTo(ox+v*sc,oy+ST.D*sc);}
+  for(v=500;v<ST.D;v+=500){g.moveTo(ox,oy+v*sc);g.lineTo(ox+ST.W*sc,oy+v*sc);}
+  g.stroke();
+  g.strokeStyle="#334155";g.lineWidth=2;g.strokeRect(ox,oy,ST.W*sc,ST.D*sc);
+  g.fillStyle="#5b6675";g.font="12px sans-serif";g.textAlign="center";g.textBaseline="middle";
+  g.fillText(ST.W+" mm",ox+ST.W*sc/2,oy-14);
+  g.save();g.translate(ox-14,oy+ST.D*sc/2);g.rotate(-Math.PI/2);g.fillText(ST.D+" mm",0,0);g.restore();
+  g.fillText("앞(통로) ▼",ox+ST.W*sc/2,oy+ST.D*sc+14);
+  var pr=problems();
+  ST.items.forEach(function(it){
+    var c=CAT[it.t],f=foot(it),w=f.w*sc,d=f.d*sc,x=ox+(it.x-f.w/2)*sc,y=oy+(it.z-f.d/2)*sc,bad=pr.bad[it.id];
+    g.fillStyle=bad?"#fecaca":c.c;g.fillRect(x,y,w,d);
+    g.strokeStyle=bad?"#dc2626":"#334155";g.lineWidth=bad?2:1;g.strokeRect(x,y,w,d);
+    g.strokeStyle="#154f5e";g.lineWidth=4;g.beginPath();
+    if(it.r===0){g.moveTo(x+2,y+d-2);g.lineTo(x+w-2,y+d-2);}
+    else if(it.r===90){g.moveTo(x+w-2,y+2);g.lineTo(x+w-2,y+d-2);}
+    else if(it.r===180){g.moveTo(x+2,y+2);g.lineTo(x+w-2,y+2);}
+    else{g.moveTo(x+2,y+2);g.lineTo(x+2,y+d-2);}
+    g.stroke();
+    if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;g.strokeRect(x-2,y-2,w+4,d+4);}
+    g.fillStyle="#1e293b";g.font="700 11px sans-serif";g.textAlign="center";g.textBaseline="middle";
+    if(w>46&&d>22)g.fillText(w>78?c.s:c.s.slice(0,3),x+w/2,y+d/2-(d>38?6:0));
+    if(w>70&&d>38){g.font="10px sans-serif";g.fillStyle="#475569";g.fillText(c.w+"×"+c.d,x+w/2,y+d/2+8);}
+  });
+}
+function hit(px,py){
+  var mx=(px-ox)/sc,mz=(py-oy)/sc;
+  for(var i=ST.items.length-1;i>=0;i--){var r=rectOf(ST.items[i]);if(mx>=r.x0&&mx<=r.x1&&mz>=r.z0&&mz<=r.z1)return ST.items[i];}
+  return null;
+}
+function bind2d(){
+  var cv=$("fpCv");
+  cv.addEventListener("pointerdown",function(e){
+    var r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,it=hit(px,py);
+    ST.sel=it?it.id:null;
+    if(it){cv.setPointerCapture(e.pointerId);drag={id:it.id,dx:(px-ox)/sc-it.x,dz:(py-oy)/sc-it.z};}
+    draw2d();renderSel();rebuild3d();
+  });
+  cv.addEventListener("pointermove",function(e){
+    if(!drag)return;
+    var it=findItem(drag.id);if(!it)return;
+    var r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+    it.x=snap((px-ox)/sc-drag.dx);it.z=snap((py-oy)/sc-drag.dz);
+    draw2d();rebuild3d();
+  });
+  function end(){if(drag){drag=null;persist();renderSel();renderSum();}}
+  cv.addEventListener("pointerup",end);cv.addEventListener("pointercancel",end);
+  document.addEventListener("keydown",function(e){
+    if(!pageOn())return;
+    var t=e.target&&e.target.tagName;if(t==="INPUT"||t==="SELECT"||t==="TEXTAREA")return;
+    var it=findItem(ST.sel);if(!it)return;
+    var k=e.key,st=e.shiftKey?500:SNAP;
+    if(k==="ArrowLeft")it.x-=st;else if(k==="ArrowRight")it.x+=st;else if(k==="ArrowUp")it.z-=st;else if(k==="ArrowDown")it.z+=st;
+    else if(k==="r"||k==="R"){it.r=(it.r+90)%360;}
+    else if(k==="Delete"||k==="Backspace"){window.fpDel();e.preventDefault();return;}
+    else return;
+    e.preventDefault();changed();
+  });
+}
+
+/* ── 선택 · 배치 편집 ── */
+function freeSpot(t){
+  var c=CAT[t],x,z,it={t:t,x:0,z:0,r:0,f:false};
+  for(z=snap(c.d/2);z<=ST.D-c.d/2;z+=100){
+    for(x=snap(c.w/2);x<=ST.W-c.w/2;x+=100){
+      it.x=x;it.z=z;
+      var a=rectOf(it),hitAny=false;
+      for(var i=0;i<ST.items.length;i++){var b=rectOf(ST.items[i]);if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1){hitAny=true;break;}}
+      if(!hitAny)return {x:x,z:z};
+    }
+  }
+  return {x:snap(ST.W/2),z:snap(ST.D/2)};
+}
+window.fpAdd=function(t){
+  if(!enabled(t)){msg(CAT[t].n+"은(는) 집기 목록에서 빠져 있습니다. ① 에서 체크하세요.",true);return;}
+  if(leftOf(t)<=0){msg(CAT[t].n+" 재고를 모두 배치했습니다. 수량을 늘리거나 다른 집기를 쓰세요.",true);return;}
+  var p=freeSpot(t),it=mkItem(t,p.x,p.z,0,false);
+  ST.items.push(it);ST.sel=it.id;msg("");changed();
+};
+window.fpRot=function(){var it=findItem(ST.sel);if(!it)return;it.r=(it.r+90)%360;changed();};
+window.fpFlip=function(){var it=findItem(ST.sel);if(!it)return;it.f=!it.f;changed();};
+window.fpDup=function(){
+  var it=findItem(ST.sel);if(!it)return;
+  if(leftOf(it.t)<=0){msg(CAT[it.t].n+" 재고를 모두 배치했습니다.",true);return;}
+  var p=freeSpot(it.t),n=mkItem(it.t,p.x,p.z,it.r,it.f);
+  ST.items.push(n);ST.sel=n.id;msg("");changed();
+};
+window.fpDel=function(){
+  var it=findItem(ST.sel);if(!it)return;
+  ST.items=ST.items.filter(function(o){return o.id!==it.id;});ST.sel=null;changed();
+};
+window.fpSetPos=function(axis,v){
+  var it=findItem(ST.sel);if(!it)return;
+  var n=parseFloat(v);if(isNaN(n))return;
+  it[axis]=snap(n);changed();
+};
+function renderSel(){
+  var el=$("fpSel");if(!el)return;
+  var it=findItem(ST.sel);
+  if(!it){el.innerHTML='<div style="font-size:12.5px;color:#5b6675">집기를 누르면 회전·복제·삭제와 위치 입력이 나옵니다.</div>';return;}
+  var c=CAT[it.t],bt='padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer';
+  var inp='width:76px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px';
+  el.innerHTML='<div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">'+c.n+' <span style="font-weight:400;color:#5b6675">'+c.w+'×'+c.d+'×'+c.h+' mm</span></div>'
+   +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+   +'<button onclick="fpRot()" style="'+bt+'">↻ 회전</button>'
+   +(c.k==="shelf"?'<button onclick="fpFlip()" style="'+bt+'">↔ 좌우반전</button>':'')
+   +'<button onclick="fpDup()" style="'+bt+'">복제</button>'
+   +'<button onclick="fpDel()" style="'+bt+';color:#9a3412">삭제</button>'
+   +'<span style="font-size:12px;color:#5b6675;margin-left:6px">중심 X</span><input type="number" step="50" value="'+it.x+'" onchange="fpSetPos(\'x\',this.value)" style="'+inp+'">'
+   +'<span style="font-size:12px;color:#5b6675">Z</span><input type="number" step="50" value="'+it.z+'" onchange="fpSetPos(\'z\',this.value)" style="'+inp+'">'
+   +'</div>';
+}
+function renderSum(){
+  var el=$("fpSum");if(!el)return;
+  var area=0,tot=0,rows="",pr=problems();
+  ST.items.forEach(function(it){var f=foot(it);area+=f.w*f.d;tot++;});
+  Object.keys(CAT).forEach(function(k){
+    if(!enabled(k))return;
+    var n=countOf(k),q=qtyOf(k),short=n>q;
+    rows+='<tr><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0">'+CAT[k].n+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#5b6675">'+CAT[k].w+'×'+CAT[k].d+'×'+CAT[k].h+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;color:'+(short?'#9a3412':'#1f2937')+'">'+n+' / '+q+'</td></tr>';
+  });
+  var occ=ST.W*ST.D?Math.round(area/(ST.W*ST.D)*1000)/10:0;
+  var h='<div style="display:flex;gap:10px 24px;flex-wrap:wrap;align-items:baseline;margin-bottom:8px"><b style="font-size:13.5px;color:#154f5e">집기 수량 (배치 / 보유)</b>'
+    +'<span style="font-size:12.5px;color:#5b6675">매장 '+ST.W+'×'+ST.D+' mm ('+(Math.round(ST.W*ST.D/10000)/100)+'㎡) · 집기 바닥 점유율 '+occ+'%'+(ST.photo?' · 사진 올림':'')+'</span></div>';
+  if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:8px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'매장 밖으로 나간 집기 '+pr.oob+'개':'')+'</div>';
+  h+=tot&&rows?'<table style="border-collapse:collapse;font-size:13px;width:100%;max-width:600px"><thead><tr style="background:#f1f5f9"><th style="padding:5px 8px;text-align:left">집기</th><th style="padding:5px 8px;text-align:left">규격(mm)</th><th style="padding:5px 8px;text-align:right">배치 / 보유</th></tr></thead><tbody>'+rows+'<tr><td style="padding:5px 8px;font-weight:700" colspan="2">합계 배치</td><td style="padding:5px 8px;text-align:right;font-weight:700">'+tot+'</td></tr></tbody></table>'
+    :'<div style="font-size:12.5px;color:#5b6675">배치한 집기가 없습니다. 집기 목록에서 고르고 ✨ 자동 배치를 누르거나, 팔레트에서 하나씩 추가하세요.</div>';
+  el.innerHTML=h;
+}
+
+/* ── 3D ── */
+function load3d(cb){
+  if(window.THREE){cb(true);return;}
+  if(T3.loading)return;
+  T3.loading=true;
+  var s=document.createElement("script");
+  s.src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
+  s.onload=function(){T3.loading=false;cb(!!window.THREE);};
+  s.onerror=function(){T3.loading=false;cb(false);};
+  document.head.appendChild(s);
+}
+function init3d(){
+  var host=$("fpView"),W=host.clientWidth||360,H=host.clientHeight||380;
+  R3.scene=new THREE.Scene();
+  R3.cam=new THREE.PerspectiveCamera(40,W/H,0.1,200);
+  R3.ren=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  R3.ren.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  R3.ren.setSize(W,H);
+  host.appendChild(R3.ren.domElement);
+  R3.scene.add(new THREE.AmbientLight(0xffffff,0.85));
+  var dl=new THREE.DirectionalLight(0xffffff,0.55);dl.position.set(3,6,5);R3.scene.add(dl);
+  R3.EDGE=new THREE.LineBasicMaterial({color:0x888780});
+  T3.rad=Math.max(ST.W,ST.D)/1000*1.5+2;
+  host.addEventListener("pointerdown",function(e){T3.pts[e.pointerId]=e;host.setPointerCapture(e.pointerId);host.style.cursor="grabbing";});
+  host.addEventListener("pointermove",function(e){
+    if(!T3.pts[e.pointerId])return;
+    var last=T3.pts[e.pointerId];T3.pts[e.pointerId]=e;
+    var ids=Object.keys(T3.pts);
+    if(ids.length>=2){var a=T3.pts[ids[0]],b=T3.pts[ids[1]],d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);if(T3.pd){T3.rad=clampR(T3.rad*T3.pd/d);render3d();}T3.pd=d;return;}
+    T3.th-=(e.clientX-last.clientX)*0.008;T3.ph=Math.max(0.12,Math.min(1.55,T3.ph-(e.clientY-last.clientY)*0.008));render3d();
+  });
+  function up(e){delete T3.pts[e.pointerId];T3.pd=0;if(!Object.keys(T3.pts).length)host.style.cursor="grab";}
+  host.addEventListener("pointerup",up);host.addEventListener("pointercancel",up);
+  host.addEventListener("wheel",function(e){e.preventDefault();T3.rad=clampR(T3.rad*(e.deltaY>0?1.08:0.92));render3d();},{passive:false});
+  var l=$("fpLoad3d");if(l)l.style.display="none";
+  T3.ready=true;
+  setupPhotoTex();
+}
+function clampR(r){var m=Math.max(ST.W,ST.D)/1000;return Math.max(2,Math.min(m*4+6,r));}
+function render3d(){
+  if(!T3.ready)return;
+  var tg={x:0,y:0.6,z:0};
+  R3.cam.position.set(tg.x+T3.rad*Math.sin(T3.ph)*Math.sin(T3.th),tg.y+T3.rad*Math.cos(T3.ph),tg.z+T3.rad*Math.sin(T3.ph)*Math.cos(T3.th));
+  R3.cam.lookAt(tg.x,tg.y,tg.z);
+  R3.ren.render(R3.scene,R3.cam);
+}
+function disposeTree(o){
+  o.traverse(function(n){
+    if(n.geometry)n.geometry.dispose();
+    if(n.material&&n.material!==R3.EDGE)n.material.dispose();
+  });
+}
+function mk(p,w,h,d,x,y,z,col){
+  var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
+  m.position.set(x,y,z);
+  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),R3.EDGE));
+  p.add(m);return m;
+}
+function buildItem(it,bad){
+  var c=CAT[it.t],g=new THREE.Group(),w=c.w/1000,d=c.d/1000,h=c.h/1000,WH=0xf4f2ec;
+  g.position.set((it.x-ST.W/2)/1000,0,(it.z-ST.D/2)/1000);
+  g.rotation.y=it.r*Math.PI/180;
+  if(c.k==="shelf"){
+    var side=(it.f?-1:1)*c.p,sx=-side*w/6,px=side*w/3;
+    mk(g,w,0.55,d,0,0.275,0,WH);
+    [-w/2+0.015,w/2-0.015].forEach(function(cx){mk(g,0.03,h-0.55,0.03,cx,0.55+(h-0.55)/2,d/2-0.02,WH);mk(g,0.03,h-0.55,0.03,cx,0.55+(h-0.55)/2,-d/2+0.02,WH);});
+    [0.6,0.95,1.3,h-0.02].forEach(function(y){mk(g,w*2/3,0.02,d-0.02,sx,y,0,WH);});
+    mk(g,w/3-0.02,h-0.6,0.05,px,0.6+(h-0.6)/2,0,c.pc);
+    mk(g,w/3-0.02,0.02,d-0.02,px,h-0.01,0,WH);
+  }else if(c.k==="table"){
+    mk(g,w,h,d,0,h/2,0,WH);
+    mk(g,w*0.8,h*0.65,0.012,0,h*0.5,d/2+0.006,0x2c2c2a);
+    [-w/2+0.05,w/2-0.05].forEach(function(cx){mk(g,0.06,0.06,0.06,cx,0.03,d/2-0.1,0x5F5E5A);mk(g,0.06,0.06,0.06,cx,0.03,-d/2+0.1,0x5F5E5A);});
+  }else if(c.k==="rack"){
+    var GOLD=0xBA7517;
+    [-1,1].forEach(function(a){[-1,1].forEach(function(b){mk(g,0.03,h,0.03,a*(w/2-0.02),h/2,b*(d/2-0.02),GOLD);});});
+    [h-0.1,h*0.5].forEach(function(y){
+      [-1,1].forEach(function(b){mk(g,w-0.04,0.025,0.025,0,y,b*(d/2-0.02),GOLD);});
+      [-1,1].forEach(function(a){mk(g,0.025,0.025,d-0.04,a*(w/2-0.02),y,0,GOLD);});
+    });
+  }else if(c.k==="counter"){
+    mk(g,w,h,d,0,h/2,0,WH);
+    mk(g,0.35,0.02,0.25,0,h+0.01,0.05,0x888780);
+    mk(g,0.35,0.22,0.01,0,h+0.12,-0.07,0x5F5E5A);
+  }else{
+    mk(g,w,0.06,d,0,0.03,0,WH);
+    mk(g,w,h-0.1,0.04,0,0.06+(h-0.1)/2,0,0xcfe3ee);
+  }
+  if(bad||it.id===ST.sel){
+    g.traverse(function(n){if(n.isMesh&&n.material&&n.material.emissive)n.material.emissive.setHex(bad?0x7a1f1f:0x1a4fa0);});
+  }
+  return g;
+}
+function rebuild3d(){
+  if(!T3.ready||T3.sched)return;
+  T3.sched=true;
+  requestAnimationFrame(function(){
+    T3.sched=false;
+    if(!T3.ready)return;
+    if(R3.root){R3.scene.remove(R3.root);disposeTree(R3.root);}
+    var root=new THREE.Group(),pr=problems(),w=ST.W/1000,d=ST.D/1000,i;
+    if(ST.photo&&!R3.photoTex)setupPhotoTex();
+    var floorMat=(ST.photo&&R3.photoTex)
+      ?new THREE.MeshBasicMaterial({map:R3.photoTex,transparent:true,opacity:ST.photoOp+0.25>1?1:ST.photoOp+0.25})
+      :new THREE.MeshLambertMaterial({color:0xd3d1c7,transparent:true,opacity:0.55});
+    var fl=new THREE.Mesh(new THREE.PlaneGeometry(w,d),floorMat);
+    fl.rotation.x=-Math.PI/2;fl.position.y=-0.002;root.add(fl);
+    var pts=[];
+    for(i=0.5;i<w;i+=0.5){pts.push(new THREE.Vector3(i-w/2,0,-d/2),new THREE.Vector3(i-w/2,0,d/2));}
+    for(i=0.5;i<d;i+=0.5){pts.push(new THREE.Vector3(-w/2,0,i-d/2),new THREE.Vector3(w/2,0,i-d/2));}
+    root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xb4b2a9})));
+    var bd=[new THREE.Vector3(-w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,d/2),new THREE.Vector3(-w/2,0.005,d/2)];
+    root.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bd),new THREE.LineBasicMaterial({color:0x444441})));
+    ST.items.forEach(function(it){root.add(buildItem(it,!!pr.bad[it.id]));});
+    R3.root=root;R3.scene.add(root);
+    render3d();
+  });
+}
+window.fpView=function(t,p){T3.th=t;T3.ph=p;render3d();};
+window.fpZoom=function(f){T3.rad=clampR(T3.rad*f);render3d();};
+window.fpPng=function(){
+  if(!T3.ready){msg("3D 화면이 아직 준비되지 않았습니다.",true);return;}
+  render3d();
+  var a=document.createElement("a");
+  a.href=R3.ren.domElement.toDataURL("image/png");
+  a.download="화이트샌즈_3D평면도_"+ST.W+"x"+ST.D+".png";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+};
+function resize3d(){
+  if(!T3.ready||!pageOn())return;
+  var host=$("fpView"),W=host.clientWidth||360,H=host.clientHeight||380;
+  R3.cam.aspect=W/H;R3.cam.updateProjectionMatrix();R3.ren.setSize(W,H);render3d();
+}
+
+/* ── 탭 열 때 ── */
+var inited=false;
+window.renderFloorPage=function(){
+  if(!inited){
+    inited=true;
+    loadUse();
+    var cur=null;try{cur=JSON.parse(localStorage.getItem(KEY_CUR)||"null");}catch(e){}
+    bind2d();fillSaved("");
+    if(cur&&cur.items&&cur.W&&cur.D){setState(cur.W,cur.D,cur.items);ST.next=Math.max(ST.next,cur.next||1);}
+    else{window.fpSample();}
+    window.addEventListener("resize",function(){if(!pageOn())return;draw2d();resize3d();});
+  }
+  renderUse();renderPalette();renderSel();renderSum();draw2d();
+  if(T3.ready){resize3d();rebuild3d();return;}
+  load3d(function(ok){
+    if(!ok){var l=$("fpLoad3d");if(l)l.textContent="3D 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 탭을 다시 열어 주세요.";return;}
+    if(!T3.ready)init3d();
+    rebuild3d();
+  });
+};
+})();
+</script>
 </body>
 </html>
