@@ -8645,7 +8645,7 @@ function ecRenderSearch(){
   _ecRes.forEach(function(d,k){
     var on=k===_ecResSel,code=d["자사코드"]||"";
     h+='<div id="ecSr_'+k+'" onclick="ecResultClick('+k+')" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(on?"#dbeafe":"")+'\'" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;background:'+(on?"#dbeafe":"")+'">'
-      +'<span style="flex:1;color:#1f2937">'+_escX((d["상품명"]+" "+(d["칼라명"]||"")).trim())+'</span>'
+      +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]||"")+'</span>'+colorChip(d["칼라명"])
       +'<span style="color:#6366f1;font-family:monospace">'+_escX(code)+'</span>'
       +(_ecKind==="ret"?(ecStock&&(document.getElementById("ecStore")||{}).value?'<span style="min-width:62px;text-align:right">매장 '+_ecEcHtml(code,(document.getElementById("ecStore")||{}).value)+'</span>':''):'<span style="min-width:62px;text-align:right" title="주희물류 창고재고">재고 '+_ecStock(code)+'</span>')+'</div>';
   });
@@ -15067,6 +15067,84 @@ function ocRender(){
 /* ── 도매 자동발주 — 상품 직접 추가(2026-10-06 영업2팀 "여기에 상품을 추가할 수 있게") ──
    🤖 자동화 탭 '도매 자동발주' 카드와 발주서 변환 화면(표 위) 두 곳에 같은 칸: 매장(수기발주 매장 목록) · 상품(상품데이터 — 이름이나 자사코드) · 수량 → [＋ 추가].
    같은 발주서 표(orderConvRows)에 붙으므로 ⬇ 다운로드·✉️ 발주 메일에 같이 나간다. 수령인·연락처·주소는 매장 정보로 채운다 */
+/* ── 상품 고르기 목록(2026-10-14 영업2팀 "방향키로 선택 · 컬러로 표시 · 모든 발주·상품 선택은 같은 방식으로") ──
+   list="ocProdList·lrProdList·cpProdList" 입력칸은 브라우저 기본 목록 대신 이 목록을 띄운다 — ↑↓ 이동 · Enter·클릭 = 선택 · Esc 닫기.
+   항목은 그 datalist의 option 값 그대로라, 고르면 값만 넣고 input·change를 일으켜 원래 처리(lrMatchRow·cpEdit …)가 그대로 돈다.
+   값 끝에 [자사코드]가 있으면 상품데이터의 칼라명을 색 칩(colorChip)으로 보인다. 이카운트 발주 담기 검색(ecRenderSearch)도 같은 칩 */
+var PP_LISTS={ocProdList:1,lrProdList:1,cpProdList:1};
+var _COLOR_SW=[["라이트그레이","#d1d5db"],["다크그레이","#4b5563"],["인디핑크","#d8a7a7"],["파우더핑크","#f5c6d0"],["스카이","#7dd3fc"],["딥그린","#14532d"],["세이지","#9caf88"],
+  ["블랙","#111827"],["화이트","#ffffff"],["아이보리","#f5efdc"],["크림","#f3e9c6"],["베이지","#d9c3a0"],["샌드","#d6c08f"],["카멜","#b7804a"],["모카","#8b6b4f"],["초코","#5b3a29"],["브라운","#7a4b2a"],
+  ["챠콜","#374151"],["차콜","#374151"],["그레이","#9ca3af"],["실버","#c0c4cc"],["네이비","#1e3a8a"],["블루","#2563eb"],["민트","#6ee7b7"],["카키","#6b7a3a"],["올리브","#708238"],["그린","#16a34a"],
+  ["머스타드","#d4a017"],["옐로","#facc15"],["골드","#d4af37"],["오렌지","#f97316"],["와인","#7f1d1d"],["버건디","#7f1d1d"],["레드","#dc2626"],["베리","#9d174d"],["핑크","#f9a8d4"],["라벤더","#c4b5fd"],["퍼플","#7c3aed"]];
+function _colorSw(nm){var s=String(nm||"").replace(/\(.*?\)/g,"");for(var i=0;i<_COLOR_SW.length;i++)if(s.indexOf(_COLOR_SW[i][0])>=0)return _COLOR_SW[i][1];return "";}
+function colorChip(nm){
+  nm=String(nm||"").trim();if(!nm)return "";var c=_colorSw(nm);
+  return '<span style="display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:10px;background:#f1f5f9;border:1px solid #e2e8f0;font-weight:700;color:#0f172a;white-space:nowrap">'
+    +(c?'<i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+c+';border:1px solid rgba(0,0,0,.25)"></i>':'')+_escX(nm)+'</span>';
+}
+var _ppBox=null,_ppIn=null,_ppItems=[],_ppSel=-1,_ppBusy=false,_ppDbIdx=null;
+function _ppDb(code){
+  var src=(typeof DB!=="undefined"&&DB.length)?DB:[];
+  if(!_ppDbIdx||_ppDbIdx.n!==src.length){var m={};src.forEach(function(d){var c=String(d["자사코드"]||"").trim().toUpperCase();if(c&&!m[c])m[c]=d;});_ppDbIdx={n:src.length,m:m};}
+  return _ppDbIdx.m[String(code||"").toUpperCase()]||null;
+}
+function _ppClose(){if(_ppBox)_ppBox.style.display="none";_ppItems=[];_ppSel=-1;}
+function _ppRender(){
+  var inp=_ppIn;if(!inp)return;
+  var dl=document.getElementById(inp.dataset.pp),q=norm(inp.value);
+  if(!dl||!q){_ppClose();return;}
+  var terms=String(inp.value).trim().split(/\s+/).map(norm).filter(Boolean),all=[].map.call(dl.options,function(o){return o.value;}),hit=[];
+  for(var i=0;i<all.length&&hit.length<80;i++){var v=all[i],m=/\[([A-Za-z0-9]+)\]\s*$/.exec(v),d=m?_ppDb(m[1]):null,hay=norm(v)+(d?norm(d["칼라명"]):"");
+    if(terms.every(function(t){return hay.indexOf(t)>=0;}))hit.push({v:v,code:m?m[1]:"",d:d});}
+  _ppItems=hit;if(_ppSel>=hit.length||_ppSel<0)_ppSel=hit.length?0:-1;
+  if(!_ppBox){_ppBox=document.createElement("div");_ppBox.style.cssText="position:fixed;z-index:100000;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.18);max-height:300px;overflow-y:auto;font-size:12.5px";
+    _ppBox.addEventListener("mousedown",function(e){e.preventDefault();});document.body.appendChild(_ppBox);}
+  var r=inp.getBoundingClientRect(),w=Math.min(Math.max(r.width,380),window.innerWidth-16);
+  _ppBox.style.left=Math.max(8,Math.min(r.left,window.innerWidth-w-8))+"px";_ppBox.style.width=w+"px";
+  var below=window.innerHeight-r.bottom;
+  if(below<200&&r.top>below){_ppBox.style.top="";_ppBox.style.bottom=(window.innerHeight-r.top+2)+"px";}else{_ppBox.style.bottom="";_ppBox.style.top=(r.bottom+2)+"px";}
+  _ppBox.innerHTML=hit.length?hit.map(function(x,k){
+      var name=x.d?String(x.d["상품명"]||"").trim():x.v.replace(/\s*\[[A-Za-z0-9]+\]\s*$/,"");
+      return '<div data-k="'+k+'" style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-bottom:1px solid #f1f5f9;background:'+(k===_ppSel?"#dbeafe":"#fff")+'">'
+        +'<span style="flex:1;color:#1f2937">'+_escX(name)+'</span>'+(x.d?colorChip(x.d["칼라명"]):'')
+        +(x.code?'<span style="color:#6366f1;font-family:monospace;font-size:11.5px">'+_escX(x.code)+'</span>':'')+'</div>';
+    }).join("")+(hit.length>=80?'<div style="padding:5px 10px;color:#5b6675;font-size:11.5px">앞 80개만 — 더 적어 좁혀 주세요</div>':'')
+    :'<div style="padding:8px 10px;color:#5b6675">맞는 상품 없음</div>';
+  _ppBox.style.display="block";
+  [].forEach.call(_ppBox.querySelectorAll("[data-k]"),function(el){
+    el.onclick=function(){_ppPick(+el.dataset.k);};
+    el.onmouseenter=function(){if(_ppSel!==+el.dataset.k){_ppSel=+el.dataset.k;_ppPaint();}};
+  });
+}
+function _ppPaint(){if(!_ppBox)return;[].forEach.call(_ppBox.querySelectorAll("[data-k]"),function(el){el.style.background=(+el.dataset.k===_ppSel)?"#dbeafe":"#fff";});
+  var on=_ppBox.querySelector('[data-k="'+_ppSel+'"]');if(on)on.scrollIntoView({block:"nearest"});}
+function _ppPick(k){
+  var x=_ppItems[k],inp=_ppIn;if(!x||!inp)return;
+  inp.value=x.v;_ppClose();
+  _ppBusy=true;try{inp.dispatchEvent(new Event("input",{bubbles:true}));inp.dispatchEvent(new Event("change",{bubbles:true}));}finally{_ppBusy=false;}
+  /* 다음 칸(수량)으로 — 도매 자동발주 상품 추가 · 이카운트 본사 추가 */
+  var nx=inp.nextElementSibling;if(nx&&nx.tagName==="INPUT"&&/수량/.test(nx.placeholder||""))nx.focus();
+}
+document.addEventListener("focusin",function(e){
+  var t=e.target;if(!t||t.tagName!=="INPUT")return;
+  var l=t.getAttribute("list");
+  if(l&&PP_LISTS[l]){t.dataset.pp=l;t.removeAttribute("list");t.setAttribute("autocomplete","off");}   /* 브라우저 기본 목록은 끈다 */
+  if(t.dataset.pp){_ppIn=t;_ppSel=0;_ppRender();}
+});
+document.addEventListener("input",function(e){var t=e.target;if(_ppBusy||!t||!t.dataset||!t.dataset.pp)return;_ppIn=t;_ppSel=0;_ppRender();});
+document.addEventListener("focusout",function(e){if(e.target===_ppIn)setTimeout(function(){if(document.activeElement!==_ppIn)_ppClose();},120);});
+document.addEventListener("keydown",function(e){
+  var t=e.target;if(!t||!t.dataset||!t.dataset.pp||t!==_ppIn)return;
+  var open=_ppBox&&_ppBox.style.display==="block"&&_ppItems.length;
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+    e.preventDefault();
+    if(!open){_ppSel=0;_ppRender();return;}
+    _ppSel=(_ppSel+(e.key==="ArrowDown"?1:-1)+_ppItems.length)%_ppItems.length;_ppPaint();
+  }else if(e.key==="Enter"&&open&&_ppSel>=0){e.preventDefault();e.stopPropagation();_ppPick(_ppSel);}
+  else if(e.key==="Escape"&&open){e.preventDefault();_ppClose();}
+},true);
+window.addEventListener("resize",_ppClose);
+document.addEventListener("scroll",function(e){if(_ppBox&&_ppBox.style.display==="block"&&!_ppBox.contains(e.target))_ppClose();},true);
 var _ocProdIdx=null;
 function _ocProdList(){
   var src=(typeof DB!=="undefined"&&DB.length)?DB:[];
@@ -26170,7 +26248,7 @@ function renderSum(){
     if(on)own+=q;
     rows+='<tr>'
       +'<td style="'+td+';width:26px"><input type="checkbox" '+(on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" title="평면도에 쓰기" style="width:15px;height:15px;margin:0"></td>'
-      +'<td style="'+td+';width:68px;'+dim+'">'+(th?'<img src="'+th+'" alt="" style="width:60px;height:45px;object-fit:contain;display:block">':'<span style="display:block;width:60px;height:45px;border-radius:6px;background:'+c.c+'"></span>')+'</td>'
+      +'<td style="'+td+';width:80px;'+dim+'">'+(th?'<img src="'+th+'" alt="" style="width:72px;height:54px;object-fit:contain;display:block;background:#f1f5f9;border-radius:6px">':'<span style="display:block;width:72px;height:54px;border-radius:6px;background:'+c.c+'"></span>')+'</td>'
       +'<td style="'+td+';'+dim+'"><b style="font-size:13px">'+esc(c.n)+'</b>'+(c.est?' <span style="font-size:11px;color:#9a3412">(추정)</span>':'')
         +(c.cus?' <button onclick="fpCusDel(\''+k+'\')" title="직접 추가한 집기 지우기" style="border:0;background:none;color:#9a3412;font-size:11px;cursor:pointer;padding:0 2px">지우기</button>':'')+'</td>'
       +'<td style="'+td+';white-space:nowrap;color:#5b6675;font-size:12px;'+dim+'">'
@@ -26449,23 +26527,43 @@ window.fpPng=function(){
 
 /* ── 집기 그림(썸네일) — 3D 모양 그대로 비스듬히 찍는다 ── */
 var TR=null;
+/* 집기 그림(2026-10-14 영업2팀 "집기 이미지 선명하게") — 예전엔 480×360 한 장을 표에서 60×45로 줄여 가는 선이 사라지고 흰 집기가 흰 바탕에 묻혔다.
+   · 표용(THUMB)은 보이는 크기의 2배(144×108 × 화면 배율)로, 집기리스트 이미지용(THUMBIMG)은 480×360으로 따로 찍는다.
+   · 카메라를 집기에 꽉 맞춘다(모서리 8개를 화면에 투영해 92%). 곡면 (좌)는 왼쪽에서 찍는다(둥근 모서리가 보이게).
+   · 썸네일만 선을 진하게(#5b5a55) · 조명에 명암(위·앞·옆 세 방향) — 흰 면이 서로 구분되게. 3D 화면 선 색은 끝나면 되돌린다 */
 function makeThumbs(){
   if(!window.THREE)return;
   try{
-    if(!TR){TR={ren:new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true}),scene:new THREE.Scene(),cam:new THREE.PerspectiveCamera(30,4/3,0.05,100)};
-      TR.ren.setSize(480,360);TR.ren.setPixelRatio(1);
-      TR.scene.add(new THREE.AmbientLight(0xffffff,0.85));var dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(3,6,5);TR.scene.add(dl);}
+    if(!TR){
+      TR={ren:new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true}),scene:new THREE.Scene(),cam:new THREE.PerspectiveCamera(30,4/3,0.05,100)};
+      TR.ren.setPixelRatio(1);
+      TR.scene.add(new THREE.AmbientLight(0xffffff,0.5));
+      var l1=new THREE.DirectionalLight(0xffffff,0.75);l1.position.set(3,6,5);TR.scene.add(l1);
+      var l2=new THREE.DirectionalLight(0xffffff,0.35);l2.position.set(-5,2,3);TR.scene.add(l2);
+      var l3=new THREE.DirectionalLight(0xffffff,0.15);l3.position.set(0,3,-6);TR.scene.add(l3);
+    }
+    var em=edgeMat(),oldEdge=em.color.getHex();em.color.setHex(0x5b5a55);
+    var dpr=Math.min(2,window.devicePixelRatio||1),SW=Math.round(144*dpr),SH2=Math.round(108*dpr);
     Object.keys(CAT).forEach(function(k){
       if(THUMB[k])return;
       var c=CAT[k],g=buildItem({id:0,t:k,x:ST.W/2,z:ST.D/2,r:0,f:false},false);
       TR.scene.add(g);
-      var bb=new THREE.Box3().setFromObject(g),ctr=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3()).length();
-      TR.cam.position.set(ctr.x+(c.side==="L"?-1:1)*sz*0.95,ctr.y+sz*0.6,ctr.z+sz*1.45);  /* 곡면 (좌)는 왼쪽에서 찍어야 둥근 모서리가 보인다 */TR.cam.lookAt(ctr);
-      TR.ren.render(TR.scene,TR.cam);
-      THUMB[k]=TR.ren.domElement.toDataURL("image/png");
-      var im=new Image();im.src=THUMB[k];THUMBIMG[k]=im;
+      var bb=new THREE.Box3().setFromObject(g),ctr=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3()).length()||1;
+      var dir=new THREE.Vector3((c.side==="L"?-1:1)*0.95,0.6,1.45).normalize(),dist=sz*1.9,cs=[];
+      [bb.min.x,bb.max.x].forEach(function(x){[bb.min.y,bb.max.y].forEach(function(y){[bb.min.z,bb.max.z].forEach(function(z){cs.push(new THREE.Vector3(x,y,z));});});});
+      TR.cam.aspect=4/3;TR.cam.updateProjectionMatrix();
+      for(var i=0;i<5;i++){   /* 집기가 그림의 92%를 채울 때까지 거리만 맞춘다 */
+        TR.cam.position.copy(ctr).addScaledVector(dir,dist);TR.cam.lookAt(ctr);TR.cam.updateMatrixWorld();
+        var ext=0;cs.forEach(function(v){var q=v.clone().project(TR.cam);ext=Math.max(ext,Math.abs(q.x),Math.abs(q.y));});
+        if(!(ext>0))break;dist*=ext/0.92;
+      }
+      TR.cam.position.copy(ctr).addScaledVector(dir,dist);TR.cam.lookAt(ctr);
+      TR.ren.setSize(SW,SH2,false);TR.ren.render(TR.scene,TR.cam);THUMB[k]=TR.ren.domElement.toDataURL("image/png");
+      TR.ren.setSize(480,360,false);TR.ren.render(TR.scene,TR.cam);
+      var im=new Image();im.src=TR.ren.domElement.toDataURL("image/png");THUMBIMG[k]=im;
       TR.scene.remove(g);disposeTree(g);
     });
+    em.color.setHex(oldEdge);
   }catch(e){console.warn("집기 그림 만들기 실패",e);}
 }
 
