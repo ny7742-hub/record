@@ -35,6 +35,7 @@
 - [`docs/returns.md`](docs/returns.md) — 홈쇼핑·코스트코 반품등록(시트 불러오기 · 코드매칭 · 창고간이동)
 - [`docs/auth.md`](docs/auth.md) — 회원 승인제(이메일 링크 로그인 · 승인 · Firebase 규칙)
 - [`docs/ecount.md`](docs/ecount.md) — 🧮 이카운트 탭: 매장 발주 요청 → 본사 승인 → 창고이동 엑셀·도매발주서
+- [`docs/floorplan.md`](docs/floorplan.md) — 🧊 3D 집기 탭: 집기 목록(그림·사이즈·수량) · 예상 팝업 자리 이미지 · 자동 배치 · 평면도/3D 끌어 옮기기 · 집기리스트 이미지
 - [`docs/cowork.md`](docs/cowork.md) — **별도 페이지** `cowork.html`: 디자인·생산·웹디자인·영업2팀 코스트코 상품개발 협업(단계·일정·시안·코멘트)
 
 ## 🤖 자동화 탭

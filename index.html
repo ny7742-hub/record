@@ -695,7 +695,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
   <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">🏪 팝업</button>
   <button class="tab-btn" id="tab-lossreport" onclick="switchTab('lossreport')">🧾 로스 품의서</button>
-  <button class="tab-btn" id="tab-floor" onclick="switchTab('floor')">🧊 3D 평면도</button>
+  <button class="tab-btn" id="tab-floor" onclick="switchTab('floor')">🧊 3D 집기</button>
   <button class="tab-btn" id="tab-ecount" onclick="switchTab('ecount')">🧮 이카운트</button>
   <button class="tab-btn" id="tab-dept" onclick="switchTab('dept')">🏬 백화점</button>
   <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">📅 매장별 일별매출</button>
@@ -2535,13 +2535,15 @@ label{font-size:14px!important}
 <div class="main" style="max-width:1400px;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <div class="sec-title" style="margin:0;font-size:13px">🧊 3D 평면도</div>
-      <span style="font-size:12.5px;color:#5b6675">매장 가로</span>
+      <div class="sec-title" style="margin:0;font-size:13px">🧊 3D 집기</div>
+      <span style="font-size:12.5px;color:#5b6675">공간 가로</span>
       <input id="fpW" type="number" step="100" min="1000" max="30000" value="4200" onchange="fpSize()" style="width:84px;padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
       <span style="font-size:12.5px;color:#5b6675">× 세로</span>
       <input id="fpD" type="number" step="100" min="1000" max="30000" value="3500" onchange="fpSize()" style="width:84px;padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
       <span style="font-size:12.5px;color:#5b6675">mm</span>
       <button onclick="fpAuto()" style="padding:5px 14px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">✨ 선택한 집기로 자동 배치</button>
+      <label style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:#334155;cursor:pointer"><input id="fpAutoOn" type="checkbox" checked onchange="fpAutoToggle(this.checked)" style="margin:0">집기를 고르면 바로 자동 배치</label>
+      <button onclick="fpListPng()" style="padding:5px 14px;background:#0f766e;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🖼 집기리스트 이미지</button>
       <button onclick="fpSample()" style="padding:5px 14px;background:#334155;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📷 샘플 매장 재현</button>
       <button onclick="fpClear()" style="padding:5px 14px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">배치 비우기</button>
       <span style="flex:1"></span>
@@ -2554,17 +2556,27 @@ label{font-size:14px!important}
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;align-items:start">
     <div class="card" style="padding:12px 16px">
       <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">① 집기 목록</div>
-      <div style="font-size:12px;color:#5b6675;margin-bottom:8px;line-height:1.5">체크한 집기만 평면도에 쓸 수 있습니다. 수량은 보유 재고 기준입니다.</div>
+      <div style="font-size:12px;color:#5b6675;margin-bottom:8px;line-height:1.5">체크한 집기만 평면도에 씁니다. 수량은 보유 재고, 사이즈는 가로×깊이×높이(mm)로 고칠 수 있습니다.</div>
       <div id="fpUse"></div>
-      <div style="font-size:13px;font-weight:700;color:#154f5e;margin:14px 0 6px">② 매장 사진</div>
+      <details style="margin-top:8px"><summary style="font-size:12.5px;font-weight:700;color:#154f5e;cursor:pointer">+ 집기 직접 추가</summary>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12px;color:#5b6675">
+          <input id="fpCusN" type="text" placeholder="이름 (예: 아크릴 쇼케이스)" style="flex:1 1 150px;padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
+          <select id="fpCusS" style="padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"><option value="box">사각</option><option value="cyl">원형</option></select>
+          <input id="fpCusW" type="number" min="100" step="50" placeholder="가로" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">×<input id="fpCusD" type="number" min="100" step="50" placeholder="깊이" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">×<input id="fpCusH" type="number" min="100" step="50" placeholder="높이" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"> mm
+          수량 <input id="fpCusQ" type="number" min="1" max="99" value="1" style="width:46px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
+          <button onclick="fpCusAdd()" style="padding:5px 12px;border:none;background:#334155;color:#fff;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">추가</button>
+        </div><div style="font-size:11.5px;color:#5b6675;margin-top:4px">원형은 가로를 지름으로 씁니다.</div></details>
+      <div style="font-size:13px;font-weight:700;color:#154f5e;margin:14px 0 6px">② 예상 팝업 자리 이미지</div>
+      <div id="fpPhotoPrev" style="margin-bottom:8px"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <button onclick="document.getElementById('fpPhotoIn').click()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">사진 올리기</button>
-        <button onclick="fpClearPhoto()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#9a3412;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">사진 지우기</button>
+        <button onclick="document.getElementById('fpPhotoIn').click()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">이미지 올리기</button>
+        <button onclick="fpClearPhoto()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#9a3412;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">이미지 지우기</button>
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#334155;cursor:pointer"><input id="fpPhotoFloorChk" type="checkbox" checked onchange="fpPhotoFloor(this.checked)" style="margin:0">평면도·3D 바닥에 깔기</label>
         <input id="fpPhotoIn" type="file" accept="image/*" onchange="fpPhotoPick(this)" style="display:none">
       </div>
-      <label style="display:block;font-size:12px;color:#5b6675;margin-top:8px">사진 진하기 <span id="fpOpV">50%</span>
+      <label style="display:block;font-size:12px;color:#5b6675;margin-top:8px">바닥 진하기 <span id="fpOpV">50%</span>
         <input id="fpOp" type="range" min="0" max="100" value="50" oninput="fpOpChange(this.value)" style="width:100%"></label>
-      <div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.5">사진은 위에서 본 평면도(도면 캡처)일 때 잘 맞습니다. 사진은 매장 가로×세로 칸에 맞춰 늘어납니다. 사진은 이 브라우저에만 보이고 저장되지 않습니다.</div>
+      <div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.5">몰 도면처럼 위에서 본 이미지면 바닥에 깔아 맞춰 보세요(공간 가로×세로 칸에 맞춰 늘어남). 비스듬한 현장 사진은 바닥 깔기를 끄고 참고로만 보세요. 이미지는 줄여서 이 브라우저에 저장됩니다.</div>
     </div>
     <div class="card" style="padding:12px 16px">
       <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">③ 평면도 (끌어서 배치)</div>
@@ -2585,7 +2597,7 @@ label{font-size:14px!important}
         <button onclick="fpPng()" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🖼 3D 이미지 저장</button>
       </div>
       <div id="fpView" style="width:100%;height:380px;position:relative;touch-action:none;cursor:grab;border-radius:8px;background:#eef1f4;overflow:hidden"><div id="fpLoad3d" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#5b6675">3D 화면을 불러오는 중…</div></div>
-      <div style="font-size:12px;color:#5b6675;margin-top:6px">드래그로 회전, 마우스 휠이나 두 손가락으로 확대·축소합니다. 사진을 올리면 바닥에도 씌워집니다.</div>
+      <div style="font-size:12px;color:#5b6675;margin-top:6px">집기를 끌면 옮겨지고, 빈 곳을 끌면 화면이 돌아갑니다. 마우스 휠이나 두 손가락으로 확대·축소합니다.</div>
     </div>
   </div>
   <div class="card" style="margin-top:12px;padding:12px 16px"><div id="fpSum"></div></div>
@@ -25571,48 +25583,69 @@ function initTransferTab(){tfDropInit();tfAutoFill();tfRenderChips();tfRender();
 </div>
 
 <script>
-/* ── 🧊 3D 평면도 탭 (2026-10-13 영업2팀, 2026-10-14 확장) ──
-   · 집기 목록에서 체크한 집기와 수량만 평면도·자동 배치에 쓴다.
-   · 매장 사진을 올리면 평면도 밑과 3D 바닥에 깔린다(위에서 본 도면 사진일 때 잘 맞는다).
-   · 집기 규격은 화이트샌즈 집기 목록 기준. 카운터·스탠딩 거울은 사진으로 잡은 추정값.
+/* ── 🧊 3D 집기 탭 (2026-10-13 영업2팀 '3D 평면도', 2026-10-14 확장 · 이름 '3D 집기') ──
+   · 집기 목록: 집기마다 그림(3D로 그린 썸네일) · 사이즈(가로×깊이×높이 mm, 고칠 수 있음) · 보유 수량. 직접 추가도 된다.
+   · 체크한 집기와 수량만 평면도·자동 배치에 쓴다. '집기를 고르면 바로 자동 배치'가 켜져 있으면 체크·수량·사이즈를 바꿀 때마다 다시 배치한다.
+   · 예상 팝업 자리 이미지: 올리면 이 브라우저에 저장되고(줄여서), '바닥에 깔기'를 켜면 평면도 밑과 3D 바닥에 깔린다.
+   · 수동 이동: 평면도에서 끌기 · 3D에서 집기를 끌기(빈 곳을 끌면 화면 회전) · 방향키 · R 회전.
+   · 🖼 집기리스트 이미지: 3D 화면 + 집기 그림·사이즈·수량 표를 한 장 PNG로 내려받는다.
    좌표: x=오른쪽, z=아래(앞쪽 통로). 집기 중심 기준 mm. rot 0=앞면 아래, 90=오른쪽, 180=위, 270=왼쪽. docs/floorplan.md */
 (function(){
-var CAT={
+/* 기본 집기 — 규격은 화이트샌즈 집기 목록 기준, est=사진으로 잡은 추정값. k = 3D 모양 */
+var DEF={
   shelfImg:{n:"선반집기 이미지형",s:"선반(이미지)",w:1200,d:600,h:1800,c:"#85B7EB",k:"shelf",p:1,pc:0x85B7EB,inv:8,est:false},
   shelfMir:{n:"선반집기 거울형",s:"선반(거울)",w:1200,d:600,h:1800,c:"#A8CBDD",k:"shelf",p:-1,pc:0xcfe3ee,inv:9,est:false},
   logoTbl:{n:"로고테이블",s:"로고테이블",w:1000,d:600,h:750,c:"#D3D1C7",k:"table",inv:2,est:false},
   wooyang:{n:"우양산 집기",s:"우양산",w:1000,d:800,h:1650,c:"#FAC775",k:"rack",inv:12,est:false},
   counter:{n:"카운터",s:"카운터",w:1000,d:800,h:1000,c:"#9FE1CB",k:"counter",inv:1,est:true},
-  stdMir:{n:"스탠딩 거울",s:"스탠딩거울",w:500,d:300,h:1700,c:"#C0DD97",k:"mirror",inv:2,est:true}
+  stdMir:{n:"스탠딩 거울",s:"스탠딩거울",w:500,d:300,h:1700,c:"#C0DD97",k:"mirror",inv:2,est:true},
+  curveTbl:{n:"곡면 2단 진열대",s:"곡면진열대",w:2300,d:1000,h:850,c:"#E8DCC8",k:"curve",inv:2,est:true},
+  pedestal:{n:"원형 좌대",s:"원형좌대",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,est:true}
 };
-var KEY_CUR="jvFloorCur",KEY_SAVED="jvFloorPlans",KEY_USE="jvFloorUse",SNAP=50;
-var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},photo:null,photoOp:0.5};
+var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
+var KEY_CUR="jvFloorCur",KEY_SAVED="jvFloorPlans",KEY_USE="jvFloorUse",KEY_CUS="jvFloorCustom",KEY_PHOTO="jvFloorPhoto",KEY_OPT="jvFloorOpt",SNAP=50;
+var CAT={};
+var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:true,autoOn:true};
 var sc=1,ox=30,oy=30,drag=null;
-var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false};
+var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false,drag:null};
 var R3={scene:null,cam:null,ren:null,root:null,EDGE:null,photoTex:null};
+var THUMB={},THUMBIMG={};
 function $(id){return document.getElementById(id);}
 function pageOn(){var p=$("page-floor");return !!p&&p.style.display==="block";}
 function snap(v){return Math.round(v/SNAP)*SNAP;}
-function foot(it){var c=CAT[it.t];return (it.r%180===0)?{w:c.w,d:c.d}:{w:c.d,d:c.w};}
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");}
+function foot(it){var c=CAT[it.t];if(!c)return {w:0,d:0};return (it.r%180===0)?{w:c.w,d:c.d}:{w:c.d,d:c.w};}
 function rectOf(it){var f=foot(it);return {x0:it.x-f.w/2,x1:it.x+f.w/2,z0:it.z-f.d/2,z1:it.z+f.d/2};}
 function mkItem(t,x,z,r,f){return {id:ST.next++,t:t,x:x,z:z,r:r||0,f:!!f};}
 function findItem(id){for(var i=0;i<ST.items.length;i++)if(ST.items[i].id===id)return ST.items[i];return null;}
-function enabled(k){return !!(ST.use[k]&&ST.use[k].on);}
+function enabled(k){return !!(CAT[k]&&ST.use[k]&&ST.use[k].on);}
 function qtyOf(k){return ST.use[k]?ST.use[k].qty:0;}
 function countOf(k){var n=0;ST.items.forEach(function(i){if(i.t===k)n++;});return n;}
 function leftOf(k){return qtyOf(k)-countOf(k);}
 function msg(t,warn){var e=$("fpMsg");if(e){e.textContent=t||"";e.style.color=warn?"#9a3412":"#5b6675";}}
+function clampMm(v,lo,hi){var n=parseInt(v,10);if(isNaN(n))return null;return Math.max(lo,Math.min(hi,n));}
 
-function defaultUse(){var u={};Object.keys(CAT).forEach(function(k){u[k]={on:true,qty:CAT[k].inv};});return u;}
-function loadUse(){
-  var u=defaultUse();
-  try{
-    var saved=JSON.parse(localStorage.getItem(KEY_USE)||"null");
-    if(saved)Object.keys(CAT).forEach(function(k){if(saved[k]){u[k].on=!!saved[k].on;u[k].qty=Math.max(0,Math.min(99,parseInt(saved[k].qty,10)||0));}});
-  }catch(e){}
-  ST.use=u;
+/* ── 집기 정의 · 보유 수량 · 사이즈 ── */
+function buildCat(){
+  CAT={};
+  Object.keys(DEF).forEach(function(k){CAT[k]=Object.assign({},DEF[k]);});
+  ST.cus.forEach(function(c,i){CAT[c.k]={n:c.n,s:c.n.slice(0,6),w:c.w,d:c.d,h:c.h,c:CUS_COLORS[i%CUS_COLORS.length],k:c.shape==="cyl"?"cyl":"box",inv:1,est:false,cus:true};});
+  Object.keys(CAT).forEach(function(k){var u=ST.use[k];if(u){["w","d","h"].forEach(function(a){if(u[a])CAT[k][a]=u[a];});}});
+  Object.keys(CAT).forEach(function(k){if(CAT[k].k==="ped"||CAT[k].k==="cyl")CAT[k].d=CAT[k].w;});
 }
-function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));}catch(e){}}
+function loadUse(){
+  try{ST.cus=JSON.parse(localStorage.getItem(KEY_CUS)||"[]")||[];}catch(e){ST.cus=[];}
+  var saved=null;try{saved=JSON.parse(localStorage.getItem(KEY_USE)||"null");}catch(e){}
+  var u={};
+  Object.keys(DEF).forEach(function(k){u[k]={on:true,qty:DEF[k].inv};});
+  ST.cus.forEach(function(c){u[c.k]={on:true,qty:1};});
+  if(saved)Object.keys(u).forEach(function(k){var s=saved[k];if(!s)return;u[k].on=!!s.on;u[k].qty=Math.max(0,Math.min(99,parseInt(s.qty,10)||0));["w","d","h"].forEach(function(a){if(s[a])u[k][a]=s[a];});});
+  ST.use=u;
+  try{var o=JSON.parse(localStorage.getItem(KEY_OPT)||"null");if(o){ST.autoOn=o.autoOn!==false;ST.photoFloor=o.photoFloor!==false;if(o.op!=null)ST.photoOp=o.op;}}catch(e){}
+  buildCat();
+}
+function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));localStorage.setItem(KEY_CUS,JSON.stringify(ST.cus));}catch(e){}}
+function saveOpt(){try{localStorage.setItem(KEY_OPT,JSON.stringify({autoOn:ST.autoOn,photoFloor:ST.photoFloor,op:ST.photoOp}));}catch(e){}}
 function persist(){try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next}));}catch(e){}}
 function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
 
@@ -25630,30 +25663,37 @@ function problems(){
 }
 function setState(W,D,items){
   ST.W=W;ST.D=D;ST.items=[];ST.next=1;ST.sel=null;
-  items.forEach(function(o){ST.items.push(mkItem(o.t,o.x,o.z,o.r||0,o.f));});
+  items.forEach(function(o){if(CAT[o.t])ST.items.push(mkItem(o.t,o.x,o.z,o.r||0,o.f));});
   $("fpW").value=W;$("fpD").value=D;
 }
 function changed(){persist();renderPalette();renderSel();renderSum();draw2d();rebuild3d();}
+function autoIfOn(){if(ST.autoOn){window.fpAuto(true);}else changed();}
 
-/* ── 집기 목록 ── */
+/* ── ① 집기 목록(그림 · 사이즈 · 수량) ── */
 function renderUse(){
   var el=$("fpUse");if(!el)return;
+  var inp='width:54px;padding:3px 4px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;text-align:right';
   var h="";
   Object.keys(CAT).forEach(function(k){
-    var c=CAT[k],u=ST.use[k],n=countOf(k);
-    h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #e2e8f0">'
-      +'<input type="checkbox" '+(u.on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" style="width:15px;height:15px;margin:0;flex:none">'
-      +'<span style="width:12px;height:12px;border-radius:3px;background:'+c.c+';border:1px solid #64748b;flex:none"></span>'
-      +'<span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:700">'+c.n+(c.est?' <span style="font-size:11px;color:#9a3412;font-weight:400">(추정)</span>':'')+'</span>'
-      +'<span style="display:block;font-size:11.5px;color:#5b6675">'+c.w+'×'+c.d+'×'+c.h+' mm · 배치 '+n+'개</span></span>'
+    var c=CAT[k],u=ST.use[k],n=countOf(k),cyl=(c.k==="ped"||c.k==="cyl"),th=THUMB[k];
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">'
+      +'<input type="checkbox" '+(u.on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" title="평면도에 쓰기" style="width:15px;height:15px;margin:0;flex:none">'
+      +(th?'<img src="'+th+'" alt="" style="width:64px;height:48px;object-fit:contain;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;flex:none">'
+          :'<span style="width:64px;height:48px;border-radius:6px;background:'+c.c+';border:1px solid #cbd5e1;flex:none;display:flex;align-items:center;justify-content:center;font-size:10px;color:#475569">'+esc(c.s)+'</span>')
+      +'<span style="flex:1 1 120px;min-width:0"><span style="display:block;font-size:13px;font-weight:700">'+esc(c.n)+(c.est?' <span style="font-size:11px;color:#9a3412;font-weight:400">(추정)</span>':'')+(c.cus?' <button onclick="fpCusDel(\''+k+'\')" title="직접 추가한 집기 지우기" style="border:0;background:none;color:#9a3412;font-size:11px;cursor:pointer;padding:0 2px">지우기</button>':'')+'</span>'
+      +'<span style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;font-size:11.5px;color:#5b6675;margin-top:3px">'
+      +(cyl?'Ø<input type="number" min="100" max="9000" step="50" value="'+c.w+'" onchange="fpDim(\''+k+'\',\'w\',this.value)" title="지름 mm" style="'+inp+'">'
+           :'<input type="number" min="100" max="9000" step="50" value="'+c.w+'" onchange="fpDim(\''+k+'\',\'w\',this.value)" title="가로 mm" style="'+inp+'">×<input type="number" min="100" max="9000" step="50" value="'+c.d+'" onchange="fpDim(\''+k+'\',\'d\',this.value)" title="깊이 mm" style="'+inp+'">')
+      +'×<input type="number" min="100" max="4000" step="50" value="'+c.h+'" onchange="fpDim(\''+k+'\',\'h\',this.value)" title="높이 mm" style="'+inp+'"> mm · 배치 '+n+'</span></span>'
       +'<span style="font-size:12px;color:#5b6675">수량</span>'
-      +'<input type="number" min="0" max="99" value="'+u.qty+'" onchange="fpQty(\''+k+'\',this.value)" style="width:56px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">'
+      +'<input type="number" min="0" max="99" value="'+u.qty+'" onchange="fpQty(\''+k+'\',this.value)" style="width:50px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">'
       +'</div>';
   });
   el.innerHTML=h;
+  var a=$("fpAutoOn");if(a)a.checked=ST.autoOn;
 }
 window.fpToggle=function(k,on){
-  if(!on){
+  if(!on&&!ST.autoOn){
     var n=countOf(k);
     if(n>0){
       if(!window.confirm(CAT[k].n+" "+n+"개를 평면도에서 뺄까요?")){renderUse();return;}
@@ -25661,14 +25701,41 @@ window.fpToggle=function(k,on){
       if(ST.sel&&!findItem(ST.sel))ST.sel=null;
     }
   }
-  ST.use[k].on=!!on;saveUse();changed();renderUse();
+  ST.use[k].on=!!on;saveUse();renderUse();autoIfOn();
 };
 window.fpQty=function(k,v){
   var n=parseInt(v,10);if(isNaN(n)||n<0)n=0;if(n>99)n=99;
   ST.use[k].qty=n;saveUse();
-  if(countOf(k)>n)msg(CAT[k].n+"은(는) 배치 "+countOf(k)+"개로 수량("+n+")보다 많습니다. 배치를 줄이거나 수량을 늘리세요.",true);
+  if(!ST.autoOn&&countOf(k)>n)msg(CAT[k].n+"은(는) 배치 "+countOf(k)+"개로 수량("+n+")보다 많습니다. 배치를 줄이거나 수량을 늘리세요.",true);
   else msg("");
-  changed();renderUse();
+  renderUse();autoIfOn();
+};
+window.fpDim=function(k,a,v){
+  var n=clampMm(v,100,a==="h"?4000:9000);if(n==null){renderUse();return;}
+  ST.use[k][a]=snap(n);if((CAT[k].k==="ped"||CAT[k].k==="cyl")&&a==="w")ST.use[k].d=snap(n);
+  saveUse();buildCat();delete THUMB[k];makeThumbs();renderUse();
+  msg(CAT[k].n+" 사이즈를 "+CAT[k].w+"×"+CAT[k].d+"×"+CAT[k].h+" mm로 바꿨습니다.");
+  autoIfOn();
+};
+window.fpAutoToggle=function(on){ST.autoOn=!!on;saveOpt();if(on)window.fpAuto(true);};
+/* 직접 추가 — 이름 · 가로 · 깊이 · 높이 · 모양(박스/원형) */
+window.fpCusAdd=function(){
+  var nm=($("fpCusN").value||"").trim(),w=clampMm($("fpCusW").value,100,9000),d=clampMm($("fpCusD").value,100,9000),h=clampMm($("fpCusH").value,100,4000),sh=$("fpCusS").value;
+  if(!nm){msg("추가할 집기 이름을 적어 주세요.",true);$("fpCusN").focus();return;}
+  if(w==null||h==null||(sh!=="cyl"&&d==null)){msg("가로·깊이·높이를 mm로 적어 주세요(100 이상).",true);return;}
+  var k="cus"+Date.now().toString(36);
+  ST.cus.push({k:k,n:nm,w:snap(w),d:snap(sh==="cyl"?w:d),h:snap(h),shape:sh});
+  ST.use[k]={on:true,qty:Math.max(1,parseInt($("fpCusQ").value,10)||1)};
+  saveUse();buildCat();makeThumbs();renderUse();
+  $("fpCusN").value="";msg("'"+nm+"'을(를) 집기 목록에 추가했습니다.");
+  autoIfOn();
+};
+window.fpCusDel=function(k){
+  if(!CAT[k]||!CAT[k].cus)return;
+  if(!window.confirm("'"+CAT[k].n+"'을(를) 집기 목록에서 지울까요? 배치된 것도 빠집니다."))return;
+  ST.cus=ST.cus.filter(function(c){return c.k!==k;});delete ST.use[k];
+  ST.items=ST.items.filter(function(i){return i.t!==k;});if(ST.sel&&!findItem(ST.sel))ST.sel=null;
+  saveUse();buildCat();renderUse();changed();
 };
 
 /* ── 팔레트: 선택한 집기만 ── */
@@ -25679,67 +25746,105 @@ function renderPalette(){
     if(!enabled(k))return;
     any=true;
     var c=CAT[k],left=leftOf(k),ok=left>0;
-    h+='<button '+(ok?'onclick="fpAdd(\''+k+'\')"':'disabled')+' title="'+c.w+'×'+c.d+'×'+c.h+' mm · 남은 수량 '+Math.max(0,left)+'" style="padding:5px 10px;border:1px solid #cbd5e1;background:'+(ok?'#f8fafc':'#f1f5f9')+';color:'+(ok?'#334155':'#94a3b8')+';border-radius:8px;font-size:12px;font-weight:700;cursor:'+(ok?'pointer':'not-allowed')+';display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:'+c.c+';border:1px solid #64748b"></span>+ '+c.n+' <span style="font-weight:400">('+Math.max(0,left)+')</span></button>';
+    h+='<button '+(ok?'onclick="fpAdd(\''+k+'\')"':'disabled')+' title="'+c.w+'×'+c.d+'×'+c.h+' mm · 남은 수량 '+Math.max(0,left)+'" style="padding:5px 10px;border:1px solid #cbd5e1;background:'+(ok?'#f8fafc':'#f1f5f9')+';color:'+(ok?'#334155':'#5b6675')+';border-radius:8px;font-size:12px;font-weight:700;cursor:'+(ok?'pointer':'not-allowed')+';display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:'+c.c+';border:1px solid #64748b"></span>+ '+esc(c.n)+' <span style="font-weight:400">('+Math.max(0,left)+')</span></button>';
   });
   el.innerHTML=any?h:'<div style="font-size:12.5px;color:#9a3412">선택한 집기가 없습니다. ① 집기 목록에서 체크하세요.</div>';
 }
 
 /* ── 배치 만들기 ── */
 window.fpSample=function(){
-  var W=6600,D=3200,cx=W/2;
-  ST.use=defaultUse();saveUse();
+  var W=6600,D=4600,cx=W/2;
+  ST.cus=[];ST.use={};Object.keys(DEF).forEach(function(k){ST.use[k]={on:true,qty:DEF[k].inv};});buildCat();saveUse();
   setState(W,D,[
     {t:"shelfImg",x:cx-1900,z:500},{t:"shelfMir",x:cx,z:500},{t:"shelfImg",x:cx+1900,z:500,f:true},
-    {t:"logoTbl",x:cx-1200,z:2000},{t:"logoTbl",x:cx-100,z:2000},{t:"counter",x:cx+1000,z:2000},
-    {t:"stdMir",x:cx-3000,z:1300},{t:"stdMir",x:cx+3000,z:1300}
+    {t:"logoTbl",x:cx-1200,z:2000},{t:"logoTbl",x:cx-150,z:2000},{t:"counter",x:cx+1000,z:2050},
+    {t:"stdMir",x:250,z:1300},{t:"stdMir",x:W-250,z:1300},
+    {t:"curveTbl",x:1450,z:3800},{t:"curveTbl",x:W-1450,z:3800,f:true},
+    {t:"pedestal",x:cx-200,z:3750},{t:"pedestal",x:cx+400,z:3450},{t:"pedestal",x:W-850,z:2250},{t:"pedestal",x:W-550,z:2850}
   ]);
-  renderUse();msg("사진 속 매장을 재현했습니다. 간격은 사진 비율로 맞춘 근사치입니다.");
+  ST.autoOn=false;saveOpt();
+  renderUse();makeThumbs();msg("매장 사진 4장 속 배치를 재현했습니다(간격은 사진 비율로 잡은 근사치). 수동 배치를 지키려고 자동 배치는 껐습니다.");
   changed();
 };
 window.fpClear=function(){ST.items=[];ST.sel=null;msg("");changed();};
-window.fpAuto=function(){
+/* 자동 배치 — 뒷줄 선반 · 양옆 스탠딩 거울 · 가운데 줄 로고테이블·우양산·카운터·직접 추가 · 앞 모서리 곡면 진열대 · 앞 가운데 원형 좌대 */
+window.fpAuto=function(quiet){
   var W=ST.W,D=ST.D,GAP=300,MARG=300,out=[],warn=[],i;
   function outCount(t){var n=0;out.forEach(function(o){if(o.t===t)n++;});return n;}
-  /* 뒷줄: 선택된 선반집기만, 수량 안에서 번갈아 */
-  var shelfTypes=["shelfImg","shelfMir"].filter(enabled);
-  var shelfCap=0;shelfTypes.forEach(function(t){shelfCap+=qtyOf(t);});
-  var n=Math.max(0,Math.floor((W-2*MARG+GAP)/(1200+GAP)));
-  var usedW=n*1200+Math.max(0,n-1)*GAP,x0=(W-usedW)/2+600,zb=400;
-  var placedShelf=0;
-  if(shelfTypes.length&&shelfCap>0&&n>0){
-    for(i=0;i<n;i++){
-      var cands=shelfTypes.filter(function(t){return outCount(t)<qtyOf(t);});
-      if(!cands.length)break;
-      var t=cands[i%cands.length];
-      out.push({t:t,x:x0+i*(1200+GAP),z:zb,f:(i>=Math.ceil(n/2))});
-      placedShelf++;
-    }
+  /* 뒷줄 */
+  var shelfTypes=["shelfImg","shelfMir"].filter(enabled),shelfCap=0,sw=0,sd=0;
+  shelfTypes.forEach(function(t){shelfCap+=qtyOf(t);sw=Math.max(sw,CAT[t].w);sd=Math.max(sd,CAT[t].d);});
+  var n=sw?Math.max(0,Math.floor((W-2*MARG+GAP)/(sw+GAP))):0;
+  if(shelfCap<n)n=Math.min(n,shelfCap);
+  var usedW=n*sw+Math.max(0,n-1)*GAP,x0=(W-usedW)/2+sw/2,zb=MARG+sd/2-100;
+  for(i=0;i<n;i++){
+    var cands=shelfTypes.filter(function(t){return outCount(t)<qtyOf(t);});
+    if(!cands.length)break;
+    out.push({t:cands[i%cands.length],x:x0+i*(sw+GAP),z:zb,f:(i>=Math.ceil(n/2))});
   }
-  if(!shelfTypes.length)warn.push("선반집기를 선택하지 않아 뒷줄을 비웠습니다");
-  else if(n===0)warn.push("가로가 좁아 선반집기를 놓지 못했습니다");
-  else if(placedShelf<n&&shelfCap<n)warn.push("선반 재고("+shelfCap+")가 부족해 "+(n-placedShelf)+"칸을 비웠습니다");
-  /* 앞줄: 선택된 로고테이블·우양산·카운터를 수량 안에서 */
-  var backEdge=zb+300,zt=D-900-300,minZt=backEdge+800+300;
-  if(zt<minZt){zt=Math.max(minZt-300,backEdge+600+300);warn.push("세로가 짧아 앞 통로가 900mm보다 좁습니다");}
-  var seq=[];
-  ["logoTbl","wooyang","counter"].forEach(function(t){if(enabled(t)){for(i=0;i<qtyOf(t);i++)seq.push(t);}});
-  var m=Math.max(0,Math.floor((W-2*MARG)/1000));
-  if(seq.length>m){warn.push("가로가 좁아 앞줄 집기 "+(seq.length-m)+"개를 뺐습니다");seq=seq.slice(0,m);}
-  if(seq.length){
-    var rowW=seq.length*1000,rx=(W-rowW)/2+500;
-    seq.forEach(function(t,j){out.push({t:t,x:rx+j*1000,z:zt});});
+  if(!shelfTypes.length)warn.push("선반집기를 고르지 않아 뒷줄을 비웠습니다");
+  else if(!n)warn.push("가로가 좁아 선반집기를 놓지 못했습니다");
+  var backEdge=n?zb+sd/2:MARG;
+  /* 앞 모서리 곡면 진열대 · 앞 가운데 원형 좌대 */
+  var cv=enabled("curveTbl")?Math.min(2,qtyOf("curveTbl")):0,cw=CAT.curveTbl.w,cd=CAT.curveTbl.d,frontZ=D-MARG-cd/2;
+  var pedN=enabled("pedestal")?qtyOf("pedestal"):0,pw=CAT.pedestal.w;
+  var midNeed=backEdge+900+800+600+cd+MARG;
+  var frontRow=cv>0&&D>=midNeed;
+  if(cv>0&&!frontRow)warn.push("세로가 짧아 곡면 진열대를 가운데 줄 양끝에 놓았습니다");
+  if(frontRow){
+    if(W<cw*cv+2*MARG){cv=Math.max(0,Math.floor((W-2*MARG)/cw));warn.push("가로가 좁아 곡면 진열대를 "+cv+"개만 놓았습니다");}
+    if(cv>=1)out.push({t:"curveTbl",x:MARG+cw/2,z:frontZ,f:false});
+    if(cv>=2)out.push({t:"curveTbl",x:W-MARG-cw/2,z:frontZ,f:true});
   }
-  /* 양옆: 스탠딩 거울 */
-  var mirN=enabled("stdMir")?Math.min(2,qtyOf("stdMir")):0;
+  /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
+     놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
+  var pri=["counter","logoTbl"].concat(ST.cus.map(function(c){return c.k;}),["wooyang"]),want=[];
+  pri.forEach(function(t){if(enabled(t)){for(i=0;i<qtyOf(t);i++)want.push(t);}});
+  var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
+  if(cv>0&&!frontRow){for(i=0;i<cv&&rowW+cw<=avail;i++){keep.push("curveTbl");rowW+=cw;}}
+  want.forEach(function(t){if(rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}else drop[t]=(drop[t]||0)+1;});
+  var ord=["curveTbl","logoTbl"].concat(ST.cus.map(function(c){return c.k;}),["wooyang","counter"]);
+  var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
+  if(seq.filter(function(t){return t==="curveTbl";}).length>1){seq.splice(seq.indexOf("curveTbl"),1);seq.push("curveTbl");}
+  seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
+  var midZ=backEdge+900+midD/2;
+  if(midZ+midD/2>D-MARG){midZ=D-MARG-midD/2;warn.push("세로가 짧아 앞 통로가 좁습니다");}
+  var dl=Object.keys(drop).map(function(t){return CAT[t].n+" "+drop[t]+"개";});
+  if(dl.length)warn.push("자리가 모자라 못 놓은 집기: "+dl.join(", "));
+  var keep=seq;
+  var rx=(W-rowW)/2;
+  keep.forEach(function(t,j){var c=CAT[t];out.push({t:t,x:rx+c.w/2,z:midZ,f:(t==="curveTbl"&&j>0)});rx+=c.w;});
+  /* 양옆 스탠딩 거울 */
+  var mirN=enabled("stdMir")?Math.min(2,qtyOf("stdMir")):0,mw=CAT.stdMir.w;
   if(mirN>0&&W>=4000){
-    out.push({t:"stdMir",x:250,z:backEdge+400});
-    if(mirN>1)out.push({t:"stdMir",x:W-250,z:backEdge+400});
+    out.push({t:"stdMir",x:mw/2,z:backEdge+400});
+    if(mirN>1)out.push({t:"stdMir",x:W-mw/2,z:backEdge+400});
   }else if(mirN>0)warn.push("가로가 좁아 스탠딩 거울을 놓지 못했습니다");
+  /* 원형 좌대 — 앞 가운데에 지그재그, 남으면 오른쪽 옆 */
+  if(pedN>0){
+    var pz=frontRow?frontZ:Math.min(D-MARG-pw/2,midZ+midD/2+600+pw/2),cx=W/2,placed=0;
+    var spots=[[-0.55,0],[0.55,-0.5],[-1.65,-0.5],[1.65,0],[-2.75,0],[2.75,-0.5]];
+    var cl=frontRow&&cv>=1?MARG+cw:MARG,cr=frontRow&&cv>=2?W-MARG-cw:W-MARG;
+    for(i=0;i<spots.length&&placed<pedN;i++){
+      var x=cx+spots[i][0]*pw,z=pz+spots[i][1]*pw;
+      if(x-pw/2<cl+100||x+pw/2>cr-100||z+pw/2>D-MARG/2||z-pw/2<midZ+midD/2+300)continue;
+      out.push({t:"pedestal",x:snap(x),z:snap(z)});placed++;
+    }
+    /* 앞 가운데에 다 못 놓으면 빈 자리(앞쪽부터)를 찾아 놓는다 */
+    for(var zz=D-MARG-pw/2;placed<pedN&&zz>=backEdge+pw/2;zz-=100){
+      for(var xx=W-MARG-pw/2;placed<pedN&&xx>=MARG+pw/2;xx-=100){
+        var a={x0:xx-pw/2-150,x1:xx+pw/2+150,z0:zz-pw/2-150,z1:zz+pw/2+150},free=true;
+        for(var q=0;q<out.length;q++){var o=out[q],c=CAT[o.t],b={x0:o.x-c.w/2,x1:o.x+c.w/2,z0:o.z-c.d/2,z1:o.z+c.d/2};if(a.x0<b.x1&&a.x1>b.x0&&a.z0<b.z1&&a.z1>b.z0){free=false;break;}}
+        if(free&&!(zz-pw/2<midZ+midD/2+600&&zz+pw/2>midZ-midD/2-600&&xx>(W-rowW)/2-600&&xx<(W+rowW)/2+600)){out.push({t:"pedestal",x:snap(xx),z:snap(zz)});placed++;}
+      }
+    }
+    if(placed<pedN)warn.push("자리가 없어 원형 좌대 "+(pedN-placed)+"개를 뺐습니다");
+  }
   setState(W,D,out);
   ST.sel=null;
   var parts=[];
   Object.keys(CAT).forEach(function(k){var c=outCount(k);if(c)parts.push(CAT[k].n+" "+c+"개");});
-  msg((parts.length?parts.join(" · "):"선택한 집기가 없습니다")+(warn.length?" — "+warn.join(", "):""),warn.length>0);
+  msg((quiet===true?"자동 배치 — ":"")+(parts.length?parts.join(" · "):"선택한 집기가 없습니다")+(warn.length?" — "+warn.join(", "):"")+(parts.length?" · 끌어서 옮길 수 있습니다":""),warn.length>0);
   changed();
 };
 window.fpSize=function(){
@@ -25747,7 +25852,7 @@ window.fpSize=function(){
   if(!(w>=1000))w=1000;if(!(d>=1000))d=1000;if(w>30000)w=30000;if(d>30000)d=30000;
   ST.W=w;ST.D=d;$("fpW").value=w;$("fpD").value=d;
   T3.rad=Math.max(w,d)/1000*1.5+2;
-  changed();
+  autoIfOn();
 };
 window.fpSave=function(){
   var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다)","");
@@ -25759,8 +25864,9 @@ window.fpSave=function(){
 window.fpLoad=function(){
   var v=$("fpSaved").value;if(!v)return;
   var o=savedAll()[v];if(!o)return;
+  ST.autoOn=false;saveOpt();renderUse();
   setState(o.W,o.D,o.items||[]);T3.rad=Math.max(o.W,o.D)/1000*1.5+2;
-  msg("'"+v+"' 배치를 불러왔습니다.");changed();
+  msg("'"+v+"' 배치를 불러왔습니다. 그대로 두려고 자동 배치는 껐습니다.");changed();
 };
 window.fpDelSaved=function(){
   var v=$("fpSaved").value;if(!v){msg("삭제할 저장 배치를 먼저 고르세요.",true);return;}
@@ -25772,46 +25878,67 @@ window.fpDelSaved=function(){
 function fillSaved(sel){
   var s=$("fpSaved");if(!s)return;
   var all=savedAll(),h='<option value="">저장한 배치 불러오기</option>';
-  Object.keys(all).forEach(function(k){h+='<option value="'+k.replace(/"/g,"&quot;")+'"'+(k===sel?" selected":"")+'>'+k.replace(/</g,"&lt;")+'</option>';});
+  Object.keys(all).forEach(function(k){h+='<option value="'+esc(k)+'"'+(k===sel?" selected":"")+'>'+esc(k)+'</option>';});
   s.innerHTML=h;
 }
 
-/* ── 매장 사진 ── */
+/* ── ② 예상 팝업 자리 이미지 ── */
+function usePhoto(img){ST.photo=img;setupPhotoTex();renderPhoto();draw2d();rebuild3d();renderSum();}
 window.fpPhotoPick=function(input){
   var f=input.files&&input.files[0];
   if(!f)return;
-  var url=URL.createObjectURL(f);
-  var img=new Image();
+  var url=URL.createObjectURL(f),img=new Image();
   img.onload=function(){
-    ST.photo=img;
+    /* 줄여서(긴 변 1600px, JPEG) 이 브라우저에 저장 — 새로고침해도 남는다 */
+    var k=Math.min(1,1600/Math.max(img.width,img.height)),cv=document.createElement("canvas");
+    cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
     URL.revokeObjectURL(url);
-    setupPhotoTex();
-    msg("매장 사진을 올렸습니다. 평면도 밑과 3D 바닥에 깔립니다.");
-    draw2d();rebuild3d();
+    var data=cv.toDataURL("image/jpeg",0.82),small=new Image(),kept=true;
+    try{localStorage.setItem(KEY_PHOTO,data);}catch(e){kept=false;}
+    small.onload=function(){usePhoto(small);msg("예상 팝업 자리 이미지를 올렸습니다."+(ST.photoFloor?" 평면도 밑과 3D 바닥에 깔립니다.":"")+(kept?"":" (저장공간이 부족해 새로고침하면 사라집니다)"),!kept);};
+    small.src=data;
   };
-  img.onerror=function(){msg("사진을 열지 못했습니다. 이미지 파일을 다시 골라 주세요.",true);};
+  img.onerror=function(){URL.revokeObjectURL(url);msg("이미지를 열지 못했습니다. 이미지 파일을 다시 골라 주세요.",true);};
   img.src=url;
   input.value="";
 };
 window.fpClearPhoto=function(){
-  ST.photo=null;
+  ST.photo=null;try{localStorage.removeItem(KEY_PHOTO);}catch(e){}
   if(R3.photoTex){R3.photoTex.dispose();R3.photoTex=null;}
-  msg("사진을 지웠습니다.");
-  draw2d();rebuild3d();
+  msg("이미지를 지웠습니다.");renderPhoto();
+  draw2d();rebuild3d();renderSum();
 };
 window.fpOpChange=function(v){
   ST.photoOp=Math.max(0,Math.min(100,parseInt(v,10)||0))/100;
   var e=$("fpOpV");if(e)e.textContent=Math.round(ST.photoOp*100)+"%";
-  draw2d();rebuild3d();
+  saveOpt();draw2d();rebuild3d();
 };
+window.fpPhotoFloor=function(on){ST.photoFloor=!!on;saveOpt();draw2d();rebuild3d();};
+function renderPhoto(){
+  var p=$("fpPhotoPrev");if(p){p.innerHTML=ST.photo?'<img src="'+ST.photo.src+'" alt="예상 팝업 자리" style="width:100%;max-height:220px;object-fit:contain;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc">':'<div style="font-size:12px;color:#5b6675;padding:14px;border:1px dashed #cbd5e1;border-radius:6px;text-align:center">아직 이미지가 없습니다. 몰 도면 캡처나 자리 사진을 올려 주세요.</div>';}
+  var c=$("fpPhotoFloorChk");if(c)c.checked=ST.photoFloor;
+  var o=$("fpOp");if(o)o.value=Math.round(ST.photoOp*100);var ov=$("fpOpV");if(ov)ov.textContent=Math.round(ST.photoOp*100)+"%";
+}
 function setupPhotoTex(){
   if(!ST.photo||!T3.ready||!window.THREE)return;
   if(R3.photoTex)R3.photoTex.dispose();
   R3.photoTex=new THREE.Texture(ST.photo);
   R3.photoTex.needsUpdate=true;
 }
+function photoOnFloor(){return !!(ST.photo&&ST.photoFloor);}
 
 /* ── 2D 평면 ── */
+function shape2d(g,c,w,d,f){ /* 집기 중심 원점, 앞면 +y(아래) — 곡면 진열대는 바깥 앞 모서리를 둥글게 */
+  if(c.k==="ped"||c.k==="cyl"){g.beginPath();g.ellipse(0,0,w/2,d/2,0,0,Math.PI*2);return;}
+  g.beginPath();
+  if(c.k==="curve"){
+    var r=Math.min(d*0.78,w*0.55*0.6),L=-w/2,R=w/2,T=-d/2,B=d/2;
+    if(!f){g.moveTo(L,T);g.lineTo(R,T);g.lineTo(R,B);g.lineTo(L+r,B);g.arc(L+r,B-r,r,Math.PI/2,Math.PI);g.closePath();}
+    else{g.moveTo(L,T);g.lineTo(R,T);g.lineTo(R,B-r);g.arc(R-r,B-r,r,0,Math.PI/2);g.lineTo(L,B);g.closePath();}
+    return;
+  }
+  g.rect(-w/2,-d/2,w,d);
+}
 function draw2d(){
   var cv=$("fpCv");if(!cv)return;
   var box=cv.parentNode,avail=Math.max(300,box.clientWidth||340),pad=30;
@@ -25821,7 +25948,7 @@ function draw2d(){
   cv.style.width=cw+"px";cv.style.height=ch+"px";cv.width=Math.round(cw*dpr);cv.height=Math.round(ch*dpr);
   var g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,cw,ch);
   g.fillStyle="#ffffff";g.fillRect(ox,oy,ST.W*sc,ST.D*sc);
-  if(ST.photo){g.globalAlpha=ST.photoOp;g.drawImage(ST.photo,ox,oy,ST.W*sc,ST.D*sc);g.globalAlpha=1;}
+  if(photoOnFloor()){g.globalAlpha=ST.photoOp;g.drawImage(ST.photo,ox,oy,ST.W*sc,ST.D*sc);g.globalAlpha=1;}
   g.strokeStyle="#e2e8f0";g.lineWidth=1;g.beginPath();
   var v;
   for(v=500;v<ST.W;v+=500){g.moveTo(ox+v*sc,oy);g.lineTo(ox+v*sc,oy+ST.D*sc);}
@@ -25834,19 +25961,20 @@ function draw2d(){
   g.fillText("앞(통로) ▼",ox+ST.W*sc/2,oy+ST.D*sc+14);
   var pr=problems();
   ST.items.forEach(function(it){
-    var c=CAT[it.t],f=foot(it),w=f.w*sc,d=f.d*sc,x=ox+(it.x-f.w/2)*sc,y=oy+(it.z-f.d/2)*sc,bad=pr.bad[it.id];
-    g.fillStyle=bad?"#fecaca":c.c;g.fillRect(x,y,w,d);
-    g.strokeStyle=bad?"#dc2626":"#334155";g.lineWidth=bad?2:1;g.strokeRect(x,y,w,d);
-    g.strokeStyle="#154f5e";g.lineWidth=4;g.beginPath();
-    if(it.r===0){g.moveTo(x+2,y+d-2);g.lineTo(x+w-2,y+d-2);}
-    else if(it.r===90){g.moveTo(x+w-2,y+2);g.lineTo(x+w-2,y+d-2);}
-    else if(it.r===180){g.moveTo(x+2,y+2);g.lineTo(x+w-2,y+2);}
-    else{g.moveTo(x+2,y+2);g.lineTo(x+2,y+d-2);}
-    g.stroke();
-    if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;g.strokeRect(x-2,y-2,w+4,d+4);}
+    var c=CAT[it.t];if(!c)return;
+    var bad=pr.bad[it.id],w=c.w*sc,d=c.d*sc,f=foot(it),cx=ox+it.x*sc,cy=oy+it.z*sc;
+    g.save();g.translate(cx,cy);g.rotate(-it.r*Math.PI/180);
+    shape2d(g,c,w,d,it.f);
+    g.fillStyle=bad?"#fecaca":c.c;g.fill();
+    g.strokeStyle=bad?"#dc2626":"#334155";g.lineWidth=bad?2:1;g.stroke();
+    if(c.k==="curve"){g.strokeStyle="#94a3b8";g.lineWidth=1;g.beginPath();var sx=(it.f?1:-1)*(w/2-w*0.55);g.moveTo(sx,-d/2);g.lineTo(sx,d/2);g.stroke();}
+    if(c.k!=="ped"&&c.k!=="cyl"){g.strokeStyle="#154f5e";g.lineWidth=4;g.beginPath();g.moveTo(-w/2+2,d/2-2);g.lineTo(w/2-2,d/2-2);g.stroke();}
+    if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;shape2d(g,c,w+6,d+6,it.f);g.stroke();}
+    g.restore();
+    var fw=f.w*sc,fd=f.d*sc;
     g.fillStyle="#1e293b";g.font="700 11px sans-serif";g.textAlign="center";g.textBaseline="middle";
-    if(w>46&&d>22)g.fillText(w>78?c.s:c.s.slice(0,3),x+w/2,y+d/2-(d>38?6:0));
-    if(w>70&&d>38){g.font="10px sans-serif";g.fillStyle="#475569";g.fillText(c.w+"×"+c.d,x+w/2,y+d/2+8);}
+    if(fw>40&&fd>20)g.fillText(fw>78?c.s:(c.s.replace(/\(.*$/,"")||c.s).slice(0,4),cx,cy-(fd>38?6:0));
+    if(fw>70&&fd>38){g.font="10px sans-serif";g.fillStyle="#475569";g.fillText((c.k==="ped"||c.k==="cyl")?"Ø"+c.w:c.w+"×"+c.d,cx,cy+8);}
   });
 }
 function hit(px,py){
@@ -25923,13 +26051,13 @@ window.fpSetPos=function(axis,v){
 function renderSel(){
   var el=$("fpSel");if(!el)return;
   var it=findItem(ST.sel);
-  if(!it){el.innerHTML='<div style="font-size:12.5px;color:#5b6675">집기를 누르면 회전·복제·삭제와 위치 입력이 나옵니다.</div>';return;}
+  if(!it){el.innerHTML='<div style="font-size:12.5px;color:#5b6675">집기를 누르면 회전·복제·삭제와 위치 입력이 나옵니다. 평면도나 3D에서 끌어 옮기세요.</div>';return;}
   var c=CAT[it.t],bt='padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer';
   var inp='width:76px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px';
-  el.innerHTML='<div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">'+c.n+' <span style="font-weight:400;color:#5b6675">'+c.w+'×'+c.d+'×'+c.h+' mm</span></div>'
+  el.innerHTML='<div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">'+esc(c.n)+' <span style="font-weight:400;color:#5b6675">'+c.w+'×'+c.d+'×'+c.h+' mm</span></div>'
    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
    +'<button onclick="fpRot()" style="'+bt+'">↻ 회전</button>'
-   +(c.k==="shelf"?'<button onclick="fpFlip()" style="'+bt+'">↔ 좌우반전</button>':'')
+   +((c.k==="shelf"||c.k==="curve")?'<button onclick="fpFlip()" style="'+bt+'">↔ 좌우반전</button>':'')
    +'<button onclick="fpDup()" style="'+bt+'">복제</button>'
    +'<button onclick="fpDel()" style="'+bt+';color:#9a3412">삭제</button>'
    +'<span style="font-size:12px;color:#5b6675;margin-left:6px">중심 X</span><input type="number" step="50" value="'+it.x+'" onchange="fpSetPos(\'x\',this.value)" style="'+inp+'">'
@@ -25942,17 +26070,18 @@ function renderSum(){
   ST.items.forEach(function(it){var f=foot(it);area+=f.w*f.d;tot++;});
   Object.keys(CAT).forEach(function(k){
     if(!enabled(k))return;
-    var n=countOf(k),q=qtyOf(k),short=n>q;
-    rows+='<tr><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0">'+CAT[k].n+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#5b6675">'+CAT[k].w+'×'+CAT[k].d+'×'+CAT[k].h+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;color:'+(short?'#9a3412':'#1f2937')+'">'+n+' / '+q+'</td></tr>';
+    var n=countOf(k),q=qtyOf(k),short=n>q,c=CAT[k],th=THUMB[k];
+    rows+='<tr><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;width:60px">'+(th?'<img src="'+th+'" alt="" style="width:52px;height:39px;object-fit:contain">':'<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:'+c.c+'"></span>')+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0">'+esc(c.n)+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#5b6675;font-variant-numeric:tabular-nums">'+((c.k==="ped"||c.k==="cyl")?'Ø'+c.w+'×'+c.h:c.w+'×'+c.d+'×'+c.h)+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:'+(short?'#9a3412':'#1f2937')+'">'+n+' / '+q+'</td></tr>';
   });
   var occ=ST.W*ST.D?Math.round(area/(ST.W*ST.D)*1000)/10:0;
   var h='<div style="display:flex;gap:10px 24px;flex-wrap:wrap;align-items:baseline;margin-bottom:8px"><b style="font-size:13.5px;color:#154f5e">집기 수량 (배치 / 보유)</b>'
-    +'<span style="font-size:12.5px;color:#5b6675">매장 '+ST.W+'×'+ST.D+' mm ('+(Math.round(ST.W*ST.D/10000)/100)+'㎡) · 집기 바닥 점유율 '+occ+'%'+(ST.photo?' · 사진 올림':'')+'</span></div>';
-  if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:8px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'매장 밖으로 나간 집기 '+pr.oob+'개':'')+'</div>';
-  h+=tot&&rows?'<table style="border-collapse:collapse;font-size:13px;width:100%;max-width:600px"><thead><tr style="background:#f1f5f9"><th style="padding:5px 8px;text-align:left">집기</th><th style="padding:5px 8px;text-align:left">규격(mm)</th><th style="padding:5px 8px;text-align:right">배치 / 보유</th></tr></thead><tbody>'+rows+'<tr><td style="padding:5px 8px;font-weight:700" colspan="2">합계 배치</td><td style="padding:5px 8px;text-align:right;font-weight:700">'+tot+'</td></tr></tbody></table>'
-    :'<div style="font-size:12.5px;color:#5b6675">배치한 집기가 없습니다. 집기 목록에서 고르고 ✨ 자동 배치를 누르거나, 팔레트에서 하나씩 추가하세요.</div>';
+    +'<span style="font-size:12.5px;color:#5b6675">공간 '+ST.W+'×'+ST.D+' mm ('+(Math.round(ST.W*ST.D/10000)/100)+'㎡) · 집기 바닥 점유율 '+occ+'%'+(ST.photo?' · 자리 이미지 있음':'')+'</span></div>';
+  if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:8px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'공간 밖으로 나간 집기 '+pr.oob+'개':'')+'</div>';
+  h+=rows?'<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;width:100%;max-width:720px"><thead><tr style="background:#f1f5f9"><th style="padding:5px 8px"></th><th style="padding:5px 8px;text-align:left">집기</th><th style="padding:5px 8px;text-align:left">사이즈(mm)</th><th style="padding:5px 8px;text-align:right">배치 / 보유</th></tr></thead><tbody>'+rows+'<tr><td></td><td style="padding:5px 8px;font-weight:700" colspan="2">합계 배치</td><td style="padding:5px 8px;text-align:right;font-weight:700">'+tot+'</td></tr></tbody></table></div>'
+    :'<div style="font-size:12.5px;color:#5b6675">고른 집기가 없습니다. ① 집기 목록에서 체크하세요.</div>';
   el.innerHTML=h;
 }
 
@@ -25967,11 +26096,20 @@ function load3d(cb){
   s.onerror=function(){T3.loading=false;cb(false);};
   document.head.appendChild(s);
 }
+function itemAt(e){ /* 3D 화면의 그 자리 집기 */
+  if(!R3.root)return null;
+  var host=$("fpView"),r=host.getBoundingClientRect(),v=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1),rc=new THREE.Raycaster();
+  rc.setFromCamera(v,R3.cam);
+  var hs=rc.intersectObjects(R3.root.children,true);
+  for(var i=0;i<hs.length;i++){for(var o=hs[i].object;o;o=o.parent){if(o.userData&&o.userData.itemId)return {id:o.userData.itemId,rc:rc};}}
+  return {id:null,rc:rc};
+}
+function floorAt(rc){var p=new THREE.Vector3();return rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),p)?p:null;}
 function init3d(){
   var host=$("fpView"),W=host.clientWidth||360,H=host.clientHeight||380;
   R3.scene=new THREE.Scene();
   R3.cam=new THREE.PerspectiveCamera(40,W/H,0.1,200);
-  R3.ren=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  R3.ren=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
   R3.ren.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
   R3.ren.setSize(W,H);
   host.appendChild(R3.ren.domElement);
@@ -25979,15 +26117,43 @@ function init3d(){
   var dl=new THREE.DirectionalLight(0xffffff,0.55);dl.position.set(3,6,5);R3.scene.add(dl);
   R3.EDGE=new THREE.LineBasicMaterial({color:0x888780});
   T3.rad=Math.max(ST.W,ST.D)/1000*1.5+2;
-  host.addEventListener("pointerdown",function(e){T3.pts[e.pointerId]=e;host.setPointerCapture(e.pointerId);host.style.cursor="grabbing";});
+  host.addEventListener("pointerdown",function(e){
+    try{host.setPointerCapture(e.pointerId);}catch(er){}
+    if(!Object.keys(T3.pts).length){
+      var h=itemAt(e);
+      if(h&&h.id){ /* 집기를 잡으면 끌어서 옮긴다 */
+        var it=findItem(h.id),p=floorAt(h.rc);
+        ST.sel=h.id;
+        if(it&&p)T3.drag={id:h.id,dx:p.x*1000+ST.W/2-it.x,dz:p.z*1000+ST.D/2-it.z,moved:false};
+        host.style.cursor="move";renderSel();draw2d();rebuild3d();return;
+      }
+    }
+    T3.pts[e.pointerId]=e;T3.down={x:e.clientX,y:e.clientY};host.style.cursor="grabbing";
+  });
   host.addEventListener("pointermove",function(e){
-    if(!T3.pts[e.pointerId])return;
+    if(T3.drag){
+      var h=itemAt(e),p=h&&floorAt(h.rc),it=findItem(T3.drag.id);if(!p||!it)return;
+      it.x=snap(p.x*1000+ST.W/2-T3.drag.dx);it.z=snap(p.z*1000+ST.D/2-T3.drag.dz);T3.drag.moved=true;
+      draw2d();rebuild3d();return;
+    }
+    if(!T3.pts[e.pointerId]){ /* 올려만 놓았을 때 — 집기면 손 모양 */
+      if(!e.buttons&&R3.root){var hv=itemAt(e);host.style.cursor=hv&&hv.id?"move":"grab";}
+      return;
+    }
     var last=T3.pts[e.pointerId];T3.pts[e.pointerId]=e;
     var ids=Object.keys(T3.pts);
     if(ids.length>=2){var a=T3.pts[ids[0]],b=T3.pts[ids[1]],d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);if(T3.pd){T3.rad=clampR(T3.rad*T3.pd/d);render3d();}T3.pd=d;return;}
     T3.th-=(e.clientX-last.clientX)*0.008;T3.ph=Math.max(0.12,Math.min(1.55,T3.ph-(e.clientY-last.clientY)*0.008));render3d();
   });
-  function up(e){delete T3.pts[e.pointerId];T3.pd=0;if(!Object.keys(T3.pts).length)host.style.cursor="grab";}
+  function up(e){
+    if(T3.drag){var mv=T3.drag.moved;T3.drag=null;host.style.cursor="grab";if(mv){persist();renderSel();renderSum();}return;}
+    if(T3.pts[e.pointerId]){
+      var s=T3.down;delete T3.pts[e.pointerId];T3.pd=0;
+      if(!Object.keys(T3.pts).length)host.style.cursor="grab";
+      /* 빈 곳을 눌렀다 떼면(거의 안 움직임) 선택 해제 */
+      if(s&&Math.hypot(e.clientX-s.x,e.clientY-s.y)<3&&ST.sel){ST.sel=null;renderSel();draw2d();rebuild3d();}
+    }
+  }
   host.addEventListener("pointerup",up);host.addEventListener("pointercancel",up);
   host.addEventListener("wheel",function(e){e.preventDefault();T3.rad=clampR(T3.rad*(e.deltaY>0?1.08:0.92));render3d();},{passive:false});
   var l=$("fpLoad3d");if(l)l.style.display="none";
@@ -26008,11 +26174,34 @@ function disposeTree(o){
     if(n.material&&n.material!==R3.EDGE)n.material.dispose();
   });
 }
+function edgeMat(){return R3.EDGE||(R3.EDGE=new THREE.LineBasicMaterial({color:0x888780}));}
 function mk(p,w,h,d,x,y,z,col){
   var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
   m.position.set(x,y,z);
-  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),R3.EDGE));
+  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),edgeMat()));
   p.add(m);return m;
+}
+function mkCyl(p,r,h,x,y,z,col,seg){
+  var m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,seg||40),new THREE.MeshLambertMaterial({color:col}));
+  m.position.set(x,y,z);
+  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry,30),edgeMat()));
+  p.add(m);return m;
+}
+function curveShape(x0,z0,x1,z1,rad,corner){ /* 로컬 xz 사각형, corner='L'|'R' 앞 모서리 둥글게 → 셰이프(x,-z) */
+  var s=new THREE.Shape(),sT=-z0,sB=-z1;
+  if(corner==="L"){s.moveTo(x0+rad,sB);s.lineTo(x1,sB);s.lineTo(x1,sT);s.lineTo(x0,sT);s.lineTo(x0,sB+rad);s.absarc(x0+rad,sB+rad,rad,Math.PI,Math.PI*1.5,false);}
+  else if(corner==="R"){s.moveTo(x0,sB);s.lineTo(x1-rad,sB);s.absarc(x1-rad,sB+rad,rad,-Math.PI/2,0,false);s.lineTo(x1,sT);s.lineTo(x0,sT);s.lineTo(x0,sB);}
+  else{s.moveTo(x0,sB);s.lineTo(x1,sB);s.lineTo(x1,sT);s.lineTo(x0,sT);s.lineTo(x0,sB);}
+  return s;
+}
+function mkPrism(p,shape,h,col){
+  var geo=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false,curveSegments:24});geo.rotateX(-Math.PI/2);
+  var m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:col}));m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,30),edgeMat()));p.add(m);return m;
+}
+function hatOn(p,x,y,z,col){ /* 우드 스탠드 + 헤드 + 모자(곡면 진열대·좌대 위 장식) */
+  mkCyl(p,0.08,0.02,x,y+0.01,z,0x4a3427,20);mkCyl(p,0.015,0.32,x,y+0.18,z,0x4a3427,10);
+  var hd=new THREE.Mesh(new THREE.SphereGeometry(0.09,16,12),new THREE.MeshLambertMaterial({color:0xece4d6}));hd.scale.y=1.15;hd.position.set(x,y+0.43,z);p.add(hd);
+  var ht=new THREE.Mesh(new THREE.SphereGeometry(0.1,16,10,0,Math.PI*2,0,Math.PI/2),new THREE.MeshLambertMaterial({color:col}));ht.position.set(x,y+0.47,z);p.add(ht);
 }
 function buildItem(it,bad){
   var c=CAT[it.t],g=new THREE.Group(),w=c.w/1000,d=c.d/1000,h=c.h/1000,WH=0xf4f2ec;
@@ -26022,7 +26211,7 @@ function buildItem(it,bad){
     var side=(it.f?-1:1)*c.p,sx=-side*w/6,px=side*w/3;
     mk(g,w,0.55,d,0,0.275,0,WH);
     [-w/2+0.015,w/2-0.015].forEach(function(cx){mk(g,0.03,h-0.55,0.03,cx,0.55+(h-0.55)/2,d/2-0.02,WH);mk(g,0.03,h-0.55,0.03,cx,0.55+(h-0.55)/2,-d/2+0.02,WH);});
-    [0.6,0.95,1.3,h-0.02].forEach(function(y){mk(g,w*2/3,0.02,d-0.02,sx,y,0,WH);});
+    [0.6,0.95,1.3,h-0.02].forEach(function(y){if(y<h)mk(g,w*2/3,0.02,d-0.02,sx,y,0,WH);});
     mk(g,w/3-0.02,h-0.6,0.05,px,0.6+(h-0.6)/2,0,c.pc);
     mk(g,w/3-0.02,0.02,d-0.02,px,h-0.01,0,WH);
   }else if(c.k==="table"){
@@ -26040,6 +26229,20 @@ function buildItem(it,bad){
     mk(g,w,h,d,0,h/2,0,WH);
     mk(g,0.35,0.02,0.25,0,h+0.01,0.05,0x888780);
     mk(g,0.35,0.22,0.01,0,h+0.12,-0.07,0x5F5E5A);
+  }else if(c.k==="curve"){
+    /* 바깥쪽 55% 높은 단(앞 모서리 둥글게) + 안쪽 낮은 단(높이 70%) — f=false 바깥이 왼쪽 */
+    var tw=w*0.55,hl=Math.round(h*0.7*100)/100,rad=Math.min(d*0.78,tw*0.6),L=-w/2,R=w/2,T=-d/2,B=d/2;
+    if(!it.f){mkPrism(g,curveShape(L,T,L+tw,B,rad,"L"),h,WH);mkPrism(g,curveShape(L+tw,T,R,B,0,""),hl,0xeeede8);}
+    else{mkPrism(g,curveShape(R-tw,T,R,B,rad,"R"),h,WH);mkPrism(g,curveShape(L,T,R-tw,B,0,""),hl,0xeeede8);}
+    var o=it.f?1:-1;[0.2,0.45].forEach(function(f,i){hatOn(g,o*(w/2-tw*f),h,T+d*(0.35+0.25*i),[0x7f97b2,0x3a3d42][i]);});
+    hatOn(g,o*(w/2-tw-(w-tw)*0.4),hl,T+d*0.45,0xdfb4bd);
+  }else if(c.k==="ped"){
+    mkCyl(g,w/2,h,0,h/2,0,WH,48);
+    if(h<1.2)hatOn(g,0,h,0,0xe7dccb);
+  }else if(c.k==="cyl"){
+    mkCyl(g,w/2,h,0,h/2,0,new THREE.Color(c.c).getHex(),40);
+  }else if(c.k==="box"){
+    mk(g,w,h,d,0,h/2,0,new THREE.Color(c.c).getHex());
   }else{
     mk(g,w,0.06,d,0,0.03,0,WH);
     mk(g,w,h-0.1,0.04,0,0.06+(h-0.1)/2,0,0xcfe3ee);
@@ -26047,6 +26250,7 @@ function buildItem(it,bad){
   if(bad||it.id===ST.sel){
     g.traverse(function(n){if(n.isMesh&&n.material&&n.material.emissive)n.material.emissive.setHex(bad?0x7a1f1f:0x1a4fa0);});
   }
+  g.userData.itemId=it.id;
   return g;
 }
 function rebuild3d(){
@@ -26058,7 +26262,7 @@ function rebuild3d(){
     if(R3.root){R3.scene.remove(R3.root);disposeTree(R3.root);}
     var root=new THREE.Group(),pr=problems(),w=ST.W/1000,d=ST.D/1000,i;
     if(ST.photo&&!R3.photoTex)setupPhotoTex();
-    var floorMat=(ST.photo&&R3.photoTex)
+    var floorMat=(photoOnFloor()&&R3.photoTex)
       ?new THREE.MeshBasicMaterial({map:R3.photoTex,transparent:true,opacity:ST.photoOp+0.25>1?1:ST.photoOp+0.25})
       :new THREE.MeshLambertMaterial({color:0xd3d1c7,transparent:true,opacity:0.55});
     var fl=new THREE.Mesh(new THREE.PlaneGeometry(w,d),floorMat);
@@ -26069,20 +26273,74 @@ function rebuild3d(){
     root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xb4b2a9})));
     var bd=[new THREE.Vector3(-w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,d/2),new THREE.Vector3(-w/2,0.005,d/2)];
     root.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bd),new THREE.LineBasicMaterial({color:0x444441})));
-    ST.items.forEach(function(it){root.add(buildItem(it,!!pr.bad[it.id]));});
+    ST.items.forEach(function(it){if(CAT[it.t])root.add(buildItem(it,!!pr.bad[it.id]));});
     R3.root=root;R3.scene.add(root);
     render3d();
   });
 }
 window.fpView=function(t,p){T3.th=t;T3.ph=p;render3d();};
 window.fpZoom=function(f){T3.rad=clampR(T3.rad*f);render3d();};
+function download(url,name){var a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);}
+function today(){var t=new Date();return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");}
 window.fpPng=function(){
   if(!T3.ready){msg("3D 화면이 아직 준비되지 않았습니다.",true);return;}
   render3d();
-  var a=document.createElement("a");
-  a.href=R3.ren.domElement.toDataURL("image/png");
-  a.download="화이트샌즈_3D평면도_"+ST.W+"x"+ST.D+".png";
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  download(R3.ren.domElement.toDataURL("image/png"),"화이트샌즈_3D집기_"+ST.W+"x"+ST.D+".png");
+};
+
+/* ── 집기 그림(썸네일) — 3D 모양 그대로 비스듬히 찍는다 ── */
+var TR=null;
+function makeThumbs(){
+  if(!window.THREE)return;
+  try{
+    if(!TR){TR={ren:new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true}),scene:new THREE.Scene(),cam:new THREE.PerspectiveCamera(30,4/3,0.05,100)};
+      TR.ren.setSize(240,180);TR.ren.setPixelRatio(1);
+      TR.scene.add(new THREE.AmbientLight(0xffffff,0.85));var dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(3,6,5);TR.scene.add(dl);}
+    Object.keys(CAT).forEach(function(k){
+      if(THUMB[k])return;
+      var c=CAT[k],g=buildItem({id:0,t:k,x:ST.W/2,z:ST.D/2,r:0,f:false},false);
+      TR.scene.add(g);
+      var bb=new THREE.Box3().setFromObject(g),ctr=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3()).length();
+      TR.cam.position.set(ctr.x+sz*0.95,ctr.y+sz*0.6,ctr.z+sz*1.45);TR.cam.lookAt(ctr);
+      TR.ren.render(TR.scene,TR.cam);
+      THUMB[k]=TR.ren.domElement.toDataURL("image/png");
+      var im=new Image();im.src=THUMB[k];THUMBIMG[k]=im;
+      TR.scene.remove(g);disposeTree(g);
+    });
+  }catch(e){console.warn("집기 그림 만들기 실패",e);}
+}
+
+/* ── 🖼 집기리스트 이미지 — 3D 화면 + 집기 그림 · 이름 · 사이즈 · 보유/배치 ── */
+window.fpListPng=function(){
+  if(!T3.ready){msg("3D 화면이 준비된 뒤에 눌러 주세요.",true);return;}
+  makeThumbs();render3d();
+  var keys=Object.keys(CAT).filter(enabled),W=1240,rowH=118,top=92,snapW=W-80,cvs=R3.ren.domElement,snapH=Math.round(snapW*cvs.height/cvs.width);
+  var H=top+snapH+40+46+keys.length*rowH+60;
+  var cv=document.createElement("canvas");cv.width=W;cv.height=H;var g=cv.getContext("2d");
+  g.fillStyle="#ffffff";g.fillRect(0,0,W,H);
+  g.fillStyle="#111827";g.font="700 30px 'Malgun Gothic',sans-serif";g.textBaseline="alphabetic";g.fillText("화이트샌즈 팝업 집기리스트",40,52);
+  var placed=ST.items.length;
+  g.fillStyle="#5b6675";g.font="16px 'Malgun Gothic',sans-serif";g.fillText("공간 "+ST.W+" × "+ST.D+" mm ("+(Math.round(ST.W*ST.D/10000)/100)+"㎡) · 배치 집기 "+placed+"개 · "+today(),40,80);
+  g.fillStyle="#eef1f4";g.fillRect(40,top,snapW,snapH);g.drawImage(cvs,40,top,snapW,snapH);
+  g.strokeStyle="#e2e8f0";g.strokeRect(40,top,snapW,snapH);
+  var y=top+snapH+40;
+  g.fillStyle="#f1f5f9";g.fillRect(40,y,snapW,40);g.fillStyle="#334155";g.font="700 15px 'Malgun Gothic',sans-serif";
+  g.fillText("그림",56,y+26);g.fillText("집기",240,y+26);g.fillText("사이즈 (가로×깊이×높이 mm)",620,y+26);g.textAlign="right";g.fillText("보유",1050,y+26);g.fillText("배치",1180,y+26);g.textAlign="left";
+  y+=46;
+  keys.forEach(function(k,i){
+    var c=CAT[k],im=THUMBIMG[k],n=countOf(k),q=qtyOf(k);
+    if(i%2){g.fillStyle="#fafafa";g.fillRect(40,y-4,snapW,rowH);}
+    if(im&&im.complete)g.drawImage(im,48,y,144,108);else{g.fillStyle=c.c;g.fillRect(60,y+20,120,70);}
+    g.fillStyle="#111827";g.font="700 19px 'Malgun Gothic',sans-serif";g.fillText(c.n,240,y+50);
+    if(c.est){g.fillStyle="#9a3412";g.font="13px 'Malgun Gothic',sans-serif";g.fillText("사이즈 추정",240,y+74);}
+    g.fillStyle="#334155";g.font="18px 'Malgun Gothic',sans-serif";g.fillText((c.k==="ped"||c.k==="cyl")?"Ø"+c.w+" × "+c.h:c.w+" × "+c.d+" × "+c.h,620,y+56);
+    g.textAlign="right";g.font="700 20px 'Malgun Gothic',sans-serif";g.fillStyle="#111827";g.fillText(String(q),1050,y+56);g.fillStyle=n>q?"#b91c1c":"#111827";g.fillText(String(n),1180,y+56);g.textAlign="left";
+    g.strokeStyle="#e2e8f0";g.beginPath();g.moveTo(40,y+rowH-4);g.lineTo(40+snapW,y+rowH-4);g.stroke();
+    y+=rowH;
+  });
+  g.fillStyle="#5b6675";g.font="14px 'Malgun Gothic',sans-serif";g.fillText("자비스 🧊 3D 집기에서 만듦 · 추정 사이즈는 실측 후 고쳐 주세요",40,H-24);
+  download(cv.toDataURL("image/png"),"화이트샌즈_집기리스트_"+today()+".png");
+  msg("집기리스트 이미지를 내려받았습니다.");
 };
 function resize3d(){
   if(!T3.ready||!pageOn())return;
@@ -26100,13 +26358,16 @@ window.renderFloorPage=function(){
     bind2d();fillSaved("");
     if(cur&&cur.items&&cur.W&&cur.D){setState(cur.W,cur.D,cur.items);ST.next=Math.max(ST.next,cur.next||1);}
     else{window.fpSample();}
+    var pd=null;try{pd=localStorage.getItem(KEY_PHOTO);}catch(e){}
+    if(pd){var im=new Image();im.onload=function(){usePhoto(im);};im.src=pd;}
     window.addEventListener("resize",function(){if(!pageOn())return;draw2d();resize3d();});
   }
-  renderUse();renderPalette();renderSel();renderSum();draw2d();
+  renderUse();renderPhoto();renderPalette();renderSel();renderSum();draw2d();
   if(T3.ready){resize3d();rebuild3d();return;}
   load3d(function(ok){
     if(!ok){var l=$("fpLoad3d");if(l)l.textContent="3D 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 탭을 다시 열어 주세요.";return;}
     if(!T3.ready)init3d();
+    makeThumbs();renderUse();renderSum();
     rebuild3d();
   });
 };
