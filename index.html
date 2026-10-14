@@ -20241,8 +20241,9 @@ function _ccPrevLine(it,dv,opt,active,fresh){
 /* 코스트코 카드 맨 아래 — DSS 송장 입력 결과(2026-10-01 영업2팀). 아이디(ckr.…)마다 올린 주문 수, 남은 주문, 오류 */
 function _ccDssLine(){
   var D=ccDssStatus;if(!D||!D.at)return "";
-  /* 날짜별 중복 확인 결과에 DSS 건수가 붙어 있으면 그 줄들로 충분하다 */
-  var S0=ccSaipStatus;if(S0&&S0.mode==="preview"&&(S0.items||[]).some(function(x){return x&&x.dss;})&&D.mode==="preview")return "";
+  /* DSS 미리보기 결과는 띄우지 않는다 — 날짜별 중복 확인 줄(DSS26·DSS31 건수)로 충분하다(2026-10-14 영업2팀 "DSS송장 10/13 미리보기 전체 내용 필요없습니다").
+     실제 송장 입력(save) 결과만 */
+  if(D.mode==="preview")return "";
   var md=D.mmdd?(+D.mmdd.slice(0,2))+'/'+(+D.mmdd.slice(2,4)):"";
   var pv=D.mode==="preview";
   var acc=(D.accounts||[]).filter(function(a){return !a.same;}).map(function(a){
@@ -20581,7 +20582,8 @@ function _saipCard(kind,opt){
       });
       h+='</div>';
       /* 이대로 등록 — 문제 없는 미리보기, 아직 등록 안 된 날짜, 진행 중인 요청 없음, 2시간 안 */
-      if(it.status==="preview"&&opt&&opt.noReg)h+='<div style="font-size:12px;color:#5b6675;margin-top:4px">🔍 미리보기만 했습니다 — 저장하지 않았습니다(등록은 위 [등록] 버튼)</div>';
+      /* '🔍 미리보기만 했습니다 — 저장하지 않았습니다' 문구는 뺐다(2026-10-14 영업2팀 "문구 필요없습니다") */
+      if(it.status==="preview"&&opt&&opt.noReg){}
       else if(it.status==="preview"&&!it.already&&!_saipLogOf(kind,it.date)&&!active&&fresh)
         h+='<div style="margin-top:6px"><button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:6px 14px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ 이대로 등록</button>'
           +' <span style="font-size:12px;color:#5b6675">미리보기 뒤 원본이 바뀌었으면 저장하지 않습니다</span></div>';
