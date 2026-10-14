@@ -2557,7 +2557,7 @@ label{font-size:14px!important}
   <style>
   /* 3D 집기 배치(2026-10-14 영업2팀): 위 = 평면도(1) · 3D(2, 크게) / 아래 = 집기 수량 표(체크·사이즈·보유 고침) · 예상 자리 이미지. 좁으면 한 줄씩 */
   #page-floor .fp-top{display:grid;grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:12px;align-items:start}
-  #page-floor .fp-bottom{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(260px,1fr);gap:12px 24px;align-items:start}
+  #page-floor .fp-bottom{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,1fr);gap:12px 24px;align-items:start}
   #page-floor #fpView{height:600px}
   @media (max-width:900px){#page-floor .fp-top,#page-floor .fp-bottom{grid-template-columns:1fr}#page-floor #fpView{height:420px}}
   </style>
@@ -2614,17 +2614,14 @@ label{font-size:14px!important}
       </details>
     </div>
     <div style="min-width:0">
-      <div style="font-size:13px;font-weight:700;color:#154f5e;margin:0 0 6px">④ 예상 팝업 자리 이미지</div>
-      <div id="fpPhotoPrev" style="margin-bottom:8px"></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <button onclick="document.getElementById('fpPhotoIn').click()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">이미지 올리기</button>
-        <button onclick="fpClearPhoto()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#9a3412;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">이미지 지우기</button>
-        <label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#334155;cursor:pointer"><input id="fpPhotoFloorChk" type="checkbox" checked onchange="fpPhotoFloor(this.checked)" style="margin:0">평면도·3D 바닥에 깔기</label>
+      <div style="font-size:13px;font-weight:700;color:#154f5e;margin:0 0 6px">④ 예상 팝업 자리 사진 → 공간 크기</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <button onclick="document.getElementById('fpPhotoIn').click()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">자리 사진 올리기</button>
+        <button onclick="fpClearPhoto()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#9a3412;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">사진 지우기</button>
         <input id="fpPhotoIn" type="file" accept="image/*" onchange="fpPhotoPick(this)" style="display:none">
       </div>
-      <label style="display:block;font-size:12px;color:#5b6675;margin-top:8px">바닥 진하기 <span id="fpOpV">50%</span>
-        <input id="fpOp" type="range" min="0" max="100" value="50" oninput="fpOpChange(this.value)" style="width:100%"></label>
-      <div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.5">몰 도면처럼 위에서 본 이미지면 바닥에 깔아 맞춰 보세요(공간 가로×세로 칸에 맞춰 늘어남). 비스듬한 현장 사진은 바닥 깔기를 끄고 참고로만 보세요. 이미지는 줄여서 이 브라우저에 저장됩니다.</div>
+      <div id="fpPhotoPrev"></div>
+      <div id="fpCalRes"></div>
     </div>
   </div>
 </div>
@@ -25710,7 +25707,7 @@ var DEF={
 var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
 var KEY_CUR="jvFloorCur",KEY_SAVED="jvFloorPlans",KEY_USE="jvFloorUse",KEY_CUS="jvFloorCustom",KEY_PHOTO="jvFloorPhoto",KEY_OPT="jvFloorOpt",SNAP=50;
 var CAT={};
-var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:true,autoOn:true};
+var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true}};
 var sc=1,ox=30,oy=30,drag=null;
 var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false,drag:null};
 var R3={scene:null,cam:null,ren:null,root:null,EDGE:null,photoTex:null};
@@ -25775,7 +25772,7 @@ function setState(W,D,items){
   items.forEach(function(o){var t=o.t==="curveTbl"?(o.f?"curveR":"curveL"):o.t;if(CAT[t])ST.items.push(mkItem(t,o.x,o.z,o.r||0,t===o.t?o.f:false));});
   $("fpW").value=W;$("fpD").value=D;
 }
-function changed(){persist();renderPalette();renderSel();renderSum();draw2d();rebuild3d();}
+function changed(){persist();renderPalette();renderSel();renderSum();draw2d();rebuild3d();drawPhoto();}
 function autoIfOn(){if(ST.autoOn){window.fpAuto(true);}else changed();}
 
 /* ── 집기 목록은 아래 '집기 수량' 표 하나로 합쳤다(2026-10-14 영업2팀 "집기목록은 집기 수량으로, 집기 목록은 삭제") ── */
@@ -26043,21 +26040,33 @@ function fillSaved(sel){
   s.innerHTML=h;
 }
 
-/* ── ② 예상 팝업 자리 이미지 ── */
-function usePhoto(img){ST.photo=img;setupPhotoTex();renderPhoto();draw2d();rebuild3d();renderSum();}
+/* ── ④ 예상 팝업 자리 사진 → 공간 크기 (2026-10-14 영업2팀 "사진을 넣으면 평면도의 공간을 예상하여 잡아 달라") ──
+   사진 한 장만으로는 크기를 알 수 없어 바닥 타일을 자로 쓴다.
+   ① 자리 바닥의 모서리 4곳(앞왼 → 앞오 → 뒤오 → 뒤왼)을 찍고 ② 앞변·옆변을 따라 타일이 몇 칸인지 넣으면 가로 = 칸 × 타일 가로, 세로 = 칸 × 타일 세로.
+   사진 위에 넣은 칸 수대로 주황 타일 줄을 원근에 맞춰 그린다(네 모서리 ↔ 평면 직사각형 호모그래피) — 사진 속 줄눈과 겹치면 칸 수가 맞다.
+   ※ 처음엔 타일 한 장의 모서리로 원근을 펴서 자동으로 재려 했지만, 시험해 보니 클릭이 4px만 어긋나도 몇 배씩 틀려(작은 타일을 10배 넘게 늘려 쓰는 셈) 버렸다.
+   [평면도에 적용] → 공간 가로×세로(100mm 단위). 사진 위에 배치한 집기 자리(바닥 발자국)도 겹쳐 그린다. 점은 끌어서 고친다.
+   ST.cal {sp:[[u,v]×4 — 사진 크기에 대한 비율], nx, nz, tw, td, ov} → jvFloorCal · 팀 공유 ws/fx3d/cal. 사진을 바닥에 까는 기능은 뺐다. */
+var KEY_CAL="jvFloorCal";
+var PC={mode:null,drag:null,cw:0,ch:0,est:null};
+function calDefault(){return {sp:[],nx:0,nz:0,tw:600,td:600,ov:true};}
+function loadCal(){try{var o=JSON.parse(localStorage.getItem(KEY_CAL)||"null");if(o&&o.sp)return Object.assign(calDefault(),o);}catch(e){}return calDefault();}
+function saveCal(){try{localStorage.setItem(KEY_CAL,JSON.stringify(ST.cal));}catch(e){}share("cal");}
+function usePhoto(img){ST.photo=img;renderPhoto();renderSum();}
 window.fpPhotoPick=function(input){
   var f=input.files&&input.files[0];
   if(!f)return;
   var url=URL.createObjectURL(f),img=new Image();
   img.onload=function(){
-    /* 줄여서(긴 변 1600px, JPEG) 이 브라우저에 저장 — 새로고침해도 남는다 */
+    /* 줄여서(긴 변 1600px, JPEG) 저장 — 새로고침해도 남고 팀과 공유된다 */
     var k=Math.min(1,1600/Math.max(img.width,img.height)),cv=document.createElement("canvas");
     cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
     URL.revokeObjectURL(url);
-    var data=cv.toDataURL("image/jpeg",0.82),small=new Image(),kept=true;
+    var data=cv.toDataURL("image/jpeg",0.85),small=new Image(),kept=true;
     try{localStorage.setItem(KEY_PHOTO,data);}catch(e){kept=false;}
     shareRaw("photo",data);
-    small.onload=function(){usePhoto(small);msg("예상 팝업 자리 이미지를 올렸습니다."+(ST.photoFloor?" 평면도 밑과 3D 바닥에 깔립니다.":"")+(kept?"":" (저장공간이 부족해 새로고침하면 사라집니다)"),!kept);};
+    ST.cal=Object.assign(calDefault(),{tw:ST.cal.tw,td:ST.cal.td,ov:ST.cal.ov});PC.mode="sp";saveCal();
+    small.onload=function(){usePhoto(small);msg("자리 사진을 올렸습니다. 사진에서 팝업 자리 바닥의 모서리 4곳을 앞왼쪽부터 차례로 눌러 주세요."+(kept?"":" (저장공간이 부족해 새로고침하면 사라집니다)"),!kept);};
     small.src=data;
   };
   img.onerror=function(){URL.revokeObjectURL(url);msg("이미지를 열지 못했습니다. 이미지 파일을 다시 골라 주세요.",true);};
@@ -26066,29 +26075,140 @@ window.fpPhotoPick=function(input){
 };
 window.fpClearPhoto=function(){
   ST.photo=null;try{localStorage.removeItem(KEY_PHOTO);}catch(e){}
-  shareRaw("photo",null);
-  if(R3.photoTex){R3.photoTex.dispose();R3.photoTex=null;}
-  msg("이미지를 지웠습니다.");renderPhoto();
-  draw2d();rebuild3d();renderSum();
+  shareRaw("photo",null);ST.cal=Object.assign(calDefault(),{tw:ST.cal.tw,td:ST.cal.td,ov:ST.cal.ov});PC.mode=null;saveCal();
+  msg("자리 사진을 지웠습니다.");renderPhoto();renderSum();
 };
-window.fpOpChange=function(v){
-  ST.photoOp=Math.max(0,Math.min(100,parseInt(v,10)||0))/100;
-  var e=$("fpOpV");if(e)e.textContent=Math.round(ST.photoOp*100)+"%";
-  saveOpt();draw2d();rebuild3d();
+window.fpCalRedo=function(){ST.cal.sp=[];PC.mode="sp";saveCal();renderPhoto();};
+window.fpCalSet=function(a,v){
+  var lim={nx:[0,200],nz:[0,200],tw:[50,3000],td:[50,3000]}[a],n=parseInt(v,10);
+  if(isNaN(n)){renderPhoto();return;}
+  ST.cal[a]=Math.max(lim[0],Math.min(lim[1],n));saveCal();drawPhoto();
 };
-window.fpPhotoFloor=function(on){ST.photoFloor=!!on;saveOpt();draw2d();rebuild3d();};
+window.fpCalStep=function(a,d){window.fpCalSet(a,(ST.cal[a]||0)+d);};
+window.fpCalOv=function(on){ST.cal.ov=!!on;saveCal();drawPhoto();};
+window.fpCalApply=function(){
+  var e=calEstimate();if(!e){msg("자리 모서리 4곳을 찍고 앞변·옆변 타일 칸 수를 넣어 주세요.",true);return;}
+  var w=Math.max(1000,Math.min(30000,Math.round(e.W/100)*100)),d=Math.max(1000,Math.min(30000,Math.round(e.D/100)*100));
+  ST.W=w;ST.D=d;$("fpW").value=w;$("fpD").value=d;T3.rad=Math.max(w,d)/1000*1.5+2;
+  msg("사진으로 잡은 공간 "+w+" × "+d+" mm를 평면도에 적용했습니다."+(ST.autoOn?"":" (자동 배치가 꺼져 있어 집기는 그대로 — 필요하면 ✨ 자동 배치)"));
+  autoIfOn();
+};
+/* 4점 → 4점 호모그래피(3×3, h33=1). 가우스 소거 — 점이 한 줄에 몰리면 null */
+function homog(s,d){
+  var A=[],b=[],i,j,k;
+  for(i=0;i<4;i++){
+    var x=s[i][0],y=s[i][1],X=d[i][0],Y=d[i][1];
+    A.push([x,y,1,0,0,0,-X*x,-X*y]);b.push(X);
+    A.push([0,0,0,x,y,1,-Y*x,-Y*y]);b.push(Y);
+  }
+  for(i=0;i<8;i++){
+    var p=i;for(j=i+1;j<8;j++)if(Math.abs(A[j][i])>Math.abs(A[p][i]))p=j;
+    if(Math.abs(A[p][i])<1e-12)return null;
+    var t=A[i];A[i]=A[p];A[p]=t;t=b[i];b[i]=b[p];b[p]=t;
+    for(j=i+1;j<8;j++){var f=A[j][i]/A[i][i];for(k=i;k<8;k++)A[j][k]-=f*A[i][k];b[j]-=f*b[i];}
+  }
+  var h=new Array(8);
+  for(i=7;i>=0;i--){var sm=b[i];for(k=i+1;k<8;k++)sm-=A[i][k]*h[k];h[i]=sm/A[i][i];}
+  return h.concat([1]);
+}
+function hApply(H,p){var w=H[6]*p[0]+H[7]*p[1]+H[8];return [(H[0]*p[0]+H[1]*p[1]+H[2])/w,(H[3]*p[0]+H[4]*p[1]+H[5])/w];}
+/* 공간 크기 = 칸 수 × 타일 크기. 사진 위 그리기용으로 평면(mm, z=0 뒤 · z=D 앞) → 사진 비율좌표 호모그래피도 만든다 */
+function calEstimate(){
+  PC.est=null;
+  var c=ST.cal;if(!ST.photo||c.sp.length<4)return null;
+  var W=c.nx*c.tw,D=c.nz*c.td;
+  var quad=c.sp,Hq=function(w,d){return homog([[0,d],[w,d],[w,0],[0,0]],quad);};
+  PC.est={W:W,D:D,ok:W>0&&D>0,Hq:Hq};
+  return PC.est.ok?PC.est:null;
+}
 function renderPhoto(){
-  var p=$("fpPhotoPrev");if(p){p.innerHTML=ST.photo?'<img src="'+ST.photo.src+'" alt="예상 팝업 자리" style="width:100%;max-height:220px;object-fit:contain;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc">':'<div style="font-size:12px;color:#5b6675;padding:14px;border:1px dashed #cbd5e1;border-radius:6px;text-align:center">아직 이미지가 없습니다. 몰 도면 캡처나 자리 사진을 올려 주세요.</div>';}
-  var c=$("fpPhotoFloorChk");if(c)c.checked=ST.photoFloor;
-  var o=$("fpOp");if(o)o.value=Math.round(ST.photoOp*100);var ov=$("fpOpV");if(ov)ov.textContent=Math.round(ST.photoOp*100)+"%";
+  var p=$("fpPhotoPrev");if(!p)return;
+  if(!ST.photo){p.innerHTML='<div style="font-size:12px;color:#5b6675;padding:14px;border:1px dashed #cbd5e1;border-radius:6px;text-align:center;line-height:1.6">팝업 예정 자리 사진을 올리면 바닥 타일 칸 수로 공간 크기(가로×세로)를 잡아 평면도에 적용합니다.<br>자리 네 모서리와 바닥 타일 줄눈이 보이게 찍은 사진이 좋습니다.</div>';var r0=$("fpCalRes");if(r0)r0.innerHTML="";return;}
+  if(!$("fpPhotoCv")){p.innerHTML='<canvas id="fpPhotoCv" style="display:block;max-width:100%;border-radius:6px;border:1px solid #e2e8f0;touch-action:none;cursor:crosshair"></canvas>';bindPhoto();}
+  if(!PC.mode&&ST.cal.sp.length<4)PC.mode="sp";
+  drawPhoto();
 }
-function setupPhotoTex(){
-  if(!ST.photo||!T3.ready||!window.THREE)return;
-  if(R3.photoTex)R3.photoTex.dispose();
-  R3.photoTex=new THREE.Texture(ST.photo);
-  R3.photoTex.needsUpdate=true;
+function drawPhoto(){
+  var cv=$("fpPhotoCv"),im=ST.photo;if(!cv||!im)return;
+  var box=cv.parentNode,avail=Math.max(240,box.clientWidth||300),cw=avail,ch=cw*im.height/im.width;
+  if(ch>620){ch=620;cw=ch*im.width/im.height;}
+  PC.cw=cw;PC.ch=ch;
+  var dpr=window.devicePixelRatio||1;cv.style.width=Math.round(cw)+"px";cv.style.height=Math.round(ch)+"px";cv.width=Math.round(cw*dpr);cv.height=Math.round(ch*dpr);
+  var g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.drawImage(im,0,0,cw,ch);
+  var c=ST.cal,est=calEstimate(),n2c=function(p){return [p[0]*cw,p[1]*ch];};
+  if(c.sp.length===4){
+    /* 타일 줄 — 넣은 칸 수대로. 사진 속 줄눈과 겹치면 칸 수가 맞다 */
+    if(c.nx>0||c.nz>0){
+      var nx=Math.max(1,c.nx||1),nz=Math.max(1,c.nz||1),Ht=homog([[0,nz],[nx,nz],[nx,0],[0,0]],c.sp);
+      if(Ht){
+        var t2c=function(x,z){return n2c(hApply(Ht,[x,z]));},v;
+        g.strokeStyle="rgba(234,88,12,.9)";g.lineWidth=1.2;g.beginPath();
+        if(c.nx>0)for(v=1;v<nx;v++){var a=t2c(v,0),b=t2c(v,nz);g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);}
+        if(c.nz>0)for(v=1;v<nz;v++){var a2=t2c(0,v),b2=t2c(nx,v);g.moveTo(a2[0],a2[1]);g.lineTo(b2[0],b2[1]);}
+        g.stroke();
+      }
+    }
+    /* 배치한 집기 자리(바닥 발자국) — 평면도 크기를 자리 네 모서리에 맞춘다 */
+    var G=homog([[0,ST.D],[ST.W,ST.D],[ST.W,0],[0,0]],c.sp);
+    if(c.ov&&G)ST.items.forEach(function(it){
+      var cc=CAT[it.t];if(!cc)return;var pts=[],P=function(x,z){return n2c(hApply(G,[x,z]));};
+      if(isRound(cc)){for(var i=0;i<20;i++){var t=i/20*Math.PI*2;pts.push(P(it.x+Math.cos(t)*cc.w/2,it.z+Math.sin(t)*cc.w/2));}}
+      else{var r=rectOf(it);pts=[P(r.x0,r.z0),P(r.x1,r.z0),P(r.x1,r.z1),P(r.x0,r.z1)];}
+      g.beginPath();pts.forEach(function(q,i){if(i)g.lineTo(q[0],q[1]);else g.moveTo(q[0],q[1]);});g.closePath();
+      g.globalAlpha=0.55;g.fillStyle=cc.c;g.fill();g.globalAlpha=1;g.strokeStyle="#1e293b";g.lineWidth=1.5;g.stroke();
+    });
+  }
+  /* 자리 모서리 */
+  var pts=c.sp.map(n2c),names=["앞왼","앞오","뒤오","뒤왼"];
+  if(pts.length){
+    g.strokeStyle="#0f766e";g.lineWidth=2.5;g.beginPath();pts.forEach(function(q,i){if(i)g.lineTo(q[0],q[1]);else g.moveTo(q[0],q[1]);});if(pts.length===4)g.closePath();g.stroke();
+    pts.forEach(function(q,i){g.fillStyle="#0f766e";g.beginPath();g.arc(q[0],q[1],6,0,Math.PI*2);g.fill();g.strokeStyle="#fff";g.lineWidth=2;g.stroke();
+      g.font="700 11px sans-serif";g.fillStyle="#fff";g.strokeStyle="rgba(0,0,0,.65)";g.lineWidth=3;g.strokeText(names[i],q[0]+8,q[1]-8);g.fillText(names[i],q[0]+8,q[1]-8);});
+  }
+  /* 안내 · 칸 수 · 결과 */
+  var r=$("fpCalRes");if(!r)return;
+  var bt='padding:3px 9px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer';
+  var inp='width:58px;padding:3px 4px;border:1px solid #cbd5e1;border-radius:5px;font-size:12.5px;text-align:right';
+  var stepper=function(a,label){return '<span style="display:inline-flex;align-items:center;gap:3px">'+label+' <button onclick="fpCalStep(\''+a+'\',-1)" style="'+bt+'">−</button><input type="number" min="0" max="200" value="'+(c[a]||"")+'" placeholder="칸" onchange="fpCalSet(\''+a+'\',this.value)" style="'+inp+';width:50px"><button onclick="fpCalStep(\''+a+'\',1)" style="'+bt+'">+</button>칸</span>';};
+  var step=c.sp.length<4?'<b style="color:#0f766e">① 팝업 자리 바닥의 모서리 4곳</b>을 앞왼쪽 → 앞오른쪽 → 뒤오른쪽 → 뒤왼쪽 순서로 누르세요 ('+c.sp.length+'/4)'
+    :(!c.nx||!c.nz)?'<b style="color:#ea580c">② 앞변(가로)과 옆변(세로)을 따라 바닥 타일이 몇 칸인지</b> 넣으세요. 사진 위 주황 줄이 타일 줄눈과 겹치면 맞습니다.'
+    :'주황 줄이 사진 속 타일 줄눈과 겹치는지 보고 칸 수를 −/+로 맞추세요. 모서리 점은 끌어서 고칩니다.';
+  var h='<div style="font-size:12.5px;color:#334155;line-height:1.6;margin:6px 0">'+step+'</div>';
+  if(c.sp.length===4)h+='<div style="display:flex;gap:8px 14px;flex-wrap:wrap;align-items:center;font-size:12px;color:#5b6675;margin-bottom:6px">'
+    +stepper("nx","앞변(가로)")+stepper("nz","옆변(세로)")
+    +'<span>타일 <input type="number" min="50" step="10" value="'+c.tw+'" onchange="fpCalSet(\'tw\',this.value)" style="'+inp+'">×<input type="number" min="50" step="10" value="'+c.td+'" onchange="fpCalSet(\'td\',this.value)" style="'+inp+'"> mm</span></div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:#5b6675"><button onclick="fpCalRedo()" style="'+bt+'">모서리 다시 찍기</button>'
+    +'<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" '+(c.ov?'checked':'')+' onchange="fpCalOv(this.checked)" style="margin:0">사진 위에 집기 자리 보기</label></div>';
+  if(est){
+    var f=function(n){return Math.round(n).toLocaleString();};
+    h+='<div style="margin-top:8px;padding:8px 10px;border:1px solid #99f6e4;background:#f0fdfa;border-radius:8px;font-size:13px;line-height:1.6">'
+      +'공간 <b style="font-size:15px">'+f(est.W)+' × '+f(est.D)+' mm</b> <span style="color:#5b6675;font-size:12px">(가로 '+c.nx+'칸 × '+c.tw+' · 세로 '+c.nz+'칸 × '+c.td+')</span>'
+      +' <button onclick="fpCalApply()" style="padding:5px 12px;border:none;background:#0f766e;color:#fff;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px">평면도에 적용</button>'
+      +((Math.round(est.W/100)*100!==ST.W||Math.round(est.D/100)*100!==ST.D)?'<div style="color:#5b6675;font-size:11.5px">지금 평면도는 '+ST.W+' × '+ST.D+' mm — 적용하면 바뀝니다. 사진 위 집기 자리는 평면도 크기를 자리 모서리에 맞춰 그린 것입니다.</div>':'<div style="color:#0f766e;font-size:11.5px">평면도 크기와 같습니다.</div>')
+      +'</div>';
+  }
+  r.innerHTML=h;
 }
-function photoOnFloor(){return !!(ST.photo&&ST.photoFloor);}
+function bindPhoto(){
+  var cv=$("fpPhotoCv");
+  var near=function(q){var best=-1,bd=14;ST.cal.sp.forEach(function(p,i){var d=Math.hypot(p[0]*PC.cw-q.x,p[1]*PC.ch-q.y);if(d<bd){bd=d;best=i;}});return best;};
+  cv.addEventListener("pointerdown",function(e){
+    var q=cvPt(cv,e),hit=near(q);
+    if(hit>=0){PC.drag=hit;try{cv.setPointerCapture(e.pointerId);}catch(er){}return;}
+    var L=ST.cal.sp;if(L.length>=4)return;
+    L.push([Math.max(0,Math.min(1,q.x/PC.cw)),Math.max(0,Math.min(1,q.y/PC.ch))]);
+    if(L.length===4)PC.mode=null;
+    saveCal();drawPhoto();
+  });
+  cv.addEventListener("pointermove",function(e){
+    if(PC.drag==null)return;var q=cvPt(cv,e);
+    ST.cal.sp[PC.drag]=[Math.max(0,Math.min(1,q.x/PC.cw)),Math.max(0,Math.min(1,q.y/PC.ch))];drawPhoto();
+  });
+  var end=function(){if(PC.drag!=null){PC.drag=null;saveCal();}};
+  cv.addEventListener("pointerup",end);cv.addEventListener("pointercancel",end);
+}
+function setupPhotoTex(){}
+function photoOnFloor(){return false;}
 
 /* ── 2D 평면 ── */
 function shape2d(g,c,w,d,f){ /* 집기 중심 원점, 앞면 +y(아래) — 곡면 진열대는 바깥 앞 모서리를 둥글게 */
@@ -26397,7 +26517,6 @@ function buildItem(it,bad){
     mk(g,w/3-0.02,0.02,d-0.02,px,h-0.01,0,WH);
   }else if(c.k==="table"){
     mk(g,w,h,d,0,h/2,0,WH);
-    mk(g,w*0.8,h*0.65,0.012,0,h*0.5,d/2+0.006,0x2c2c2a);
     [-w/2+0.05,w/2-0.05].forEach(function(cx){mk(g,0.06,0.06,0.06,cx,0.03,d/2-0.1,0x5F5E5A);mk(g,0.06,0.06,0.06,cx,0.03,-d/2+0.1,0x5F5E5A);});
   }else if(c.k==="rack"){
     var GOLD=0xBA7517;
@@ -26619,7 +26738,8 @@ var SRC={
   cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next});},
   use:function(){return JSON.stringify(ST.use);},
   cus:function(){return JSON.stringify(ST.cus);},
-  plans:function(){try{return localStorage.getItem(KEY_SAVED)||"{}";}catch(e){return "{}";}}
+  plans:function(){try{return localStorage.getItem(KEY_SAVED)||"{}";}catch(e){return "{}";}},
+  cal:function(){return JSON.stringify(ST.cal);}
 };
 function share(key){
   if(!SH.on)return;
@@ -26688,15 +26808,21 @@ function listenShare(){
   R("photo").on("value",function(s){
     var v=s.val();if(v===SH.last.photo)return;SH.last.photo=v;
     var cur=null;try{cur=localStorage.getItem(KEY_PHOTO);}catch(e){}
-    if(!v){if(ST.photo){ST.photo=null;try{localStorage.removeItem(KEY_PHOTO);}catch(e){}if(R3.photoTex){R3.photoTex.dispose();R3.photoTex=null;}renderPhoto();draw2d();rebuild3d();renderSum();}return;}
+    if(!v){if(ST.photo){ST.photo=null;try{localStorage.removeItem(KEY_PHOTO);}catch(e){}renderPhoto();renderSum();}return;}
     if(v===cur&&ST.photo)return;
     try{localStorage.setItem(KEY_PHOTO,v);}catch(e){}
-    var im=new Image();im.onload=function(){if(R3.photoTex){R3.photoTex.dispose();R3.photoTex=null;}usePhoto(im);};im.src=v;
+    var im=new Image();im.onload=function(){usePhoto(im);};im.src=v;
   });
   R("plans").on("value",function(s){
     var v=s.val();if(!v||v===SH.last.plans)return;SH.last.plans=v;
     try{localStorage.setItem(KEY_SAVED,v);}catch(e){}
     var sel=$("fpSaved");fillSaved(sel?sel.value:"");
+  });
+  R("cal").on("value",function(s){
+    var v=s.val();if(!v||v===SH.last.cal)return;SH.last.cal=v;
+    try{ST.cal=Object.assign(calDefault(),JSON.parse(v));}catch(e){return;}
+    try{localStorage.setItem(KEY_CAL,v);}catch(e){}
+    PC.mode=null;renderPhoto();
   });
   R("meta").on("value",function(s){var v=s.val();if(!v)return;try{SH.meta=JSON.parse(v);}catch(e){}renderShare();});
 }
@@ -26707,7 +26833,7 @@ function startShare(){
   fbDB.ref("ws/fx3d/cur").once("value").then(function(snap){
     SH.on=true;
     if(!snap.val()){ /* 공유본이 비어 있으면 이 브라우저 것을 올려 시작 */
-      ["cur","use","cus","plans"].forEach(share);
+      ["cur","use","cus","plans","cal"].forEach(share);
       var ph=null;try{ph=localStorage.getItem(KEY_PHOTO);}catch(e){}
       if(ph)shareRaw("photo",ph);
       ST.cus.forEach(function(c){if(!c.img)return;var d=null;try{d=localStorage.getItem(KEY_IMG+c.k);}catch(e){}if(d)shareRaw("img/"+c.k,d);});
@@ -26722,14 +26848,14 @@ var inited=false;
 window.renderFloorPage=function(){
   if(!inited){
     inited=true;
-    loadUse();
+    loadUse();ST.cal=loadCal();
     var cur=null;try{cur=JSON.parse(localStorage.getItem(KEY_CUR)||"null");}catch(e){}
     bind2d();fillSaved("");
     if(cur&&cur.items&&cur.W&&cur.D){setState(cur.W,cur.D,cur.items);ST.next=Math.max(ST.next,cur.next||1);}
     else{window.fpSample();}
     var pd=null;try{pd=localStorage.getItem(KEY_PHOTO);}catch(e){}
     if(pd){var im=new Image();im.onload=function(){usePhoto(im);};im.src=pd;}
-    window.addEventListener("resize",function(){if(!pageOn())return;draw2d();resize3d();});
+    window.addEventListener("resize",function(){if(!pageOn())return;draw2d();resize3d();drawPhoto();});
     startShare();
   }
   renderShare();
