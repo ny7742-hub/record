@@ -20572,9 +20572,13 @@ function renderSaipAuto(){
   var box=document.getElementById("saipAutoStatus");if(!box)return;
   ["hs","ds","cc","mv","so","xc"].forEach(function(k){
     var el=_saipDateEl(k);if(!el)return;
-    /* 직접 고르지 않았으면: 등록할 건이 있으면 그 날짜(가장 이른 것), 없으면 기본 날짜 */
+    /* 직접 고르지 않았으면: 등록할 건 중 **검수 결과 중복이 아닌** 가장 이른 날짜(없으면 등록할 건 중 가장 이른 날), 없으면 기본 날짜 */
     var rd0=_saipReadyOf(k);
-    if(!el.value||!_saipTouched[k])el.value=rd0.length?rd0.map(function(x){return x.date;}).sort()[0]:_saipDefaultDate(k);
+    if(!el.value||!_saipTouched[k]){
+      var ds0=rd0.map(function(x){return x.date;}).sort();
+      var nd0=ds0.filter(function(d){var c=_saipCheck(k,d);return !(c&&c.s==="dup");});
+      el.value=ds0.length?(nd0[0]||ds0[0]):_saipDefaultDate(k);
+    }
     var note=document.getElementById("saipNote_"+k);if(!note)return;
     var dd=new Date(el.value+"T00:00:00"),mm=el.value.slice(5,7)+el.value.slice(8,10),warn=[];
     if(dd.getDay()===0||dd.getDay()===6)warn.push("주말");
@@ -20584,15 +20588,22 @@ function renderSaipAuto(){
     note.innerHTML=src+" · "+(_saipTouched[k]?"직접 고름":def)+(warn.length?' <span style="color:#b45309;font-weight:700">· '+warn.join(" · ")+'</span>':'');
     /* 등록할 건 — 날짜를 누르면 그 날짜로 바뀐다 */
     var rd=_saipReadyOf(k),er=((saipReady||{}).err||{})[k],tile=note.parentElement;
-    if(rd.length)note.innerHTML+='<div style="margin-top:3px;color:#b45309;font-weight:800">📥 등록할 건: '+rd.map(function(x){return '<a href="#" onclick="return _saipPickReady(\''+k+'\',\''+x.date+'\')" title="'+_escX((x.files||[]).join(", "))+' — 누르면 이 날짜로" style="color:#b45309">'+(+x.mmdd.slice(0,2))+'/'+(+x.mmdd.slice(2,4))+'</a>';}).join(", ")+'</div>';
+    /* 날짜 옆에 검수 결과 — ✔ 겹침 없음 · 중복(이미 있음) · ? 검수 전 · ! 확인 필요(2026-10-14) */
+    if(rd.length)note.innerHTML+='<div style="margin-top:3px;color:#b45309;font-weight:800">📥 등록할 건: '+rd.map(function(x){
+      var c=_saipCheck(k,x.date),tag=!c?'<span style="color:#5b6675;font-weight:600"> 검수 전</span>':c.s==="ok"?'<span style="color:#047857"> ✔</span>':c.s==="dup"?'<span style="color:#5b6675;font-weight:600"> 중복</span>':'<span style="color:#b91c1c"> ❗</span>';
+      return '<a href="#" onclick="return _saipPickReady(\''+k+'\',\''+x.date+'\')" title="'+_escX((x.files||[]).join(", "))+' — 누르면 이 날짜로" style="color:'+(c&&c.s==="dup"?'#5b6675;text-decoration:line-through':'#b45309')+'">'+(+x.mmdd.slice(0,2))+'/'+(+x.mmdd.slice(2,4))+'</a>'+tag;}).join(", ")+'</div>';
     else if(er)note.innerHTML+='<div style="margin-top:3px;color:#b91c1c">⚠ '+_escX(er)+'</div>';
     /* 버튼 색으로 상태를 보인다(2026-09-30 영업2팀) — 등록 중 · 완료(민트) · 요망(보라) · 평소(청록) */
-    var R0=(saipReq||{})[k],v=el.value,C0=_saipCheck(k,v),isRd=rd.some(function(x){return x.date===v;});
+    var R0=(saipReq||{})[k],v=el.value,C0=_saipCheck(k,v);
+    /* 등록요망은 고른 날짜 하나가 아니라 **등록할 건 전부**의 검수 결과로 정한다(2026-10-14 영업2팀 "일주일 중복 검수 →
+       중복 없는 등록건이 있으면 등록요망"): 겹침 없는 날이 하나라도 있으면 요망 ✔검수 · 검수 전·확인 필요가 남았으면 요망 ·
+       전부 중복(플레이엠디에 이미 있음 — 사람이 직접 올린 날)이면 등록요망을 끈다 */
+    var rC=rd.map(function(x){return _saipCheck(k,x.date);});
+    var rOk=rC.some(function(c){return c&&c.s==="ok";}),rAllDup=rC.length&&rC.every(function(c){return c&&c.s==="dup";});
     var st=_saipReqActive(R0)?(R0.mode==="preview"?"pbusy":"busy")
+      :rd.length?(rOk?"todook":rAllDup?"dup":"todo")
       :(_saipLogOf(k,v)||((k==="hs"||k==="ds")&&v<=SAIP_BASELINE))?"done"
-      /* 검수 결과 플레이엠디에 이미 있으면 등록요망을 띄우지 않는다 — 사람이 직접 올린 날이다(2026-10-13 영업2팀) */
-      :(C0&&C0.s==="dup")?"dup"
-      :isRd?((C0&&C0.s==="ok")?"todook":"todo"):"idle";
+      :(C0&&C0.s==="dup")?"dup":"idle";
     _saipBtnPaint(k,st);
     if(k==="cc")note.innerHTML+=_ccTwoSteps(v);
   });
