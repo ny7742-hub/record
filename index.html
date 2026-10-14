@@ -2552,6 +2552,7 @@ label{font-size:14px!important}
       <button onclick="fpDelSaved()" style="padding:5px 10px;background:#f8fafc;color:#9a3412;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">삭제</button>
     </div>
     <div id="fpMsg" style="font-size:12.5px;color:#5b6675;margin-top:8px;line-height:1.5"></div>
+    <div id="fpShare" style="font-size:12px;color:#0f766e;margin-top:4px"></div>
   </div>
   <style>
   /* 3D 집기 배치(2026-10-14 영업2팀): 위 = 평면도(1) · 3D(2, 크게) / 아래 = 집기 목록 · 예상 자리 이미지. 좁으면 한 줄씩 */
@@ -25630,7 +25631,7 @@ var DEF={
   stdMir:{n:"스탠딩 거울",s:"스탠딩거울",w:500,d:300,h:1700,c:"#C0DD97",k:"mirror",inv:2,est:true},
   curveL:{n:"곡면 2단 진열대 (좌)",s:"곡면(좌)",w:2300,d:1000,h:850,c:"#E8DCC8",k:"curve",side:"L",inv:1,est:true},
   curveR:{n:"곡면 2단 진열대 (우)",s:"곡면(우)",w:2300,d:1000,h:850,c:"#E8DCC8",k:"curve",side:"R",inv:1,est:true},
-  pedestal:{n:"원형 좌대",s:"원형좌대",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,est:true}
+  pedestal:{n:"원형 집기",s:"원형집기",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,est:true}
 };
 var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
 var KEY_CUR="jvFloorCur",KEY_SAVED="jvFloorPlans",KEY_USE="jvFloorUse",KEY_CUS="jvFloorCustom",KEY_PHOTO="jvFloorPhoto",KEY_OPT="jvFloorOpt",SNAP=50;
@@ -25677,9 +25678,10 @@ function loadUse(){
   try{var o=JSON.parse(localStorage.getItem(KEY_OPT)||"null");if(o){ST.autoOn=o.autoOn!==false;ST.photoFloor=o.photoFloor!==false;if(o.op!=null)ST.photoOp=o.op;}}catch(e){}
   buildCat();
 }
-function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));localStorage.setItem(KEY_CUS,JSON.stringify(ST.cus));}catch(e){}}
+function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));localStorage.setItem(KEY_CUS,JSON.stringify(ST.cus));}catch(e){}share("use");share("cus");}
 function saveOpt(){try{localStorage.setItem(KEY_OPT,JSON.stringify({autoOn:ST.autoOn,photoFloor:ST.photoFloor,op:ST.photoOp}));}catch(e){}}
-function persist(){try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next}));}catch(e){}}
+function persist(){try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next}));}catch(e){}
+  SH.pendingCur=null;share("cur");}   /* 끄는 사이 들어온 남의 배치는 버리고 내 것을 올린다(마지막에 쓴 사람이 이긴다) */
 function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
 
 function problems(){
@@ -25766,7 +25768,7 @@ window.fpCusAdd=function(){
 window.fpCusDel=function(k){
   if(!CAT[k]||!CAT[k].cus)return;
   if(!window.confirm("'"+CAT[k].n+"'을(를) 집기 목록에서 지울까요? 배치된 것도 빠집니다."))return;
-  ST.cus=ST.cus.filter(function(c){return c.k!==k;});delete ST.use[k];try{localStorage.removeItem(KEY_IMG+k);}catch(e){}delete PHIMG[k];if(PHTEX[k]){PHTEX[k].dispose();delete PHTEX[k];}
+  ST.cus=ST.cus.filter(function(c){return c.k!==k;});delete ST.use[k];try{localStorage.removeItem(KEY_IMG+k);}catch(e){}shareRaw("img/"+k,null);delete PHIMG[k];if(PHTEX[k]){PHTEX[k].dispose();delete PHTEX[k];}
   ST.items=ST.items.filter(function(i){return i.t!==k;});if(ST.sel&&!findItem(ST.sel))ST.sel=null;
   saveUse();buildCat();renderUse();changed();
 };
@@ -25836,6 +25838,7 @@ window.fpPfxAdd=function(){
   if(sh==="panel")d=Math.max(50,Math.min(d,300));
   var k="cus"+Date.now().toString(36);
   try{localStorage.setItem(KEY_IMG+k,PF.cut);}catch(e){msg("브라우저 저장공간이 모자라 사진을 저장하지 못했습니다. 다른 사진 집기를 지우고 다시 해 주세요.",true);return;}
+  shareRaw("img/"+k,PF.cut);
   ST.cus.push({k:k,n:nm,w:snap(w),d:Math.max(50,snap(d)),h:snap(h),shape:sh,img:true,col:PF.col});
   ST.use[k]={on:true,qty:Math.max(1,parseInt($("fpPfxQ").value,10)||1)};
   saveUse();buildCat();loadPhImg(k,PF.cut);renderUse();
@@ -25873,7 +25876,7 @@ window.fpSample=function(){
   changed();
 };
 window.fpClear=function(){ST.items=[];ST.sel=null;msg("");changed();};
-/* 자동 배치 — 뒷줄 선반 · 양옆 스탠딩 거울 · 가운데 줄 로고테이블·우양산·카운터·직접 추가 · 앞 모서리 곡면 진열대 · 앞 가운데 원형 좌대 */
+/* 자동 배치 — 뒷줄 선반 · 양옆 스탠딩 거울 · 가운데 줄 로고테이블·우양산·카운터·직접 추가 · 앞 모서리 곡면 진열대 · 앞 가운데 원형 집기 */
 window.fpAuto=function(quiet){
   var W=ST.W,D=ST.D,GAP=300,MARG=300,out=[],warn=[],i;
   function outCount(t){var n=0;out.forEach(function(o){if(o.t===t)n++;});return n;}
@@ -25891,7 +25894,7 @@ window.fpAuto=function(quiet){
   if(!shelfTypes.length)warn.push("선반집기를 고르지 않아 뒷줄을 비웠습니다");
   else if(!n)warn.push("가로가 좁아 선반집기를 놓지 못했습니다");
   var backEdge=n?zb+sd/2:MARG;
-  /* 앞 모서리 곡면 진열대 · 앞 가운데 원형 좌대 */
+  /* 앞 모서리 곡면 진열대 · 앞 가운데 원형 집기 */
   var hasL=enabled("curveL")&&qtyOf("curveL")>0,hasR=enabled("curveR")&&qtyOf("curveR")>0,cv=(hasL?1:0)+(hasR?1:0),cw=Math.max(CAT.curveL.w,CAT.curveR.w),cd=Math.max(CAT.curveL.d,CAT.curveR.d),frontZ=D-MARG-cd/2;
   var pedN=enabled("pedestal")?qtyOf("pedestal"):0,pw=CAT.pedestal.w;
   var midNeed=backEdge+900+800+600+cd+MARG;
@@ -25925,7 +25928,7 @@ window.fpAuto=function(quiet){
     out.push({t:"stdMir",x:mw/2,z:backEdge+400});
     if(mirN>1)out.push({t:"stdMir",x:W-mw/2,z:backEdge+400});
   }else if(mirN>0)warn.push("가로가 좁아 스탠딩 거울을 놓지 못했습니다");
-  /* 원형 좌대 — 앞 가운데에 지그재그, 남으면 오른쪽 옆 */
+  /* 원형 집기 — 앞 가운데에 지그재그, 남으면 오른쪽 옆 */
   if(pedN>0){
     var pz=frontRow?frontZ:Math.min(D-MARG-pw/2,midZ+midD/2+600+pw/2),cx=W/2,placed=0;
     var spots=[[-0.55,0],[0.55,-0.5],[-1.65,-0.5],[1.65,0],[-2.75,0],[2.75,-0.5]];
@@ -25943,7 +25946,7 @@ window.fpAuto=function(quiet){
         if(free&&!(zz-pw/2<midZ+midD/2+600&&zz+pw/2>midZ-midD/2-600&&xx>(W-rowW)/2-600&&xx<(W+rowW)/2+600)){out.push({t:"pedestal",x:snap(xx),z:snap(zz)});placed++;}
       }
     }
-    if(placed<pedN)warn.push("자리가 없어 원형 좌대 "+(pedN-placed)+"개를 뺐습니다");
+    if(placed<pedN)warn.push("자리가 없어 원형 집기 "+(pedN-placed)+"개를 뺐습니다");
   }
   setState(W,D,out);
   ST.sel=null;
@@ -25964,7 +25967,7 @@ window.fpSave=function(){
   if(!name)return;name=name.trim();if(!name)return;
   var all=savedAll();all[name]={W:ST.W,D:ST.D,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){msg("저장하지 못했습니다(브라우저 저장공간).",true);return;}
-  fillSaved(name);msg("'"+name+"' 배치를 저장했습니다. 이 브라우저에만 보관됩니다.");
+  share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
 };
 window.fpLoad=function(){
   var v=$("fpSaved").value;if(!v)return;
@@ -25978,7 +25981,7 @@ window.fpDelSaved=function(){
   if(!window.confirm("'"+v+"' 저장 배치를 삭제할까요?"))return;
   var all=savedAll();delete all[v];
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){}
-  fillSaved("");msg("삭제했습니다.");
+  share("plans");fillSaved("");msg("삭제했습니다.");
 };
 function fillSaved(sel){
   var s=$("fpSaved");if(!s)return;
@@ -26000,6 +26003,7 @@ window.fpPhotoPick=function(input){
     URL.revokeObjectURL(url);
     var data=cv.toDataURL("image/jpeg",0.82),small=new Image(),kept=true;
     try{localStorage.setItem(KEY_PHOTO,data);}catch(e){kept=false;}
+    shareRaw("photo",data);
     small.onload=function(){usePhoto(small);msg("예상 팝업 자리 이미지를 올렸습니다."+(ST.photoFloor?" 평면도 밑과 3D 바닥에 깔립니다.":"")+(kept?"":" (저장공간이 부족해 새로고침하면 사라집니다)"),!kept);};
     small.src=data;
   };
@@ -26009,6 +26013,7 @@ window.fpPhotoPick=function(input){
 };
 window.fpClearPhoto=function(){
   ST.photo=null;try{localStorage.removeItem(KEY_PHOTO);}catch(e){}
+  shareRaw("photo",null);
   if(R3.photoTex){R3.photoTex.dispose();R3.photoTex=null;}
   msg("이미지를 지웠습니다.");renderPhoto();
   draw2d();rebuild3d();renderSum();
@@ -26506,6 +26511,118 @@ function resize3d(){
   R3.cam.aspect=W/H;R3.cam.updateProjectionMatrix();R3.ren.setSize(W,H);render3d();
 }
 
+/* ── 👥 팀 공유 (2026-10-14 영업2팀 "3D집기도 팀 공유되게") ──
+   Firebase ws/fx3d 아래에 나눠 둔다: cur(현재 배치) · plans(저장한 배치) · use(체크·수량·사이즈) · cus(직접 추가·사진 집기) ·
+   img/<키>(사진 집기 그림) · photo(예상 팝업 자리 이미지) · meta(마지막으로 배치를 바꾼 사람·시각). '바로 자동 배치'·바닥 진하기(jvFloorOpt)는 각자.
+   쓰기는 잠깐 모았다가(배치 0.5초) 한 번에, 내가 쓴 값이 되돌아오면(같은 글자) 건너뛴다. 남이 바꾼 배치는 끄는 중이면 끝난 뒤에 반영.
+   처음 켤 때 공유본이 비어 있으면 이 브라우저의 것을 올려 시작한다. 로컬(localhost)·승인 전 사용자는 공유하지 않는다(다른 탭과 같은 규칙). */
+var SH={on:false,started:false,last:{},timers:{},pendingCur:null,meta:null};
+function canShare(){
+  try{return typeof fbDB!=="undefined"&&!!fbDB&&!(typeof WS_LOCAL_ONLY!=="undefined"&&WS_LOCAL_ONLY)&&(_authState==="member"||_authState==="open");}catch(e){return false;}
+}
+function meName(){try{if(_authMe&&_authMe.name)return String(_authMe.name);if(_authUser&&_authUser.email)return String(_authUser.email).split("@")[0];}catch(e){}return "";}
+var SRC={
+  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next});},
+  use:function(){return JSON.stringify(ST.use);},
+  cus:function(){return JSON.stringify(ST.cus);},
+  plans:function(){try{return localStorage.getItem(KEY_SAVED)||"{}";}catch(e){return "{}";}}
+};
+function share(key){
+  if(!SH.on)return;
+  clearTimeout(SH.timers[key]);
+  SH.timers[key]=setTimeout(function(){
+    var v=SRC[key]();if(SH.last[key]===v)return;SH.last[key]=v;
+    try{
+      fbDB.ref("ws/fx3d/"+key).set(v);
+      if(key==="cur"){SH.meta={by:meName(),at:new Date().toISOString()};fbDB.ref("ws/fx3d/meta").set(JSON.stringify(SH.meta));renderShare();}
+    }catch(e){console.warn("3D 집기 공유 저장 오류",e);}
+  },key==="cur"?500:300);
+}
+function shareRaw(path,val){if(!SH.on)return;SH.last[path]=val;try{fbDB.ref("ws/fx3d/"+path).set(val==null?null:val);}catch(e){console.warn("3D 집기 공유 저장 오류",e);}}
+function renderShare(){
+  var e=$("fpShare");if(!e)return;
+  if(!SH.on){e.textContent=canShare()?"👥 팀 공유 연결 중…":"이 브라우저에만 저장(팀 공유 안 됨 — 로그인·승인 후 공유)";return;}
+  var m=SH.meta,t="";
+  if(m&&m.at){var d=new Date(m.at);t=" · 마지막 배치 수정 "+(m.by||"?")+" "+(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+  e.textContent="👥 팀 공유 중 — 고치면 모두에게 바로 반영됩니다"+t;
+}
+function applyCur(v){
+  var o;try{o=JSON.parse(v);}catch(e){return;}
+  if(!o||!o.W||!o.D)return;
+  ST.W=o.W;ST.D=o.D;
+  var mx=0;
+  ST.items=(o.items||[]).map(function(x){
+    var t=x.t==="curveTbl"?(x.f?"curveR":"curveL"):x.t;
+    var it={id:x.id,t:t,x:x.x,z:x.z,r:x.r||0,f:t===x.t?!!x.f:false};if(it.id>mx)mx=it.id;return it;
+  });
+  ST.next=Math.max(o.next||1,mx+1);
+  if(ST.sel&&!findItem(ST.sel))ST.sel=null;
+  $("fpW").value=ST.W;$("fpD").value=ST.D;
+  try{localStorage.setItem(KEY_CUR,v);}catch(e){}
+  SH.last.cur=SRC.cur();
+  renderUse();renderPalette();renderSel();renderSum();draw2d();rebuild3d();
+}
+function listenShare(){
+  var R=function(k){return fbDB.ref("ws/fx3d/"+k);};
+  R("cur").on("value",function(s){
+    var v=s.val();if(!v||v===SH.last.cur)return;
+    if(drag||T3.drag){SH.pendingCur=v;return;}
+    applyCur(v);
+  });
+  R("use").on("value",function(s){
+    var v=s.val();if(!v||v===SH.last.use)return;SH.last.use=v;
+    var o;try{o=JSON.parse(v);}catch(e){return;}
+    Object.keys(ST.use).forEach(function(k){if(!o[k])o[k]=ST.use[k];});
+    ST.use=o;try{localStorage.setItem(KEY_USE,v);}catch(e){}
+    buildCat();THUMB={};makeThumbs();renderUse();renderPalette();renderSum();draw2d();rebuild3d();
+  });
+  R("cus").on("value",function(s){
+    var v=s.val();if(v==null||v===SH.last.cus)return;SH.last.cus=v;
+    var a;try{a=JSON.parse(v)||[];}catch(e){return;}
+    ST.cus=a;a.forEach(function(c){if(!ST.use[c.k])ST.use[c.k]={on:true,qty:1};});
+    try{localStorage.setItem(KEY_CUS,v);}catch(e){}
+    buildCat();THUMB={};makeThumbs();renderUse();renderPalette();renderSum();draw2d();rebuild3d();
+  });
+  R("img").on("value",function(s){
+    var o=s.val()||{};
+    Object.keys(o).forEach(function(k){
+      var d=o[k];if(!d||SH.last["img/"+k]===d)return;SH.last["img/"+k]=d;
+      var cur=null;try{cur=localStorage.getItem(KEY_IMG+k);}catch(e){}
+      if(cur!==d||!PHIMG[k]){try{localStorage.setItem(KEY_IMG+k,d);}catch(e){}loadPhImg(k,d);}
+    });
+  });
+  R("photo").on("value",function(s){
+    var v=s.val();if(v===SH.last.photo)return;SH.last.photo=v;
+    var cur=null;try{cur=localStorage.getItem(KEY_PHOTO);}catch(e){}
+    if(!v){if(ST.photo){ST.photo=null;try{localStorage.removeItem(KEY_PHOTO);}catch(e){}if(R3.photoTex){R3.photoTex.dispose();R3.photoTex=null;}renderPhoto();draw2d();rebuild3d();renderSum();}return;}
+    if(v===cur&&ST.photo)return;
+    try{localStorage.setItem(KEY_PHOTO,v);}catch(e){}
+    var im=new Image();im.onload=function(){if(R3.photoTex){R3.photoTex.dispose();R3.photoTex=null;}usePhoto(im);};im.src=v;
+  });
+  R("plans").on("value",function(s){
+    var v=s.val();if(!v||v===SH.last.plans)return;SH.last.plans=v;
+    try{localStorage.setItem(KEY_SAVED,v);}catch(e){}
+    var sel=$("fpSaved");fillSaved(sel?sel.value:"");
+  });
+  R("meta").on("value",function(s){var v=s.val();if(!v)return;try{SH.meta=JSON.parse(v);}catch(e){}renderShare();});
+}
+function startShare(){
+  if(SH.started)return;
+  if(!canShare()){renderShare();setTimeout(startShare,3000);return;}
+  SH.started=true;renderShare();
+  fbDB.ref("ws/fx3d/cur").once("value").then(function(snap){
+    SH.on=true;
+    if(!snap.val()){ /* 공유본이 비어 있으면 이 브라우저 것을 올려 시작 */
+      ["cur","use","cus","plans"].forEach(share);
+      var ph=null;try{ph=localStorage.getItem(KEY_PHOTO);}catch(e){}
+      if(ph)shareRaw("photo",ph);
+      ST.cus.forEach(function(c){if(!c.img)return;var d=null;try{d=localStorage.getItem(KEY_IMG+c.k);}catch(e){}if(d)shareRaw("img/"+c.k,d);});
+      msg("3D 집기를 팀 공유로 올렸습니다. 이제 고치면 팀 모두에게 바로 반영됩니다.");
+    }
+    listenShare();renderShare();
+  }).catch(function(e){SH.started=false;console.warn("3D 집기 공유 연결 실패",e);setTimeout(startShare,10000);});
+}
+
 /* ── 탭 열 때 ── */
 var inited=false;
 window.renderFloorPage=function(){
@@ -26519,7 +26636,9 @@ window.renderFloorPage=function(){
     var pd=null;try{pd=localStorage.getItem(KEY_PHOTO);}catch(e){}
     if(pd){var im=new Image();im.onload=function(){usePhoto(im);};im.src=pd;}
     window.addEventListener("resize",function(){if(!pageOn())return;draw2d();resize3d();});
+    startShare();
   }
+  renderShare();
   renderUse();renderPhoto();renderPalette();renderSel();renderSum();draw2d();
   if(T3.ready){resize3d();rebuild3d();return;}
   load3d(function(ok){
