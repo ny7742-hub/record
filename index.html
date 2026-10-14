@@ -2566,6 +2566,23 @@ label{font-size:14px!important}
           수량 <input id="fpCusQ" type="number" min="1" max="99" value="1" style="width:46px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
           <button onclick="fpCusAdd()" style="padding:5px 12px;border:none;background:#334155;color:#fff;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">추가</button>
         </div><div style="font-size:11.5px;color:#5b6675;margin-top:4px">원형은 가로를 지름으로 씁니다.</div></details>
+      <details style="margin-top:6px"><summary style="font-size:12.5px;font-weight:700;color:#154f5e;cursor:pointer">📷 사진으로 집기 만들기</summary>
+        <div style="font-size:11.5px;color:#5b6675;margin:6px 0;line-height:1.5">집기 사진을 올리면 배경을 지우고 집기만 오려 3D 앞면에 입힙니다. 높이는 사진 비율로 계산하니 가로를 실측으로 넣어 주세요. 정면에서, 단순한 배경으로 찍은 사진이 잘 오려집니다.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button onclick="document.getElementById('fpPfxIn').click()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">집기 사진 올리기</button>
+          <input id="fpPfxIn" type="file" accept="image/*" onchange="fpPfxPick(this)" style="display:none">
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#334155"><input id="fpPfxBg" type="checkbox" checked onchange="fpPfxCut()" style="margin:0">배경 지우기</label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#5b6675">민감도<input id="fpPfxTol" type="range" min="10" max="110" value="40" onchange="fpPfxCut()" style="width:90px"></label>
+        </div>
+        <div id="fpPfxPrev" style="margin:8px 0"></div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:12px;color:#5b6675">
+          <input id="fpPfxN" type="text" placeholder="이름" style="flex:1 1 120px;padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
+          <select id="fpPfxS" onchange="fpPfxDims()" style="padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"><option value="pbox">사각(상자)</option><option value="pcyl">원형(기둥)</option><option value="panel">판넬(세워 둔 판)</option></select>
+          <input id="fpPfxW" type="number" min="100" step="50" value="1000" oninput="fpPfxDims()" title="가로 mm" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">×<input id="fpPfxD" type="number" min="30" step="50" value="600" title="깊이 mm" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">×<input id="fpPfxH" type="number" min="100" step="50" value="1000" oninput="fpPfxDims('h')" title="높이 mm (사진 비율로 자동)" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"> mm
+          수량 <input id="fpPfxQ" type="number" min="1" max="99" value="1" style="width:46px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
+          <button onclick="fpPfxAdd()" style="padding:5px 12px;border:none;background:#0f766e;color:#fff;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">3D로 만들기</button>
+        </div>
+      </details>
       <div style="font-size:13px;font-weight:700;color:#154f5e;margin:14px 0 6px">② 예상 팝업 자리 이미지</div>
       <div id="fpPhotoPrev" style="margin-bottom:8px"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -25609,7 +25626,7 @@ var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:
 var sc=1,ox=30,oy=30,drag=null;
 var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false,drag:null};
 var R3={scene:null,cam:null,ren:null,root:null,EDGE:null,photoTex:null};
-var THUMB={},THUMBIMG={};
+var THUMB={},THUMBIMG={},PHIMG={},PHTEX={},KEY_IMG="jvFloorImg_";
 function $(id){return document.getElementById(id);}
 function pageOn(){var p=$("page-floor");return !!p&&p.style.display==="block";}
 function snap(v){return Math.round(v/SNAP)*SNAP;}
@@ -25623,18 +25640,20 @@ function qtyOf(k){return ST.use[k]?ST.use[k].qty:0;}
 function countOf(k){var n=0;ST.items.forEach(function(i){if(i.t===k)n++;});return n;}
 function leftOf(k){return qtyOf(k)-countOf(k);}
 function msg(t,warn){var e=$("fpMsg");if(e){e.textContent=t||"";e.style.color=warn?"#9a3412":"#5b6675";}}
+function isRound(c){return !!c&&(c.k==="ped"||c.k==="cyl"||c.k==="pcyl");}
 function clampMm(v,lo,hi){var n=parseInt(v,10);if(isNaN(n))return null;return Math.max(lo,Math.min(hi,n));}
 
 /* ── 집기 정의 · 보유 수량 · 사이즈 ── */
 function buildCat(){
   CAT={};
   Object.keys(DEF).forEach(function(k){CAT[k]=Object.assign({},DEF[k]);});
-  ST.cus.forEach(function(c,i){CAT[c.k]={n:c.n,s:c.n.slice(0,6),w:c.w,d:c.d,h:c.h,c:CUS_COLORS[i%CUS_COLORS.length],k:c.shape==="cyl"?"cyl":"box",inv:1,est:false,cus:true};});
+  ST.cus.forEach(function(c,i){CAT[c.k]={n:c.n,s:c.n.slice(0,6),w:c.w,d:c.d,h:c.h,c:c.col||CUS_COLORS[i%CUS_COLORS.length],k:({cyl:"cyl",pbox:"pbox",pcyl:"pcyl",panel:"panel"})[c.shape]||"box",inv:1,est:false,cus:true,photo:!!c.img};});
   Object.keys(CAT).forEach(function(k){var u=ST.use[k];if(u){["w","d","h"].forEach(function(a){if(u[a])CAT[k][a]=u[a];});}});
-  Object.keys(CAT).forEach(function(k){if(CAT[k].k==="ped"||CAT[k].k==="cyl")CAT[k].d=CAT[k].w;});
+  Object.keys(CAT).forEach(function(k){if(isRound(CAT[k]))CAT[k].d=CAT[k].w;});
 }
 function loadUse(){
   try{ST.cus=JSON.parse(localStorage.getItem(KEY_CUS)||"[]")||[];}catch(e){ST.cus=[];}
+  ST.cus.forEach(function(c){if(c.img&&!PHIMG[c.k]){var d=null;try{d=localStorage.getItem(KEY_IMG+c.k);}catch(e){}if(d)loadPhImg(c.k,d);}});
   var saved=null;try{saved=JSON.parse(localStorage.getItem(KEY_USE)||"null");}catch(e){}
   var u={};
   Object.keys(DEF).forEach(function(k){u[k]={on:true,qty:DEF[k].inv};});
@@ -25675,7 +25694,7 @@ function renderUse(){
   var inp='width:54px;padding:3px 4px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;text-align:right';
   var h="";
   Object.keys(CAT).forEach(function(k){
-    var c=CAT[k],u=ST.use[k],n=countOf(k),cyl=(c.k==="ped"||c.k==="cyl"),th=THUMB[k];
+    var c=CAT[k],u=ST.use[k],n=countOf(k),cyl=isRound(c),th=THUMB[k];
     h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">'
       +'<input type="checkbox" '+(u.on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" title="평면도에 쓰기" style="width:15px;height:15px;margin:0;flex:none">'
       +(th?'<img src="'+th+'" alt="" style="width:64px;height:48px;object-fit:contain;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;flex:none">'
@@ -25712,7 +25731,7 @@ window.fpQty=function(k,v){
 };
 window.fpDim=function(k,a,v){
   var n=clampMm(v,100,a==="h"?4000:9000);if(n==null){renderUse();return;}
-  ST.use[k][a]=snap(n);if((CAT[k].k==="ped"||CAT[k].k==="cyl")&&a==="w")ST.use[k].d=snap(n);
+  ST.use[k][a]=snap(n);if((isRound(CAT[k]))&&a==="w")ST.use[k].d=snap(n);
   saveUse();buildCat();delete THUMB[k];makeThumbs();renderUse();
   msg(CAT[k].n+" 사이즈를 "+CAT[k].w+"×"+CAT[k].d+"×"+CAT[k].h+" mm로 바꿨습니다.");
   autoIfOn();
@@ -25733,9 +25752,82 @@ window.fpCusAdd=function(){
 window.fpCusDel=function(k){
   if(!CAT[k]||!CAT[k].cus)return;
   if(!window.confirm("'"+CAT[k].n+"'을(를) 집기 목록에서 지울까요? 배치된 것도 빠집니다."))return;
-  ST.cus=ST.cus.filter(function(c){return c.k!==k;});delete ST.use[k];
+  ST.cus=ST.cus.filter(function(c){return c.k!==k;});delete ST.use[k];try{localStorage.removeItem(KEY_IMG+k);}catch(e){}delete PHIMG[k];if(PHTEX[k]){PHTEX[k].dispose();delete PHTEX[k];}
   ST.items=ST.items.filter(function(i){return i.t!==k;});if(ST.sel&&!findItem(ST.sel))ST.sel=null;
   saveUse();buildCat();renderUse();changed();
+};
+
+/* ── 📷 사진으로 집기 만들기 (2026-10-14 영업2팀) ──
+   사진 → 가장자리 색(채널별 중앙값)을 배경으로 보고 가장자리에서 퍼져 나가며 지운다(집기 안쪽의 같은 색은 남는다) → 남은 부분만 오려 낸다 →
+   오려 낸 비율로 높이를 계산 → 3D에서는 그 사진을 앞·뒷면에 입힌 상자(사각) · 기둥(원형) · 세워 둔 판(판넬)으로 그린다.
+   사진만으로 정확한 입체를 만들 수는 없어 사이즈는 실측으로 고친다. 오려 낸 그림은 긴 변 480px WebP(투명)로 jvFloorImg_<키>에 저장. */
+var PF={src:null,cut:null,ratio:1,col:"#d6d3cc",hTouched:false};
+window.fpPfxPick=function(input){
+  var f=input.files&&input.files[0];if(!f)return;
+  var url=URL.createObjectURL(f),img=new Image();
+  img.onload=function(){
+    URL.revokeObjectURL(url);PF.src=img;PF.hTouched=false;
+    var nm=$("fpPfxN");if(nm&&!nm.value)nm.value=f.name.replace(/\.[^.]+$/,"").slice(0,20);
+    window.fpPfxCut();
+  };
+  img.onerror=function(){URL.revokeObjectURL(url);msg("사진을 열지 못했습니다. 이미지 파일을 다시 골라 주세요.",true);};
+  img.src=url;input.value="";
+};
+window.fpPfxCut=function(){
+  if(!PF.src)return;
+  var img=PF.src,k=Math.min(1,480/Math.max(img.width,img.height)),W=Math.max(1,Math.round(img.width*k)),H=Math.max(1,Math.round(img.height*k));
+  var cv=document.createElement("canvas");cv.width=W;cv.height=H;var g=cv.getContext("2d");g.drawImage(img,0,0,W,H);
+  var id=g.getImageData(0,0,W,H),px=id.data,on=$("fpPfxBg").checked,tol=parseInt($("fpPfxTol").value,10)||40;
+  var x0=0,y0=0,x1=W-1,y1=H-1,i,warn="";
+  if(on){
+    var ed=[[],[],[]],add=function(o){ed[0].push(px[o]);ed[1].push(px[o+1]);ed[2].push(px[o+2]);};
+    for(i=0;i<W;i++){add(i*4);add(((H-1)*W+i)*4);}
+    for(i=0;i<H;i++){add(i*W*4);add((i*W+W-1)*4);}
+    var bg=ed.map(function(a){a.sort(function(p,q){return p-q;});return a[a.length>>1];}),t2=tol*tol;
+    var near=function(o){var dr=px[o]-bg[0],dg=px[o+1]-bg[1],db=px[o+2]-bg[2];return dr*dr+dg*dg+db*db<=t2;};
+    var seen=new Uint8Array(W*H),st=[];
+    var push=function(x,y){var j=y*W+x;if(seen[j])return;seen[j]=1;if(near(j*4))st.push(j);};
+    for(i=0;i<W;i++){push(i,0);push(i,H-1);}
+    for(i=0;i<H;i++){push(0,i);push(W-1,i);}
+    while(st.length){var j=st.pop(),x=j%W,y=(j/W)|0;px[j*4+3]=0;if(x>0)push(x-1,y);if(x<W-1)push(x+1,y);if(y>0)push(x,y-1);if(y<H-1)push(x,y+1);}
+    var bx0=W,by0=H,bx1=-1,by1=-1,cnt=0,sr=0,sg=0,sb=0;
+    for(var yy=0;yy<H;yy++)for(var xx=0;xx<W;xx++){var o=(yy*W+xx)*4;if(px[o+3]>0){cnt++;sr+=px[o];sg+=px[o+1];sb+=px[o+2];if(xx<bx0)bx0=xx;if(xx>bx1)bx1=xx;if(yy<by0)by0=yy;if(yy>by1)by1=yy;}}
+    if(cnt>W*H*0.03&&bx1>bx0&&by1>by0){x0=bx0;y0=by0;x1=bx1;y1=by1;PF.col="rgb("+Math.round(sr/cnt)+","+Math.round(sg/cnt)+","+Math.round(sb/cnt)+")";}
+    else{for(i=3;i<px.length;i+=4)px[i]=255;warn="배경을 집기와 구분하지 못해 사진 전체를 씁니다. 민감도를 낮추거나 배경이 단순한 사진을 써 보세요.";}
+    g.putImageData(id,0,0);
+  }else{
+    var s2=0,s3=0,s4=0,n=W*H;for(i=0;i<px.length;i+=4){s2+=px[i];s3+=px[i+1];s4+=px[i+2];}
+    PF.col="rgb("+Math.round(s2/n)+","+Math.round(s3/n)+","+Math.round(s4/n)+")";
+  }
+  var cw=x1-x0+1,ch=y1-y0+1,out=document.createElement("canvas");out.width=cw;out.height=ch;out.getContext("2d").drawImage(cv,x0,y0,cw,ch,0,0,cw,ch);
+  var webp=out.toDataURL("image/webp",0.85);PF.cut=webp.indexOf("data:image/webp")===0?webp:out.toDataURL("image/png");
+  PF.ratio=ch/cw;
+  var pv=$("fpPfxPrev");
+  if(pv)pv.innerHTML='<img src="'+PF.cut+'" alt="오려 낸 집기" style="max-width:100%;max-height:160px;background:repeating-conic-gradient(#e5e7eb 0 25%,#fff 0 50%) 0 0/14px 14px;border:1px solid #e2e8f0;border-radius:6px">'
+    +'<div style="font-size:11.5px;color:#5b6675;margin-top:4px">오려 낸 크기 '+cw+'×'+ch+'px · 세로/가로 '+(Math.round(PF.ratio*100)/100)+' — 체크 무늬가 지워진 배경입니다.</div>';
+  msg(warn,!!warn);
+  window.fpPfxDims();
+};
+window.fpPfxDims=function(from){
+  if(from==="h"){PF.hTouched=true;return;}
+  var w=clampMm($("fpPfxW").value,100,9000);if(w==null)return;
+  if(!PF.hTouched&&PF.src)$("fpPfxH").value=snap(Math.min(4000,Math.max(100,w*PF.ratio)));
+  if($("fpPfxS").value==="pcyl")$("fpPfxD").value=w;
+};
+window.fpPfxAdd=function(){
+  if(!PF.cut){msg("먼저 집기 사진을 올려 주세요.",true);return;}
+  var nm=($("fpPfxN").value||"").trim()||"사진 집기",sh=$("fpPfxS").value,w=clampMm($("fpPfxW").value,100,9000),d=clampMm($("fpPfxD").value,30,9000),h=clampMm($("fpPfxH").value,100,4000);
+  if(w==null||h==null||d==null){msg("가로·깊이·높이를 mm로 적어 주세요.",true);return;}
+  if(sh==="pcyl")d=w;
+  if(sh==="panel")d=Math.max(50,Math.min(d,300));
+  var k="cus"+Date.now().toString(36);
+  try{localStorage.setItem(KEY_IMG+k,PF.cut);}catch(e){msg("브라우저 저장공간이 모자라 사진을 저장하지 못했습니다. 다른 사진 집기를 지우고 다시 해 주세요.",true);return;}
+  ST.cus.push({k:k,n:nm,w:snap(w),d:Math.max(50,snap(d)),h:snap(h),shape:sh,img:true,col:PF.col});
+  ST.use[k]={on:true,qty:Math.max(1,parseInt($("fpPfxQ").value,10)||1)};
+  saveUse();buildCat();loadPhImg(k,PF.cut);renderUse();
+  PF={src:null,cut:null,ratio:1,col:"#d6d3cc",hTouched:false};$("fpPfxN").value="";$("fpPfxPrev").innerHTML="";
+  msg("'"+nm+"'을(를) 사진으로 만들어 집기 목록에 넣었습니다. 사이즈는 목록에서 실측으로 고칠 수 있습니다.");
+  autoIfOn();
 };
 
 /* ── 팔레트: 선택한 집기만 ── */
@@ -25929,7 +26021,7 @@ function photoOnFloor(){return !!(ST.photo&&ST.photoFloor);}
 
 /* ── 2D 평면 ── */
 function shape2d(g,c,w,d,f){ /* 집기 중심 원점, 앞면 +y(아래) — 곡면 진열대는 바깥 앞 모서리를 둥글게 */
-  if(c.k==="ped"||c.k==="cyl"){g.beginPath();g.ellipse(0,0,w/2,d/2,0,0,Math.PI*2);return;}
+  if(isRound(c)){g.beginPath();g.ellipse(0,0,w/2,d/2,0,0,Math.PI*2);return;}
   g.beginPath();
   if(c.k==="curve"){
     var r=Math.min(d*0.78,w*0.55*0.6),L=-w/2,R=w/2,T=-d/2,B=d/2;
@@ -25968,13 +26060,13 @@ function draw2d(){
     g.fillStyle=bad?"#fecaca":c.c;g.fill();
     g.strokeStyle=bad?"#dc2626":"#334155";g.lineWidth=bad?2:1;g.stroke();
     if(c.k==="curve"){g.strokeStyle="#94a3b8";g.lineWidth=1;g.beginPath();var sx=(it.f?1:-1)*(w/2-w*0.55);g.moveTo(sx,-d/2);g.lineTo(sx,d/2);g.stroke();}
-    if(c.k!=="ped"&&c.k!=="cyl"){g.strokeStyle="#154f5e";g.lineWidth=4;g.beginPath();g.moveTo(-w/2+2,d/2-2);g.lineTo(w/2-2,d/2-2);g.stroke();}
+    if(!isRound(c)){g.strokeStyle="#154f5e";g.lineWidth=4;g.beginPath();g.moveTo(-w/2+2,d/2-2);g.lineTo(w/2-2,d/2-2);g.stroke();}
     if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;shape2d(g,c,w+6,d+6,it.f);g.stroke();}
     g.restore();
     var fw=f.w*sc,fd=f.d*sc;
     g.fillStyle="#1e293b";g.font="700 11px sans-serif";g.textAlign="center";g.textBaseline="middle";
     if(fw>40&&fd>20)g.fillText(fw>78?c.s:(c.s.replace(/\(.*$/,"")||c.s).slice(0,4),cx,cy-(fd>38?6:0));
-    if(fw>70&&fd>38){g.font="10px sans-serif";g.fillStyle="#475569";g.fillText((c.k==="ped"||c.k==="cyl")?"Ø"+c.w:c.w+"×"+c.d,cx,cy+8);}
+    if(fw>70&&fd>38){g.font="10px sans-serif";g.fillStyle="#475569";g.fillText(isRound(c)?"Ø"+c.w:c.w+"×"+c.d,cx,cy+8);}
   });
 }
 function hit(px,py){
@@ -26073,7 +26165,7 @@ function renderSum(){
     var n=countOf(k),q=qtyOf(k),short=n>q,c=CAT[k],th=THUMB[k];
     rows+='<tr><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;width:60px">'+(th?'<img src="'+th+'" alt="" style="width:52px;height:39px;object-fit:contain">':'<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:'+c.c+'"></span>')+'</td>'
       +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0">'+esc(c.n)+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#5b6675;font-variant-numeric:tabular-nums">'+((c.k==="ped"||c.k==="cyl")?'Ø'+c.w+'×'+c.h:c.w+'×'+c.d+'×'+c.h)+'</td>'
+      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#5b6675;font-variant-numeric:tabular-nums">'+(isRound(c)?'Ø'+c.w+'×'+c.h:c.w+'×'+c.d+'×'+c.h)+'</td>'
       +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:'+(short?'#9a3412':'#1f2937')+'">'+n+' / '+q+'</td></tr>';
   });
   var occ=ST.W*ST.D?Math.round(area/(ST.W*ST.D)*1000)/10:0;
@@ -26203,6 +26295,8 @@ function hatOn(p,x,y,z,col){ /* 우드 스탠드 + 헤드 + 모자(곡면 진열
   var hd=new THREE.Mesh(new THREE.SphereGeometry(0.09,16,12),new THREE.MeshLambertMaterial({color:0xece4d6}));hd.scale.y=1.15;hd.position.set(x,y+0.43,z);p.add(hd);
   var ht=new THREE.Mesh(new THREE.SphereGeometry(0.1,16,10,0,Math.PI*2,0,Math.PI/2),new THREE.MeshLambertMaterial({color:col}));ht.position.set(x,y+0.47,z);p.add(ht);
 }
+function loadPhImg(k,data){var im=new Image();im.onload=function(){PHIMG[k]=im;if(PHTEX[k]){PHTEX[k].dispose();delete PHTEX[k];}delete THUMB[k];if(window.THREE){makeThumbs();renderUse();renderSum();rebuild3d();}};im.src=data;}
+function phTex(k){if(PHTEX[k])return PHTEX[k];var im=PHIMG[k];if(!im||!window.THREE)return null;var t=new THREE.Texture(im);t.needsUpdate=true;PHTEX[k]=t;return t;}
 function buildItem(it,bad){
   var c=CAT[it.t],g=new THREE.Group(),w=c.w/1000,d=c.d/1000,h=c.h/1000,WH=0xf4f2ec;
   g.position.set((it.x-ST.W/2)/1000,0,(it.z-ST.D/2)/1000);
@@ -26239,6 +26333,19 @@ function buildItem(it,bad){
   }else if(c.k==="ped"){
     mkCyl(g,w/2,h,0,h/2,0,WH,48);
     if(h<1.2)hatOn(g,0,h,0,0xe7dccb);
+  }else if(c.k==="pbox"||c.k==="pcyl"||c.k==="panel"){
+    /* 사진으로 만든 집기 — 오려 낸 사진을 앞·뒷면에 입힌다(몸통은 사진의 평균색). 판넬은 세워 둔 판 하나(양면) */
+    var tx=phTex(it.t),body=new THREE.Color(c.c).getHex(),pan=c.k==="panel";
+    if(c.k==="pbox")mk(g,w,h,d,0,h/2,0,body);
+    else if(c.k==="pcyl")mkCyl(g,w/2,h,0,h/2,0,body,40);
+    else mk(g,w,0.03,Math.max(d,0.08),0,0.015,0,0x9ca3af);
+    if(tx){
+      var fz=pan?0:(c.k==="pcyl"?w/2:d/2)+0.004;
+      (pan?[1]:[1,-1]).forEach(function(sd){
+        var pm=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshLambertMaterial({map:tx,transparent:true,alphaTest:0.35,side:pan?THREE.DoubleSide:THREE.FrontSide}));
+        pm.position.set(0,h/2+(pan?0.03:0),sd*fz);if(sd<0)pm.rotation.y=Math.PI;g.add(pm);
+      });
+    }
   }else if(c.k==="cyl"){
     mkCyl(g,w/2,h,0,h/2,0,new THREE.Color(c.c).getHex(),40);
   }else if(c.k==="box"){
@@ -26333,7 +26440,7 @@ window.fpListPng=function(){
     if(im&&im.complete)g.drawImage(im,48,y,144,108);else{g.fillStyle=c.c;g.fillRect(60,y+20,120,70);}
     g.fillStyle="#111827";g.font="700 19px 'Malgun Gothic',sans-serif";g.fillText(c.n,240,y+50);
     if(c.est){g.fillStyle="#9a3412";g.font="13px 'Malgun Gothic',sans-serif";g.fillText("사이즈 추정",240,y+74);}
-    g.fillStyle="#334155";g.font="18px 'Malgun Gothic',sans-serif";g.fillText((c.k==="ped"||c.k==="cyl")?"Ø"+c.w+" × "+c.h:c.w+" × "+c.d+" × "+c.h,620,y+56);
+    g.fillStyle="#334155";g.font="18px 'Malgun Gothic',sans-serif";g.fillText(isRound(c)?"Ø"+c.w+" × "+c.h:c.w+" × "+c.d+" × "+c.h,620,y+56);
     g.textAlign="right";g.font="700 20px 'Malgun Gothic',sans-serif";g.fillStyle="#111827";g.fillText(String(q),1050,y+56);g.fillStyle=n>q?"#b91c1c":"#111827";g.fillText(String(n),1180,y+56);g.textAlign="left";
     g.strokeStyle="#e2e8f0";g.beginPath();g.moveTo(40,y+rowH-4);g.lineTo(40+snapW,y+rowH-4);g.stroke();
     y+=rowH;
