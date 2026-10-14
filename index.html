@@ -20205,9 +20205,44 @@ function _ccStepsHtml(S){
     return '<span title="'+_escX(s&&s.note||"")+'" style="font-size:12px;font-weight:700;color:'+c+';background:'+bg+';border-radius:10px;padding:1px 8px;white-space:nowrap">'+t+(s&&s.note?' <span style="font-weight:500">· '+_escX(s.note)+'</span>':'')+'</span>';
   }).join('')+'</div>';
 }
+/* DSS 아이디 이름 — 'ckr.5834226' → DSS26, '1번 창'/'2번 창' → 로그인 상태 칸(portalLogin.sites.dss1/2)의 아이디 끝 두 자리 */
+function _ccDssNm(who){
+  var s=String(who||""),m=/ckr\.\d*(\d\d)$/.exec(s);
+  if(m)return "DSS"+m[1];
+  var n=/^([12])번 창$/.exec(s),PL=(typeof portalLogin==="object"&&portalLogin&&portalLogin.sites)||{};
+  var w=n&&(PL["dss"+n[1]]||{}).who;
+  return w?"DSS"+String(w).slice(-2):s;
+}
+/* 코스트코 중복 확인 — 날짜마다 한 줄(2026-10-14 영업2팀 "13줄·17줄 내용은 필요없습니다 — 10/13 DSS26 0건 · DSS31 0건 등록할 것 없음 /
+   10/14 DSS26 n건 · DSS31 n건 등록건 있음"). 매출(PlayMD 중복 조회)과 DSS 송장(아이디별 넣을 건수, it.dss — saip-watch runPreviewDates)을 합쳐 본다 */
+function _ccPrevLine(it,dv,opt,active,fresh){
+  var imd=it.mmdd?(+it.mmdd.slice(0,2))+'/'+(+it.mmdd.slice(2,4)):"";
+  var D=it.dss,acc=D?(D.accounts||[]).filter(function(a){return !a.same;}):[];
+  var dssN=acc.reduce(function(s,a){return s+(a.orders||0);},0);
+  var saleTodo=it.status==="preview"&&!it.already,saleErr=!(it.status==="preview"||it.already);
+  var dssTxt=D?(acc.length?acc.map(function(a){return _escX(_ccDssNm(a.who))+' <b>'+(a.orders||0)+'건</b>';}).join(' · '):'DSS 결과 없음')
+    :'<span style="color:#5b6675">DSS 송장 건수 미확인</span>';
+  var todo=saleTodo||dssN>0,err=saleErr||(D&&(D.errors||[]).length);
+  var res=err?'<span style="color:#b91c1c;font-weight:800">❗ 확인 필요</span>'
+    :todo?'<span style="color:#7c3aed;font-weight:800">등록할 건 있음</span>'
+    :'<span style="color:#047857;font-weight:800">등록할 것 없음</span>';
+  var why=[];
+  if(it.already)why.push('매출 이미 있음');else if(saleTodo)why.push('매출 '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원');
+  if(D&&!dssN&&!(D.errors||[]).length)why.push(D.notInDss?'송장 이미 입력':'넣을 송장 없음');
+  var h='<div style="margin-top:4px;padding:4px 8px;border-radius:6px;background:'+(it.date===dv?'#f5f3ff':'#f8fafc')+'">'
+    +'<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline"><b>'+imd+'</b><span>'+dssTxt+'</span><span>— '+res+'</span></div>';
+  if(why.length)h+='<div style="font-size:12px;color:#5b6675">'+why.map(_escX).join(' · ')+'</div>';
+  if(saleErr)h+='<div style="font-size:12px;color:#b91c1c">매출: '+_escX(it.error||(SAIP_ITEM_TXT[it.status]||[0,it.status])[1]||"")+'</div>';
+  if(D)(D.errors||[]).forEach(function(e){h+='<div style="font-size:12px;color:#b91c1c">DSS: '+_escX(e)+'</div>';});
+  if(saleTodo&&!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&!active&&fresh)
+    h+='<div style="margin-top:4px"><button class="bs" onclick="saipAutoGo(\'cc\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:13px;font-weight:800;padding:4px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+imd+' 이대로 등록</button></div>';
+  return h+'</div>';
+}
 /* 코스트코 카드 맨 아래 — DSS 송장 입력 결과(2026-10-01 영업2팀). 아이디(ckr.…)마다 올린 주문 수, 남은 주문, 오류 */
 function _ccDssLine(){
   var D=ccDssStatus;if(!D||!D.at)return "";
+  /* 날짜별 중복 확인 결과에 DSS 건수가 붙어 있으면 그 줄들로 충분하다 */
+  var S0=ccSaipStatus;if(S0&&S0.mode==="preview"&&(S0.items||[]).some(function(x){return x&&x.dss;})&&D.mode==="preview")return "";
   var md=D.mmdd?(+D.mmdd.slice(0,2))+'/'+(+D.mmdd.slice(2,4)):"";
   var pv=D.mode==="preview";
   var acc=(D.accounts||[]).filter(function(a){return !a.same;}).map(function(a){
@@ -20267,7 +20302,7 @@ function _saipCheckLine(k,date){
   var when=' <span style="color:#5b6675">· '+_escX(_saipFmtAt(C.at))+'</span>';
   if(C.s==="dup")return '<div style="color:#b45309;font-weight:700">🔍 중복 검수: 플레이엠디에 <b>이미 있습니다</b> — 등록하지 마세요'+when+'</div>';
   if(C.s==="err")return '<div style="color:#b91c1c;font-weight:700">🔍 중복 검수: '+_escX(C.txt)+when+'</div>';
-  return '<div style="color:#047857;font-weight:700">🔍 중복 검수: 겹치는 것 없음 — 등록해도 됩니다 <span style="color:#334155;font-weight:600">('+C.rows+'줄 · '+C.qty+'개 · '+Number(C.amt||0).toLocaleString()+'원)</span>'+when+'</div>';
+  return '<div style="color:#047857;font-weight:700">🔍 중복 검수: 겹치는 것 없음 — 등록해도 됩니다 <span style="color:#334155;font-weight:600">('+(k==="cc"?'':C.rows+'줄 · ')+C.qty+'개 · '+Number(C.amt||0).toLocaleString()+'원)</span>'+when+'</div>';
 }
 /* ── 어느 PC에서나 등록 요청 (2026-09-30 영업2팀) ──
    예전엔 버튼이 playmdhs: 주소로 **그 PC**의 자동화를 직접 열어 자동화 PC에서만 됐다. 이제는
@@ -20514,11 +20549,12 @@ function _saipCard(kind,opt){
   var fresh=S.at&&Date.now()-new Date(S.at).getTime()<2*3600*1000;   /* 미리보기는 2시간 안의 것만 '이대로 등록'을 띄운다 */
   /* 일주일 중복 확인(S.dates)이면 날짜마다 접어 두고 고른 날짜만 펼친다. 파일 없는 날은 한 줄로 모은다(2026-10-14) */
   var multi=(S.items||[]).length>1,noFile=[];
-  if(multi)h+='<div style="margin-top:4px;font-size:12.5px;color:#5b6675">🔍 최근 '+(S.items||[]).length+'일 중복 확인 · '+_escX(_saipFmtAt(S.at))+' — 날짜를 누르면 펼칩니다</div>';
+  if(multi)h+='<div style="margin-top:4px;font-size:12.5px;color:#5b6675">🔍 최근 '+(S.items||[]).length+'일 중복 확인 · '+_escX(_saipFmtAt(S.at))+(kind==="cc"?'':' — 날짜를 누르면 펼칩니다')+'</div>';
   (S.items||[]).forEach(function(it){
     if(it.status==="saved")return;                                    /* 저장 완료는 위 '등록됨' 줄로 충분하다 */
     var imd=it.mmdd?(+it.mmdd.slice(0,2))+'/'+(+it.mmdd.slice(2,4)):"";
     if(multi&&it.status==="nofile"){noFile.push(imd);return;}
+    if(kind==="cc"&&S.mode==="preview"){h+=_ccPrevLine(it,dv,opt,active,fresh);return;}   /* 코스트코는 날짜마다 한 줄(줄 목록 없음) */
     var t=SAIP_ITEM_TXT[it.status]||["•",it.status||"",""];
     var head='<b>'+imd+'</b> <span style="color:'+t[2]+';font-weight:700">'+t[0]+' '+t[1]+'</span>';
     if(it.rows)head+=' <span style="color:#334155">· '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</span>';
