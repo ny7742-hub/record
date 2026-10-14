@@ -2555,23 +2555,22 @@ label{font-size:14px!important}
     <div id="fpShare" style="font-size:12px;color:#0f766e;margin-top:4px"></div>
   </div>
   <style>
-  /* 3D 집기 배치(2026-10-14 영업2팀): 위 = 평면도(1) · 3D(2, 크게) / 아래 = 집기 목록 · 예상 자리 이미지. 좁으면 한 줄씩 */
+  /* 3D 집기 배치(2026-10-14 영업2팀): 위 = 평면도(1) · 3D(2, 크게) / 아래 = 집기 수량 표(체크·사이즈·보유 고침) · 예상 자리 이미지. 좁으면 한 줄씩 */
   #page-floor .fp-top{display:grid;grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:12px;align-items:start}
   #page-floor .fp-bottom{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(260px,1fr);gap:12px 24px;align-items:start}
-  #page-floor #fpUse{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));column-gap:20px}
   #page-floor #fpView{height:600px}
-  @media (max-width:900px){#page-floor .fp-top,#page-floor .fp-bottom{grid-template-columns:1fr}#page-floor #fpView{height:420px}#page-floor #fpUse{grid-template-columns:1fr}}
+  @media (max-width:900px){#page-floor .fp-top,#page-floor .fp-bottom{grid-template-columns:1fr}#page-floor #fpView{height:420px}}
   </style>
   <div class="fp-top">
     <div class="card" style="padding:12px 16px">
-      <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">③ 평면도 (끌어서 배치)</div>
+      <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">① 평면도 (끌어서 배치)</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="fpPalette"></div>
       <div style="text-align:center"><canvas id="fpCv" style="touch-action:none;border-radius:8px;max-width:100%"></canvas></div>
       <div style="font-size:12px;color:#5b6675;margin-top:6px">빨간색은 겹치거나 매장 밖으로 나간 집기입니다. 집기의 진한 선은 앞면입니다. 방향키 이동 · Shift+방향키 500mm · R 회전 · Delete 삭제</div>
       <div id="fpSel" style="margin-top:10px"></div>
     </div>
     <div class="card" style="padding:12px 16px">
-      <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">④ 3D 보기</div>
+      <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">② 3D 보기</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
         <button onclick="fpView(0,1.3)" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">정면</button>
         <button onclick="fpView(0.7,1.0)" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">사선</button>
@@ -2587,9 +2586,7 @@ label{font-size:14px!important}
   </div>
   <div class="card fp-bottom" style="margin-top:12px;padding:12px 16px">
     <div style="min-width:0">
-      <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">① 집기 목록</div>
-      <div style="font-size:12px;color:#5b6675;margin-bottom:8px;line-height:1.5">체크한 집기만 평면도에 씁니다. 수량은 보유 재고, 사이즈는 가로×깊이×높이(mm)로 고칠 수 있습니다.</div>
-      <div id="fpUse"></div>
+      <div id="fpSum"></div>
       <details style="margin-top:8px"><summary style="font-size:12.5px;font-weight:700;color:#154f5e;cursor:pointer">+ 집기 직접 추가</summary>
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12px;color:#5b6675">
           <input id="fpCusN" type="text" placeholder="이름 (예: 아크릴 쇼케이스)" style="flex:1 1 150px;padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
@@ -2617,7 +2614,7 @@ label{font-size:14px!important}
       </details>
     </div>
     <div style="min-width:0">
-      <div style="font-size:13px;font-weight:700;color:#154f5e;margin:0 0 6px">② 예상 팝업 자리 이미지</div>
+      <div style="font-size:13px;font-weight:700;color:#154f5e;margin:0 0 6px">④ 예상 팝업 자리 이미지</div>
       <div id="fpPhotoPrev" style="margin-bottom:8px"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <button onclick="document.getElementById('fpPhotoIn').click()" style="padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">이미지 올리기</button>
@@ -2630,7 +2627,6 @@ label{font-size:14px!important}
       <div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.5">몰 도면처럼 위에서 본 이미지면 바닥에 깔아 맞춰 보세요(공간 가로×세로 칸에 맞춰 늘어남). 비스듬한 현장 사진은 바닥 깔기를 끄고 참고로만 보세요. 이미지는 줄여서 이 브라우저에 저장됩니다.</div>
     </div>
   </div>
-  <div class="card" style="margin-top:12px;padding:12px 16px"><div id="fpSum"></div></div>
 </div>
 </div><!-- /page-floor -->
 
@@ -25614,7 +25610,7 @@ function initTransferTab(){tfDropInit();tfAutoFill();tfRenderChips();tfRender();
 
 <script>
 /* ── 🧊 3D 집기 탭 (2026-10-13 영업2팀 '3D 평면도', 2026-10-14 확장 · 이름 '3D 집기') ──
-   · 집기 목록: 집기마다 그림(3D로 그린 썸네일) · 사이즈(가로×깊이×높이 mm, 고칠 수 있음) · 보유 수량. 직접 추가도 된다.
+   · 집기 수량 표(예전 집기 목록과 합침): 집기마다 그림(3D로 그린 썸네일) · 사이즈(가로×깊이×높이 mm, 고칠 수 있음) · 보유 수량. 직접 추가도 된다.
    · 체크한 집기와 수량만 평면도·자동 배치에 쓴다. '집기를 고르면 바로 자동 배치'가 켜져 있으면 체크·수량·사이즈를 바꿀 때마다 다시 배치한다.
    · 예상 팝업 자리 이미지: 올리면 이 브라우저에 저장되고(줄여서), '바닥에 깔기'를 켜면 평면도 밑과 3D 바닥에 깔린다.
    · 수동 이동: 평면도에서 끌기 · 3D에서 집기를 끌기(빈 곳을 끌면 화면 회전) · 방향키 · R 회전.
@@ -25704,29 +25700,8 @@ function setState(W,D,items){
 function changed(){persist();renderPalette();renderSel();renderSum();draw2d();rebuild3d();}
 function autoIfOn(){if(ST.autoOn){window.fpAuto(true);}else changed();}
 
-/* ── ① 집기 목록(그림 · 사이즈 · 수량) ── */
-function renderUse(){
-  var el=$("fpUse");if(!el)return;
-  var inp='width:54px;padding:3px 4px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;text-align:right';
-  var h="";
-  Object.keys(CAT).forEach(function(k){
-    var c=CAT[k],u=ST.use[k],n=countOf(k),cyl=isRound(c),th=THUMB[k];
-    h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #e2e8f0;flex-wrap:wrap">'
-      +'<input type="checkbox" '+(u.on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" title="평면도에 쓰기" style="width:15px;height:15px;margin:0;flex:none">'
-      +(th?'<img src="'+th+'" alt="" style="width:64px;height:48px;object-fit:contain;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;flex:none">'
-          :'<span style="width:64px;height:48px;border-radius:6px;background:'+c.c+';border:1px solid #cbd5e1;flex:none;display:flex;align-items:center;justify-content:center;font-size:10px;color:#475569">'+esc(c.s)+'</span>')
-      +'<span style="flex:1 1 120px;min-width:0"><span style="display:block;font-size:13px;font-weight:700">'+esc(c.n)+(c.est?' <span style="font-size:11px;color:#9a3412;font-weight:400">(추정)</span>':'')+(c.cus?' <button onclick="fpCusDel(\''+k+'\')" title="직접 추가한 집기 지우기" style="border:0;background:none;color:#9a3412;font-size:11px;cursor:pointer;padding:0 2px">지우기</button>':'')+'</span>'
-      +'<span style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;font-size:11.5px;color:#5b6675;margin-top:3px">'
-      +(cyl?'Ø<input type="number" min="100" max="9000" step="50" value="'+c.w+'" onchange="fpDim(\''+k+'\',\'w\',this.value)" title="지름 mm" style="'+inp+'">'
-           :'<input type="number" min="100" max="9000" step="50" value="'+c.w+'" onchange="fpDim(\''+k+'\',\'w\',this.value)" title="가로 mm" style="'+inp+'">×<input type="number" min="100" max="9000" step="50" value="'+c.d+'" onchange="fpDim(\''+k+'\',\'d\',this.value)" title="깊이 mm" style="'+inp+'">')
-      +'×<input type="number" min="100" max="4000" step="50" value="'+c.h+'" onchange="fpDim(\''+k+'\',\'h\',this.value)" title="높이 mm" style="'+inp+'"> mm · 배치 '+n+'</span></span>'
-      +'<span style="font-size:12px;color:#5b6675">수량</span>'
-      +'<input type="number" min="0" max="99" value="'+u.qty+'" onchange="fpQty(\''+k+'\',this.value)" style="width:50px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">'
-      +'</div>';
-  });
-  el.innerHTML=h;
-  var a=$("fpAutoOn");if(a)a.checked=ST.autoOn;
-}
+/* ── 집기 목록은 아래 '집기 수량' 표 하나로 합쳤다(2026-10-14 영업2팀 "집기목록은 집기 수량으로, 집기 목록은 삭제") ── */
+function renderUse(){renderSum();var a=$("fpAutoOn");if(a)a.checked=ST.autoOn;}
 window.fpToggle=function(k,on){
   if(!on&&!ST.autoOn){
     var n=countOf(k);
@@ -25762,12 +25737,12 @@ window.fpCusAdd=function(){
   ST.cus.push({k:k,n:nm,w:snap(w),d:snap(sh==="cyl"?w:d),h:snap(h),shape:sh});
   ST.use[k]={on:true,qty:Math.max(1,parseInt($("fpCusQ").value,10)||1)};
   saveUse();buildCat();makeThumbs();renderUse();
-  $("fpCusN").value="";msg("'"+nm+"'을(를) 집기 목록에 추가했습니다.");
+  $("fpCusN").value="";msg("'"+nm+"'을(를) 집기 수량 표에 추가했습니다.");
   autoIfOn();
 };
 window.fpCusDel=function(k){
   if(!CAT[k]||!CAT[k].cus)return;
-  if(!window.confirm("'"+CAT[k].n+"'을(를) 집기 목록에서 지울까요? 배치된 것도 빠집니다."))return;
+  if(!window.confirm("'"+CAT[k].n+"'을(를) 집기 수량 표에서 지울까요? 배치된 것도 빠집니다."))return;
   ST.cus=ST.cus.filter(function(c){return c.k!==k;});delete ST.use[k];try{localStorage.removeItem(KEY_IMG+k);}catch(e){}shareRaw("img/"+k,null);delete PHIMG[k];if(PHTEX[k]){PHTEX[k].dispose();delete PHTEX[k];}
   ST.items=ST.items.filter(function(i){return i.t!==k;});if(ST.sel&&!findItem(ST.sel))ST.sel=null;
   saveUse();buildCat();renderUse();changed();
@@ -25843,7 +25818,7 @@ window.fpPfxAdd=function(){
   ST.use[k]={on:true,qty:Math.max(1,parseInt($("fpPfxQ").value,10)||1)};
   saveUse();buildCat();loadPhImg(k,PF.cut);renderUse();
   PF={src:null,cut:null,ratio:1,col:"#d6d3cc",hTouched:false};$("fpPfxN").value="";$("fpPfxPrev").innerHTML="";
-  msg("'"+nm+"'을(를) 사진으로 만들어 집기 목록에 넣었습니다. 사이즈는 목록에서 실측으로 고칠 수 있습니다.");
+  msg("'"+nm+"'을(를) 사진으로 만들어 집기 수량 표에 넣었습니다. 사이즈는 표에서 실측으로 고칠 수 있습니다.");
   autoIfOn();
 };
 
@@ -25857,7 +25832,7 @@ function renderPalette(){
     var c=CAT[k],left=leftOf(k),ok=left>0;
     h+='<button '+(ok?'onclick="fpAdd(\''+k+'\')"':'disabled')+' title="'+c.w+'×'+c.d+'×'+c.h+' mm · 남은 수량 '+Math.max(0,left)+'" style="padding:5px 10px;border:1px solid #cbd5e1;background:'+(ok?'#f8fafc':'#f1f5f9')+';color:'+(ok?'#334155':'#5b6675')+';border-radius:8px;font-size:12px;font-weight:700;cursor:'+(ok?'pointer':'not-allowed')+';display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:'+c.c+';border:1px solid #64748b"></span>+ '+esc(c.n)+' <span style="font-weight:400">('+Math.max(0,left)+')</span></button>';
   });
-  el.innerHTML=any?h:'<div style="font-size:12.5px;color:#9a3412">선택한 집기가 없습니다. ① 집기 목록에서 체크하세요.</div>';
+  el.innerHTML=any?h:'<div style="font-size:12.5px;color:#9a3412">선택한 집기가 없습니다. ③ 집기 수량 표에서 체크하세요.</div>';
 }
 
 /* ── 배치 만들기 ── */
@@ -26146,7 +26121,7 @@ function freeSpot(t){
   return {x:snap(ST.W/2),z:snap(ST.D/2)};
 }
 window.fpAdd=function(t){
-  if(!enabled(t)){msg(CAT[t].n+"은(는) 집기 목록에서 빠져 있습니다. ① 에서 체크하세요.",true);return;}
+  if(!enabled(t)){msg(CAT[t].n+"은(는) 집기 수량 표에서 빠져 있습니다. ③ 에서 체크하세요.",true);return;}
   if(leftOf(t)<=0){msg(CAT[t].n+" 재고를 모두 배치했습니다. 수량을 늘리거나 다른 집기를 쓰세요.",true);return;}
   var p=freeSpot(t),it=mkItem(t,p.x,p.z,0,false);
   ST.items.push(it);ST.sel=it.id;msg("");changed();
@@ -26184,24 +26159,35 @@ function renderSel(){
    +'<span style="font-size:12px;color:#5b6675">Z</span><input type="number" step="50" value="'+it.z+'" onchange="fpSetPos(\'z\',this.value)" style="'+inp+'">'
    +'</div>';
 }
+/* 집기 수량 표 — 집기마다 체크(평면도에 쓰기) · 그림 · 이름 · 사이즈(고침) · 보유 수량(고침) · 배치 수. 체크를 끈 줄은 흐리게 */
 function renderSum(){
   var el=$("fpSum");if(!el)return;
-  var area=0,tot=0,rows="",pr=problems();
+  var area=0,tot=0,own=0,rows="",pr=problems(),td='padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:middle';
+  var inp='width:58px;padding:3px 4px;border:1px solid #cbd5e1;border-radius:5px;font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums';
   ST.items.forEach(function(it){var f=foot(it);area+=f.w*f.d;tot++;});
   Object.keys(CAT).forEach(function(k){
-    if(!enabled(k))return;
-    var n=countOf(k),q=qtyOf(k),short=n>q,c=CAT[k],th=THUMB[k];
-    rows+='<tr><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;width:60px">'+(th?'<img src="'+th+'" alt="" style="width:52px;height:39px;object-fit:contain">':'<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:'+c.c+'"></span>')+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0">'+esc(c.n)+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#5b6675;font-variant-numeric:tabular-nums">'+(isRound(c)?'Ø'+c.w+'×'+c.h:c.w+'×'+c.d+'×'+c.h)+'</td>'
-      +'<td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:'+(short?'#9a3412':'#1f2937')+'">'+n+' / '+q+'</td></tr>';
+    var c=CAT[k],u=ST.use[k],on=!!(u&&u.on),n=countOf(k),q=qtyOf(k),short=n>q,th=THUMB[k],dim=on?'':'opacity:.45;';
+    if(on)own+=q;
+    rows+='<tr>'
+      +'<td style="'+td+';width:26px"><input type="checkbox" '+(on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" title="평면도에 쓰기" style="width:15px;height:15px;margin:0"></td>'
+      +'<td style="'+td+';width:68px;'+dim+'">'+(th?'<img src="'+th+'" alt="" style="width:60px;height:45px;object-fit:contain;display:block">':'<span style="display:block;width:60px;height:45px;border-radius:6px;background:'+c.c+'"></span>')+'</td>'
+      +'<td style="'+td+';'+dim+'"><b style="font-size:13px">'+esc(c.n)+'</b>'+(c.est?' <span style="font-size:11px;color:#9a3412">(추정)</span>':'')
+        +(c.cus?' <button onclick="fpCusDel(\''+k+'\')" title="직접 추가한 집기 지우기" style="border:0;background:none;color:#9a3412;font-size:11px;cursor:pointer;padding:0 2px">지우기</button>':'')+'</td>'
+      +'<td style="'+td+';white-space:nowrap;color:#5b6675;font-size:12px;'+dim+'">'
+        +(isRound(c)?'Ø<input type="number" min="100" max="9000" step="50" value="'+c.w+'" onchange="fpDim(\''+k+'\',\'w\',this.value)" title="지름 mm" style="'+inp+'">'
+             :'<input type="number" min="100" max="9000" step="50" value="'+c.w+'" onchange="fpDim(\''+k+'\',\'w\',this.value)" title="가로 mm" style="'+inp+'">×<input type="number" min="100" max="9000" step="50" value="'+c.d+'" onchange="fpDim(\''+k+'\',\'d\',this.value)" title="깊이 mm" style="'+inp+'">')
+        +'×<input type="number" min="100" max="4000" step="50" value="'+c.h+'" onchange="fpDim(\''+k+'\',\'h\',this.value)" title="높이 mm" style="'+inp+'"></td>'
+      +'<td style="'+td+';text-align:right;'+dim+'"><input type="number" min="0" max="99" value="'+q+'" onchange="fpQty(\''+k+'\',this.value)" title="보유 수량" style="'+inp+';width:50px;font-weight:700"></td>'
+      +'<td style="'+td+';text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:'+(short?'#b91c1c':'#1f2937')+';'+dim+'">'+n+(short?' <span style="font-size:11px;font-weight:400">(보유 초과)</span>':'')+'</td></tr>';
   });
   var occ=ST.W*ST.D?Math.round(area/(ST.W*ST.D)*1000)/10:0;
-  var h='<div style="display:flex;gap:10px 24px;flex-wrap:wrap;align-items:baseline;margin-bottom:8px"><b style="font-size:13.5px;color:#154f5e">집기 수량 (배치 / 보유)</b>'
-    +'<span style="font-size:12.5px;color:#5b6675">공간 '+ST.W+'×'+ST.D+' mm ('+(Math.round(ST.W*ST.D/10000)/100)+'㎡) · 집기 바닥 점유율 '+occ+'%'+(ST.photo?' · 자리 이미지 있음':'')+'</span></div>';
-  if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:8px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'공간 밖으로 나간 집기 '+pr.oob+'개':'')+'</div>';
-  h+=rows?'<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;width:100%;max-width:720px"><thead><tr style="background:#f1f5f9"><th style="padding:5px 8px"></th><th style="padding:5px 8px;text-align:left">집기</th><th style="padding:5px 8px;text-align:left">사이즈(mm)</th><th style="padding:5px 8px;text-align:right">배치 / 보유</th></tr></thead><tbody>'+rows+'<tr><td></td><td style="padding:5px 8px;font-weight:700" colspan="2">합계 배치</td><td style="padding:5px 8px;text-align:right;font-weight:700">'+tot+'</td></tr></tbody></table></div>'
-    :'<div style="font-size:12.5px;color:#5b6675">고른 집기가 없습니다. ① 집기 목록에서 체크하세요.</div>';
+  var h='<div style="display:flex;gap:6px 20px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px"><b style="font-size:13.5px;color:#154f5e">③ 집기 수량</b>'
+    +'<span style="font-size:12.5px;color:#5b6675">공간 '+ST.W+'×'+ST.D+' mm ('+(Math.round(ST.W*ST.D/10000)/100)+'㎡) · 집기 바닥 점유율 '+occ+'%'+(ST.photo?' · 자리 이미지 있음':'')+'</span></div>'
+    +'<div style="font-size:12px;color:#5b6675;margin-bottom:6px">체크한 집기만 평면도에 씁니다. 사이즈(가로×깊이×높이 mm)와 보유 수량은 표에서 바로 고칩니다.</div>';
+  if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:6px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'공간 밖으로 나간 집기 '+pr.oob+'개':'')+'</div>';
+  h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;width:100%"><thead><tr style="background:#f1f5f9;color:#334155">'
+    +'<th style="padding:5px 8px" title="평면도에 쓰기">쓰기</th><th style="padding:5px 8px"></th><th style="padding:5px 8px;text-align:left">집기</th><th style="padding:5px 8px;text-align:left">사이즈 (mm)</th><th style="padding:5px 8px;text-align:right">보유</th><th style="padding:5px 8px;text-align:right">배치</th></tr></thead><tbody>'
+    +rows+'<tr><td></td><td></td><td style="padding:6px 8px;font-weight:700" colspan="2">합계 (체크한 집기)</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+own+'</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+tot+'</td></tr></tbody></table></div>';
   el.innerHTML=h;
 }
 
