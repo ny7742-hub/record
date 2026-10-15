@@ -54,6 +54,9 @@ CX팀_업무리스트 코드매칭(쿠팡바코드 → 상품컬러코드) · �
 - `automation/coupang-order-make.mjs` — saip-watch가 **평일 10:00**(16:00은 확인만) + 자비스 `📨 오전 발주서 만들기`(ws/cpCountReq mode 'make', 오늘 이미 했으면 force 확인).
   ① 발주건 확인(D+3, 보기만) → ② 계정마다 양식 채움(ExcelJS — 자비스 `_cpFillTemplate`와 같은 규칙, 상품데이터는 ws/productData) → `downloads/coupang/브랜드(MMDD) - 쿠팡 (M월D일 입고예정일).xlsx`
   → ③ 하이웍스 **메일 초안**(보내지 않음 — 자비스 [✉️ 확인 · 메일 보내기]로 보낸다): 두 파일 첨부(`hiworks-send.mjs` file = 배열 가능).
+  **보내는 계정 = 영업1팀 `sales@`**(2026-10-15 영업2팀 「메일은 내 계정이 아닌 영업1팀」): 자동화 **두 번째 창(9334)**에 영업1팀 하이웍스를 로그인해 둔다
+  (첫 창 하이웍스는 강민준 계정 — 코스트코용 그대로). 로그인 상태 키 `hiworks2`(portal-status · portal-open `hiworks2` · 자비스 '메일(영업1팀)' · 슬랙 로그인 요청),
+  '로그인 창 모두 열기'에도 들어 있다. 초안·보내기 전에 그 창의 보내는 사람 목록(`/v2/senders`)에 sales@가 있는지 확인하고, 아니면 멈춘다(`mailBrowser`).
   **받는 사람·참조·제목·본문(2026-10-15 영업2팀 — ①·② 메일 둘 다 같다, `coupang-order-make.mjs` `cpMail`)**:
   받는 사람 `gnkim72@daum.net` · 참조 영업1팀 `sales@whitesands.co.kr` · CX팀 `cs@whitesands.co.kr`
   제목 `쿠팡 화이트샌즈/블랙샌즈 발주서(1015)- 10월20일 입고예정일`(브랜드 = 그날 파일이 있는 계정만, 날짜 = 발주서 확인일)
