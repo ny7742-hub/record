@@ -2339,7 +2339,8 @@ label{font-size:14px!important}
       <div id="autoCcStatus" style="font-size:13px;line-height:1.6"></div></div>
     <!-- 쿠팡 자동발주(2026-10-15 영업2팀) — 자리만 먼저. 쿠팡 쪽 주문 받는 곳·발주서 양식·보낼 곳이 정해지면 자동화 PC 작업으로 연결한다 -->
     <div class="ap-card"><div class="ap-h"><b>🟠 쿠팡 발주 · 쉽먼트</b><span class="ap-sub">블랙샌즈 → 화이트샌즈 순 · 두 계정 모두</span>
-      <a class="ap-btn sub" style="margin-left:auto;text-decoration:none" href="https://supplier.coupang.com/dashboard/KR" target="_blank" rel="noopener" title="쿠팡 서플라이어 허브를 새 탭으로 엽니다">↗ 서플라이어 허브</a></div>
+      <button class="ap-btn" style="margin-left:auto" onclick="cpCountGo()" title="자동화 PC가 두 계정의 발주리스트(거래처확인요청)를 지금 읽어 옵니다 — 쿠팡 화면은 누르지 않습니다">🔢 발주건 확인</button>
+      <a class="ap-btn sub" style="text-decoration:none" href="https://supplier.coupang.com/dashboard/KR" target="_blank" rel="noopener" title="쿠팡 서플라이어 허브를 새 탭으로 엽니다">↗ 서플라이어 허브</a></div>
       <div id="autoCp" style="font-size:13px;line-height:1.6"></div></div>
     <div class="ap-card" style="grid-column:1/-1"><div class="ap-h"><b>🚚 사입출고등록</b><span class="ap-sub">홈쇼핑 · 백화점몰 · 코스트코(+DSS 송장) · 발송후취소 — 날짜는 사입출고등록 탭의 날짜 칸을 따릅니다</span>
       <button class="ap-btn sub" style="margin-left:auto" onclick="switchTab('ccorder')">사입출고등록 탭 열기</button></div>
@@ -2748,7 +2749,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","cpProgress":"ws/cpProgress","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","cpProgress":"ws/cpProgress","cpOrderReady":"ws/cpOrderReady","cpCountReq":"ws/cpCountReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -3333,6 +3334,14 @@ function fbListen(){
   apply("ws/ecConfig","ecConfig",
     function(d){if(d&&typeof d==="object"){ecConfig=d;if(!ecConfig.stores)ecConfig.stores={};}},
     function(){if(typeof renderEcount==="function")renderEcount();}
+  );
+  apply("ws/cpOrderReady","cpOrderReady",
+    function(d){if(d&&typeof d==="object")cpOrderReady=d;},
+    function(){if(typeof cpgRender==="function")cpgRender();}
+  );
+  apply("ws/cpCountReq","cpCountReq",
+    function(d){if(d&&typeof d==="object")cpCountReq=d;},
+    function(){if(typeof cpgRender==="function")cpgRender();}
   );
   apply("ws/cpProgress","cpProgress",
     function(d){if(d&&typeof d==="object")cpProgress=d;},
@@ -8163,6 +8172,34 @@ var CP_STEPS=[
   {n:"④",t:"마무리",hint:"물류 → 쉽먼트 → 택배 쉽먼트 → 라벨·내역서 전체 다운로드 → PDF 병합 '(날짜) 쉽먼트' → 회신 메일 제목 '발주서'→'쉽먼트'로 바꿔 첨부 발송",subs:[
     ["pdf","라벨·내역서 PDF 병합"],["shmail","쉽먼트 메일 발송"],["final","최종 발주서 나이사님 전달"]]}
 ];
+/* 발주건 확인(2026-10-15 영업2팀 — 평일 10:00 · 16:00 자동 + 버튼) — 자동화 PC coupang-po-check.mjs → ws/cpOrderReady */
+var cpOrderReady=(function(){try{return JSON.parse(localStorage.getItem("cpOrderReady")||"null");}catch(e){return null;}})();
+var cpCountReq=(function(){try{return JSON.parse(localStorage.getItem("cpCountReq")||"null");}catch(e){return null;}})();
+function _cpCountWaiting(){var q=cpCountReq;return !!(q&&q.id&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<5*60*1000);}
+function cpCountGo(){
+  if(_cpCountWaiting()){alert("발주건 확인이 이미 요청돼 있습니다("+(cpCountReq.by||"?")+").");return;}
+  cpCountReq={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString()};
+  wsSetItem("cpCountReq",JSON.stringify(cpCountReq));cpgRender();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 확인합니다.");
+}
+function _cpReadyHtml(){
+  var Q=cpOrderReady,h="";
+  if(_cpCountWaiting())h+='<div style="color:#1d4ed8;font-weight:700">⏳ 발주건 확인 중… ('+_escX(cpCountReq.by||"?")+') — '+(_saipWatchOk()?'자동화 PC가 쿠팡에서 읽는 중':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>')+'</div>';
+  if(!Q||!Q.at)return h+'<div class="ap-sub">아직 확인 기록이 없습니다 — 평일 10:00 · 16:00에 자동으로 확인합니다</div>';
+  var acc=(Q.accounts||[]).slice().sort(function(a,b){return (a.who==="화이트샌즈"?0:1)-(b.who==="화이트샌즈"?0:1);});
+  h+='<div style="border:1px solid #fed7aa;background:#fff7ed;border-radius:8px;padding:6px 10px;margin-bottom:6px">'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:baseline"><b style="color:#9a3412">📦 새 발주(거래처확인요청) '+(+Q.total||0)+'건</b>'
+    +'<span class="ap-sub">'+_escX(_saipFmtAt(Q.at))+' 확인'+(Q.by?' · '+_escX(Q.by):'')+'</span></div>';
+  acc.forEach(function(a){
+    if(a.err){h+='<div style="color:#b91c1c;font-weight:700">쿠팡('+_escX(a.who||("창 "+a.port))+') ✖ '+_escX(a.err)+'</div>';return;}
+    var g={},ord=[];(a.list||[]).forEach(function(x){if(!g[x.date]){g[x.date]={n:0,q:0,c:{}};ord.push(x.date);}g[x.date].n++;g[x.date].q+=x.qty;g[x.date].c[x.center]=1;});
+    ord.sort();
+    h+='<details style="margin-top:3px"><summary style="cursor:pointer;font-weight:800;color:#334155">쿠팡('+_escX(a.who)+') <span style="color:'+(a.n?'#c2410c':'#047857')+'">'+a.n+'건</span> · '+(a.qty||0).toLocaleString()+'개 · '+Number(a.amt||0).toLocaleString()+'원</summary>'
+      +(ord.length?ord.map(function(d){var x=g[d];return '<div style="padding-left:14px">입고예정 <b>'+(+d.slice(5,7))+'/'+(+d.slice(8,10))+'</b> · '+x.n+'건 '+x.q.toLocaleString()+'개 <span class="ap-sub">('+_escX(Object.keys(x.c).join(", "))+')</span></div>';}).join(""):'<div class="ap-sub" style="padding-left:14px">새 발주 없음</div>')
+      +'</details>';
+  });
+  return h+'</div>';
+}
 function _cpToday(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function cpgToggle(k){
   var t=_cpToday(),P=cpProgress||{};P[t]=P[t]||{};
@@ -8176,7 +8213,7 @@ function cpgRender(){
   var t=_cpToday(),D=(cpProgress||{})[t]||{},md=t.slice(5,7)+t.slice(8,10),cur=-1;
   var done=CP_STEPS.map(function(st){return st.subs.every(function(x){return D[x[0]];});});
   done.forEach(function(d,i){if(!d&&cur<0)cur=i;});
-  var h='<div class="cc-steps">'+CP_STEPS.map(function(st,i){
+  var h=_cpReadyHtml()+'<div class="cc-steps">'+CP_STEPS.map(function(st,i){
     var k=done[i]?"done":i===cur?"on":"todo";
     var subs=st.subs.map(function(x){var v=D[x[0]];
       return '<button onclick="cpgToggle(\''+x[0]+'\')" title="'+(v?_escX((v.by||"")+" · "+_saipFmtAt(v.at))+' — 누르면 체크를 지웁니다':'끝났으면 눌러 체크')+'" style="display:block;width:100%;text-align:left;margin-top:3px;font-size:12px;font-weight:700;border-radius:6px;padding:2px 6px;cursor:pointer;border:1px solid '+(v?'#86efac;background:#fff;color:#047857':'#cbd5e1;background:#fff;color:#475569')+'">'+(v?'☑ ':'☐ ')+_escX(x[1])+(v?' <span style="font-weight:400;color:#5b6675">'+_escX(v.by||"")+'</span>':'')+'</button>';}).join("");
