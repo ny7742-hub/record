@@ -26,7 +26,8 @@ CX팀_업무리스트 코드매칭(쿠팡바코드 → 상품컬러코드) · �
 
 ## 발주건 확인 (2026-10-15)
 - `automation/coupang-po-check.mjs` — 두 창의 쿠팡 탭 안에서 `GET /po-web/app/purchase-order/list?searchDateType=WAREHOUSING_PLAN_DATE&searchStartDate&searchEndDate&purchaseOrderStatus=RP&page`
-  (RP = 거래처확인요청 = 아직 확인 안 한 새 발주, 입고예정일 2주 전 ~ 45일 뒤, 쪽마다). **보기만** — 쿠팡 화면은 누르지 않는다.
+  (RP = 거래처확인요청 = 아직 확인 안 한 새 발주, 쪽마다). **보기만** — 쿠팡 화면은 누르지 않는다.
+  **입고예정일 = 오늘에서 영업일 3일 뒤(D+3) 하나만**(2026-10-15 영업2팀, `bizDayAfter(3)` — 주말·KR_HOLIDAYS 건너뜀, 예: 10/15 → 10/20 · 10/7 → 10/13). 결과에 `target`.
   날짜는 UTC로 온다(`2026-10-19T15:00Z` = 10/20). 결과 `ws/cpOrderReady {at, by, total, accounts:[{port, who, n, qty, amt, list:[{seq, center, date, qty, amt, sku}]}]}`.
 - saip-watch `cpCheckTick` — **평일 10:00 · 16:00**(칸 안 50분, 돈 칸 `logs/cp-check-날짜`) + 자비스 `🔢 발주건 확인` → `ws/cpCountReq`(5분 넘으면 버림).
 - 자비스 쿠팡 카드 맨 위 `📦 새 발주(거래처확인요청) N건` — 계정마다 건수·수량·금액, 펼치면 입고예정일별(센터).
