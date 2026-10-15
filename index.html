@@ -20669,6 +20669,27 @@ function _soRows(rows){
       +x.list.map(function(r){return '<div><span style="color:#5b6675">상품</span> : <b title="'+_escX(r.prod||"")+'">'+_escX(_soShort(r.prod))+'</b> '+(r.qty||0)+'개</div>';}).join("")
       +'</div>';}).join("")+'</div>';
 }
+/* 미리보기 줄의 '모델명/색상' — 자사코드(WIW57K3MBKX)로 상품데이터 줄을 찾아 상품명 끝 모델명(먼스터(Munster) → 먼스터)과 칼라명(블랙).
+   못 찾으면 주문 상품명 '…먼스터 코듀로이 … 00001_블랙'을 _hsSplitOrderProdName으로 나눠 기본상품명 + 색 */
+var _saipMcCache=null;
+function _saipModelColor(r){
+  var rows=_hsProdRows(),code=String(r.code||"").trim();
+  if(!_saipMcCache||_saipMcCache.src!==rows){_saipMcCache={src:rows,m:{}};rows.forEach(function(x){if(x&&x[7])_saipMcCache.m[x[7]]=x;});}
+  var x=code&&_saipMcCache.m[code];
+  if(x){
+    var nm=String(x[2]||"").replace(/\([^)]*\)\s*$/,"").trim().split(/\s+/).pop()||x[2];
+    return nm+(x[4]?"/"+x[4]:"");
+  }
+  try{var s=_hsSplitOrderProdName(r.prod);return s.base+(s.color?"/"+s.color:"");}catch(e){return String(r.prod||"");}
+}
+/* 매장코드 → 이름(홈쇼핑 HS_CHANNEL_STORE_CODE 기준 — 현대 HHOME · 홈앤 HNSH). 모르면 수기발주 매장 목록, 그래도 없으면 코드 */
+var SAIP_STORE_NM={HHOME:"현대홈쇼핑",IMALL:"롯데홈쇼핑",GSH:"GS홈쇼핑",SSH:"신세계홈쇼핑",KTA:"K쇼핑",HNSH:"홈앤쇼핑",WST:"스마트스토어",
+  COSO:"코스트코 온라인",LTOA:"(백)롯데본점",HDOC:"(백)현대천호",LGY:"(백)롯데고양"};
+function _saipStoreNm(c){
+  c=String(c||"");if(SAIP_STORE_NM[c])return SAIP_STORE_NM[c];
+  try{var o=_ordStoreByCode(c);if(o&&o.name)return o.name;}catch(e){}
+  return c;
+}
 /* 옛 기록의 등록자 '(등록자 기록 전 · 자동화 PC)' → '자동화 PC' */
 function _saipWho(by){var s=String(by||"알 수 없음");var m=/^\(?등록자 기록 전 · (.*?)\)?$/.exec(s);return m?m[1]:s;}
 /* '0928은(는) 이미 등록했습니다(9/29 14:11 · …)' → '0928은 이미 등록했습니다' — 언제·누가는 그 날짜를 고르면 1줄에 나온다 */
@@ -20790,14 +20811,15 @@ function _saipCard(kind,opt){
      }else{
       /* 줄마다 두 줄로 — 위: 상품명(전부) · 아래: 매장 · 코드 | 수량 · 공급가. 좁은 카드(자동화 탭 ~290px)에서 5칸 표는
          상품명이 한 글자씩 꺾이고 수량·공급가가 잘려 안 보였다(2026-10-14 영업2팀) */
-      h+='<div style="max-height:300px;overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px">'
-        +'<div style="display:flex;justify-content:space-between;gap:6px;padding:3px 8px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:700;position:sticky;top:0"><span>상품 · 매장 · 코드</span><span>수량 · 공급가</span></div>';
-      it.rows.forEach(function(r){
-        h+='<div style="padding:4px 8px;border-top:1px solid #eef2f6;font-size:13px;line-height:1.4">'
-          +'<div style="color:#1e293b;font-weight:600;word-break:keep-all;overflow-wrap:anywhere">'+_escX(r.prod||"")+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+'</div>'
-          +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">'
-          +'<span style="color:#5b6675;font-size:12px">'+_escX(r.store||"")+' · <span style="font-family:Consolas,monospace">'+_escX(r.code||"")+'</span></span>'
-          +'<span style="white-space:nowrap;color:#334155"><b>'+(r.qty||0)+'개</b> · '+Number(r.unit||0).toLocaleString()+'원</span></div></div>';
+      /* 한 줄에 '먼스터/블랙, 1개, 23,541원, 현대홈쇼핑'(2026-10-15 영업2팀) — 모델명/색상은 상품코드로 상품데이터에서(_saipModelColor),
+         매장은 코드 대신 이름(_saipStoreNm). 전체 상품명·코드는 마우스를 올리면(title) */
+      h+='<div style="max-height:300px;overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;line-height:1.5">';
+      it.rows.forEach(function(r,ix){
+        var parts=['<b>'+_escX(_saipModelColor(r))+'</b>',(r.qty||0)+'개'];
+        if(r.unit||!/→/.test(r.store||""))parts.push(Number(r.unit||0).toLocaleString()+'원');
+        parts.push(_escX(_saipStoreNm(r.store)));
+        h+='<div title="'+_escX((r.prod||"")+" · "+(r.code||""))+'" style="padding:3px 8px'+(ix?';border-top:1px solid #eef2f6':'')+';overflow-wrap:anywhere">'
+          +parts.join(', ')+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+'</div>';
       });
       h+='</div>';
      }
