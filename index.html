@@ -2577,6 +2577,7 @@ label{font-size:14px!important}
     </div>
     <div id="fpMsg" style="font-size:12.5px;color:#5b6675;margin-top:8px;line-height:1.5"></div>
     <div id="fpShare" style="font-size:12px;color:#0f766e;margin-top:4px"></div>
+    <div id="fpShape" style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0"></div>
   </div>
   <style>
   /* 3D 집기 배치(2026-10-14 영업2팀): 위 = 평면도(1) · 3D(2, 크게) / 아래 = 집기 수량 표(체크·사이즈·보유 고침) · 예상 자리 이미지. 좁으면 한 줄씩 */
@@ -26096,7 +26097,7 @@ var DEF={
 var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
 var KEY_CUR="jvFloorCur",KEY_SAVED="jvFloorPlans",KEY_USE="jvFloorUse",KEY_CUS="jvFloorCustom",KEY_PHOTO="jvFloorPhoto",KEY_OPT="jvFloorOpt",SNAP=50;
 var CAT={};
-var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true}};
+var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true},blocks:[],wallOn:false,wallH:2400};
 var sc=1,ox=30,oy=30,drag=null;
 var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false,drag:null};
 var R3={scene:null,cam:null,ren:null,root:null,EDGE:null,photoTex:null};
@@ -26145,7 +26146,7 @@ function loadUse(){
 }
 function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));localStorage.setItem(KEY_CUS,JSON.stringify(ST.cus));}catch(e){}share("use");share("cus");}
 function saveOpt(){try{localStorage.setItem(KEY_OPT,JSON.stringify({autoOn:ST.autoOn,photoFloor:ST.photoFloor,op:ST.photoOp}));}catch(e){}}
-function persist(){try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next}));}catch(e){}
+function persist(){try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallH:ST.wallH}));}catch(e){}
   SH.pendingCur=null;share("cur");}   /* 끄는 사이 들어온 남의 배치는 버리고 내 것을 올린다(마지막에 쓴 사람이 이긴다) */
 function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
 
@@ -26158,6 +26159,7 @@ function problems(){
       b=rectOf(ST.items[j]);
       if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1){bad[ST.items[i].id]=1;bad[ST.items[j].id]=1;over++;}
     }
+    if(hitBlock(a)){bad[ST.items[i].id]=1;oob++;}
   }
   return {bad:bad,over:over,oob:oob};
 }
@@ -26166,7 +26168,62 @@ function setState(W,D,items){
   items.forEach(function(o){var t=o.t==="curveTbl"?(o.f?"curveR":"curveL"):o.t;if(CAT[t])ST.items.push(mkItem(t,o.x,o.z,o.r||0,t===o.t?o.f:false));});
   $("fpW").value=W;$("fpD").value=D;
 }
-function changed(){persist();renderPalette();renderSel();renderSum();draw2d();rebuild3d();drawPhoto();}
+function changed(){persist();renderPalette();renderSel();renderSum();draw2d();rebuild3d();drawPhoto();renderShape();}
+/* ── 공간 모양: 막힌 칸(창고 등) · 벽(2026-10-15 영업2팀 실측 도면 — 7,200×8,400, 뒤 오른쪽 창고 2,100×2,700, 앞은 통로) ──
+   ST.blocks [{n, x0,z0,x1,z1}] — 집기를 놓을 수 없는 칸. 자동 진열·빈 자리 찾기가 피하고, 걸린 집기는 빨강.
+   ST.wallOn이면 벽을 그린다: 왼쪽 · 뒤 · 오른쪽(앞 z=D는 통로라 없음) 테두리에서 막힌 칸이 붙은 구간을 빼고, 막힌 칸의 안쪽(드러난) 변을 더한다.
+   벽 길이 목록은 시트지 길이와 맞춰 보는 용도. 공간 모양은 현재 배치(cur)·저장 배치에 같이 실려 팀과 공유된다. */
+function shapeFrom(o){ST.blocks=Array.isArray(o&&o.blocks)?o.blocks.map(function(b){return {n:b.n||"막힌 칸",x0:+b.x0,z0:+b.z0,x1:+b.x1,z1:+b.z1};}):[];ST.wallOn=!!(o&&o.wallOn);ST.wallH=(o&&+o.wallH)||2400;}
+function hitBlock(a){for(var i=0;i<ST.blocks.length;i++){var b=ST.blocks[i];if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1)return true;}return false;}
+/* [lo,hi] 구간에서 빼기 목록을 뺀 나머지 구간들 */
+function subRange(lo,hi,cuts){var segs=[[lo,hi]];cuts.forEach(function(c){var nx=[];segs.forEach(function(sg){if(c[1]<=sg[0]||c[0]>=sg[1]){nx.push(sg);return;}if(c[0]>sg[0])nx.push([sg[0],c[0]]);if(c[1]<sg[1])nx.push([c[1],sg[1]]);});segs=nx;});return segs.filter(function(sg){return sg[1]-sg[0]>1;});}
+function walls(){
+  if(!ST.wallOn)return [];
+  var W=ST.W,D=ST.D,B=ST.blocks,out=[],E=1;
+  subRange(0,D,B.filter(function(b){return b.x0<=E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"왼쪽 벽",x0:0,z0:r[0],x1:0,z1:r[1]});});
+  subRange(0,W,B.filter(function(b){return b.z0<=E;}).map(function(b){return [b.x0,b.x1];})).forEach(function(r){out.push({n:"뒤 벽",x0:r[0],z0:0,x1:r[1],z1:0});});
+  subRange(0,D,B.filter(function(b){return b.x1>=W-E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"오른쪽 벽",x0:W,z0:r[0],x1:W,z1:r[1]});});
+  B.forEach(function(b){
+    if(b.x0>E)out.push({n:b.n+" 왼쪽 벽",x0:b.x0,z0:b.z0,x1:b.x0,z1:b.z1});
+    if(b.x1<W-E)out.push({n:b.n+" 오른쪽 벽",x0:b.x1,z0:b.z0,x1:b.x1,z1:b.z1});
+    if(b.z0>E)out.push({n:b.n+" 뒤 벽",x0:b.x0,z0:b.z0,x1:b.x1,z1:b.z0});
+    if(b.z1<D-E)out.push({n:b.n+" 앞 벽",x0:b.x0,z0:b.z1,x1:b.x1,z1:b.z1});
+  });
+  out.forEach(function(w){w.len=Math.round(Math.hypot(w.x1-w.x0,w.z1-w.z0));});
+  return out;
+}
+window.fpBlockAdd=function(){
+  var n=($("fpBkN").value||"").trim()||"창고",pos=$("fpBkP").value,w=clampMm($("fpBkW").value,100,30000),d=clampMm($("fpBkD").value,100,30000);
+  if(w==null||d==null){msg("막힌 칸의 가로·세로를 mm로 넣어 주세요.",true);return;}
+  w=Math.min(w,ST.W);d=Math.min(d,ST.D);
+  var x0=pos.indexOf("R")>=0?ST.W-w:0,z0=pos.indexOf("F")>=0?ST.D-d:0;
+  ST.blocks.push({n:n,x0:x0,z0:z0,x1:x0+w,z1:z0+d});
+  msg("'"+n+"' "+w+"×"+d+" mm를 막힌 칸으로 넣었습니다.");autoIfOn();
+};
+window.fpBlockDel=function(i){ST.blocks.splice(i,1);autoIfOn();};
+window.fpWall=function(on){ST.wallOn=!!on;changed();};
+window.fpWallH=function(v){var n=clampMm(v,500,6000);if(n==null){renderShape();return;}ST.wallH=n;changed();};
+/* 실측 도면(2026-10-15 영업2팀) 한 번에 — 7,200×8,400 · 뒤 오른쪽 창고 2,100×2,700 · 벽(앞 통로) */
+window.fpShapeDrawing=function(){
+  ST.W=7200;ST.D=8400;$("fpW").value=7200;$("fpD").value=8400;T3.rad=Math.max(ST.W,ST.D)/1000*1.5+2;
+  ST.blocks=[{n:"창고",x0:5100,z0:0,x1:7200,z1:2700}];ST.wallOn=true;
+  msg("실측 도면 공간(7,200 × 8,400, 뒤 오른쪽 창고 2,100 × 2,700, 벽 · 앞 통로)을 넣었습니다.");
+  window.fpAuto(true);
+};
+function renderShape(){
+  var el=$("fpShape");if(!el)return;
+  var inp='padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px',bt='padding:3px 10px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer';
+  var ws=walls(),h='<div style="display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center;font-size:12px;color:#5b6675">'
+    +'<b style="color:#154f5e">공간 모양</b>'
+    +'<span>막힌 칸 <input id="fpBkN" value="창고" style="'+inp+';width:56px"> <select id="fpBkP" style="'+inp+'"><option value="BR">뒤 오른쪽</option><option value="BL">뒤 왼쪽</option><option value="FR">앞 오른쪽</option><option value="FL">앞 왼쪽</option></select>'
+    +' <input id="fpBkW" type="number" min="100" step="100" value="2100" style="'+inp+';width:64px">×<input id="fpBkD" type="number" min="100" step="100" value="2700" style="'+inp+';width:64px"> mm <button onclick="fpBlockAdd()" style="'+bt+'">추가</button></span>'
+    +'<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" '+(ST.wallOn?'checked':'')+' onchange="fpWall(this.checked)" style="margin:0">벽 그리기(앞은 통로)</label>'
+    +'<span>벽 높이 <input type="number" min="500" step="100" value="'+ST.wallH+'" onchange="fpWallH(this.value)" style="'+inp+';width:60px"></span>'
+    +'<button onclick="fpShapeDrawing()" style="'+bt+';border-color:#99f6e4;background:#f0fdfa;color:#0f766e" title="7,200×8,400 · 뒤 오른쪽 창고 2,100×2,700 · 벽">📐 실측 도면(7,200×8,400 · 창고)</button></div>';
+  if(ST.blocks.length)h+='<div style="font-size:12px;color:#334155;margin-top:4px">'+ST.blocks.map(function(b,i){return '▦ '+esc(b.n)+' '+(b.x1-b.x0)+'×'+(b.z1-b.z0)+' <button onclick="fpBlockDel('+i+')" title="막힌 칸 지우기" style="border:0;background:none;color:#b91c1c;cursor:pointer;font-size:12px">✕</button>';}).join(' · ')+'</div>';
+  if(ws.length)h+='<div style="font-size:12px;color:#334155;margin-top:4px">벽 길이(시트지 확인용): '+ws.map(function(w){return esc(w.n)+' <b>'+w.len.toLocaleString()+'</b>';}).join(' · ')+'</div>';
+  el.innerHTML=h;
+}
 function autoIfOn(){if(ST.autoOn){window.fpAuto(true);}else changed();}
 
 /* ── 집기 목록은 아래 '집기 수량' 표 하나로 합쳤다(2026-10-14 영업2팀 "집기목록은 집기 수량으로, 집기 목록은 삭제") ── */
@@ -26444,8 +26501,20 @@ window.fpAuto=function(quiet){
   }
   setState(W,D,out);
   ST.sel=null;
+  /* 막힌 칸(창고 등)에 걸린 집기 — 빈 자리(벽·다른 집기·막힌 칸을 피해서)로 옮기고, 자리가 없으면 뺀다 */
+  if(ST.blocks.length){
+    var moved=0,dropped=[];
+    ST.items.slice().forEach(function(it){
+      if(!hitBlock(rectOf(it)))return;
+      ST.items=ST.items.filter(function(o){return o!==it;});
+      var p=freeSpot(it.t),test={t:it.t,x:p.x,z:p.z,r:it.r,f:it.f},r=rectOf(test),clash=hitBlock(r)||ST.items.some(function(o){var q=rectOf(o);return r.x0<q.x1-1&&r.x1>q.x0+1&&r.z0<q.z1-1&&r.z1>q.z0+1;});
+      if(clash){dropped.push(CAT[it.t].n);out=out.filter(function(o){return !(o.t===it.t&&o.x===it.x&&o.z===it.z);});}
+      else{it.x=p.x;it.z=p.z;ST.items.push(it);moved++;}
+    });
+    if(dropped.length){warn.push("막힌 칸 때문에 못 놓은 집기: "+dropped.join(", "));out=ST.items.map(function(o){return {t:o.t};});}
+  }
   var parts=[];
-  Object.keys(CAT).forEach(function(k){var c=outCount(k);if(c)parts.push(CAT[k].n+" "+c+"개");});
+  Object.keys(CAT).forEach(function(k){var c=countOf(k);if(c)parts.push(CAT[k].n+" "+c+"개");});
   msg((quiet===true?"자동 배치 — ":"")+(parts.length?parts.join(" · "):"선택한 집기가 없습니다")+(warn.length?" — "+warn.join(", "):"")+(parts.length?" · 끌어서 옮길 수 있습니다":""),warn.length>0);
   changed();
 };
@@ -26459,7 +26528,7 @@ window.fpSize=function(){
 window.fpSave=function(){
   var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다)","");
   if(!name)return;name=name.trim();if(!name)return;
-  var all=savedAll();all[name]={W:ST.W,D:ST.D,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
+  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallH:ST.wallH,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){msg("저장하지 못했습니다(브라우저 저장공간).",true);return;}
   share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
 };
@@ -26467,7 +26536,7 @@ window.fpLoad=function(){
   var v=$("fpSaved").value;if(!v)return;
   var o=savedAll()[v];if(!o)return;
   ST.autoOn=false;saveOpt();renderUse();
-  setState(o.W,o.D,o.items||[]);T3.rad=Math.max(o.W,o.D)/1000*1.5+2;
+  setState(o.W,o.D,o.items||[]);shapeFrom(o);T3.rad=Math.max(o.W,o.D)/1000*1.5+2;renderShape();
   msg("'"+v+"' 배치를 불러왔습니다. 그대로 두려고 자동 배치는 껐습니다.");changed();
 };
 window.fpDelSaved=function(){
@@ -26686,6 +26755,18 @@ function draw2d(){
   g.fillText(ST.W+" mm",ox+ST.W*sc/2,oy-14);
   g.save();g.translate(ox-14,oy+ST.D*sc/2);g.rotate(-Math.PI/2);g.fillText(ST.D+" mm",0,0);g.restore();
   g.fillText("앞(통로) ▼",ox+ST.W*sc/2,oy+ST.D*sc+14);
+  ST.blocks.forEach(function(b){
+    var x=ox+b.x0*sc,y=oy+b.z0*sc,w=(b.x1-b.x0)*sc,d=(b.z1-b.z0)*sc;
+    g.fillStyle="#fde4d4";g.fillRect(x,y,w,d);
+    g.save();g.beginPath();g.rect(x,y,w,d);g.clip();g.strokeStyle="rgba(194,120,80,.35)";g.lineWidth=1;g.beginPath();
+    for(var t=-d;t<w;t+=10){g.moveTo(x+t,y);g.lineTo(x+t+d,y+d);}g.stroke();g.restore();
+    g.strokeStyle="#c2410c";g.lineWidth=1.5;g.strokeRect(x,y,w,d);
+    g.fillStyle="#9a3412";g.font="700 12px sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(b.n,x+w/2,y+d/2-7);
+    g.font="11px sans-serif";g.fillText((b.x1-b.x0)+"×"+(b.z1-b.z0),x+w/2,y+d/2+8);
+  });
+  g.strokeStyle="#1f2937";g.lineWidth=5;g.lineCap="square";
+  walls().forEach(function(w){g.beginPath();g.moveTo(ox+w.x0*sc,oy+w.z0*sc);g.lineTo(ox+w.x1*sc,oy+w.z1*sc);g.stroke();});
+  g.lineCap="butt";
   var pr=problems();
   ST.items.forEach(function(it){
     var c=CAT[it.t];if(!c)return;
@@ -26757,7 +26838,7 @@ function freeSpot(t){
       it.x=x;it.z=z;
       var a=rectOf(it),hitAny=false;
       for(var i=0;i<ST.items.length;i++){var b=rectOf(ST.items[i]);if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1){hitAny=true;break;}}
-      if(!hitAny)return {x:x,z:z};
+      if(!hitAny&&!hitBlock(a))return {x:x,z:z};
     }
   }
   return {x:snap(ST.W/2),z:snap(ST.D/2)};
@@ -27147,6 +27228,10 @@ function rebuild3d(){
     var bd=[new THREE.Vector3(-w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,d/2),new THREE.Vector3(-w/2,0.005,d/2)];
     root.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bd),new THREE.LineBasicMaterial({color:0x444441})));
     ST.items.forEach(function(it){if(CAT[it.t])root.add(buildItem(it,!!pr.bad[it.id]));});
+    var WHm=(ST.wallH||2400)/1000;
+    ST.blocks.forEach(function(b){var bw2=(b.x1-b.x0)/1000,bd2=(b.z1-b.z0)/1000;mk(root,bw2,WHm,bd2,(b.x0+b.x1)/2000-w/2,WHm/2,(b.z0+b.z1)/2000-d/2,0xf3d2bf);});
+    walls().forEach(function(wl){var lx=(wl.x1-wl.x0)/1000,lz=(wl.z1-wl.z0)/1000,T=0.06;
+      mk(root,Math.abs(lx)||T,WHm,Math.abs(lz)||T,(wl.x0+wl.x1)/2000-w/2,WHm/2,(wl.z0+wl.z1)/2000-d/2,0xeceae4);});
     R3.root=root;R3.scene.add(root);
     render3d();
   });
@@ -27298,7 +27383,7 @@ function canShare(){
 }
 function meName(){try{if(_authMe&&_authMe.name)return String(_authMe.name);if(_authUser&&_authUser.email)return String(_authUser.email).split("@")[0];}catch(e){}return "";}
 var SRC={
-  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next});},
+  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallH:ST.wallH});},
   use:function(){return JSON.stringify(ST.use);},
   cus:function(){return JSON.stringify(ST.cus);},
   plans:function(){try{return localStorage.getItem(KEY_SAVED)||"{}";}catch(e){return "{}";}},
@@ -27326,7 +27411,7 @@ function renderShare(){
 function applyCur(v){
   var o;try{o=JSON.parse(v);}catch(e){return;}
   if(!o||!o.W||!o.D)return;
-  ST.W=o.W;ST.D=o.D;
+  ST.W=o.W;ST.D=o.D;shapeFrom(o);
   var mx=0;
   ST.items=(o.items||[]).map(function(x){
     var t=x.t==="curveTbl"?(x.f?"curveR":"curveL"):x.t;
@@ -27337,7 +27422,7 @@ function applyCur(v){
   $("fpW").value=ST.W;$("fpD").value=ST.D;
   try{localStorage.setItem(KEY_CUR,v);}catch(e){}
   SH.last.cur=SRC.cur();
-  renderUse();renderPalette();renderSel();renderSum();draw2d();rebuild3d();
+  renderUse();renderPalette();renderSel();renderSum();draw2d();rebuild3d();renderShape();
 }
 function listenShare(){
   var R=function(k){return fbDB.ref("ws/fx3d/"+k);};
@@ -27414,14 +27499,14 @@ window.renderFloorPage=function(){
     loadUse();ST.cal=loadCal();
     var cur=null;try{cur=JSON.parse(localStorage.getItem(KEY_CUR)||"null");}catch(e){}
     bind2d();fillSaved("");
-    if(cur&&cur.items&&cur.W&&cur.D){setState(cur.W,cur.D,cur.items);ST.next=Math.max(ST.next,cur.next||1);}
+    if(cur&&cur.items&&cur.W&&cur.D){setState(cur.W,cur.D,cur.items);ST.next=Math.max(ST.next,cur.next||1);shapeFrom(cur);}
     else{window.fpSample();}
     var pd=null;try{pd=localStorage.getItem(KEY_PHOTO);}catch(e){}
     if(pd){var im=new Image();im.onload=function(){usePhoto(im);};im.src=pd;}
     window.addEventListener("resize",function(){if(!pageOn())return;draw2d();resize3d();drawPhoto();});
     startShare();
   }
-  renderShare();
+  renderShare();renderShape();
   renderUse();renderPhoto();renderPalette();renderSel();renderSum();draw2d();
   if(T3.ready){resize3d();rebuild3d();return;}
   load3d(function(ok){
