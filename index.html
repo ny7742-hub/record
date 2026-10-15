@@ -7917,8 +7917,8 @@ function renderQuickLaunch(){
     {label:"코스트코 DSS 2",url:"https://costcokr.logistics.reply.com/costcokr/#/costcokr/dropship/",icon:_extLinkIcon,noCred:true,portal:"dss2",portalOnly:true},
     {label:"코스트코 수발주",url:"https://www.escm21.net/escm21/home/index.jsp",icon:_extLinkIcon},
     /* 쿠팡 서플라이어 허브(2026-10-15 영업2팀) — 계정 둘(블랙샌즈·화이트샌즈)이라 DSS처럼 자동화 첫 창(cp)·두 번째 창(cp2)에 하나씩 로그인 */
-    {label:"쿠팡 서플라이어",url:"https://supplier.coupang.com/dashboard/KR",icon:_extLinkIcon,noCred:true,portal:"cp"},
-    {label:"쿠팡 서플라이어 2",url:"https://supplier.coupang.com/dashboard/KR",icon:_extLinkIcon,noCred:true,portal:"cp2",portalOnly:true},
+    {label:"쿠팡(화이트샌즈)",url:"https://supplier.coupang.com/dashboard/KR",icon:_extLinkIcon,noCred:true,portal:"cp2"},
+    {label:"쿠팡(블랙샌즈)",url:"https://supplier.coupang.com/dashboard/KR",icon:_extLinkIcon,noCred:true,portal:"cp"},
     {label:"이카운트",url:"https://login.ecount.com/Login/?lan_type=ko-KR",icon:_extLinkIcon},
     {label:"CX통합관리",url:"https://wscx.pages.dev/",icon:_extLinkIcon},
     {label:"세일즈매니지먼트",url:"https://wssales.pages.dev/",icon:_extLinkIcon},
@@ -7991,8 +7991,8 @@ var PL_SITES=[
   {k:"dss2",name:"코스트코 DSS31",use:"발주(버튼) · 송장",open:"dss2"},
   {k:"hiworks",name:"메일(하이웍스)",use:"발주 메일 · 코스트코 매출등록",open:"hiworks"},
   /* 쿠팡 서플라이어 허브 두 계정(2026-10-15) — 첫 창 cp1 · 두 번째 창 cp2(automation/portal-status.mjs) */
-  {k:"cp1",name:"쿠팡 서플라이어 1",use:"발주건 확인 10:00 · 16:00",open:"cp"},
-  {k:"cp2",name:"쿠팡 서플라이어 2",use:"발주건 확인 10:00 · 16:00",open:"cp2"}
+  {k:"cp2",name:"쿠팡(화이트샌즈)",use:"발주건 확인 10:00 · 16:00",open:"cp2"},
+  {k:"cp1",name:"쿠팡(블랙샌즈)",use:"발주건 확인 10:00 · 16:00",open:"cp"}
 ];
 /* ── 🤖 자동화 탭 그리기(2026-10-02 영업2팀) — 원래 화면의 카드 함수(_saipCard·_retCard)와 같은 내용을 쓰고,
    로그인 상태·코스트코·도매 발주 칸은 원래 화면을 그릴 때 같이 복사한다(renderPortalLogin·ccAutoRender·ocAutoRender 끝) */
@@ -8202,7 +8202,7 @@ function renderPortalLogin(){
     var v=S[x.k]||{},st=stale?"?":(v.state||"?");
     var c={in:["#ecfdf5","#86efac","#047857","✅ 로그인됨"],out:["#fef2f2","#fca5a5","#b91c1c","❌ 로그인 필요"],none:["#fff7ed","#fdba74","#c2410c","➖ 탭 없음"],nowin:["#fff7ed","#fdba74","#c2410c","➖ 창 없음"],"?":["#f8fafc","#cbd5e1","#5b6675","… 확인 안 됨"]}[st]||["#f8fafc","#cbd5e1","#5b6675",st];
     return '<div style="border:1px solid '+c[1]+';background:'+c[0]+';border-radius:8px;padding:6px 10px;min-width:150px">'
-      +'<div style="font-weight:800;font-size:13px;color:#1f2937">'+_escX(/^dss/.test(x.k)&&v.who?"코스트코 DSS"+String(v.who).slice(-2):x.name)+(v.who&&st==="in"?' <span style="font-weight:600;color:#475569">'+_escX(v.who)+'</span>':'')+'</div>'
+      +'<div style="font-weight:800;font-size:13px;color:#1f2937">'+_escX(/^dss/.test(x.k)&&v.who?"코스트코 DSS"+String(v.who).slice(-2):/^cp/.test(x.k)&&v.who?"쿠팡("+(/블랙샌즈/.test(v.who)?"블랙샌즈":"화이트샌즈")+")":x.name)+(v.who&&st==="in"&&!/^cp/.test(x.k)?' <span style="font-weight:600;color:#475569">'+_escX(v.who)+'</span>':'')+'</div>'
       +'<div style="font-weight:700;font-size:13px;color:'+c[2]+'">'+c[3]+'</div>'
       +'<div style="font-size:11px;color:#5b6675">'+_escX(x.use)+'</div>'
       /* 로그인 필요·탭 없음이면 그 사이트를 자동화 창에 여는 단추(2026-10-02 영업2팀) — 자동화 창 모드를 켠 PC에서만 열린다 */
