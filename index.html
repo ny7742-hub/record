@@ -1666,6 +1666,21 @@ label{font-size:14px!important}
     </div>
     <!-- 코스트코 자동 발주(2026-10-01 영업2팀) — 자동화 PC(automation/costco-order.mjs)가 아래 1~3단계와 메일까지 한다.
          **아침 자동 발주는 껐다(2026-10-12)** — [🚚 발주하기]를 눌러야 돈다. 순서 안내(①~④ 단계와 상태)는 ccAutoRender가 맨 위에 붙인다 -->
+    <style>
+      /* 코스트코 발주 단계 배너(ccAutoRender) — 자동화 탭 복사본(#autoCcStatus)에도 같이 쓴다 */
+      .cc-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin:4px 0 6px}
+      .cc-step{border:2px solid #cbd5e1;background:#f1f5f9;border-radius:10px;padding:6px 10px;font-size:12.5px;line-height:1.5;color:#5b6675;transition:all .3s}
+      .cc-step-h{font-size:14px;font-weight:800;color:#64748b;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+      .cc-step-n{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#cbd5e1;color:#fff;font-size:12px}
+      .cc-step-s{margin-top:2px;overflow-wrap:anywhere}
+      .cc-step-ok,.cc-step-now{font-size:11px;font-weight:800;border-radius:999px;padding:0 7px;color:#fff}
+      .cc-step-done{border-color:#22c55e;background:#dcfce7;box-shadow:0 0 10px rgba(34,197,94,.45)}
+      .cc-step-done .cc-step-h{color:#166534}.cc-step-done .cc-step-n,.cc-step-ok{background:#16a34a}
+      .cc-step-on{border-color:#f59e0b;background:#fef3c7;animation:ccStepGlow 1.4s ease-in-out infinite}
+      .cc-step-on .cc-step-h{color:#92400e}.cc-step-on .cc-step-n,.cc-step-now{background:#f59e0b}
+      .cc-step-skip{border-style:dashed;opacity:.75}
+      @keyframes ccStepGlow{0%,100%{box-shadow:0 0 4px rgba(245,158,11,.35)}50%{box-shadow:0 0 16px rgba(245,158,11,.85)}}
+    </style>
     <div id="ccAutoBox" style="border:1px solid #cfe0e5;border-radius:10px;background:#f6fbfc;padding:10px 12px;margin:6px 0 12px">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <b style="font-size:16px;color:#0f4c5c">🤖 코스트코 자동 발주</b>
@@ -20139,7 +20154,7 @@ function ccAutoRender(){
   var gN=L?(+L.orders||0):(fresh&&!Q.total?0:null);
   var gd=_ccToday(),gdt=new Date(gd+"T00:00:00"),gmd=gd.slice(5,7)+gd.slice(8,10);
   var gsl=(+gd.slice(5,7))+"/"+(+gd.slice(8,10))+"("+"일월화수목금토".charAt(gdt.getDay())+") 코스트코 "+(gN||0)+"건 발주했습니다.";
-  var OK='<span style="color:#047857;font-weight:700">✅ ',WAIT='<span style="color:#b45309;font-weight:700">',GRAY='<span style="color:#5b6675">';
+  var OK='<span style="color:#047857;font-weight:700">',WAIT='<span style="color:#b45309;font-weight:700">',GRAY='<span style="color:#5b6675">';
   var busy=_saipReqActive(R)&&R.mode!=="preview";
   var s1=_ccCountWaiting()?'<span style="color:#1d4ed8;font-weight:700">⏳ 확인 중…</span>'
     :fresh?(Q.total?'<span style="color:'+(L?'#5b6675':'#6d28d9')+';font-weight:700">'+(L?(L.state==="draft"?'아직 안 보낸 주문 ':'다음 발주 대기 '):'새 주문 ')+(Q.accounts||[]).map(function(a){return _escX(a.who)+' '+a.orders+'건'+(a.printedUnsent?' <span style="color:#b91c1c">(DSS 출력은 됐는데 발주서 안 보냄 '+a.printedUnsent+')</span>':'');}).join(' · ')+'</span>':OK.replace('✅ ','')+'새 주문 0건</span>')+' '+GRAY+'('+_escX(_saipFmtAt(Q.at))+')</span>'
@@ -20154,9 +20169,14 @@ function ccAutoRender(){
   var s4=L&&L.slackAt?OK+'슬랙에 자동으로 올림</span>'
     :gN==null?GRAY+'③ 뒤에</span>'
     :'\'<b>'+_escX(gsl)+'</b>\' <button class="bs" style="padding:2px 8px;font-size:12px" onclick="_ccCopySlack(this)" data-t="'+_escX(gsl)+'">📋 복사</button>';
-  var row=function(n,t,st){return '<div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;padding:2px 0"><b style="color:#0f4c5c;white-space:nowrap">'+n+' '+t+'</b>'+st+'</div>';};
-  h+='<div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:6px 10px;margin:4px 0;font-size:13.5px;color:#334155;line-height:1.6">'
-    +row('①','🔢 건수 확인',s1)+row('②','🚚 발주하기',s2)+row('③','✉️ 메일 보내기',s3)+row('④','💬 슬랙 CX팀',s4)+'</div>';
+  /* 단계 배너 — 끝난 단계는 초록 불, 지금 할 단계는 주황 불(깜빡임), 아직은 회색, 할 일 없음은 점선(2026-10-15 영업2팀 "단계별 배너 불 들어오게") */
+  var d1=!!(fresh||L),d2=!!L,d3=!!(L&&L.state==="sent"),d4=!!(L&&L.slackAt);
+  var k1=_ccCountWaiting()?"on":d1?"done":"on";
+  var k2=d2?"done":gN===0?"skip":(busy&&R.mode==="save")||d1?"on":"todo";
+  var k3=d3?"done":gN===0?"skip":(busy&&R.mode==="send")||(L&&L.state==="draft")?"on":"todo";
+  var k4=d4?"done":(d3||gN===0)?"on":"todo";
+  var row=function(n,t,st,k){return '<div class="cc-step cc-step-'+k+'"><div class="cc-step-h"><span class="cc-step-n">'+n+'</span>'+t+(k==="done"?' <span class="cc-step-ok">완료</span>':k==="on"?' <span class="cc-step-now">지금</span>':'')+'</div><div class="cc-step-s">'+st+'</div></div>';};
+  h+='<div class="cc-steps">'+row('①','🔢 건수 확인',s1,k1)+row('②','🚚 발주하기',s2,k2)+row('③','✉️ 메일 보내기',s3,k3)+row('④','💬 슬랙 CX팀',s4,k4)+'</div>';
   if(R&&R.state){
     var who=(R.auto?'🤖 자동 · ':'')+_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":R.mode==="send"?"발주 메일 보내기":"미리보기";
     if(_saipReqActive(R))h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?'요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>'):'진행 중… ('+who+')')+'</div>'+_ccProgBar(R,S);
