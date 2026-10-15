@@ -20523,6 +20523,9 @@ function _saipCheckLine(k,date){
   if(!date)return "";
   if(_saipLogOf(k,date))return "";                                   /* 이미 등록 끝난 날짜는 검수 줄을 안 띄운다 */
   var C=_saipCheck(k,date);
+  /* 검수는 했는데 그 날짜 파일·회신 메일이 없었다 — '검수 안 함'이 아니라 '파일 없음'(2026-10-15) */
+  var S0=_saipStatusOf(k),nf=!C&&S0&&S0.mode==="preview"&&(S0.items||[]).some(function(x){return x&&x.date===date&&x.status==="nofile";});
+  if(nf)return '<div style="color:#5b6675">📭 '+(+date.slice(5,7))+'/'+(+date.slice(8,10))+' '+(k==="cc"?"회신 메일":"파일")+' 없음 — 등록할 것 없음 <span>· '+_escX(_saipFmtAt(S0.at))+' 확인</span></div>';
   if(!C)return '<div style="color:#5b6675">🔍 아직 중복 검수를 안 했습니다 — <b>[🔍 중복 확인]</b>을 누르면 플레이엠디에 이미 있는지 봅니다(저장 안 함)</div>';
   var when=' <span style="color:#5b6675">· '+_escX(_saipFmtAt(C.at))+'</span>';
   if(C.s==="dup")return '<div style="color:#b45309;font-weight:700">🔍 중복 검수: 플레이엠디에 <b>이미 있습니다</b> — 등록하지 마세요'+when+'</div>';
