@@ -2338,11 +2338,9 @@ label{font-size:14px!important}
         <button class="ap-btn sub" onclick="ccAutoGo('preview')">🔍 미리보기(메일 초안)</button></div>
       <div id="autoCcStatus" style="font-size:13px;line-height:1.6"></div></div>
     <!-- 쿠팡 자동발주(2026-10-15 영업2팀) — 자리만 먼저. 쿠팡 쪽 주문 받는 곳·발주서 양식·보낼 곳이 정해지면 자동화 PC 작업으로 연결한다 -->
-    <div class="ap-card"><div class="ap-h"><b>🟠 쿠팡 자동발주</b><span class="ap-sub">준비 중</span></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-        <button class="ap-btn sub" disabled style="opacity:.6;cursor:not-allowed">🔢 건수 확인</button>
-        <button class="ap-btn" disabled style="opacity:.6;cursor:not-allowed">🚚 발주하기</button></div>
-      <div class="ap-sub" style="line-height:1.6">쿠팡 주문을 어디서 받는지(쿠팡 윙 · 서플라이어 허브 등), 발주서 양식, 보낼 곳이 정해지면 코스트코 자동 발주처럼 <b>① 건수 확인 → ② 발주하기 → ③ 메일 보내기</b>로 연결합니다.</div></div>
+    <div class="ap-card"><div class="ap-h"><b>🟠 쿠팡 발주 · 쉽먼트</b><span class="ap-sub">블랙샌즈 → 화이트샌즈 순 · 두 계정 모두</span>
+      <a class="ap-btn sub" style="margin-left:auto;text-decoration:none" href="https://supplier.coupang.com/dashboard/KR" target="_blank" rel="noopener" title="쿠팡 서플라이어 허브를 새 탭으로 엽니다">↗ 서플라이어 허브</a></div>
+      <div id="autoCp" style="font-size:13px;line-height:1.6"></div></div>
     <div class="ap-card" style="grid-column:1/-1"><div class="ap-h"><b>🚚 사입출고등록</b><span class="ap-sub">홈쇼핑 · 백화점몰 · 코스트코(+DSS 송장) · 발송후취소 — 날짜는 사입출고등록 탭의 날짜 칸을 따릅니다</span>
       <button class="ap-btn sub" style="margin-left:auto" onclick="switchTab('ccorder')">사입출고등록 탭 열기</button></div>
       <div id="autoSaip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px"></div></div>
@@ -2750,7 +2748,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","cpProgress":"ws/cpProgress","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -3335,6 +3333,10 @@ function fbListen(){
   apply("ws/ecConfig","ecConfig",
     function(d){if(d&&typeof d==="object"){ecConfig=d;if(!ecConfig.stores)ecConfig.stores={};}},
     function(){if(typeof renderEcount==="function")renderEcount();}
+  );
+  apply("ws/cpProgress","cpProgress",
+    function(d){if(d&&typeof d==="object")cpProgress=d;},
+    function(){if(typeof cpgRender==="function")cpgRender();}
   );
   apply("ws/ccCountReq","ccCountReq",
     function(d){if(d&&typeof d==="object")ccCountReq=d;},
@@ -8053,6 +8055,7 @@ function renderAutoPage(){
   try{renderWsAuto();}catch(e){}
   var pg=document.getElementById("page-auto");if(!pg||pg.style.display==="none")return;
   try{ocAddRender();}catch(e){}   /* 도매 자동발주 카드의 '＋ 상품 추가' 칸 */
+  try{cpgRender();}catch(e){}      /* 쿠팡 발주 · 쉽먼트 단계 */
   /* PlayMD 자료 업로드 4종 */
   var up=document.getElementById("autoUp");
   if(up){
@@ -8139,6 +8142,45 @@ function apOpen(tab,id){
     h.style.outline="3px solid #f59e0b";h.style.outlineOffset="2px";
     setTimeout(function(){h.style.outline=o;h.style.outlineOffset=oo;},2200);
   },80);
+}
+/* ── 🟠 쿠팡 발주 · 쉽먼트(2026-10-15 영업2팀 — 「쿠팡_발주_쉽먼트_프로세스」 문서) ──
+   지금은 **단계 진행표**: 오늘 할 일을 ①~④ 배너(코스트코 발주와 같은 .cc-steps)로 보이고, 세부 칸을 누르면 팀 공유 ws/cpProgress[오늘][칸]={at,by}로 체크된다.
+   자동(PO 받기 · 쿠팡 발주서 가공 · 발주 확정 업로드 · 쉽먼트 등록)은 PO 발주서 원본·쿠팡 발주서 양식·물류센터 주소표를 받은 뒤 붙인다. */
+var cpProgress=(function(){try{return JSON.parse(localStorage.getItem("cpProgress")||"null")||{};}catch(e){return {};}})();
+var CP_STEPS=[
+  {n:"①",t:"오전 · 발주서 만들기",hint:"물류 → 발주리스트 → 입고예정일 검색 → 신규 발주서만 체크 → '발주서 업로드 양식' 다운로드",subs:[
+    ["po_b","블랙샌즈 PO 받기"],["po_w","화이트샌즈 PO 받기"],["make","쿠팡 발주서 가공"],["mail","물류센터 메일 전송"]]},
+  {n:"②",t:"오후 · 미출고 반영 · 발주 확정",hint:"물류센터 회신으로 미출고·부분출고 반영(없으면 생략) → 발주리스트 → 발주서 업로드 → 약관 체크 → 업로드",subs:[
+    ["reply","물류센터 회신 확인"],["cf_b","블랙샌즈 발주 확정"],["cf_w","화이트샌즈 발주 확정"]]},
+  {n:"③",t:"쉽먼트 등록",hint:"물류 → 쉽먼트 → 쉽먼트 일괄등록 → 양식 받기(페이지별) → 확정 수량·송장번호 → 업로드 · CJ대한통운 · 발송일 당일 23:55",subs:[
+    ["sh_b","블랙샌즈 쉽먼트"],["sh_w","화이트샌즈 쉽먼트"]]},
+  {n:"④",t:"마무리",hint:"물류 → 쉽먼트 → 택배 쉽먼트 → 라벨·내역서 전체 다운로드 → PDF 병합 '(날짜) 쉽먼트' → 회신 메일 제목 '발주서'→'쉽먼트'로 바꿔 첨부 발송",subs:[
+    ["pdf","라벨·내역서 PDF 병합"],["shmail","쉽먼트 메일 발송"],["final","최종 발주서 나이사님 전달"]]}
+];
+function _cpToday(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function cpgToggle(k){
+  var t=_cpToday(),P=cpProgress||{};P[t]=P[t]||{};
+  if(P[t][k]){if(!confirm("이 칸 체크를 지울까요?\n\n"+(P[t][k].by||"")+" · "+_saipFmtAt(P[t][k].at)))return;delete P[t][k];}
+  else P[t][k]={at:new Date().toISOString(),by:_saipMe()};
+  Object.keys(P).sort().slice(0,-14).forEach(function(d){delete P[d];});   /* 2주만 남긴다 */
+  cpProgress=P;wsSetItem("cpProgress",JSON.stringify(P));cpgRender();
+}
+function cpgRender(){
+  var box=document.getElementById("autoCp");if(!box)return;
+  var t=_cpToday(),D=(cpProgress||{})[t]||{},md=t.slice(5,7)+t.slice(8,10),cur=-1;
+  var done=CP_STEPS.map(function(st){return st.subs.every(function(x){return D[x[0]];});});
+  done.forEach(function(d,i){if(!d&&cur<0)cur=i;});
+  var h='<div class="cc-steps">'+CP_STEPS.map(function(st,i){
+    var k=done[i]?"done":i===cur?"on":"todo";
+    var subs=st.subs.map(function(x){var v=D[x[0]];
+      return '<button onclick="cpgToggle(\''+x[0]+'\')" title="'+(v?_escX((v.by||"")+" · "+_saipFmtAt(v.at))+' — 누르면 체크를 지웁니다':'끝났으면 눌러 체크')+'" style="display:block;width:100%;text-align:left;margin-top:3px;font-size:12px;font-weight:700;border-radius:6px;padding:2px 6px;cursor:pointer;border:1px solid '+(v?'#86efac;background:#fff;color:#047857':'#cbd5e1;background:#fff;color:#475569')+'">'+(v?'☑ ':'☐ ')+_escX(x[1])+(v?' <span style="font-weight:400;color:#5b6675">'+_escX(v.by||"")+'</span>':'')+'</button>';}).join("");
+    return '<div class="cc-step cc-step-'+k+'"><div class="cc-step-h"><span class="cc-step-n">'+st.n+'</span>'+_escX(st.t)+(k==="done"?' <span class="cc-step-ok">완료</span>':k==="on"?' <span class="cc-step-now">지금</span>':'')+'</div>'
+      +'<div class="cc-step-s" style="font-size:11.5px">'+_escX(st.hint)+'</div>'+subs+'</div>';
+  }).join("")+'</div>';
+  h+='<div class="ap-sub" style="line-height:1.6">파일 이름 <b>화이트샌즈('+md+') - 쿠팡</b> · 블랙샌즈 건은 출고일 칸에 \'블랙샌즈\' · 코드는 CX팀_업무리스트 코드매칭(쿠팡바코드 → 상품컬러코드) · '
+    +'<a href="https://www.ilovepdf.com/merge_pdf" target="_blank" rel="noopener">PDF 병합 ↗</a></div>'
+    +'<div class="ap-sub" style="margin-top:2px;color:#b45309">자동(PO 받기 · 발주서 가공 · 발주 확정 · 쉽먼트 등록)은 준비 중 — 지금은 직접 하고 체크합니다</div>';
+  box.innerHTML=h;
 }
 function _apCopy(from,to){var a=document.getElementById(from),b=document.getElementById(to);if(a&&b)b.innerHTML=a.innerHTML;}
 function renderPortalLogin(){
