@@ -8184,9 +8184,20 @@ var cpCountReq=(function(){try{return JSON.parse(localStorage.getItem("cpCountRe
 function _cpCountWaiting(){var q=cpCountReq;return !!(q&&q.id&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<5*60*1000);}
 /* 오전 발주서 자동(2026-10-15) — 자동화 PC coupang-order-make.mjs가 평일 10:00(또는 버튼 mode 'make')에 확인 → 두 계정 발주서 → 물류센터 메일 초안. 기록 ws/cpOrderLog[날짜] */
 var cpOrderLog=(function(){try{return JSON.parse(localStorage.getItem("cpOrderLog")||"null");}catch(e){return null;}})();
+var CP_MODE_NAME={make:"발주서 만들기",send:"발주 메일 보내기",check:"발주건 확인"};
 function cpCountGo(mode){
-  if(_cpCountWaiting()){alert("쿠팡 "+(cpCountReq.mode==="make"?"발주서 만들기":"발주건 확인")+"가 이미 요청돼 있습니다("+(cpCountReq.by||"?")+").");return;}
+  if(_cpCountWaiting()){alert("쿠팡 "+(CP_MODE_NAME[cpCountReq.mode]||"발주건 확인")+"가 이미 요청돼 있습니다("+(cpCountReq.by||"?")+").");return;}
   var L=(cpOrderLog||{})[_cpToday()];
+  /* 확인 → 메일 보내기(2026-10-15 영업2팀 「임시보관함에 보관해 주면 확인 버튼 누르면 메일 전송」) — 자동화 PC가 임시보관함의 그 초안을 그대로 보낸다 */
+  if(mode==="send"){
+    if(!L||L.state!=="draft"){alert(L&&L.state==="sent"?"오늘 쿠팡 발주 메일은 이미 보냈습니다("+(L.sentBy||"?")+").":"오늘 메일 초안이 없습니다 — 먼저 📨 오전 발주서 만들기");return;}
+    if(!confirm("쿠팡 발주 메일을 보냅니다.\n\n제목: "+(L.subject||"")+"\n받는 사람: 김구남 센터장 · 참조 영업2팀·CX팀\n첨부: "+(L.files||[]).map(function(f){return f.name;}).join(", ")+"\n\n하이웍스 임시보관함의 이 초안을 그대로(고쳤으면 고친 대로) 보냅니다. 보낼까요?"))return;
+    cpCountReq={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),mode:"send"};
+    wsSetItem("cpCountReq",JSON.stringify(cpCountReq));cpgRender();
+    if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 5분 안에 켜지지 않으면 다시 눌러 주세요.");
+    return;
+  }
+  if(mode==="make"&&L&&L.state==="sent"){alert("오늘 쿠팡 발주 메일은 이미 보냈습니다("+(L.sentBy||"?")+" · "+_saipFmtAt(L.sentAt)+").");return;}
   if(mode==="make"&&L&&L.state==="draft"&&!confirm("오늘 이미 메일 초안까지 만들었습니다("+(L.by||"?")+" · "+_saipFmtAt(L.at)+").\n\n다시 만들까요? (임시보관함에 초안이 하나 더 생깁니다)"))return;
   if(mode==="make"&&!(L&&L.state==="draft")&&!confirm("쿠팡 오전 발주서를 만듭니다.\n\n① 두 계정 D+3 영업일 입고예정 새 발주를 다시 읽고\n② 쿠팡 발주서 양식으로 브랜드별 파일을 만들어\n③ 물류센터(김구남 센터장 · 참조 영업2팀·CX팀) 메일 초안을 하이웍스 임시보관함에 저장합니다(보내지 않음).\n\n진행할까요?"))return;
   cpCountReq={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),mode:mode==="make"?"make":"check",force:!!(mode==="make"&&L&&L.state==="draft")};
@@ -8282,12 +8293,14 @@ function cpMakeSheet(date){
 }
 function _cpReadyHtml(){
   var Q=cpOrderReady,h="";
-  if(_cpCountWaiting())h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+(cpCountReq.mode==="make"?'오전 발주서 만드는 중':'발주건 확인 중')+'… ('+_escX(cpCountReq.by||"?")+') — '+(_saipWatchOk()?'자동화 PC가 쿠팡에서 읽는 중(몇 분)':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>')+'</div>';
+  if(_cpCountWaiting())h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+(cpCountReq.mode==="make"?'오전 발주서 만드는 중':cpCountReq.mode==="send"?'발주 메일 보내는 중':'발주건 확인 중')+'… ('+_escX(cpCountReq.by||"?")+') — '+(_saipWatchOk()?'자동화 PC가 쿠팡에서 읽는 중(몇 분)':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>')+'</div>';
   /* 오늘 오전 발주서(자동 10:00 · 버튼) 결과 */
   var OL=(cpOrderLog||{})[_cpToday()];
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'
     +'<button class="ap-btn" style="background:#7c3aed;border-color:#6d28d9" onclick="cpCountGo(\'make\')" title="확인 → 두 계정 발주서 → 물류센터 메일 초안(임시보관함, 보내지 않음)">📨 오전 발주서 만들기</button>'
-    +(OL?(OL.state==="draft"?'<span style="color:#047857;font-weight:700">✅ 메일 초안 저장 · '+_escX(_saipFmtAt(OL.at))+' · '+_escX(OL.by||"")+'</span> <span class="ap-sub">— 하이웍스 <b>임시보관함</b>의 \''+_escX(OL.subject||"")+'\' 확인 후 보내기</span>'
+    +(OL?(OL.state==="draft"?'<span style="color:#047857;font-weight:700">✅ 메일 초안 저장 · '+_escX(_saipFmtAt(OL.at))+' · '+_escX(OL.by||"")+'</span> <span class="ap-sub">— 하이웍스 <b>임시보관함</b>의 \''+_escX(OL.subject||"")+'\'</span>'
+        +' <button class="ap-btn" style="background:#047857;border-color:#065f46" onclick="cpCountGo(\'send\')" title="임시보관함의 이 초안을 그대로 물류센터에 보냅니다">✉️ 확인 · 메일 보내기</button>'
+        :OL.state==="sent"?'<span style="color:#047857;font-weight:700">📨 발주 메일 보냄 · '+_escX(_saipFmtAt(OL.sentAt||OL.at))+' · '+_escX(OL.sentBy||"")+'</span> <span class="ap-sub">'+_escX(OL.subject||"")+'</span>'
         :OL.state==="files"?'<span style="color:#b45309;font-weight:700">📄 파일만 만듦(메일 초안 못 함) · '+_escX(_saipFmtAt(OL.at))+'</span>'
         :OL.state==="none"?'<span class="ap-sub">'+_escX(_saipFmtAt(OL.at))+' — D+3 입고예정 새 발주 없음</span>'
         :'<span style="color:#b91c1c;font-weight:700">❗ '+_escX(_saipFmtAt(OL.at))+' 실패</span>')
