@@ -2750,7 +2750,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","cpProgress":"ws/cpProgress","cpOrderReady":"ws/cpOrderReady","cpCountReq":"ws/cpCountReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","cpProgress":"ws/cpProgress","cpOrderReady":"ws/cpOrderReady","cpCountReq":"ws/cpCountReq","cpOrderLog":"ws/cpOrderLog","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -3338,6 +3338,10 @@ function fbListen(){
   );
   apply("ws/cpOrderReady","cpOrderReady",
     function(d){if(d&&typeof d==="object")cpOrderReady=d;},
+    function(){if(typeof cpgRender==="function")cpgRender();}
+  );
+  apply("ws/cpOrderLog","cpOrderLog",
+    function(d){if(d&&typeof d==="object")cpOrderLog=d;},
     function(){if(typeof cpgRender==="function")cpgRender();}
   );
   apply("ws/cpCountReq","cpCountReq",
@@ -8177,9 +8181,14 @@ var CP_STEPS=[
 var cpOrderReady=(function(){try{return JSON.parse(localStorage.getItem("cpOrderReady")||"null");}catch(e){return null;}})();
 var cpCountReq=(function(){try{return JSON.parse(localStorage.getItem("cpCountReq")||"null");}catch(e){return null;}})();
 function _cpCountWaiting(){var q=cpCountReq;return !!(q&&q.id&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<5*60*1000);}
-function cpCountGo(){
-  if(_cpCountWaiting()){alert("발주건 확인이 이미 요청돼 있습니다("+(cpCountReq.by||"?")+").");return;}
-  cpCountReq={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString()};
+/* 오전 발주서 자동(2026-10-15) — 자동화 PC coupang-order-make.mjs가 평일 10:00(또는 버튼 mode 'make')에 확인 → 두 계정 발주서 → 물류센터 메일 초안. 기록 ws/cpOrderLog[날짜] */
+var cpOrderLog=(function(){try{return JSON.parse(localStorage.getItem("cpOrderLog")||"null");}catch(e){return null;}})();
+function cpCountGo(mode){
+  if(_cpCountWaiting()){alert("쿠팡 "+(cpCountReq.mode==="make"?"발주서 만들기":"발주건 확인")+"가 이미 요청돼 있습니다("+(cpCountReq.by||"?")+").");return;}
+  var L=(cpOrderLog||{})[_cpToday()];
+  if(mode==="make"&&L&&L.state==="draft"&&!confirm("오늘 이미 메일 초안까지 만들었습니다("+(L.by||"?")+" · "+_saipFmtAt(L.at)+").\n\n다시 만들까요? (임시보관함에 초안이 하나 더 생깁니다)"))return;
+  if(mode==="make"&&!(L&&L.state==="draft")&&!confirm("쿠팡 오전 발주서를 만듭니다.\n\n① 두 계정 D+3 영업일 입고예정 새 발주를 다시 읽고\n② 쿠팡 발주서 양식으로 브랜드별 파일을 만들어\n③ 물류센터(김구남 센터장 · 참조 영업2팀·CX팀) 메일 초안을 하이웍스 임시보관함에 저장합니다(보내지 않음).\n\n진행할까요?"))return;
+  cpCountReq={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),mode:mode==="make"?"make":"check",force:!!(mode==="make"&&L&&L.state==="draft")};
   wsSetItem("cpCountReq",JSON.stringify(cpCountReq));cpgRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 확인합니다.");
 }
@@ -8235,7 +8244,8 @@ function _cpFillTemplate(buf,date,a,byBar){
            row.getCell("J").value={formula:'IFERROR(VLOOKUP(E'+r+',배송지!A:C,2,0)," ")',result:o?addr:" "};}
       row.getCell("L").value={formula:'O'+r+'&" "&P'+r,result:o?(l.name+" "+l.bar):"  "};
       row.getCell("N").value={formula:"IFERROR(INDEX('상품정보(1)'!R:R,MATCH(발주서!P"+r+",'상품정보(1)'!F:F,0)),\" \")",result:o?l.price:" "};
-      row.getCell("P").value={formula:"IFERROR(INDEX('상품정보(1)'!F:F,MATCH(발주서!O"+r+",'상품정보(1)'!E:E,0)),\" \")",result:o?String(l.bar||""):" "};
+      /* P 바코드는 값으로 — 양식 수식(상품명으로 MATCH)은 이름에 '~'가 있으면(FREE(길이 58~59cm)) 엑셀이 와일드카드로 읽어 못 찾고, 그 줄 N 결제금액까지 비었다(2026-10-15) */
+      row.getCell("P").value=o?String(l.bar||""):{formula:"IFERROR(INDEX('상품정보(1)'!F:F,MATCH(발주서!O"+r+",'상품정보(1)'!E:E,0)),\" \")",result:" "};
       row.getCell("R").value={formula:'LEFT(T'+r+',8)',result:o?cc.slice(0,8):""};
       row.getCell("T").value={formula:'IF(Q'+r+'="","",Q'+r+')',result:o?cc:""};
     }
@@ -8271,7 +8281,19 @@ function cpMakeSheet(date){
 }
 function _cpReadyHtml(){
   var Q=cpOrderReady,h="";
-  if(_cpCountWaiting())h+='<div style="color:#1d4ed8;font-weight:700">⏳ 발주건 확인 중… ('+_escX(cpCountReq.by||"?")+') — '+(_saipWatchOk()?'자동화 PC가 쿠팡에서 읽는 중':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>')+'</div>';
+  if(_cpCountWaiting())h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+(cpCountReq.mode==="make"?'오전 발주서 만드는 중':'발주건 확인 중')+'… ('+_escX(cpCountReq.by||"?")+') — '+(_saipWatchOk()?'자동화 PC가 쿠팡에서 읽는 중(몇 분)':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>')+'</div>';
+  /* 오늘 오전 발주서(자동 10:00 · 버튼) 결과 */
+  var OL=(cpOrderLog||{})[_cpToday()];
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'
+    +'<button class="ap-btn" style="background:#7c3aed;border-color:#6d28d9" onclick="cpCountGo(\'make\')" title="확인 → 두 계정 발주서 → 물류센터 메일 초안(임시보관함, 보내지 않음)">📨 오전 발주서 만들기</button>'
+    +(OL?(OL.state==="draft"?'<span style="color:#047857;font-weight:700">✅ 메일 초안 저장 · '+_escX(_saipFmtAt(OL.at))+' · '+_escX(OL.by||"")+'</span> <span class="ap-sub">— 하이웍스 <b>임시보관함</b>의 \''+_escX(OL.subject||"")+'\' 확인 후 보내기</span>'
+        :OL.state==="files"?'<span style="color:#b45309;font-weight:700">📄 파일만 만듦(메일 초안 못 함) · '+_escX(_saipFmtAt(OL.at))+'</span>'
+        :OL.state==="none"?'<span class="ap-sub">'+_escX(_saipFmtAt(OL.at))+' — D+3 입고예정 새 발주 없음</span>'
+        :'<span style="color:#b91c1c;font-weight:700">❗ '+_escX(_saipFmtAt(OL.at))+' 실패</span>')
+      +(OL.err?' <span style="color:#b91c1c">'+_escX(OL.err)+'</span>':'')
+      +((OL.files||[]).length?'<div class="ap-sub" style="width:100%">'+OL.files.map(function(f){return '📄 '+_escX(f.name)+' — '+f.pos+'건 · '+f.qty+'개';}).join('<br>')+((OL.miss||[]).length?'<br><span style="color:#b45309">⚠ 큐텐바코드 못 찾은 줄 '+OL.miss.length+'개</span>':'')+'</div>':'')
+      :'<span class="ap-sub">평일 10:00 자동(확인 → 발주서 → 메일 초안)</span>')
+    +'</div>';
   if(!Q||!Q.at)return h+'<div class="ap-sub">아직 확인 기록이 없습니다 — 평일 10:00 · 16:00에 자동으로 확인합니다</div>';
   var acc=(Q.accounts||[]).slice().sort(function(a,b){return (a.who==="화이트샌즈"?0:1)-(b.who==="화이트샌즈"?0:1);});
   h+='<div style="border:1px solid #fed7aa;background:#fff7ed;border-radius:8px;padding:6px 10px;margin-bottom:6px">'
