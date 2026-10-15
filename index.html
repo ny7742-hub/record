@@ -26127,7 +26127,7 @@ function buildCat(){
   CAT={};
   Object.keys(DEF).forEach(function(k){CAT[k]=Object.assign({},DEF[k]);});
   ST.cus.forEach(function(c,i){CAT[c.k]={n:c.n,s:c.n.slice(0,6),w:c.w,d:c.d,h:c.h,c:c.col||CUS_COLORS[i%CUS_COLORS.length],k:({cyl:"cyl",pbox:"pbox",pcyl:"pcyl",panel:"panel"})[c.shape]||"box",inv:1,est:false,cus:true,photo:!!c.img};});
-  Object.keys(CAT).forEach(function(k){var u=ST.use[k];if(u){["w","d","h","bw","bd","bh","ly","mix"].forEach(function(a){if(u[a])CAT[k][a]=u[a];});
+  Object.keys(CAT).forEach(function(k){var u=ST.use[k];if(u){["w","d","h","bw","bd","bh","ly","mix"].forEach(function(a){if(u[a])CAT[k][a]=u[a];});if(u.meas)CAT[k].est=false;
     if(u.n){CAT[k].n=u.n;CAT[k].s=u.n.slice(0,8);}}});   /* 바꾼 이름(2026-10-14 영업2팀) — 평면도 글자는 앞 8자 */
   Object.keys(CAT).forEach(function(k){var c=CAT[k];if(c.k==="pallet")c.h=150+(c.ly||4)*c.bh;});   /* 팔레트 높이 = 팔레트 150 + 층 × 박스 높이 */
   Object.keys(CAT).forEach(function(k){if(isRound(CAT[k]))CAT[k].d=CAT[k].w;});
@@ -26249,6 +26249,7 @@ window.fpQty=function(k,v){
 window.fpDim=function(k,a,v){
   var n=clampMm(v,100,a==="h"?4000:9000);if(n==null){renderUse();return;}
   ST.use[k][a]=snap(n);if((isRound(CAT[k]))&&a==="w")ST.use[k].d=snap(n);
+  ST.use[k].meas=true;   /* 사이즈를 직접 넣으면 실측으로 보고 (추정)을 뗀다(2026-10-15) */
   saveUse();buildCat();delete THUMB[k];makeThumbs();renderUse();
   msg(CAT[k].n+" 사이즈를 "+CAT[k].w+"×"+CAT[k].d+"×"+CAT[k].h+" mm로 바꿨습니다.");
   autoIfOn();
@@ -26277,7 +26278,7 @@ window.fpUndel=function(k){if(!ST.use[k])return;delete ST.use[k].del;ST.use[k].o
 window.fpBox=function(k,a,v){
   if(a==="mix"){ST.use[k].mix=v;}
   else if(a==="ly"){var L=parseInt(v,10);if(!(L>=1&&L<=10)){renderUse();return;}ST.use[k].ly=L;}
-  else{var n=clampMm(v,100,2000);if(n==null){renderUse();return;}ST.use[k][a]=n;}
+  else{var n=clampMm(v,100,2000);if(n==null){renderUse();return;}ST.use[k][a]=n;ST.use[k].meas=true;}
   saveUse();buildCat();delete THUMB[k];makeThumbs();renderUse();rebuild3d();
 };
 /* 한 층 박스 배치 — 팔레트 위에 박스를 그대로/90° 돌려 놓아 더 많이 들어가는 쪽. 층 수 = (전체 높이 − 팔레트 150) ÷ 박스 높이 */
@@ -26817,9 +26818,22 @@ function bind2d(){
   });
   function end(){if(drag){drag=null;persist();renderSel();renderSum();}}
   cv.addEventListener("pointerup",end);cv.addEventListener("pointercancel",end);
+  /* 집기 수량 표·팔레트의 그림을 끌어 와 떨어뜨린 자리에 놓는다 */
+  cv.addEventListener("dragover",function(e){if(Array.prototype.indexOf.call(e.dataTransfer.types||[],"text/fp")>=0||Array.prototype.indexOf.call(e.dataTransfer.types||[],"text/plain")>=0){e.preventDefault();e.dataTransfer.dropEffect="copy";}});
+  cv.addEventListener("drop",function(e){
+    var k=e.dataTransfer.getData("text/fp")||e.dataTransfer.getData("text/plain");if(!CAT[k])return;
+    e.preventDefault();var q=cvPt(cv,e);window.fpAdd(k,{x:Math.max(0,Math.min(ST.W,(q.x-ox)/sc)),z:Math.max(0,Math.min(ST.D,(q.y-oy)/sc))});
+  });
   document.addEventListener("keydown",function(e){
     if(!pageOn())return;
     var t=e.target&&e.target.tagName;if(t==="INPUT"||t==="SELECT"||t==="TEXTAREA")return;
+    if(e.ctrlKey||e.metaKey){
+      var kk=String(e.key).toLowerCase();
+      if(kk==="c"&&findItem(ST.sel)){window.fpCopy();e.preventDefault();return;}
+      if(kk==="v"&&CLIP){window.fpPaste();e.preventDefault();return;}
+      if(kk==="d"&&findItem(ST.sel)){window.fpDup();e.preventDefault();return;}
+      return;
+    }
     var it=findItem(ST.sel);if(!it)return;
     var k=e.key,st=e.shiftKey?500:SNAP;
     if(k==="ArrowLeft")it.x-=st;else if(k==="ArrowRight")it.x+=st;else if(k==="ArrowUp")it.z-=st;else if(k==="ArrowDown")it.z+=st;
@@ -26843,19 +26857,43 @@ function freeSpot(t){
   }
   return {x:snap(ST.W/2),z:snap(ST.D/2)};
 }
-window.fpAdd=function(t){
-  if(!enabled(t)){msg(CAT[t].n+"은(는) 집기 수량 표에서 빠져 있습니다. ③ 에서 체크하세요.",true);return;}
-  if(leftOf(t)<=0){msg(CAT[t].n+" 재고를 모두 배치했습니다. 수량을 늘리거나 다른 집기를 쓰세요.",true);return;}
-  var p=freeSpot(t),it=mkItem(t,p.x,p.z,0,false);
-  ST.items.push(it);ST.sel=it.id;msg("");changed();
+/* 집기 놓기(2026-10-15 영업2팀 "집기를 선택하면 평면도에 넣을 수 있게") — 팔레트 버튼 · 집기 수량 표의 그림 누르기 · 그림을 평면도로 끌어 놓기.
+   체크가 꺼져 있으면 켜고 놓는다. 보유를 넘어도 놓고(표에 '보유 초과' 빨강) 알려 준다. at={x,z}면 그 자리(끌어 놓은 곳), 없으면 빈 자리 */
+window.fpAdd=function(t,at){
+  if(!CAT[t])return;
+  if(!enabled(t)){ST.use[t].on=true;delete ST.use[t].del;saveUse();renderUse();}
+  var c=CAT[t],over=leftOf(t)<=0,p=at?{x:snap(Math.max(c.w/2,Math.min(ST.W-c.w/2,at.x))),z:snap(Math.max(c.d/2,Math.min(ST.D-c.d/2,at.z)))}:freeSpot(t),it=mkItem(t,p.x,p.z,0,false);   /* 끌어 놓은 자리 — 공간 안으로 */
+  ST.items.push(it);ST.sel=it.id;
+  msg(CAT[t].n+"을(를) 놓았습니다 — 끌어서 옮기고, Ctrl+C · Ctrl+V로 복사할 수 있습니다."+(over?" (보유 "+qtyOf(t)+"개보다 많이 놓았습니다)":""),over);
+  changed();
 };
 window.fpRot=function(){var it=findItem(ST.sel);if(!it)return;it.r=(it.r+90)%360;changed();};
 window.fpFlip=function(){var it=findItem(ST.sel);if(!it)return;it.f=!it.f;changed();};
-window.fpDup=function(){
-  var it=findItem(ST.sel);if(!it)return;
-  if(leftOf(it.t)<=0){msg(CAT[it.t].n+" 재고를 모두 배치했습니다.",true);return;}
-  var p=freeSpot(it.t),n=mkItem(it.t,p.x,p.z,it.r,it.f);
-  ST.items.push(n);ST.sel=n.id;msg("");changed();
+/* 복사(2026-10-15 영업2팀 "평면도에서 집기를 선택해서 복사") — 선택한 집기와 같은 종류·방향으로 바로 옆(오른쪽 → 아래 → 왼쪽 → 위) 빈자리에, 없으면 빈 자리.
+   복제 버튼 · Ctrl+D · Ctrl+C 뒤 Ctrl+V(여러 번 붙여 넣기). 보유를 넘으면 놓되 알린다 */
+var CLIP=null;
+function nearSpot(src){
+  var f=foot(src),G=100,tries=[[f.w+G,0],[0,f.d+G],[-(f.w+G),0],[0,-(f.d+G)],[2*(f.w+G),0],[0,2*(f.d+G)]];
+  for(var i=0;i<tries.length;i++){
+    var c={t:src.t,x:snap(src.x+tries[i][0]),z:snap(src.z+tries[i][1]),r:src.r,f:src.f},r=rectOf(c);
+    if(r.x0<0||r.z0<0||r.x1>ST.W||r.z1>ST.D||hitBlock(r))continue;
+    if(ST.items.some(function(o){var q=rectOf(o);return r.x0<q.x1-1&&r.x1>q.x0+1&&r.z0<q.z1-1&&r.z1>q.z0+1;}))continue;
+    return {x:c.x,z:c.z};
+  }
+  return freeSpot(src.t);
+}
+function placeCopy(src){
+  var over=leftOf(src.t)<=0,p=nearSpot(src),n=mkItem(src.t,p.x,p.z,src.r,src.f);
+  ST.items.push(n);ST.sel=n.id;
+  msg(CAT[src.t].n+"을(를) 복사했습니다."+(over?" (보유 "+qtyOf(src.t)+"개보다 많이 놓았습니다)":""),over);
+  changed();return n;
+}
+window.fpDup=function(){var it=findItem(ST.sel);if(!it)return;placeCopy(it);};
+window.fpCopy=function(){var it=findItem(ST.sel);if(!it){msg("복사할 집기를 먼저 누르세요.",true);return;}CLIP={t:it.t,r:it.r,f:it.f,x:it.x,z:it.z};msg(CAT[it.t].n+"을(를) 복사했습니다 — Ctrl+V로 붙여 넣으세요.");};
+window.fpPaste=function(){
+  if(!CLIP||!CAT[CLIP.t]){msg("먼저 집기를 누르고 Ctrl+C로 복사하세요.",true);return;}
+  var base=findItem(ST.sel);base=base&&base.t===CLIP.t?base:{t:CLIP.t,x:CLIP.x,z:CLIP.z,r:CLIP.r,f:CLIP.f};
+  placeCopy({t:CLIP.t,x:base.x,z:base.z,r:CLIP.r,f:CLIP.f});
 };
 window.fpDel=function(){
   var it=findItem(ST.sel);if(!it)return;
@@ -26876,7 +26914,7 @@ function renderSel(){
    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
    +'<button onclick="fpRot()" style="'+bt+'">↻ 회전</button>'
    +(c.k==="shelf"?'<button onclick="fpFlip()" style="'+bt+'">↔ 좌우반전</button>':'')
-   +'<button onclick="fpDup()" style="'+bt+'">복제</button>'
+   +'<button onclick="fpDup()" title="옆 빈자리에 같은 집기 하나 더 (Ctrl+D · Ctrl+C → Ctrl+V)" style="'+bt+'">📋 복사</button>'
    +'<button onclick="fpDel()" style="'+bt+';color:#9a3412">삭제</button>'
    +'<span style="font-size:12px;color:#5b6675;margin-left:6px">중심 X</span><input type="number" step="50" value="'+it.x+'" onchange="fpSetPos(\'x\',this.value)" style="'+inp+'">'
    +'<span style="font-size:12px;color:#5b6675">Z</span><input type="number" step="50" value="'+it.z+'" onchange="fpSetPos(\'z\',this.value)" style="'+inp+'">'
@@ -26895,7 +26933,7 @@ function renderSum(){
     if(on){own+=q;wantSum+=dispOf(k);}
     rows+='<tr>'
       +'<td style="'+td+';width:26px"><input type="checkbox" '+(on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" title="평면도에 쓰기" style="width:15px;height:15px;margin:0"></td>'
-      +'<td style="'+td+';width:80px;'+dim+'">'+(th?'<img src="'+th+'" alt="" style="width:72px;height:54px;object-fit:contain;display:block;background:#f1f5f9;border-radius:6px">':'<span style="display:block;width:72px;height:54px;border-radius:6px;background:'+c.c+'"></span>')+'</td>'
+      +'<td style="'+td+';width:80px;cursor:copy;'+dim+'" draggable="true" ondragstart="event.dataTransfer.setData(\'text/fp\',\''+k+'\');event.dataTransfer.setData(\'text/plain\',\''+k+'\')" onclick="fpAdd(\''+k+'\')" title="누르면 평면도에 놓기 · 평면도로 끌어서 원하는 자리에 놓기">'+(th?'<img src="'+th+'" alt="" style="width:72px;height:54px;object-fit:contain;display:block;background:#f1f5f9;border-radius:6px">':'<span style="display:block;width:72px;height:54px;border-radius:6px;background:'+c.c+'"></span>')+'</td>'
       +'<td style="'+td+';white-space:nowrap;'+dim+'"><input class="fp-nm" value="'+esc(c.n)+'" onchange="fpName(\''+k+'\',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()" title="이름 바꾸기 — 눌러서 고치고 Enter"'
         +' style="width:'+Math.max(4,Math.min(20,c.n.length+1))+'em">'+(c.est?'<span style="font-size:11px;color:#9a3412">(추정)</span>':'')+'</td>'
       +'<td style="'+td+';white-space:nowrap;color:#5b6675;font-size:12px;'+dim+'">'
