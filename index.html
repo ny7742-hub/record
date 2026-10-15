@@ -2568,6 +2568,7 @@ label{font-size:14px!important}
       <label style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:#334155;cursor:pointer"><input id="fpAutoOn" type="checkbox" checked onchange="fpAutoToggle(this.checked)" style="margin:0">집기를 고르면 바로 자동 배치</label>
       <button onclick="fpListPng()" style="padding:5px 14px;background:#0f766e;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🖼 집기리스트 이미지</button>
       <button onclick="fpSample()" style="padding:5px 14px;background:#334155;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📷 샘플 매장 재현</button>
+      <button onclick="fpReset()" title="기본 집기 · 수량 · 사이즈로 되돌리고 자동 배치를 새로 합니다" style="padding:5px 14px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">↺ 배치 초기화</button>
       <button onclick="fpClear()" style="padding:5px 14px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">배치 비우기</button>
       <span style="flex:1"></span>
       <select id="fpSaved" onchange="fpLoad()" style="padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;max-width:170px"></select>
@@ -26328,6 +26329,17 @@ window.fpSample=function(){
   changed();
 };
 window.fpClear=function(){ST.items=[];ST.sel=null;msg("");changed();};
+/* ↺ 배치 초기화(2026-10-15 영업2팀) — 기본 집기의 체크·보유 수량·사이즈·이름·지움을 기본값으로 되돌리고(직접 추가·사진 집기는 남기되 체크만 끔),
+   지금 공간 크기에 맞춰 자동 배치를 새로 한다('바로 자동 배치'가 꺼져 있어도). 3D 보는 방향도 처음대로. 팀 공유라 모두에게 반영된다 */
+window.fpReset=function(){
+  if(!window.confirm("배치를 처음 상태로 되돌릴까요?\n\n· 기본 집기의 체크 · 보유 수량 · 사이즈 · 이름이 기본값으로 돌아갑니다(지운 기본 집기도 다시 나옵니다)\n· 직접 추가 · 사진으로 만든 집기는 남기고 체크만 끕니다\n· 지금 공간("+ST.W+" × "+ST.D+" mm)에 맞춰 자동 배치를 새로 합니다\n\n팀 공유라 모두의 화면에 반영됩니다."))return;
+  Object.keys(DEF).forEach(function(k){ST.use[k]={on:true,qty:DEF[k].inv};});
+  ST.cus.forEach(function(c){if(ST.use[c.k])ST.use[c.k].on=false;else ST.use[c.k]={on:false,qty:1};});
+  saveUse();buildCat();THUMB={};makeThumbs();
+  T3.th=0.7;T3.ph=1.0;T3.rad=Math.max(ST.W,ST.D)/1000*1.5+2;
+  window.fpAuto(true);renderUse();
+  msg("배치를 초기화했습니다 — 기본 집기로 "+ST.W+" × "+ST.D+" mm 공간에 다시 자동 배치했습니다.");
+};
 /* 자동 배치 — 뒷줄 선반 · 양옆 스탠딩 거울 · 가운데 줄 로고테이블·우양산·카운터·직접 추가 · 앞 모서리 곡면 진열대 · 앞 가운데 원형 집기 */
 window.fpAuto=function(quiet){
   var W=ST.W,D=ST.D,GAP=300,MARG=300,out=[],warn=[],i;
