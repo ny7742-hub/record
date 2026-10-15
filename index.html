@@ -20429,8 +20429,22 @@ function ccAutoRender(){
   var k2=d2?"done":gN===0?"skip":(busy&&R.mode==="save")||d1?"on":"todo";
   var k3=d3?"done":gN===0?"skip":(busy&&R.mode==="send")||(L&&L.state==="draft")?"on":"todo";
   var k4=d4?"done":(d3||gN===0)?"on":"todo";
-  var row=function(n,t,st,k){return '<div class="cc-step cc-step-'+k+'"><div class="cc-step-h"><span class="cc-step-n">'+n+'</span>'+t+(k==="done"?' <span class="cc-step-ok">완료</span>':k==="on"?' <span class="cc-step-now">지금</span>':'')+'</div><div class="cc-step-s">'+st+'</div></div>';};
-  h+='<div class="cc-steps">'+row('①','🔢 건수 확인',s1,k1)+row('②','🚚 발주하기',s2,k2)+row('③','✉️ 메일 보내기',s3,k3)+row('④','💬 슬랙 CX팀',s4,k4)+'</div>';
+  /* 단계마다 진행 상태바(2026-10-16 영업2팀 "각각 진행 상태바") — 끝남 100% · 도는 중은 실제 단계 수(② 발주 = ws/ccOrderStatus steps)나
+     보통 걸리는 시간 대비 지난 시간(① 건수 확인 ~1분 · ③ 메일 보내기 ~40초, 95%에서 멈춤) · 아직은 0%. 10초마다 다시 그린다(_ccProgTick) */
+  var secOf=function(iso){return iso?Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/1000)):0;};
+  var elT=function(s){return s>=60?Math.floor(s/60)+"분 "+(s%60)+"초":s+"초";};
+  var est=function(iso,typ){var s=secOf(iso);return {p:Math.min(95,Math.max(5,Math.round(s/typ*100))),t:elT(s)+" 지남"};};
+  var b1=d1&&!_ccCountWaiting()?{p:100,t:"완료"}:_ccCountWaiting()?est(CQ.at,60):{p:0,t:"대기"};
+  var g2=busy&&R.mode==="save"?_ccProg(R,S):null;
+  var b2=d2?{p:100,t:"완료"}:gN===0&&!g2?{p:100,t:"할 일 없음"}:g2?{p:g2.wait?3:Math.max(6,Math.round(g2.n/g2.total*100)),t:g2.wait?"요청됨":g2.n+"/"+g2.total+" · "+elT(g2.sec)}:{p:0,t:"대기"};
+  var b3=d3?{p:100,t:"완료"}:gN===0?{p:100,t:"할 일 없음"}:busy&&R.mode==="send"?est(R.startedAt||R.at,40):{p:0,t:L&&L.state==="draft"?"보내기 대기":"대기"};
+  var b4=d4?{p:100,t:"완료"}:{p:0,t:"대기"};
+  var bar=function(b,k){var run=b.p>0&&b.p<100,c=b.p>=100?"#16a34a":run?"repeating-linear-gradient(45deg,#f59e0b 0 8px,#fbbf24 8px 16px)":"#cbd5e1";
+    return '<div style="display:flex;align-items:center;gap:6px;margin-top:4px"><div style="flex:1;height:8px;border-radius:5px;background:#e2e8f0;overflow:hidden">'
+      +'<div style="height:100%;width:'+b.p+'%;border-radius:5px;background:'+c+(run?';background-size:22px 22px;animation:ccProgMove 1s linear infinite':'')+';transition:width .6s"></div></div>'
+      +'<span style="font-size:11px;font-weight:700;white-space:nowrap;color:'+(b.p>=100?'#166534':run?'#92400e':'#5b6675')+'">'+(run?b.p+'% · ':'')+_escX(b.t)+'</span></div>';};
+  var row=function(n,t,st,k,b){return '<div class="cc-step cc-step-'+k+'"><div class="cc-step-h"><span class="cc-step-n">'+n+'</span>'+t+(k==="done"?' <span class="cc-step-ok">완료</span>':k==="on"?' <span class="cc-step-now">지금</span>':'')+'</div><div class="cc-step-s">'+st+'</div>'+bar(b,k)+'</div>';};
+  h+='<div class="cc-steps">'+row('①','🔢 건수 확인',s1,k1,b1)+row('②','🚚 발주하기',s2,k2,b2)+row('③','✉️ 메일 보내기',s3,k3,b3)+row('④','💬 슬랙 CX팀',s4,k4,b4)+'</div>';
   if(R&&R.state){
     var who=(R.auto?'🤖 자동 · ':'')+_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":R.mode==="send"?"발주 메일 보내기":"미리보기";
     if(_saipReqActive(R))h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?'요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>'):'진행 중… ('+who+')')+'</div>'+_ccProgBar(R,S);
@@ -20483,8 +20497,8 @@ function _ccProgBar(R,S){
 }
 var _ccProgTimer=null;
 function _ccProgTick(){
-  var on=_saipReqActive((saipReq||{}).co);
-  if(on&&!_ccProgTimer)_ccProgTimer=setInterval(function(){if(!_saipReqActive((saipReq||{}).co)){clearInterval(_ccProgTimer);_ccProgTimer=null;}try{ccAutoRender();}catch(e){}},10000);
+  var onF=function(){return _saipReqActive((saipReq||{}).co)||_ccCountWaiting();};   /* ① 건수 확인 중에도 상태바가 차오르게 */
+  if(onF()&&!_ccProgTimer)_ccProgTimer=setInterval(function(){if(!onF()){clearInterval(_ccProgTimer);_ccProgTimer=null;}try{ccAutoRender();}catch(e){}},10000);
 }
 /* 자동 발주 단계(2026-10-06 영업2팀) — ①로그인 ②인쇄 ③주문건 ④도매발주서 ⑤출력 ⑥메일 초안 ⑦발송 준비 완료.
    끝난 단계는 초록, 멈춘 단계(다음 단계)는 빨강, 아직은 회색. 미리보기는 인쇄·출력·발송 준비가 없다 */
