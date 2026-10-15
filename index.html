@@ -26303,6 +26303,17 @@ function palletPlan(c){
   return {nx:nx,nz:nz,layers:layers,per:nx*nz,total:nx*nz*layers,PH:PH};
 }
 function palletInfo(c){var q=palletPlan(c);return '가로 '+q.nx+'줄 × 깊이 '+q.nz+'줄 = 한 층 '+q.per+'박스 · '+q.layers+'층 · 모두 '+q.total+'박스 · 높이 '+c.h.toLocaleString()+' (팔레트 150 + 박스 '+c.bh+'×'+q.layers+')';}
+/* 전체 선택 · 전체 해제(2026-10-15 영업2팀 "3D 집기 전체 해제 버튼") — 집기 수량 표의 '쓰기' 체크를 한 번에.
+   해제하면 평면도에 놓인 집기도 모두 뺀다(쓰지 않는 집기가 남지 않게, 놓인 게 있으면 먼저 묻는다). 지운 집기(del)는 건드리지 않는다 */
+window.fpAllUse=function(on){
+  var keys=Object.keys(CAT).filter(function(k){return ST.use[k]&&!ST.use[k].del;});
+  if(!on&&ST.items.length&&!window.confirm("집기 체크를 모두 해제할까요?\n평면도에 놓인 집기 "+ST.items.length+"개도 모두 빠집니다."))return;
+  keys.forEach(function(k){ST.use[k].on=!!on;});
+  if(!on){ST.items=[];ST.sel=null;}
+  saveUse();renderUse();
+  msg(on?"집기를 모두 체크했습니다 — 🪄 자동 진열을 누르면 진열 수만큼 놓습니다.":"집기 체크를 모두 해제하고 평면도를 비웠습니다 — 놓을 집기만 다시 체크하세요.");
+  if(on)autoIfOn();else changed();
+};
 window.fpWant=function(k,v){
   if(!ST.use[k])return;var t=String(v).trim();
   if(t===""){delete ST.use[k].want;}else{var n=parseInt(t,10);if(isNaN(n)||n<0)n=0;if(n>99)n=99;ST.use[k].want=n;if(n>0)ST.use[k].on=true;}
@@ -26968,7 +26979,9 @@ function renderSum(){
   var h='<div style="display:flex;gap:6px 20px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px"><b style="font-size:13.5px;color:#154f5e">③ 집기 수량</b>'
     +'<span style="font-size:12.5px;color:#5b6675">공간 '+ST.W+'×'+ST.D+' mm ('+(Math.round(ST.W*ST.D/10000)/100)+'㎡) · 집기 바닥 점유율 '+occ+'%'+(ST.photo?' · 자리 이미지 있음':'')+'</span></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:#5b6675;margin-bottom:6px"><span>체크한 집기를 <b style="color:#4f46e5">진열</b> 수만큼 공간('+ST.W+'×'+ST.D+')에 놓습니다. 사이즈 · 보유 · 진열은 표에서 바로 고칩니다.</span>'
-    +'<button onclick="fpAuto()" style="padding:5px 14px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🪄 체크한 집기로 자동 진열</button></div>';
+    +'<button onclick="fpAuto()" style="padding:5px 14px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🪄 체크한 집기로 자동 진열</button>'
+    +'<button onclick="fpAllUse(true)" style="padding:5px 12px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">☑ 전체 선택</button>'
+    +'<button onclick="fpAllUse(false)" style="padding:5px 12px;background:#fff;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">☐ 전체 해제</button></div>';
   if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:6px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'공간 밖으로 나간 집기 '+pr.oob+'개':'')+'</div>';
   h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;width:100%"><thead><tr style="background:#f1f5f9;color:#334155">'
     +'<th style="padding:5px 8px" title="평면도에 쓰기">쓰기</th><th style="padding:5px 8px"></th><th style="padding:5px 8px;text-align:left">집기</th><th style="padding:5px 8px;text-align:left">사이즈 (mm)</th><th style="padding:5px 8px;text-align:right">보유</th><th style="padding:5px 8px;text-align:right;color:#4f46e5" title="자동 진열이 놓을 개수">진열</th><th style="padding:5px 8px;text-align:right">배치</th><th style="padding:5px 8px" title="지우기"></th></tr></thead><tbody>'
