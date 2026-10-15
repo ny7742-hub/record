@@ -8186,10 +8186,24 @@ var cpCountReq=(function(){try{return JSON.parse(localStorage.getItem("cpCountRe
 function _cpCountWaiting(){var q=cpCountReq;return !!(q&&q.id&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<5*60*1000);}
 /* 오전 발주서 자동(2026-10-15) — 자동화 PC coupang-order-make.mjs가 평일 10:00(또는 버튼 mode 'make')에 확인 → 두 계정 발주서 → 물류센터 메일 초안. 기록 ws/cpOrderLog[날짜] */
 var cpOrderLog=(function(){try{return JSON.parse(localStorage.getItem("cpOrderLog")||"null");}catch(e){return null;}})();
-var CP_MODE_NAME={make:"발주서 만들기",send:"발주 메일 보내기",check:"발주건 확인"};
+var CP_MODE_NAME={make:"발주서 만들기",send:"발주 메일 보내기",check:"발주건 확인",pm:"② 회신 확인",pmsend:"② 미출고 반영 메일 보내기"};
 function cpCountGo(mode){
   if(_cpCountWaiting()){alert("쿠팡 "+(CP_MODE_NAME[cpCountReq.mode]||"발주건 확인")+"가 이미 요청돼 있습니다("+(cpCountReq.by||"?")+").");return;}
   var L=(cpOrderLog||{})[_cpToday()];
+  /* ② 오후(2026-10-16 영업2팀) — 회신 확인(자동: ① 메일 보낸 날 12~19시 15분마다) · 미출고 반영 초안 보내기 */
+  if(mode==="pm"||mode==="pmsend"){
+    var P=L&&L.pm;
+    if(!L||L.state!=="sent"){alert("① 발주 메일을 보낸 뒤에 회신을 찾습니다.");return;}
+    if(mode==="pmsend"){
+      if(!P||P.state!=="draft"){alert(P&&P.state==="sent"?"② 메일은 이미 보냈습니다("+(P.sentBy||"?")+").":"② 미출고 반영 초안이 아직 없습니다.");return;}
+      var sm=(P.files||[]).map(function(f){return f.who+": "+f.ordered+"개 중 "+f.shipped+"개 출고"+((f.short||[]).length?" · 미출고·부분출고 "+f.short.length+"줄":"");}).join("\n");
+      if(!confirm("② 미출고 반영 메일을 보냅니다.\n\n제목: "+(P.subject||"")+"\n보내는 계정: 영업1팀(sales@)\n받는 사람: 김구남 센터장 · 참조 영업1팀·CX팀\n\n"+sm+"\n\n영업1팀 하이웍스 임시보관함의 이 초안을 그대로(고쳤으면 고친 대로) 보냅니다. 보낼까요?"))return;
+    }
+    cpCountReq={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),mode:mode};
+    wsSetItem("cpCountReq",JSON.stringify(cpCountReq));cpgRender();
+    if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 5분 안에 켜지지 않으면 다시 눌러 주세요.");
+    return;
+  }
   /* 확인 → 메일 보내기(2026-10-15 영업2팀 「임시보관함에 보관해 주면 확인 버튼 누르면 메일 전송」) — 자동화 PC가 임시보관함의 그 초안을 그대로 보낸다 */
   if(mode==="send"){
     if(!L||L.state!=="draft"){alert(L&&L.state==="sent"?"오늘 쿠팡 발주 메일은 이미 보냈습니다("+(L.sentBy||"?")+").":"오늘 메일 초안이 없습니다 — 먼저 📨 오전 발주서 만들기");return;}
@@ -8310,6 +8324,7 @@ function _cpReadyHtml(){
       +((OL.files||[]).length?'<div class="ap-sub" style="width:100%">'+OL.files.map(function(f){return '📄 '+_escX(f.name)+' — '+f.pos+'건 · '+f.qty+'개';}).join('<br>')+((OL.miss||[]).length?'<br><span style="color:#b45309">⚠ 큐텐바코드 못 찾은 줄 '+OL.miss.length+'개</span>':'')+'</div>':'')
       :'<span class="ap-sub">평일 10:00 자동(확인 → 발주서 → 메일 초안)</span>')
     +'</div>';
+  h+=_cpPmHtml(OL);
   if(!Q||!Q.at)return h+'<div class="ap-sub">아직 확인 기록이 없습니다 — 평일 10:00 · 16:00에 자동으로 확인합니다</div>';
   var acc=(Q.accounts||[]).slice().sort(function(a,b){return (a.who==="화이트샌즈"?0:1)-(b.who==="화이트샌즈"?0:1);});
   h+='<div style="border:1px solid #fed7aa;background:#fff7ed;border-radius:8px;padding:6px 10px;margin-bottom:6px">'
@@ -8327,6 +8342,24 @@ function _cpReadyHtml(){
       +(ord.length?ord.map(function(d){var x=g[d];return '<div style="padding-left:14px">입고예정 <b>'+(+d.slice(5,7))+'/'+(+d.slice(8,10))+'</b> · '+x.n+'건 '+x.q.toLocaleString()+'개 <span class="ap-sub">('+_escX(Object.keys(x.c).join(", "))+')</span></div>';}).join(""):'<div class="ap-sub" style="padding-left:14px">새 발주 없음</div>')
       +'</details>';
   });
+  return h+'</div>';
+}
+/* ② 오후 — 물류센터 회신 → 미출고 반영 파일 → 메일 초안(영업1팀 임시보관함) → [확인]으로 보내기(automation/coupang-pm.mjs, ws/cpOrderLog[오늘].pm) */
+function _cpPmHtml(OL){
+  if(!OL||!(OL.files||[]).length)return "";
+  var P=OL.pm||{},h='<div style="border-top:1px dashed #fed7aa;padding-top:6px;margin-bottom:6px"><b style="color:#9a3412">② 오후 · 미출고 반영</b> ';
+  if(OL.state!=="sent")return h+'<span class="ap-sub">① 발주 메일을 보내면 12~19시에 물류센터 회신을 자동으로 찾습니다</span></div>';
+  var again='<button class="ap-btn sub" style="font-size:12px;padding:3px 8px" onclick="cpCountGo(\'pm\')" title="영업1팀 메일함에서 물류센터 회신을 지금 찾습니다">🔎 회신 지금 확인</button>';
+  if(P.state==="sent")h+='<span style="color:#047857;font-weight:700">📨 미출고 반영 메일 보냄 · '+_escX(_saipFmtAt(P.sentAt||P.at))+' · '+_escX(P.sentBy||"")+'</span>';
+  else if(P.state==="draft")h+='<span style="color:#047857;font-weight:700">✅ 회신 반영 · 메일 초안 저장 · '+_escX(_saipFmtAt(P.draftAt||P.at))+'</span> <button class="ap-btn" style="background:#047857;border-color:#065f46" onclick="cpCountGo(\'pmsend\')" title="영업1팀 임시보관함의 이 초안을 그대로 보냅니다">✉️ 확인 · 메일 보내기</button>';
+  else if(P.state==="error")h+='<span style="color:#b91c1c;font-weight:700">❗ '+_escX(P.err||"실패")+'</span> '+again;
+  else h+='<span class="ap-sub">⏳ 물류센터 회신 기다리는 중'+(P.checkedAt?' · 마지막 확인 '+_escX(_saipFmtAt(P.checkedAt)):'')+' — 12~19시 15분마다 자동</span> '+again;
+  (P.files||[]).forEach(function(f){
+    var sh=f.short||[];
+    h+='<div class="ap-sub" style="padding-left:10px">📄 '+_escX(f.who)+' — '+f.ordered+'개 중 <b>'+f.shipped+'개</b> 출고'+(sh.length?' · <span style="color:#b45309">미출고·부분출고 '+sh.length+'줄</span>':' · 미출고 없음')+(f.noInvoice?' · <span style="color:#b91c1c">송장 없는 출고 '+f.noInvoice+'줄</span>':'')+'</div>';
+    if(sh.length)h+='<details style="padding-left:20px"><summary class="ap-sub" style="cursor:pointer">미출고·부분출고 보기</summary>'+sh.map(function(s){return '<div class="ap-sub">'+_escX(s.seq)+' · '+_escX(s.name||s.bar)+' — '+s.ordered+' → <b>'+s.shipped+'</b></div>';}).join("")+'</details>';
+  });
+  if((P.warn||[]).length)h+='<div style="color:#b45309;font-size:12px">⚠ '+_escX(P.warn.join(" · "))+'</div>';
   return h+'</div>';
 }
 function _cpToday(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
