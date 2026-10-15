@@ -20488,6 +20488,24 @@ var SAIP_ITEM_TXT={
   nofile:["📭","파일 없음","#5b6675"],preview:["🔍","미리보기(저장 안 함)","#1d4ed8"],
   skipped:["⏭","등록할 줄 없음(뺀 줄뿐)","#5b6675"]
 };
+/* 매장출고 줄 — 주문자명 · 주문번호 · 상품(모델명/색상 수량)(2026-10-15 영업2팀).
+   주문번호·주문자명은 그 뒤 실행부터 실린다(playmd-store-out.mjs) — 예전 결과는 주문번호 대신 매장 이름 */
+function _soShort(prod){
+  var t=String(prod||"").replace(/^\s*\[[^\]]*\]\s*/,"").trim().split(/\s+/);
+  if(t.length&&/^\d{2}(SS|FW|AW|SU|FA|HS)$/i.test(t[0]))t.shift();
+  var p=String(prod||""),i=p.lastIndexOf("/");
+  return (t[0]||p)+(i>=0?"/"+p.slice(i+1).trim():"");
+}
+function _soRows(rows){
+  var g={},ord=[];
+  rows.forEach(function(r){var k=(r.orderer||"")+"|"+(r.orderNo||r.store||"");if(!g[k]){g[k]={orderer:r.orderer||"",orderNo:r.orderNo||"",store:r.store||"",list:[]};ord.push(k);}g[k].list.push(r);});
+  return '<div style="max-height:300px;overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;line-height:1.6">'+ord.map(function(k,ix){var x=g[k];
+    return '<div style="padding:4px 8px'+(ix?';border-top:1px solid #eef2f6':'')+'">'
+      +(x.orderer?'<div><span style="color:#5b6675">주문자명</span> <b>'+_escX(x.orderer)+'</b></div>':'')
+      +'<div style="overflow-wrap:anywhere"><span style="color:#5b6675">주문번호</span> : '+_escX(x.orderNo||x.store)+'</div>'
+      +x.list.map(function(r){return '<div><span style="color:#5b6675">상품</span> : <b title="'+_escX(r.prod||"")+'">'+_escX(_soShort(r.prod))+'</b> '+(r.qty||0)+'개</div>';}).join("")
+      +'</div>';}).join("")+'</div>';
+}
 /* 옛 기록의 등록자 '(등록자 기록 전 · 자동화 PC)' → '자동화 PC' */
 function _saipWho(by){var s=String(by||"알 수 없음");var m=/^\(?등록자 기록 전 · (.*?)\)?$/.exec(s);return m?m[1]:s;}
 /* '0928은(는) 이미 등록했습니다(9/29 14:11 · …)' → '0928은 이미 등록했습니다' — 언제·누가는 그 날짜를 고르면 1줄에 나온다 */
@@ -20575,16 +20593,19 @@ function _saipCard(kind,opt){
     if(multi&&it.status==="nofile"){noFile.push(imd);return;}
     if(kind==="cc"&&S.mode==="preview"){h+=_ccPrevLine(it,dv,opt,active,fresh);return;}   /* 코스트코는 날짜마다 한 줄(줄 목록 없음) */
     var t=SAIP_ITEM_TXT[it.status]||["•",it.status||"",""];
+    var soDone=kind==="so"&&it.status==="already";                     /* 매장출고: 이미 있으면 '등록완료'로만(2026-10-15 영업2팀) */
+    if(soDone)t=["✅","플레이엠디 등록완료","#047857"];
     var head='<b>'+imd+'</b> <span style="color:'+t[2]+';font-weight:700">'+t[0]+' '+t[1]+'</span>';
-    if(it.rows)head+=' <span style="color:#334155">· '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</span>';
-    if(multi&&it.already)head+=' <span style="color:#b45309;font-weight:800">· 이미 있음</span>';
+    if(it.rows&&!soDone)head+=' <span style="color:#334155">· '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</span>';
+    if(multi&&it.already&&!soDone)head+=' <span style="color:#b45309;font-weight:800">· 이미 있음</span>';
     if(multi)h+='<details'+(it.date===dv?' open':'')+' style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0"><summary style="cursor:pointer;list-style-position:inside">'+head+'</summary>';
     else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+head;
     if(it.skipped&&it.skipped.length)h+='<div style="color:#5b6675">⏭ 발송후취소 중 Cafe24 '+it.skipped.length+'줄은 뺐습니다(매장코드 미정)</div>';
     if(it.bad&&it.bad.length)h+='<div style="color:#b91c1c">'+it.bad.map(_escX).join("<br>")+'<br><span style="color:#5b6675">'+(kind==="so"||kind==="mv"?'→ 모르는 창고·매장 이름은 자동화 PC의 코드표(warehouse-codes.json·store-codes.json)에 더한 뒤 다시 누르세요':'→ 아래 홈쇼핑 코드매칭표에 추가한 뒤 다시 누르세요')+'</span></div>';
     if(it.error&&it.status!=="unmatched")h+='<div style="color:#b91c1c">'+_escX(it.error)+'</div>';
     if(it.verify&&it.status==="savecheck")h+='<div style="color:#b45309">'+_escX(it.verify)+'</div>';
-    if(it.already)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>';
+    if(it.already&&!soDone)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>';
+    if(kind==="so"&&S.mode!=="preview"&&it.rows&&it.rows.length)h+=_soRows(it.rows);
     /* 미리보기 — 등록될 줄을 표로 */
     if(S.mode==="preview"&&it.rows&&it.rows.length){
      if(kind==="mv"){
@@ -20601,6 +20622,8 @@ function _saipCard(kind,opt){
           +'<span style="white-space:nowrap;color:#334155">'+_escX(r.orderer||"")+'</span></div>';
       });
       h+='</div>';
+     }else if(kind==="so"){
+      h+=_soRows(it.rows);
      }else{
       /* 줄마다 두 줄로 — 위: 상품명(전부) · 아래: 매장 · 코드 | 수량 · 공급가. 좁은 카드(자동화 탭 ~290px)에서 5칸 표는
          상품명이 한 글자씩 꺾이고 수량·공급가가 잘려 안 보였다(2026-10-14 영업2팀) */
