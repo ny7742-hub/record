@@ -2594,7 +2594,7 @@ label{font-size:14px!important}
       <div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">① 평면도 (끌어서 배치)</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="fpPalette"></div>
       <div style="text-align:center"><canvas id="fpCv" style="touch-action:none;border-radius:8px;max-width:100%"></canvas></div>
-      <div style="font-size:12px;color:#5b6675;margin-top:6px">빨간색은 겹치거나 매장 밖으로 나간 집기입니다. 집기의 진한 선은 앞면입니다. 방향키 이동 · Shift+방향키 500mm · R 회전 · Delete 삭제</div>
+      <div style="font-size:12px;color:#5b6675;margin-top:6px">빨간색은 겹치거나 매장 밖으로 나간 집기입니다. 집기의 진한 선은 앞면입니다. 방향키 이동 · Shift+방향키 500mm · R 90° 회전 · Shift+R 45° 회전 · Delete 삭제</div>
       <div id="fpSel" style="margin-top:10px"></div>
     </div>
     <div class="card" style="padding:12px 16px">
@@ -26147,7 +26147,7 @@ function initTransferTab(){tfDropInit();tfAutoFill();tfRenderChips();tfRender();
    · 집기 수량 표(예전 집기 목록과 합침): 집기마다 그림(3D로 그린 썸네일) · 사이즈(가로×깊이×높이 mm, 고칠 수 있음) · 보유 수량. 직접 추가도 된다.
    · 체크한 집기와 수량만 평면도·자동 배치에 쓴다. '집기를 고르면 바로 자동 배치'가 켜져 있으면 체크·수량·사이즈를 바꿀 때마다 다시 배치한다.
    · 예상 팝업 자리 이미지: 올리면 이 브라우저에 저장되고(줄여서), '바닥에 깔기'를 켜면 평면도 밑과 3D 바닥에 깔린다.
-   · 수동 이동: 평면도에서 끌기 · 3D에서 집기를 끌기(빈 곳을 끌면 화면 회전) · 방향키 · R 회전.
+   · 수동 이동: 평면도에서 끌기 · 3D에서 집기를 끌기(빈 곳을 끌면 화면 회전) · 방향키 · R 90° · Shift+R 45° 회전.
    · 🖼 집기리스트 이미지: 3D 화면 + 집기 그림·사이즈·수량 표를 한 장 PNG로 내려받는다.
    좌표: x=오른쪽, z=아래(앞쪽 통로). 집기 중심 기준 mm. rot 0=앞면 아래, 90=오른쪽, 180=위, 270=왼쪽. docs/floorplan.md */
 (function(){
@@ -26176,7 +26176,21 @@ function $(id){return document.getElementById(id);}
 function pageOn(){var p=$("page-floor");return !!p&&p.style.display==="block";}
 function snap(v){return Math.round(v/SNAP)*SNAP;}
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");}
-function foot(it){var c=CAT[it.t];if(!c)return {w:0,d:0};return (it.r%180===0)?{w:c.w,d:c.d}:{w:c.d,d:c.w};}
+function foot(it){var c=CAT[it.t];if(!c)return {w:0,d:0};if(isRound(c)||it.r%180===0)return {w:c.w,d:c.d};
+  if(it.r%90===0)return {w:c.d,d:c.w};
+  var a=it.r*Math.PI/180,cs=Math.abs(Math.cos(a)),sn=Math.abs(Math.sin(a));return {w:Math.round(c.w*cs+c.d*sn),d:Math.round(c.w*sn+c.d*cs)};}
+/* 45° 회전(2026-10-16 영업2팀) — 비스듬한 집기는 바깥 네모(foot·rectOf)가 실제보다 커서, 겹침·클릭은 실제 네 모서리로 본다.
+   2D는 g.rotate(-r)라 로컬 (lx,lz) → (lx·cos+lz·sin, −lx·sin+lz·cos) */
+function cornersOf(it){var c=CAT[it.t];if(!c)return [];var a=it.r*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a),hw=c.w/2,hd=c.d/2;
+  return [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(function(p){return [it.x+p[0]*cs+p[1]*sn,it.z-p[0]*sn+p[1]*cs];});}
+function tilted(it){var c=CAT[it.t];return !!c&&!isRound(c)&&it.r%90!==0;}
+function polyHit(A,B){   /* 볼록 다각형 분리축 — 1mm 넘게 겹쳐야 겹침 */
+  var polys=[A,B];for(var p=0;p<2;p++){var P=polys[p];for(var i=0;i<P.length;i++){var q=P[(i+1)%P.length],nx=-(q[1]-P[i][1]),nz=q[0]-P[i][0],L=Math.hypot(nx,nz)||1;nx/=L;nz/=L;
+    var a0=Infinity,a1=-Infinity,b0=Infinity,b1=-Infinity;A.forEach(function(v){var d=v[0]*nx+v[1]*nz;a0=Math.min(a0,d);a1=Math.max(a1,d);});B.forEach(function(v){var d=v[0]*nx+v[1]*nz;b0=Math.min(b0,d);b1=Math.max(b1,d);});
+    if(a1<=b0+1||b1<=a0+1)return false;}}return true;}
+function rectPoly(r){return [[r.x0,r.z0],[r.x1,r.z0],[r.x1,r.z1],[r.x0,r.z1]];}
+function itemsHit(a,b){var r=rectOf(a),q=rectOf(b);if(!(r.x0<q.x1-1&&r.x1>q.x0+1&&r.z0<q.z1-1&&r.z1>q.z0+1))return false;if(!tilted(a)&&!tilted(b))return true;return polyHit(tilted(a)?cornersOf(a):rectPoly(r),tilted(b)?cornersOf(b):rectPoly(q));}
+function itemHitBlock(it){if(!tilted(it))return hitBlock(rectOf(it));var C=cornersOf(it);return ST.blocks.some(function(b){return polyHit(C,rectPoly(b));});}
 function rectOf(it){var f=foot(it);return {x0:it.x-f.w/2,x1:it.x+f.w/2,z0:it.z-f.d/2,z1:it.z+f.d/2};}
 function mkItem(t,x,z,r,f){return {id:ST.next++,t:t,x:x,z:z,r:r||0,f:!!f};}
 function findItem(id){for(var i=0;i<ST.items.length;i++)if(ST.items[i].id===id)return ST.items[i];return null;}
@@ -26226,10 +26240,9 @@ function problems(){
     a=rectOf(ST.items[i]);
     if(a.x0<-0.5||a.z0<-0.5||a.x1>ST.W+0.5||a.z1>ST.D+0.5){bad[ST.items[i].id]=1;oob++;}
     for(j=i+1;j<ST.items.length;j++){
-      b=rectOf(ST.items[j]);
-      if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1){bad[ST.items[i].id]=1;bad[ST.items[j].id]=1;over++;}
+      if(itemsHit(ST.items[i],ST.items[j])){bad[ST.items[i].id]=1;bad[ST.items[j].id]=1;over++;}
     }
-    if(hitBlock(a)){bad[ST.items[i].id]=1;oob++;}
+    if(itemHitBlock(ST.items[i])){bad[ST.items[i].id]=1;oob++;}
   }
   return {bad:bad,over:over,oob:oob};
 }
@@ -26587,9 +26600,9 @@ window.fpAuto=function(quiet){
   if(ST.blocks.length){
     var moved=0,dropped=[];
     ST.items.slice().forEach(function(it){
-      if(!hitBlock(rectOf(it)))return;
+      if(!itemHitBlock(it))return;
       ST.items=ST.items.filter(function(o){return o!==it;});
-      var p=freeSpot(it.t),test={t:it.t,x:p.x,z:p.z,r:it.r,f:it.f},r=rectOf(test),clash=hitBlock(r)||ST.items.some(function(o){var q=rectOf(o);return r.x0<q.x1-1&&r.x1>q.x0+1&&r.z0<q.z1-1&&r.z1>q.z0+1;});
+      var p=freeSpot(it.t),test={t:it.t,x:p.x,z:p.z,r:it.r,f:it.f},clash=itemHitBlock(test)||ST.items.some(function(o){return itemsHit(test,o);});
       if(clash){dropped.push(CAT[it.t].n);out=out.filter(function(o){return !(o.t===it.t&&o.x===it.x&&o.z===it.z);});}
       else{it.x=p.x;it.z=p.z;ST.items.push(it);moved++;}
     });
@@ -26748,7 +26761,7 @@ function drawPhoto(){
     if(c.ov&&G)ST.items.forEach(function(it){
       var cc=CAT[it.t];if(!cc)return;var pts=[],P=function(x,z){return n2c(hApply(G,[x,z]));};
       if(isRound(cc)){for(var i=0;i<20;i++){var t=i/20*Math.PI*2;pts.push(P(it.x+Math.cos(t)*cc.w/2,it.z+Math.sin(t)*cc.w/2));}}
-      else{var r=rectOf(it);pts=[P(r.x0,r.z0),P(r.x1,r.z0),P(r.x1,r.z1),P(r.x0,r.z1)];}
+      else pts=cornersOf(it).map(function(q){return P(q[0],q[1]);});
       g.beginPath();pts.forEach(function(q,i){if(i)g.lineTo(q[0],q[1]);else g.moveTo(q[0],q[1]);});g.closePath();
       g.globalAlpha=0.55;g.fillStyle=cc.c;g.fill();g.globalAlpha=1;g.strokeStyle="#1e293b";g.lineWidth=1.5;g.stroke();
     });
@@ -26869,7 +26882,9 @@ function draw2d(){
 }
 function hit(px,py){
   var mx=(px-ox)/sc,mz=(py-oy)/sc,i,r;
-  for(i=ST.items.length-1;i>=0;i--){r=rectOf(ST.items[i]);if(mx>=r.x0&&mx<=r.x1&&mz>=r.z0&&mz<=r.z1)return ST.items[i];}
+  for(i=ST.items.length-1;i>=0;i--){var o=ST.items[i];r=rectOf(o);if(!(mx>=r.x0&&mx<=r.x1&&mz>=r.z0&&mz<=r.z1))continue;
+    if(!tilted(o))return o;var cc=CAT[o.t],a=o.r*Math.PI/180,dx=mx-o.x,dz=mz-o.z,lx=dx*Math.cos(a)-dz*Math.sin(a),lz=dx*Math.sin(a)+dz*Math.cos(a);
+    if(Math.abs(lx)<=cc.w/2&&Math.abs(lz)<=cc.d/2)return o;}
   /* 작은 집기(원형 집기·스탠딩 거울)는 화면에서 몇 px밖에 안 돼 — 둘레 10px 안이면 가장 가까운 집기를 잡는다 */
   var tol=10/sc,best=null,bd=Infinity;
   for(i=0;i<ST.items.length;i++){
@@ -26918,7 +26933,7 @@ function bind2d(){
     var it=findItem(ST.sel);if(!it)return;
     var k=e.key,st=e.shiftKey?500:SNAP;
     if(k==="ArrowLeft")it.x-=st;else if(k==="ArrowRight")it.x+=st;else if(k==="ArrowUp")it.z-=st;else if(k==="ArrowDown")it.z+=st;
-    else if(k==="r"||k==="R"){it.r=(it.r+90)%360;}
+    else if(k==="r"||k==="R"){it.r=(it.r+(e.shiftKey?45:90))%360;}   /* Shift+R = 45° */
     else if(k==="Delete"||k==="Backspace"){window.fpDel();e.preventDefault();return;}
     else return;
     e.preventDefault();changed();
@@ -26931,9 +26946,9 @@ function freeSpot(t){
   for(z=snap(c.d/2);z<=ST.D-c.d/2;z+=100){
     for(x=snap(c.w/2);x<=ST.W-c.w/2;x+=100){
       it.x=x;it.z=z;
-      var a=rectOf(it),hitAny=false;
-      for(var i=0;i<ST.items.length;i++){var b=rectOf(ST.items[i]);if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1){hitAny=true;break;}}
-      if(!hitAny&&!hitBlock(a))return {x:x,z:z};
+      var hitAny=false;
+      for(var i=0;i<ST.items.length;i++){if(itemsHit(it,ST.items[i])){hitAny=true;break;}}
+      if(!hitAny&&!itemHitBlock(it))return {x:x,z:z};
     }
   }
   return {x:snap(ST.W/2),z:snap(ST.D/2)};
@@ -26948,7 +26963,8 @@ window.fpAdd=function(t,at){
   msg(CAT[t].n+"을(를) 놓았습니다 — 끌어서 옮기고, Ctrl+C · Ctrl+V로 복사할 수 있습니다."+(over?" (보유 "+qtyOf(t)+"개보다 많이 놓았습니다)":""),over);
   changed();
 };
-window.fpRot=function(){var it=findItem(ST.sel);if(!it)return;it.r=(it.r+90)%360;changed();};
+window.fpRot=function(step){var it=findItem(ST.sel);if(!it)return;it.r=((it.r+(step||90))%360+360)%360;changed();};
+window.fpSetRot=function(v){var it=findItem(ST.sel),n=parseFloat(v);if(!it||isNaN(n))return;it.r=((Math.round(n/45)*45)%360+360)%360;changed();};
 window.fpFlip=function(){var it=findItem(ST.sel);if(!it)return;it.f=!it.f;changed();};
 /* 복사(2026-10-15 영업2팀 "평면도에서 집기를 선택해서 복사") — 선택한 집기와 같은 종류·방향으로 바로 옆(오른쪽 → 아래 → 왼쪽 → 위) 빈자리에, 없으면 빈 자리.
    복제 버튼 · Ctrl+D · Ctrl+C 뒤 Ctrl+V(여러 번 붙여 넣기). 보유를 넘으면 놓되 알린다 */
@@ -26957,8 +26973,8 @@ function nearSpot(src){
   var f=foot(src),G=100,tries=[[f.w+G,0],[0,f.d+G],[-(f.w+G),0],[0,-(f.d+G)],[2*(f.w+G),0],[0,2*(f.d+G)]];
   for(var i=0;i<tries.length;i++){
     var c={t:src.t,x:snap(src.x+tries[i][0]),z:snap(src.z+tries[i][1]),r:src.r,f:src.f},r=rectOf(c);
-    if(r.x0<0||r.z0<0||r.x1>ST.W||r.z1>ST.D||hitBlock(r))continue;
-    if(ST.items.some(function(o){var q=rectOf(o);return r.x0<q.x1-1&&r.x1>q.x0+1&&r.z0<q.z1-1&&r.z1>q.z0+1;}))continue;
+    if(r.x0<0||r.z0<0||r.x1>ST.W||r.z1>ST.D||itemHitBlock(c))continue;
+    if(ST.items.some(function(o){return itemsHit(c,o);}))continue;
     return {x:c.x,z:c.z};
   }
   return freeSpot(src.t);
@@ -26993,7 +27009,10 @@ function renderSel(){
   var inp='width:76px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px';
   el.innerHTML='<div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">'+esc(c.n)+' <span style="font-weight:400;color:#5b6675">'+c.w+'×'+c.d+'×'+c.h+' mm</span></div>'
    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
-   +'<button onclick="fpRot()" style="'+bt+'">↻ 회전</button>'
+   +'<button onclick="fpRot(90)" title="R" style="'+bt+'">↻ 90°</button>'
+   +'<button onclick="fpRot(45)" title="Shift+R" style="'+bt+'">↻ 45°</button>'
+   +'<button onclick="fpRot(-45)" style="'+bt+'">↺ 45°</button>'
+   +'<select onchange="fpSetRot(this.value)" title="방향" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">'+[0,45,90,135,180,225,270,315].map(function(a){return '<option value="'+a+'"'+(a===it.r?' selected':'')+'>'+a+'°</option>';}).join('')+'</select>'
    +(c.k==="shelf"?'<button onclick="fpFlip()" style="'+bt+'">↔ 좌우반전</button>':'')
    +'<button onclick="fpDup()" title="옆 빈자리에 같은 집기 하나 더 (Ctrl+D · Ctrl+C → Ctrl+V)" style="'+bt+'">📋 복사</button>'
    +'<button onclick="fpDel()" style="'+bt+';color:#9a3412">삭제</button>'
