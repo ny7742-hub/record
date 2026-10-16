@@ -2751,7 +2751,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","cpProgress":"ws/cpProgress","cpOrderReady":"ws/cpOrderReady","cpCountReq":"ws/cpCountReq","cpOrderLog":"ws/cpOrderLog","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","cpProgress":"ws/cpProgress","cpOrderReady":"ws/cpOrderReady","cpCountReq":"ws/cpCountReq","cpOrderLog":"ws/cpOrderLog","cpPause":"ws/cpPause","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus",   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
@@ -3339,6 +3339,10 @@ function fbListen(){
   );
   apply("ws/cpOrderReady","cpOrderReady",
     function(d){if(d&&typeof d==="object")cpOrderReady=d;},
+    function(){if(typeof cpgRender==="function")cpgRender();}
+  );
+  apply("ws/cpPause","cpPause",
+    function(d){if(d&&typeof d==="object")cpPause=d;},
     function(){if(typeof cpgRender==="function")cpgRender();}
   );
   apply("ws/cpOrderLog","cpOrderLog",
@@ -8186,8 +8190,11 @@ var cpCountReq=(function(){try{return JSON.parse(localStorage.getItem("cpCountRe
 function _cpCountWaiting(){var q=cpCountReq;return !!(q&&q.id&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<5*60*1000);}
 /* 오전 발주서 자동(2026-10-15) — 자동화 PC coupang-order-make.mjs가 평일 10:00(또는 버튼 mode 'make')에 확인 → 두 계정 발주서 → 물류센터 메일 초안. 기록 ws/cpOrderLog[날짜] */
 var cpOrderLog=(function(){try{return JSON.parse(localStorage.getItem("cpOrderLog")||"null");}catch(e){return null;}})();
+/* 쿠팡 자동 일시중단(2026-10-16 영업2팀) — 자동화 PC automation/coupang-auto-off.flag가 있으면 saip-watch가 ws/cpPause {on:true} — 자동 실행·버튼 요청을 하지 않는다 */
+var cpPause=(function(){try{return JSON.parse(localStorage.getItem("cpPause")||"null");}catch(e){return null;}})();
 var CP_MODE_NAME={make:"발주서 만들기",send:"발주 메일 보내기",check:"발주건 확인",pm:"② 회신 확인",pmsend:"② 미출고 반영 메일 보내기"};
 function cpCountGo(mode){
+  if(cpPause&&cpPause.on){alert("쿠팡 자동화가 일시중단돼 있습니다(영업2팀 요청 · "+_saipFmtAt(cpPause.at)+").\n\n다시 켜려면 자동화 PC의 automation/coupang-auto-off.flag 파일을 지워 주세요.");return;}
   if(_cpCountWaiting()){alert("쿠팡 "+(CP_MODE_NAME[cpCountReq.mode]||"발주건 확인")+"가 이미 요청돼 있습니다("+(cpCountReq.by||"?")+").");return;}
   var L=(cpOrderLog||{})[_cpToday()];
   /* ② 오후(2026-10-16 영업2팀) — 회신 확인(자동: ① 메일 보낸 날 12~19시 15분마다) · 미출고 반영 초안 보내기 */
@@ -8309,6 +8316,7 @@ function cpMakeSheet(date){
 }
 function _cpReadyHtml(){
   var Q=cpOrderReady,h="";
+  if(cpPause&&cpPause.on)h+='<div style="border:1px solid #fca5a5;background:#fef2f2;color:#b91c1c;font-weight:800;border-radius:8px;padding:6px 10px;margin-bottom:6px">⏸ 쿠팡 자동 일시중단 · '+_escX(_saipFmtAt(cpPause.at))+' <span style="font-weight:400;color:#5b6675">— 10:00 발주서·16:00 확인·회신 확인·로그인 유지를 하지 않고, 아래 버튼도 멈춰 있습니다</span></div>';
   if(_cpCountWaiting())h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+(cpCountReq.mode==="make"?'오전 발주서 만드는 중':cpCountReq.mode==="send"?'발주 메일 보내는 중':'발주건 확인 중')+'… ('+_escX(cpCountReq.by||"?")+') — '+(_saipWatchOk()?'자동화 PC가 쿠팡에서 읽는 중(몇 분)':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>')+'</div>';
   /* 오늘 오전 발주서(자동 10:00 · 버튼) 결과 */
   var OL=(cpOrderLog||{})[_cpToday()];
