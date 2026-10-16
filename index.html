@@ -26177,7 +26177,7 @@ var DEF={
   stdMir:{n:"스탠딩 거울",s:"스탠딩거울",w:500,d:300,h:1700,c:"#C0DD97",k:"mirror",inv:2,disp:2,est:true},
   curveL:{n:"곡면 2단 진열대 (좌)",s:"곡면(좌)",w:2300,d:1000,h:850,c:"#E8DCC8",k:"curve",side:"L",inv:1,disp:1,est:true},
   curveR:{n:"곡면 2단 진열대 (우)",s:"곡면(우)",w:2300,d:1000,h:850,c:"#E8DCC8",k:"curve",side:"R",inv:1,disp:1,est:true},
-  pegAcrylic:{n:"아크릴 타공집기",s:"타공집기",w:1136,d:805,h:1610,c:"#E8DCC6",k:"peg",inv:1,disp:1,est:false},
+  pegAcrylic:{n:"아크릴집기",s:"아크릴집기",w:1136,d:805,h:1610,c:"#E8DCC6",k:"peg",inv:4,disp:1,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
   pedestal:{n:"원형 집기",s:"원형집기",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,disp:4,est:true}
 };
@@ -26543,7 +26543,7 @@ window.fpReset=function(){
 window.fpAuto=function(quiet){
   var W=ST.W,D=ST.D,GAP=300,MARG=300,out=[],warn=[],i;
   function outCount(t){var n=0;out.forEach(function(o){if(o.t===t)n++;});return n;}
-  /* 뒷줄 — 벽에 붙이는 집기(선반 이미지형 · 거울형 · 아크릴 타공집기)를 진열 수 안에서 번갈아, 폭이 다르면 그만큼씩. 뒤를 벽에 맞춘다 */
+  /* 뒷줄 — 벽에 붙이는 집기(선반 이미지형 · 거울형 · 아크릴집기)를 진열 수 안에서 번갈아, 폭이 다르면 그만큼씩. 뒤를 벽에 맞춘다 */
   /* 뒤 벽 중 막힌 칸(창고 등)이 없는 가장 긴 구간에 놓는다 */
   var segs=subRange(0,W,ST.blocks.filter(function(b){return b.z0<=1;}).map(function(b){return [b.x0,b.x1];})),seg=[0,W];
   segs.forEach(function(sg){if(sg[1]-sg[0]>seg[1]-seg[0]||seg===null)seg=sg;});if(segs.length&&segs.indexOf(seg)<0)seg=segs.reduce(function(p,q){return q[1]-q[0]>p[1]-p[0]?q:p;});
@@ -27314,50 +27314,44 @@ function buildBirchRack(g,w,d,h){
     mk(g,w+0.06,0.035,dep,0,p[0],0,0xE2C28C);
   });
 }
-/* 아크릴 타공집기(2026-10-15 영업2팀 사진, 1136 × 805 × 1610) — 진열된 양산은 빼고 집기만.
-   아래 반투명 흰 아크릴 수납장(높이 약 35%) + 진열판 · 뒤에 흰 아크릴 판 위 나무색 타공판(흰 구멍) · 걸이 봉 2줄 · 위 가운데 반투명 WHITE SANDS 간판 ·
-   뒤 모서리 알루미늄 기둥 2개 + 뒤 위 봉(앞 기둥 없음). 앞면은 +z */
-var PEGTX={};
-function pegTex(kind){
-  if(PEGTX[kind])return PEGTX[kind];
-  var cv=document.createElement("canvas"),g=cv.getContext("2d");
-  if(kind==="board"){
-    cv.width=512;cv.height=320;
-    var gr=g.createLinearGradient(0,0,512,0);gr.addColorStop(0,"#b98f57");gr.addColorStop(0.5,"#c49a62");gr.addColorStop(1,"#b38851");g.fillStyle=gr;g.fillRect(0,0,512,320);
-    g.globalAlpha=0.12;for(var i=0;i<40;i++){g.fillStyle=i%2?"#7d6a4f":"#fff";g.fillRect(0,i*8+Math.sin(i)*3,512,2);}g.globalAlpha=1;
-    g.fillStyle="#f6f1e7";for(var y=12;y<320;y+=16)for(var x=10;x<512;x+=16){g.beginPath();g.arc(x,y,3.1,0,Math.PI*2);g.fill();}
-  }else{
-    cv.width=512;cv.height=160;
-    g.fillStyle="#ffffff";g.fillRect(0,0,512,160);g.strokeStyle="#4b5563";g.lineWidth=8;g.strokeRect(4,4,504,152);
-    g.fillStyle="#111111";g.font="800 64px 'Malgun Gothic',sans-serif";g.textAlign="center";g.textBaseline="middle";
-    try{g.letterSpacing="6px";}catch(e){}
-    g.fillText("WHITE",256,52);g.fillText("SANDS",256,114);
-  }
-  var t=new THREE.CanvasTexture(cv);t.anisotropy=4;PEGTX[kind]=t;return t;
-}
+/* 아크릴집기(2026-10-16 영업2팀 치수 도면, 가로 1136 × 깊이 805 × 높이 1610) — 알루미늄 봉 + 모서리 볼 조립식.
+   높이(바닥부터): 다리 102 · 수납장 400(깊이 805, 앞 반투명 미닫이문 2짝) · 위는 뒤쪽 깊이 390 — 막힌 칸 308 · 열린 칸 400 · 열린 칸 400.
+   가로 가운데에 세로 봉. 높이를 바꾸면 비율대로 늘고 준다. 앞면은 +z */
 function buildPeg(g,c,w,d,h){
-  /* 색은 진하게(2026-10-16 "진하게 보여주세요") — 흰 바닥 위에서 묻히지 않게 */
-  var AL=0x7b8490,FR=0xd9dee4,EM=new THREE.LineBasicMaterial({color:0x374151}),PT=0.03,base=Math.min(h*0.35,0.6),shelf=0.02,backLow=base+0.30,top=h;
-  /* 뒤 모서리 알루미늄 기둥 2개 + 뒤 위 봉 — 앞 기둥은 뺐다(2026-10-16 영업2팀 "앞 모서리 기둥 없애주세요", 앞·옆 위 봉도 같이) */
-  [-1,1].forEach(function(a){mk(g,PT,top,PT,a*(w/2-PT/2),top/2,-(d/2-PT/2),AL);});
-  mk(g,w,PT,PT,0,top-PT/2,-(d/2-PT/2),AL);
-  /* 아래 수납장(반투명 흰 아크릴) — 앞판 가운데 이음선 · 위 진열판 */
-  var cab=new THREE.Mesh(new THREE.BoxGeometry(w-2*PT,base-0.03,d-2*PT),new THREE.MeshLambertMaterial({color:FR,transparent:true,opacity:0.96}));
-  cab.position.set(0,0.03+(base-0.03)/2,0);cab.add(new THREE.LineSegments(new THREE.EdgesGeometry(cab.geometry),EM));g.add(cab);
-  mk(g,0.006,base-0.08,0.004,0,0.03+(base-0.03)/2,d/2-PT+0.002,0x4b5563);
-  mk(g,w-2*PT,0.025,0.012,0,0.0125,d/2-PT,AL);
-  var sh=new THREE.Mesh(new THREE.BoxGeometry(w-2*PT,shelf,d-2*PT),new THREE.MeshLambertMaterial({color:0xe6eaee,transparent:true,opacity:0.96}));
-  sh.position.set(0,base+shelf/2,0);sh.add(new THREE.LineSegments(new THREE.EdgesGeometry(sh.geometry),EM));g.add(sh);
-  /* 뒤판: 아래 흰 아크릴 · 위 타공판 */
-  var bz=-d/2+PT+0.008;
-  mk(g,w-2*PT,backLow-base,0.012,0,base+(backLow-base)/2,bz,FR);
-  var bh=top-PT-0.03-backLow,board=new THREE.Mesh(new THREE.BoxGeometry(w-2*PT,bh,0.012),[0,0,0,0,0,0].map(function(_,i){return i===4?new THREE.MeshLambertMaterial({map:pegTex("board")}):new THREE.MeshLambertMaterial({color:0xa47c48});}));
-  board.position.set(0,backLow+bh/2,bz);board.add(new THREE.LineSegments(new THREE.EdgesGeometry(board.geometry),EM));g.add(board);
-  /* 걸이 봉 2줄 */
-  [0.72,0.36].forEach(function(f){mk(g,w-2*PT-0.02,0.012,0.012,0,backLow+bh*f,bz+0.03,0x5b6470);});
-  /* 간판 */
-  var sw=w*0.42,shh=bh*0.2,sign=new THREE.Mesh(new THREE.BoxGeometry(sw,shh,0.008),[0,0,0,0,0,0].map(function(_,i){return i===4?new THREE.MeshLambertMaterial({map:pegTex("sign"),transparent:true}):new THREE.MeshLambertMaterial({color:0x9ca3af});}));
-  sign.position.set(0,top-PT-0.10-shh/2,bz+0.02);   /* 앞 위 테두리에 가리지 않게 조금 내림 */g.add(sign);
+  var AL=0x8a929c,WH=0xf3f4f5,FR=0xdfe4e9,T=0.02,EM=new THREE.LineBasicMaterial({color:0x4b5563});
+  var L=[0.102,0.502,0.810,1.210,1.610].map(function(v){return v*h/1.61;}),leg=L[0],cTop=L[1],ud=Math.min(0.39,d),hw=w/2-T/2,hd=d/2-T/2,uz1=-d/2+ud-T/2;
+  function pn(pw,ph,pd,x,y,z,col,op){
+    var m=new THREE.Mesh(new THREE.BoxGeometry(pw,ph,pd),new THREE.MeshLambertMaterial(op?{color:col,transparent:true,opacity:op}:{color:col}));
+    m.position.set(x,y,z);m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),EM));g.add(m);
+  }
+  function frame(x0,x1,y0,y1,z0,z1){
+    [y0,y1].forEach(function(y){[z0,z1].forEach(function(z){mk(g,x1-x0,T,T,(x0+x1)/2,y,z,AL);});});
+    [x0,x1].forEach(function(x){[z0,z1].forEach(function(z){mk(g,T,y1-y0,T,x,(y0+y1)/2,z,AL);});});
+    [x0,x1].forEach(function(x){[y0,y1].forEach(function(y){mk(g,T,T,z1-z0,x,y,(z0+z1)/2,AL);});});
+    [x0,x1].forEach(function(x){[y0,y1].forEach(function(y){[z0,z1].forEach(function(z){
+      var b=new THREE.Mesh(new THREE.SphereGeometry(T*0.95,12,10),new THREE.MeshLambertMaterial({color:0x6b7280}));b.position.set(x,y,z);g.add(b);});});});
+  }
+  /* 다리 */
+  [-1,1].forEach(function(a){[-1,1].forEach(function(b){mk(g,0.016,leg,0.016,a*hw,leg/2,b*hd,AL);});});
+  /* 아래 수납장 — 위·아래·옆·뒤 흰 판, 앞 반투명 미닫이문 2짝(앞뒤로 살짝 엇갈림) */
+  var ch=cTop-leg,cy=leg+ch/2;
+  pn(w-T,0.012,d-T,0,cTop-0.006,0,WH);pn(w-T,0.012,d-T,0,leg+0.006,0,WH);
+  [-1,1].forEach(function(a){pn(0.008,ch-T,d-T,a*(hw-0.006),cy,0,WH);});
+  pn(w-T,ch-T,0.008,0,cy,-(hd-0.006),WH);
+  pn(w/2-T,ch-T*2,0.008,-w/4+T/4,cy,hd-0.004,FR,0.78);pn(w/2-T,ch-T*2,0.008,w/4-T/4,cy,hd-0.016,FR,0.78);
+  frame(-hw,hw,leg,cTop,-hd,hd);
+  [hd,-hd].forEach(function(z){mk(g,T,ch,T,0,cy,z,AL);});
+  /* 위 박스 3칸(뒤쪽 깊이 400) */
+  var uzc=(-hd+uz1)/2,udd=uz1+hd;
+  for(var i=0;i<3;i++){
+    var y0=L[i+1],y1=L[i+2],bxH=y1-y0,yc=(y0+y1)/2;
+    pn(w-T,bxH-T,0.008,0,yc,-(hd-0.006),WH);
+    [-1,1].forEach(function(a){pn(0.008,bxH-T,udd,a*(hw-0.006),yc,uzc,WH);});
+    pn(w-T,0.012,udd,0,y1-0.006,uzc,WH);
+    if(i===0)pn(w-T,bxH-T*2,0.008,0,yc,uz1-0.004,FR,0.85);
+    frame(-hw,hw,y0,y1,-hd,uz1);
+    [uz1,-hd].forEach(function(z){mk(g,T,bxH,T,0,yc,z,AL);});
+  }
 }
 function buildItem(it,bad){
   var c=CAT[it.t],g=new THREE.Group(),w=c.w/1000,d=c.d/1000,h=c.h/1000,WH=0xf4f2ec;
