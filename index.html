@@ -1322,7 +1322,7 @@ label{font-size:14px!important}
   <div class="card" id="retAutoBox" style="background:#f0fafb;border:1px solid #9fd3dc">
     <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
       <b style="color:#154f5e;font-size:14px">🤖 자동 반품등록</b>
-      <span style="font-size:12px;color:#5b6675">반품리스트에서 처리완료 + 입고일·처리일·해체일이 모두 적힌 건 중 아직 등록 안 한 것을 골라, 플레이엠디 [EX]사입매장출고반품등록(작업구분 사입반품 · 시트명 사입반품양식)에 저장하고, 불량은 창고간이동(NH→BAD), 끝으로 시트 정리(→ 온라인(완료))까지 합니다.</span>
+      <span style="font-size:12px;color:#5b6675">반품리스트에서 아직 등록 안 한 건(홈쇼핑 = 해체일이 적힌 건 — 상품리스트에 없는 상품은 결과에 처리보류로 적고 뺌 · 코스트코 = 처리완료 + 입고일·처리일·해체일)을 골라, 플레이엠디 [EX]사입매장출고반품등록(작업구분 사입반품 · 시트명 사입반품양식)에 저장하고, 불량은 창고간이동(NH→BAD), 끝으로 시트 정리(→ 온라인(완료))까지 합니다.</span>
     </div>
     <div class="ret-grid" style="margin-top:8px">
       <div style="display:flex;flex-direction:column;gap:4px;background:#fff;border:1px solid #cfe0e5;border-radius:8px;padding:7px 8px">
@@ -1359,7 +1359,7 @@ label{font-size:14px!important}
         <button class="bg" onclick="hsrLoadSheet()" style="width:100%;padding:10px;font-size:13px;font-weight:700">📥 시트에서 바로 불러오기</button><span id="hsrSheetMsg" style="font-size:11.5px;color:#15803d;font-weight:700;text-align:center"></span>
         <a href="https://docs.google.com/spreadsheets/d/1Cjoo-x9lBA5pFtGoxftdAxdoKrzt770XcPGeXOidPiI/edit?gid=36451127#gid=36451127" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:5px;padding:6px;background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;font-size:13px;font-weight:700;color:#1b6e82;text-decoration:none">📄 반품리스트 열기 <span style="font-size:11px;color:#2563eb">↗</span></a>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5;flex:1">
-          <b>시트에서 바로 불러오기</b>를 누르면<br>CX팀_반품리스트 <b>홈쇼핑</b> 탭에서<br><b style="color:#15803d">처리완료 + 입고일·처리일·해체일</b>이<br>모두 적힌 건만 읽어 2·3단계까지 채웁니다
+          <b>시트에서 바로 불러오기</b>를 누르면<br>CX팀_반품리스트 <b>홈쇼핑</b> 탭에서<br><b style="color:#15803d">해체일</b>이 적힌 건만 읽어<br>2·3단계까지 채웁니다<br><span style="font-size:11.5px;color:#5b6675">(결과가 처리보류인 줄은 뺍니다)</span>
           <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">붙여넣기(2단계)는 필요할 때만</div>
         </div>
       </div>
@@ -1372,7 +1372,7 @@ label{font-size:14px!important}
         </div>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:13px;color:#334155;line-height:1.5">
           반품 표를 그대로 붙여넣으세요<br>
-          <b>처리완료 + 입고일·처리일·해체일</b>이<br>모두 적힌 행만 다운로드에 포함됩니다
+          <b>해체일</b>이 적힌 행만<br>다운로드에 포함됩니다
           <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">쇼핑몰·날짜·상품명·수량만 읽습니다<br>(수취인·연락처·주소는 저장하지 않음)</div>
         </div>
       </div>
@@ -19154,10 +19154,14 @@ function _hsrRowDate(r){return r["in"]||null;}
 /* 다운로드 대상 = 해체일이 기재된 행만 */
 /* 등록 조건(2026-09-18 영업2팀 지정, 코스트코와 같음): 처리완료 + 입고일·처리일·해체일 모두.
    붙여넣은 표에 결과(처리상태) 칸이 아예 없으면 status가 undefined라 상태는 보지 않고 날짜만 본다. */
+/* 2026-10-16 영업2팀 "해체일이 기재되면 진행" — 결과(처리완료)·처리일은 보지 않는다. 결과가 처리보류면 뺀다
+   (홈쇼핑 상품리스트에 없는 상품은 자동 반품등록이 시트 결과 칸에 처리보류를 적고 빼므로, 다음부터는 여기서 걸러진다).
+   반품일자가 입고일이라 입고일은 있어야 한다 */
 function _hsrWhyNot(r){
-  if(r.status!==undefined&&r.status!=="처리완료")return r.status?"처리완료가 아님("+r.status+")":"결과 빈칸";
-  var miss=[];if(!r["in"])miss.push("입고일");if(!r.proc)miss.push("처리일");if(!r.open)miss.push("해체일");
-  return miss.length?miss.join("·")+" 없음":"";
+  if(r.status==="처리보류")return "처리보류";
+  if(!r.open)return "해체일 없음";
+  if(!r["in"])return "입고일 없음";
+  return "";
 }
 function _hsrReady(r){return !_hsrWhyNot(r);}
 /* 공급가가 채워졌는지 — 0원(증정상품)도 '채워짐'으로 본다. 빈칸만 미입력으로 취급 */
@@ -19334,16 +19338,16 @@ function _retSheetMsg(id,t,err){var el=document.getElementById(id);if(el){el.sty
 function _hsrSheetKeep(rows){
   var H=(rows[0]||[]).map(function(h){return String(h).replace(/\s/g,"");});
   var ci=function(re){for(var i=0;i<H.length;i++)if(re.test(H[i]))return i;return -1;};
-  var cSt=ci(/^(결과|처리상태|상태)$/),cIn=ci(/^입고일$/),cPr=ci(/^처리일$/),cOp=ci(/^해체일$/),cPd=ci(/^상품명$/);
-  if(cSt<0||cIn<0||cPr<0||cOp<0){throw new Error("홈쇼핑 탭 머리글(결과·입고일·처리일·해체일)을 찾지 못했습니다");}
+  var cSt=ci(/^(결과|처리상태|상태)$/),cIn=ci(/^입고일$/),cOp=ci(/^해체일$/),cPd=ci(/^상품명$/);
+  if(cIn<0||cOp<0){throw new Error("홈쇼핑 탭 머리글(입고일·해체일)을 찾지 못했습니다");}
   var keep=[rows[0]],skip={};
   var add=function(k){skip[k]=(skip[k]||0)+1;};
   rows.slice(1).forEach(function(r){
     if(cPd>=0&&!String(r[cPd]||"").trim())return;                 /* 빈 줄 */
-    var st=String(r[cSt]||"").trim();
-    if(st!=="처리완료"){add(st?st:"결과 빈칸");return;}
-    var miss=[];if(!String(r[cIn]||"").trim())miss.push("입고일");if(!String(r[cPr]||"").trim())miss.push("처리일");if(!String(r[cOp]||"").trim())miss.push("해체일");
-    if(miss.length){add(miss.join("·")+" 없음");return;}
+    var st=cSt>=0?String(r[cSt]||"").trim():"";
+    if(st==="처리보류"){add("처리보류");return;}            /* 2026-10-16: 해체일이 적히면 진행, 처리보류는 뺀다 */
+    if(!String(r[cOp]||"").trim()){add("해체일 없음");return;}
+    if(!String(r[cIn]||"").trim()){add("입고일 없음");return;}
     keep.push(r);
   });
   return {keep:keep,skip:skip};
@@ -19432,7 +19436,7 @@ function renderHsrTable(){
   var unknownShop=ready.filter(function(r){return _ccoWhStoreCode(r.shop).unknown;}).length;
   if(st){
     st.innerHTML=(!ready.length
-      ? '<div style="font-size:18px;font-weight:800;color:#b45309">등록 대상 없음</div><div style="font-size:13px;color:#5b6675;font-weight:600;margin-top:3px">처리완료 + 입고일·처리일·해체일이<br>모두 적힌 행만 다운로드됩니다</div>'
+      ? '<div style="font-size:18px;font-weight:800;color:#b45309">등록 대상 없음</div><div style="font-size:13px;color:#5b6675;font-weight:600;margin-top:3px">해체일이 적힌 행만<br>다운로드됩니다</div>'
       : (noMatch
         ? '<div style="font-size:20px;font-weight:800;color:#dc2626">⚠ '+noMatch+'건 미매칭</div><div style="font-size:14px;color:#b91c1c;font-weight:700;margin-top:2px">다운로드 대상 '+ready.length+'건 중</div>'
         : '<div style="font-size:20px;font-weight:800;color:#16a34a">✅ 매칭완료</div><div style="font-size:14px;color:#15803d;font-weight:700;margin-top:2px">다운로드 대상 '+ready.length+'건 전체 매칭</div>'))
@@ -19604,7 +19608,7 @@ function retPreviewGo(kind){
   var K=RET_KINDS[kind],cur=(saipReq||{})[kind];
   if(_saipReqActive(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
   var P=_retPendingOf(kind);
-  if(P&&!P.length&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n(반품리스트에 처리완료 + 입고일·처리일·해체일이 모두 적힌 건 중 아직 등록 안 한 것)");return;}
+  if(P&&!P.length&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n"+(kind==="hr"?"(반품리스트 홈쇼핑 탭에 해체일이 적힌 건 중 아직 등록 안 한 것 — 처리보류는 뺌)":"(반품리스트에 처리완료 + 입고일·처리일·해체일이 모두 적힌 건 중 아직 등록 안 한 것)"));return;}
   _retRequest(kind,{mode:"preview"});
 }
 function retAutoGo(kind,opt){
@@ -19612,7 +19616,7 @@ function retAutoGo(kind,opt){
   var K=RET_KINDS[kind],cur=(saipReq||{})[kind];
   if(_saipReqActive(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
   var P=_retPendingOf(kind);
-  if(P&&!P.length&&!opt.expect&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n(반품리스트에 처리완료 + 입고일·처리일·해체일이 모두 적힌 건 중 아직 등록 안 한 것)");return;}
+  if(P&&!P.length&&!opt.expect&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n"+(kind==="hr"?"(반품리스트 홈쇼핑 탭에 해체일이 적힌 건 중 아직 등록 안 한 것 — 처리보류는 뺌)":"(반품리스트에 처리완료 + 입고일·처리일·해체일이 모두 적힌 건 중 아직 등록 안 한 것)"));return;}
   var msg=K.label+(P?" "+P.length+"건":"")+"을 자동화 PC가 플레이엠디 [EX]사입매장출고반품등록(작업구분 사입반품 · 시트명 사입반품양식)에 저장합니다.\n"
     +"저장하면 되돌리기 어렵습니다.\n\n"
     +"코드·공급가가 빈 줄이 있거나, 같은 날 같은 매장·상품 반품이 플레이엠디에 일부만 있으면 저장하지 않고 멈춥니다.\n"
@@ -19636,6 +19640,7 @@ var RET_ST_TXT={
   none:["📭","등록할 반품이 없습니다","#5b6675"],moveonly:["🔧","새 반품은 없음 — 대기 중이던 불량 창고간이동만 처리","#047857"],cleanonly:["🧹","새 반품은 없음 — 대기 중이던 시트 정리만 처리","#047857"],allfound:["⛔","모두 플레이엠디에 이미 있어 저장 안 함","#b45309"],
   partial:["⛔","같은 날 같은 매장·상품 반품이 플레이엠디에 일부만 있어 저장 안 함","#b91c1c"],
   unmatched:["⛔","코드·공급가·매장코드가 빈 줄이 있어 저장 안 함","#b91c1c"],
+  hold:["⏸","새 반품은 모두 처리보류(홈쇼핑 상품리스트 미매칭) — 등록 안 함","#b45309"],
   changed:["⛔","미리보기 뒤 반품리스트가 바뀌어 저장 안 함 — 다시 미리보기 해 주세요","#b91c1c"],
   error:["❗","오류로 멈춤","#b91c1c"]
 };
@@ -19672,6 +19677,14 @@ function _retCard(kind){
   }
   if(S.bad&&S.bad.length)h+='<div style="color:#b91c1c">'+S.bad.slice(0,12).map(_escX).join("<br>")+(S.bad.length>12?'<br>… 외 '+(S.bad.length-12)+'줄':'')
     +'<br><span style="color:#5b6675">→ '+(kind==="hr"?'홈쇼핑 코드매칭표에 추가하거나 ':'')+'아래 표에서 코드·공급가를 채운 뒤 다시 눌러 주세요</span></div>';
+  /* 처리보류(2026-10-16 영업2팀) — 홈쇼핑 상품리스트에 없는 상품은 등록하지 않고 시트 결과 칸에 처리보류를 적는다 */
+  if(S.hold&&S.hold.length){
+    var HS=S.holdSheet||{},hst={done:"시트 결과에 처리보류 표시함",dry:"등록 때 시트 결과에 처리보류로 표시합니다",old:"시트 웹 앱이 예전 버전이라 처리보류를 못 적었습니다 — Apps Script를 새 버전으로 배포해 주세요",
+      off:"시트 웹 앱 설정이 없어 처리보류를 못 적었습니다",error:"처리보류 표시 실패"+(HS.error?" — "+HS.error:"")}[HS.status]||"";
+    h+='<div style="color:#b45309"><b>⏸ 처리보류 '+S.hold.length+'건 — 홈쇼핑 상품리스트에 없어 진행 안 함</b>'+(hst?' <span style="color:'+(HS.status==="done"||HS.status==="dry"?'#5b6675':'#b91c1c')+'">('+_escX(hst)+')</span>':'')
+      +'<br>'+S.hold.slice(0,10).map(_escX).join("<br>")+(S.hold.length>10?'<br>… 외 '+(S.hold.length-10)+'줄':'')
+      +'<br><span style="color:#5b6675">→ 홈쇼핑 상품리스트(코드매칭표)에 넣은 뒤 시트 결과의 처리보류를 지우면 다음 번에 등록됩니다</span></div>';
+  }
   if(S.found&&S.found.length)h+='<div style="color:#b45309;font-weight:700">⚠ 플레이엠디에 이미 있어 뺀 줄 '+S.found.length+'건'+(S.mode==="save"?'(등록된 것으로 기록)':'')+'</div>';
   if(S.partial&&S.partial.length)h+='<div style="color:#b91c1c">'+S.partial.slice(0,8).map(_escX).join("<br>")+'</div>';
   if(S.status==="saved"||S.status==="savecheck"){
