@@ -26177,7 +26177,7 @@ var DEF={
   stdMir:{n:"스탠딩 거울",s:"스탠딩거울",w:500,d:300,h:1700,c:"#C0DD97",k:"mirror",inv:2,disp:2,est:true},
   curveL:{n:"곡면 2단 진열대 (좌)",s:"곡면(좌)",w:2300,d:1000,h:850,c:"#E8DCC8",k:"curve",side:"L",inv:1,disp:1,est:true},
   curveR:{n:"곡면 2단 진열대 (우)",s:"곡면(우)",w:2300,d:1000,h:850,c:"#E8DCC8",k:"curve",side:"R",inv:1,disp:1,est:true},
-  pegAcrylic:{n:"아크릴집기",s:"아크릴집기",w:1136,d:805,h:1610,c:"#E8DCC6",k:"peg",inv:4,disp:1,est:false},
+  pegAcrylic:{n:"아크릴집기",s:"아크릴집기",w:1136,d:805,h:1610,c:"#E8DCC6",k:"peg",inv:4,disp:4,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
   pedestal:{n:"원형 집기",s:"원형집기",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,disp:4,est:true}
 };
@@ -26547,18 +26547,31 @@ window.fpAuto=function(quiet){
   /* 뒤 벽 중 막힌 칸(창고 등)이 없는 가장 긴 구간에 놓는다 */
   var segs=subRange(0,W,ST.blocks.filter(function(b){return b.z0<=1;}).map(function(b){return [b.x0,b.x1];})),seg=[0,W];
   segs.forEach(function(sg){if(sg[1]-sg[0]>seg[1]-seg[0]||seg===null)seg=sg;});if(segs.length&&segs.indexOf(seg)<0)seg=segs.reduce(function(p,q){return q[1]-q[0]>p[1]-p[0]?q:p;});
-  var shelfTypes=["shelfImg","shelfMir","pegAcrylic"].filter(function(t){return CAT[t]&&enabled(t)&&dispOf(t)>0;}),row=[],rowW=0,cap=(seg[1]-seg[0])-(seg[0]>0?GAP:MARG)-(seg[1]<W?GAP:MARG),cnt={},guard=0;
+  /* 아크릴집기는 옆으로 붙여 한 덩어리로(2026-10-16 영업2팀 "옆으로 나열하면 이런 이미지") — 사이 간격 0, 가운데에. 선반집기는 그 양옆에 번갈아 */
+  var cap=(seg[1]-seg[0])-(seg[0]>0?GAP:MARG)-(seg[1]<W?GAP:MARG),pegN=0,pegW=0;
+  if(CAT.pegAcrylic&&enabled("pegAcrylic")){var pw0=CAT.pegAcrylic.w;pegN=Math.min(dispOf("pegAcrylic"),Math.floor(cap/pw0));pegW=pegN*pw0;}
+  var shelfTypes=["shelfImg","shelfMir"].filter(function(t){return CAT[t]&&enabled(t)&&dispOf(t)>0;}),sh=[],rowW=pegW,cnt={},guard=0;
   while(shelfTypes.length&&guard++<200){
     var added=false;
     shelfTypes.forEach(function(t){
       if((cnt[t]||0)>=dispOf(t))return;
-      var need=CAT[t].w+(row.length?GAP:0);if(rowW+need>cap)return;
-      row.push(t);rowW+=need;cnt[t]=(cnt[t]||0)+1;added=true;
+      var need=CAT[t].w+((sh.length||pegN)?GAP:0);if(rowW+need>cap)return;
+      sh.push(t);rowW+=need;cnt[t]=(cnt[t]||0)+1;added=true;
     });
     if(!added)break;
   }
+  if(pegN)shelfTypes.push("pegAcrylic");
+  var half=Math.ceil(sh.length/2),row=[],gapAfter=[];
+  sh.slice(0,half).forEach(function(t){row.push(t);gapAfter.push(GAP);});
+  for(var pi=0;pi<pegN;pi++){row.push("pegAcrylic");gapAfter.push(pi<pegN-1?0:GAP);}
+  sh.slice(half).forEach(function(t){row.push(t);gapAfter.push(GAP);});
   var n=row.length,sd=0,xx=(seg[0]+seg[1]-rowW)/2;
-  row.forEach(function(t,j){var c=CAT[t];sd=Math.max(sd,c.d);out.push({t:t,x:snap(xx+c.w/2),z:snap(MARG-100+c.d/2),f:(j>=Math.ceil(n/2))});xx+=c.w+GAP;});
+  /* 붙여 놓는 아크릴집기는 첫 칸만 눈금에 맞추고 나머지는 폭만큼 그대로(눈금에 맞추면 겹치거나 틈이 생긴다) */
+  var prevX=null;
+  row.forEach(function(t,j){var c=CAT[t];sd=Math.max(sd,c.d);
+    var x=(t==="pegAcrylic"&&j>0&&row[j-1]==="pegAcrylic"&&prevX!=null)?prevX+c.w:snap(xx+c.w/2);
+    if(t!=="pegAcrylic"&&j>0&&row[j-1]==="pegAcrylic")x=Math.max(x,prevX+CAT.pegAcrylic.w/2+GAP+c.w/2);
+    out.push({t:t,x:x,z:snap(MARG-100+c.d/2),f:(j>=Math.ceil(n/2))});prevX=x;xx+=c.w+gapAfter[j];});
   if(!shelfTypes.length)warn.push("선반집기를 고르지 않아 뒷줄을 비웠습니다");
   else if(!n)warn.push("가로가 좁아 선반집기를 놓지 못했습니다");
   var zb=MARG-100+sd/2;
