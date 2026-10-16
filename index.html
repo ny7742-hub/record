@@ -26500,17 +26500,17 @@ window.fpPfxAdd=function(){
   autoIfOn();
 };
 
-/* ── 팔레트: 선택한 집기만 ── */
+/* ── 팔레트: 집기 추가(2026-10-16 영업2팀 "평면도에 집기 추가할 수 있게") — 지운 것 말고 모든 집기. 남은 수량이 0이어도,
+   체크가 꺼져 있어도 누르면 놓는다(fpAdd가 체크를 켜고, 보유를 넘으면 알린다). 체크 안 한 집기는 점선 ── */
 function renderPalette(){
   var el=$("fpPalette");if(!el)return;
-  var h="",any=false;
+  var h='<span style="font-size:12px;font-weight:800;color:#334155;align-self:center">➕ 평면도에 집기 추가</span>';
   Object.keys(CAT).forEach(function(k){
-    if(!enabled(k))return;
-    any=true;
-    var c=CAT[k],left=leftOf(k),ok=left>0;
-    h+='<button '+(ok?'onclick="fpAdd(\''+k+'\')"':'disabled')+' title="'+c.w+'×'+c.d+'×'+c.h+' mm · 남은 수량 '+Math.max(0,left)+'" style="padding:5px 10px;border:1px solid #cbd5e1;background:'+(ok?'#f8fafc':'#f1f5f9')+';color:'+(ok?'#334155':'#5b6675')+';border-radius:8px;font-size:12px;font-weight:700;cursor:'+(ok?'pointer':'not-allowed')+';display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:'+c.c+';border:1px solid #64748b"></span>+ '+esc(c.n)+' <span style="font-weight:400">('+Math.max(0,left)+')</span></button>';
+    if(ST.use[k]&&ST.use[k].del)return;
+    var c=CAT[k],on=enabled(k),left=leftOf(k);
+    h+='<button onclick="fpAdd(\''+k+'\')" title="'+c.w+'×'+c.d+'×'+c.h+' mm · 남은 수량 '+Math.max(0,left)+(on?'':' · 누르면 체크하고 놓습니다')+(left>0?'':' · 보유보다 많이 놓게 됩니다')+'" style="padding:5px 10px;border:1px '+(on?'solid #cbd5e1':'dashed #94a3b8')+';background:'+(on?'#f8fafc':'#fff')+';color:'+(on?'#334155':'#5b6675')+';border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:'+c.c+';border:1px solid #64748b"></span>+ '+esc(c.n)+' <span style="font-weight:400;color:'+(left>0?'inherit':'#b91c1c')+'">('+Math.max(0,left)+')</span></button>';
   });
-  el.innerHTML=any?h:'<div style="font-size:12.5px;color:#9a3412">선택한 집기가 없습니다. ③ 집기 수량 표에서 체크하세요.</div>';
+  el.innerHTML=h;
 }
 
 /* ── 배치 만들기 ── */
@@ -27076,7 +27076,7 @@ function renderSum(){
     if(on){own+=q;wantSum+=dispOf(k);}
     rows+='<tr>'
       +'<td style="'+td+';width:26px"><input type="checkbox" '+(on?'checked':'')+' onchange="fpToggle(\''+k+'\',this.checked)" title="평면도에 쓰기" style="width:15px;height:15px;margin:0"></td>'
-      +'<td style="'+td+';width:80px;cursor:copy;'+dim+'" draggable="true" ondragstart="event.dataTransfer.setData(\'text/fp\',\''+k+'\');event.dataTransfer.setData(\'text/plain\',\''+k+'\')" onclick="fpAdd(\''+k+'\')" title="누르면 평면도에 놓기 · 평면도로 끌어서 원하는 자리에 놓기">'+(th?'<img src="'+th+'" alt="" style="width:72px;height:54px;object-fit:contain;display:block;background:#f1f5f9;border-radius:6px">':'<span style="display:block;width:72px;height:54px;border-radius:6px;background:'+c.c+'"></span>')+'</td>'
+      +'<td style="'+td+';width:80px;cursor:pointer;'+dim+(on?'box-shadow:inset 0 0 0 2px #4f46e5;':'')+'" draggable="true" ondragstart="event.dataTransfer.setData(\'text/fp\',\''+k+'\');event.dataTransfer.setData(\'text/plain\',\''+k+'\')" onclick="fpToggle(\''+k+'\','+(on?'false':'true')+')" title="누르면 집기 선택/해제(체크) · 평면도로 끌어서 원하는 자리에 놓기">'+(th?'<img src="'+th+'" alt="" style="width:72px;height:54px;object-fit:contain;display:block;background:#f1f5f9;border-radius:6px">':'<span style="display:block;width:72px;height:54px;border-radius:6px;background:'+c.c+'"></span>')+'</td>'
       +'<td style="'+td+';white-space:nowrap;'+dim+'"><input class="fp-nm" value="'+esc(c.n)+'" onchange="fpName(\''+k+'\',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()" title="이름 바꾸기 — 눌러서 고치고 Enter"'
         +' style="width:'+Math.max(4,Math.min(20,c.n.length+1))+'em">'+(c.est?'<span style="font-size:11px;color:#9a3412">(추정)</span>':'')+'</td>'
       +'<td style="'+td+';white-space:nowrap;color:#5b6675;font-size:12px;'+dim+'">'
