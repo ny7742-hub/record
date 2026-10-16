@@ -26178,6 +26178,7 @@ var DEF={
   curveL:{n:"곡면 2단 진열대 (좌)",s:"곡면(좌)",w:2300,d:1000,h:850,c:"#E8DCC8",k:"curve",side:"L",inv:1,disp:1,est:true},
   curveR:{n:"곡면 2단 진열대 (우)",s:"곡면(우)",w:2300,d:1000,h:850,c:"#E8DCC8",k:"curve",side:"R",inv:1,disp:1,est:true},
   pegAcrylic:{n:"아크릴집기",s:"아크릴집기",w:1136,d:805,h:1610,c:"#E8DCC6",k:"peg",inv:4,disp:4,est:false},
+  pegWood:{n:"아크릴 타공집기",s:"타공집기",w:1136,d:805,h:1610,c:"#D9BF94",k:"peg",wood:1,inv:1,disp:1,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
   pedestal:{n:"원형 집기",s:"원형집기",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,disp:4,est:true}
 };
@@ -26547,9 +26548,15 @@ window.fpAuto=function(quiet){
   /* 뒤 벽 중 막힌 칸(창고 등)이 없는 가장 긴 구간에 놓는다 */
   var segs=subRange(0,W,ST.blocks.filter(function(b){return b.z0<=1;}).map(function(b){return [b.x0,b.x1];})),seg=[0,W];
   segs.forEach(function(sg){if(sg[1]-sg[0]>seg[1]-seg[0]||seg===null)seg=sg;});if(segs.length&&segs.indexOf(seg)<0)seg=segs.reduce(function(p,q){return q[1]-q[0]>p[1]-p[0]?q:p;});
-  /* 아크릴집기는 옆으로 붙여 한 덩어리로(2026-10-16 영업2팀 "옆으로 나열하면 이런 이미지") — 사이 간격 0, 가운데에. 선반집기는 그 양옆에 번갈아 */
-  var cap=(seg[1]-seg[0])-(seg[0]>0?GAP:MARG)-(seg[1]<W?GAP:MARG),pegN=0,pegW=0;
-  if(CAT.pegAcrylic&&enabled("pegAcrylic")){var pw0=CAT.pegAcrylic.w;pegN=Math.min(dispOf("pegAcrylic"),Math.floor(cap/pw0));pegW=pegN*pw0;}
+  /* 아크릴집기 · 아크릴 타공집기는 옆으로 붙여 한 덩어리로(2026-10-16 영업2팀 "옆으로 나열하면 이런 이미지") — 사이 간격 0, 뒷줄 가운데.
+     타공집기는 덩어리 가운데, 아크릴집기는 그 양옆. 선반집기는 덩어리 양옆에 번갈아 */
+  var cap=(seg[1]-seg[0])-(seg[0]>0?GAP:MARG)-(seg[1]<W?GAP:MARG),ADJ={pegAcrylic:1,pegWood:1};
+  var nA=CAT.pegAcrylic&&enabled("pegAcrylic")?dispOf("pegAcrylic"):0,nW=CAT.pegWood&&enabled("pegWood")?dispOf("pegWood"):0,blk=[],pegW=0,ai;
+  for(ai=0;ai<Math.ceil(nA/2);ai++)blk.push("pegAcrylic");
+  for(ai=0;ai<nW;ai++)blk.push("pegWood");
+  for(ai=Math.ceil(nA/2);ai<nA;ai++)blk.push("pegAcrylic");
+  while(blk.length&&blk.reduce(function(t,k){return t+CAT[k].w;},0)>cap){var drop=blk.lastIndexOf("pegAcrylic");blk.splice(drop>=0?drop:blk.length-1,1);}
+  var pegN=blk.length;pegW=blk.reduce(function(t,k){return t+CAT[k].w;},0);
   var shelfTypes=["shelfImg","shelfMir"].filter(function(t){return CAT[t]&&enabled(t)&&dispOf(t)>0;}),sh=[],rowW=pegW,cnt={},guard=0;
   while(shelfTypes.length&&guard++<200){
     var added=false;
@@ -26563,15 +26570,15 @@ window.fpAuto=function(quiet){
   if(pegN)shelfTypes.push("pegAcrylic");
   var half=Math.ceil(sh.length/2),row=[],gapAfter=[];
   sh.slice(0,half).forEach(function(t){row.push(t);gapAfter.push(GAP);});
-  for(var pi=0;pi<pegN;pi++){row.push("pegAcrylic");gapAfter.push(pi<pegN-1?0:GAP);}
+  blk.forEach(function(t,pi){row.push(t);gapAfter.push(pi<pegN-1?0:GAP);});
   sh.slice(half).forEach(function(t){row.push(t);gapAfter.push(GAP);});
   var n=row.length,sd=0,xx=(seg[0]+seg[1]-rowW)/2;
-  /* 붙여 놓는 아크릴집기는 첫 칸만 눈금에 맞추고 나머지는 폭만큼 그대로(눈금에 맞추면 겹치거나 틈이 생긴다) */
-  var prevX=null;
+  /* 붙여 놓는 집기는 첫 칸만 눈금에 맞추고 나머지는 폭만큼 그대로(눈금에 맞추면 겹치거나 틈이 생긴다) */
+  var prevX=null,prevW=0;
   row.forEach(function(t,j){var c=CAT[t];sd=Math.max(sd,c.d);
-    var x=(t==="pegAcrylic"&&j>0&&row[j-1]==="pegAcrylic"&&prevX!=null)?prevX+c.w:snap(xx+c.w/2);
-    if(t!=="pegAcrylic"&&j>0&&row[j-1]==="pegAcrylic")x=Math.max(x,prevX+CAT.pegAcrylic.w/2+GAP+c.w/2);
-    out.push({t:t,x:x,z:snap(MARG-100+c.d/2),f:(j>=Math.ceil(n/2))});prevX=x;xx+=c.w+gapAfter[j];});
+    var glued=ADJ[t]&&j>0&&ADJ[row[j-1]]&&prevX!=null,x=glued?prevX+prevW/2+c.w/2:snap(xx+c.w/2);
+    if(!ADJ[t]&&j>0&&ADJ[row[j-1]])x=Math.max(x,prevX+prevW/2+GAP+c.w/2);
+    out.push({t:t,x:x,z:snap(MARG-100+c.d/2),f:(j>=Math.ceil(n/2))});prevX=x;prevW=c.w;xx+=c.w+gapAfter[j];});
   if(!shelfTypes.length)warn.push("선반집기를 고르지 않아 뒷줄을 비웠습니다");
   else if(!n)warn.push("가로가 좁아 선반집기를 놓지 못했습니다");
   var zb=MARG-100+sd/2;
@@ -27330,6 +27337,24 @@ function buildBirchRack(g,w,d,h){
 /* 아크릴집기(2026-10-16 영업2팀 치수 도면, 가로 1136 × 깊이 805 × 높이 1610) — 알루미늄 봉 + 모서리 볼 조립식.
    높이(바닥부터): 다리 102 · 수납장 400(깊이 805, 앞 반투명 미닫이문 2짝) · 위는 뒤쪽 깊이 390 — 막힌 칸 308 · 열린 칸 400 · 열린 칸 400.
    가로 가운데에 세로 봉. 높이를 바꾸면 비율대로 늘고 준다. 앞면은 +z */
+var PEGTX={};
+function pegTex(kind){
+  if(PEGTX[kind])return PEGTX[kind];
+  var cv=document.createElement("canvas"),g=cv.getContext("2d");
+  if(kind==="board"){
+    cv.width=512;cv.height=360;
+    var gr=g.createLinearGradient(0,0,512,0);gr.addColorStop(0,"#c9a878");gr.addColorStop(0.5,"#d2b284");gr.addColorStop(1,"#c6a473");g.fillStyle=gr;g.fillRect(0,0,512,360);
+    g.globalAlpha=0.10;for(var i=0;i<45;i++){g.fillStyle=i%2?"#7a5a30":"#fff";g.fillRect(0,i*8+Math.sin(i)*3,512,2);}g.globalAlpha=1;
+    g.fillStyle="#f7f3ea";for(var y=10;y<360;y+=18)for(var x=10;x<512;x+=18){g.beginPath();g.arc(x,y,3.2,0,Math.PI*2);g.fill();}
+  }else{
+    cv.width=512;cv.height=220;
+    var sg=g.createLinearGradient(0,0,0,220);sg.addColorStop(0,"#e4e4e2");sg.addColorStop(1,"#c9c9c6");g.fillStyle=sg;g.fillRect(0,0,512,220);
+    g.strokeStyle="#9a9a96";g.lineWidth=6;g.strokeRect(3,3,506,214);
+    g.fillStyle="#1d1d1f";g.font="700 78px 'Malgun Gothic',sans-serif";g.textAlign="center";g.textBaseline="middle";
+    g.fillText("WHITE",256,68);g.fillText("SANDS",256,154);
+  }
+  var t=new THREE.CanvasTexture(cv);t.anisotropy=4;PEGTX[kind]=t;return t;
+}
 function buildPeg(g,c,w,d,h){
   var AL=0x8a929c,WH=0xf3f4f5,FR=0xdfe4e9,T=0.02,EM=new THREE.LineBasicMaterial({color:0x4b5563});
   var L=[0.102,0.502,0.810,1.210,1.610].map(function(v){return v*h/1.61;}),leg=L[0],cTop=L[1],ud=Math.min(0.39,d),hw=w/2-T/2,hd=d/2-T/2,uz1=-d/2+ud-T/2;
@@ -27362,9 +27387,15 @@ function buildPeg(g,c,w,d,h){
     [-1,1].forEach(function(a){pn(0.008,bxH-T,udd,a*(hw-0.006),yc,uzc,WH);});
     pn(w-T,0.012,udd,0,y1-0.006,uzc,WH);
     if(i===0)pn(w-T,bxH-T*2,0.008,0,yc,uz1-0.004,FR,0.85);
+    /* 아크릴 타공집기(c.wood, 2026-10-16 영업2팀 사진): 위 열린 2칸 앞을 나무 타공판으로 막는다 */
+    else if(c.wood){var bd=new THREE.Mesh(new THREE.BoxGeometry(w-T*2,bxH-T,0.012),[0,0,0,0,0,0].map(function(_,q){return q===4?new THREE.MeshLambertMaterial({map:pegTex("board")}):new THREE.MeshLambertMaterial({color:0xb08d5c});}));
+      bd.position.set(0,yc,uz1-0.004);bd.add(new THREE.LineSegments(new THREE.EdgesGeometry(bd.geometry),EM));g.add(bd);}
     frame(-hw,hw,y0,y1,-hd,uz1);
-    [uz1,-hd].forEach(function(z){mk(g,T,bxH,T,0,yc,z,AL);});
+    if(!(c.wood&&i>0))[uz1,-hd].forEach(function(z){mk(g,T,bxH,T,0,yc,z,AL);});else mk(g,T,bxH,T,0,yc,-hd,AL);
   }
+  /* 로고 간판 — 맨 위 칸 타공판 위쪽 가운데 */
+  if(c.wood){var sw=Math.min(w*0.34,0.40),shh=sw*0.43,sg=new THREE.Mesh(new THREE.BoxGeometry(sw,shh,0.01),[0,0,0,0,0,0].map(function(_,q){return q===4?new THREE.MeshLambertMaterial({map:pegTex("sign")}):new THREE.MeshLambertMaterial({color:0xb5b5b2});}));
+    sg.position.set(0,L[4]-T-0.03-shh/2,uz1+0.008);g.add(sg);}
 }
 function buildItem(it,bad){
   var c=CAT[it.t],g=new THREE.Group(),w=c.w/1000,d=c.d/1000,h=c.h/1000,WH=0xf4f2ec;
