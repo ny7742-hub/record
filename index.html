@@ -15649,7 +15649,7 @@ function _ocProgBar(R,what){
   var wait=R.state==="요청",total=D.list.length,cur=D.list[Math.min(n,total-1)][0];
   var t0=!wait&&R.startedAt?new Date(R.startedAt).getTime():new Date(R.at).getTime(),sec=Math.max(0,Math.round((Date.now()-t0)/1000));
   var pct=wait?3:Math.max(6,Math.round(n/total*100)),el=sec>=60?Math.floor(sec/60)+"분 "+(sec%60)+"초":sec+"초";
-  var lab=wait?"요청됨 — 자동화 PC가 곧 시작합니다":(n+"/"+total+" · "+cur+" 중");
+  var lab=wait?"요청됨 — "+(_saipWatchOk()?"자동화 PC가 곧 시작합니다":"자동화 PC 신호 없음 — 켜지면 처리됩니다"):(n+"/"+total+" · "+cur+" 중");
   return '<div style="margin:4px 0 4px">'
     +'<div style="height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#7c3aed 0 10px,#9f67f5 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
     +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#5b21b6;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600">'+el+' 지남 · '+D.typ+'</span></div></div>';
@@ -20513,7 +20513,7 @@ function _ccProgBar(R,S){
   var g=_ccProg(R,S);if(!g)return "";
   var pct=g.wait?3:Math.max(6,Math.round(g.n/g.total*100));
   var el=g.sec>=60?Math.floor(g.sec/60)+"분 "+(g.sec%60)+"초":g.sec+"초";
-  var lab=g.wait?"요청됨 — 자동화 PC가 곧 시작합니다":(g.n+"/"+g.total+" · "+g.cur+" 중");
+  var lab=g.wait?"요청됨 — "+(_saipWatchOk()?"자동화 PC가 곧 시작합니다":"자동화 PC 신호 없음 — 켜지면 처리됩니다"):(g.n+"/"+g.total+" · "+g.cur+" 중");
   return '<div style="margin:5px 0 3px">'
     +'<div style="position:relative;height:16px;border-radius:9px;background:#e2e8f0;overflow:hidden">'
     +'<div style="height:100%;width:'+pct+'%;border-radius:9px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
@@ -20865,7 +20865,9 @@ var SAIP_STAGES={
   ret:[["시작",/^===/],["반품리스트 읽기",/^반품리스트 /],["플레이엠디에 이미 있는지 확인",/^사입반품양식:/],["플레이엠디 불러오기",/^플레이엠디: 불러온/],
     ["저장",/^저장 알림/,1],["저장 확인",/^(매장출고반품현황 확인|팀 공유 등록 기록|⚠ 저장 결과를)/,1],["불량 창고간이동·시트 정리",/^(시트 정리|자비스에 결과 알림)/],["마무리",/^(자비스에 결과 알림|끝)/]]
 };
-var SAIP_TYP={hr:"보통 2~4분",cr:"보통 2~4분",hs:"보통 1~3분",ds:"보통 1~3분",xc:"보통 1분",mv:"보통 1~3분",so:"보통 1~3분",cc:"매출 2분 + DSS 송장 3~5분"};
+/* 반품(hr·cr)은 미리보기·등록 시간이 달라 SAIP_TYP_PV로 따로(2026-10-19 — 조회를 동시에·날짜만큼만 하게 바꾼 뒤 잰 값) */
+var SAIP_TYP_PV={hr:"보통 1~2분",cr:"보통 1~2분"};
+var SAIP_TYP={hr:"보통 2~3분",cr:"보통 2~3분",hs:"보통 1~3분",ds:"보통 1~3분",xc:"보통 1분",mv:"보통 1~3분",so:"보통 1~3분",cc:"매출 2분 + DSS 송장 3~5분"};
 var _saipProgMax={};
 function _saipProgBar(kind,R){
   if(!_saipReqActive(R))return "";
@@ -20880,7 +20882,7 @@ function _saipProgBar(kind,R){
   var lab=wait?"요청됨 — "+(_saipWatchOk()?"자동화 PC가 곧 시작합니다":"자동화 PC 신호 없음"):(n>=total?"마무리 중":n+"/"+total+" · "+cur+" 중");
   return '<div style="margin:3px 0 4px">'
     +'<div style="height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
-    +'<div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;font-weight:700;color:#155e75;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600;white-space:nowrap">'+el+' 지남 · '+(pv?"미리보기 · ":"")+(SAIP_TYP[kind]||"")+'</span></div></div>';
+    +'<div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;font-weight:700;color:#155e75;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600;white-space:nowrap">'+el+' 지남 · '+(pv?"미리보기 · ":"")+((pv&&SAIP_TYP_PV[kind])||SAIP_TYP[kind]||"")+'</span></div></div>';
 }
 var _saipProgTimer=null;
 function _saipProgTick(){
