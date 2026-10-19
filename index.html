@@ -2737,7 +2737,7 @@ var FB_PATH={
   "hsCodeMatchDB":"ws/hsCodeMatch",
   "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","cpProgress":"ws/cpProgress","cpOrderReady":"ws/cpOrderReady","cpCountReq":"ws/cpCountReq","cpOrderLog":"ws/cpOrderLog","cpPause":"ws/cpPause","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen",
-  "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
+  "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix","mvFix":"ws/mvFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
@@ -3381,6 +3381,11 @@ function fbListen(){
   apply("ws/mvSaipStatus","mvSaipStatus",
     function(d){if(d&&typeof d==="object")mvSaipStatus=d;},
     function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
+  );
+  /* 창고간이동 미리보기 표에서 고친 값(2026-10-19) — 고치는 중(입력칸에 커서)이면 다시 그리지 않는다 */
+  apply("ws/mvFix","mvFix",
+    function(d){if(d&&typeof d==="object")mvFix=d;},
+    function(){if(typeof renderSaipAuto==="function"&&!_mvFixEditing())renderSaipAuto();}
   );
   apply("ws/soSaipStatus","soSaipStatus",
     function(d){if(d&&typeof d==="object")soSaipStatus=d;},
@@ -20690,9 +20695,9 @@ function _saipStatusOf(k){return k==="ds"?dsSaipStatus:k==="cc"?ccSaipStatus:k==
 function _saipCheck(k,date){
   var S=_saipStatusOf(k);
   if(!S||S.mode!=="preview"||!S.at||!date)return null;
-  if(Date.now()-new Date(S.at).getTime()>12*3600*1000)return null;
   var it=(S.items||[]).filter(function(x){return x&&x.date===date;})[0];
-  if(!it||it.status==="nofile")return null;
+  if(!it||it.status==="nofile"||(it.mode||S.mode)!=="preview")return null;   /* 날짜 하나만 다시 돌린 결과는 그 날짜에 at·mode가 붙는다(saip-watch mergeStatus) */
+  if(Date.now()-new Date(it.at||S.at).getTime()>12*3600*1000)return null;
   if(it.already)return {s:"dup",at:S.at,txt:it.already};
   if(it.status==="preview")return {s:"ok",at:S.at,qty:it.qty||0,amt:it.amt||0,rows:(it.rows||[]).length};
   return {s:"err",at:S.at,txt:it.error||(it.bad||[]).join(" ")||"확인이 필요합니다"};
@@ -20862,7 +20867,7 @@ function saipAutoGo(kind,opt){
     +"코드 매칭이 안 된 줄이 있거나, 그날 같은 매장·상품 출고가 플레이엠디에 이미 있으면 저장하지 않고 멈춥니다.\n\n"
     +"진행할까요?";
   if(!confirm(msg))return;
-  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"save",expect:opt.expect||""};
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"save",expect:opt.expect||"",merge:!!opt.merge};   /* merge — 날짜 칸의 [등록]: 결과를 카드의 그 날짜에만 끼운다 */
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   saipReq[kind]=R;
   wsSetItem("saipReq",JSON.stringify(saipReq));
@@ -20958,7 +20963,101 @@ function _saipProgTick(){
   var on=function(){var q=saipReq||{};return ["hs","ds","cc","mv","so","xc","hr","cr","wsu"].some(function(k){return _saipReqActive(q[k]);});};
   if(on()&&!_saipProgTimer)_saipProgTimer=setInterval(function(){if(!on()){clearInterval(_saipProgTimer);_saipProgTimer=null;}try{renderSaipAuto();}catch(e){}try{renderRetAuto();}catch(e){}},10000);
 }
-/* opt.noReg — 🤖 자동화 탭: 미리보기 결과에 '✅ 이대로 등록'을 띄우지 않는다(2026-10-12 영업2팀 "미리보기들은 등록이 아닌 미리보기로만") */
+/* ── 창고간이동 미리보기 표 고치기(2026-10-19 영업2팀 "상품코드까지 나오게 · 여기서 수정도") ──
+   팀 공유 ws/mvFix {'2026-10-14':{줄열쇠:{code,qty,from,to,rest,by,at}}} — 줄열쇠 = '보내는 곳->받는 곳|원본 상품컬러코드'(파일 그대로).
+   자동화(playmd-move.mjs)가 다음 확인·등록 때 파일 값보다 먼저 쓴다. rest = 일부만 옮겨져 있을 때 남은 수량만 넣기.
+   고친 뒤에는 그 날짜를 다시 확인해야 [등록]이 뜬다(고친 시각이 확인 시각보다 늦으면 숨김) */
+var mvFix=(function(){try{return JSON.parse(localStorage.getItem("mvFix")||"null")||{};}catch(e){return {};}})();
+function _mvFixEditing(){var a=document.activeElement;return !!(a&&a.dataset&&a.dataset.mvfix);}
+function mvFixSet(el){
+  var date=el.dataset.date,key=el.dataset.key,f=el.dataset.mvfix,v=String(el.value||"").trim();
+  if(!date||!key)return;
+  if(!mvFix||typeof mvFix!=="object")mvFix={};
+  var D=mvFix[date]=mvFix[date]||{},cur=Object.assign({},D[key]||{});
+  if(f==="code"||f==="from"||f==="to"){v=v.replace(/\s/g,"").toUpperCase();if(v&&v!==el.dataset.orig)cur[f]=v;else delete cur[f];}
+  else if(f==="qty"){var n=Number(v.replace(/[^0-9]/g,""))||0;if(n>0&&String(n)!==el.dataset.orig)cur.qty=n;else delete cur.qty;}
+  else if(f==="rest"){if(el.checked)cur.rest=true;else delete cur.rest;}
+  delete cur.by;delete cur.at;
+  if(Object.keys(cur).length){cur.by=_saipMe();cur.at=new Date().toISOString();D[key]=cur;}else delete D[key];
+  if(!Object.keys(D).length)delete mvFix[date];
+  wsSetItem("mvFix",JSON.stringify(mvFix));
+  renderSaipAuto();
+}
+function mvFixClear(date,key){
+  if(!mvFix[date]||!mvFix[date][key])return;
+  delete mvFix[date][key];if(!Object.keys(mvFix[date]).length)delete mvFix[date];
+  wsSetItem("mvFix",JSON.stringify(mvFix));renderSaipAuto();
+}
+/* 고친 값이 그 날짜 확인보다 늦으면 다시 확인해야 한다 */
+function _mvFixStale(it){
+  var D=(mvFix||{})[it.date]||{},t=it.at?new Date(it.at).getTime():0;
+  return Object.keys(D).some(function(k){return D[k]&&D[k].at&&new Date(D[k].at).getTime()>t;});
+}
+/* 줄마다 두 줄 — 위: 상품(색) · 수량 · 수령인 · 주문자명 / 아래: 상품코드 · 보내는 곳→받는 곳(코드) · 이미 옮겨진 수량.
+   멈춘 줄(it.badRows — 창고코드 모름·코드 빈칸)은 빨간 바탕에 창고코드 칸까지 */
+function _mvRows(it){
+  var FX=(mvFix||{})[it.date]||{},dt=_escX(it.date||"");
+  var inp=function(f,r,val,orig,w,ph){return '<input data-mvfix="'+f+'" data-date="'+dt+'" data-key="'+_escX(r.key||"")+'" data-orig="'+_escX(orig==null?"":String(orig))+'" value="'+_escX(val==null?"":String(val))+'" placeholder="'+ph+'" onchange="mvFixSet(this)"'
+    +(f==="qty"?' inputmode="numeric"':'')+' style="width:'+w+';box-sizing:border-box;font:12px ui-monospace,Consolas,monospace;padding:1px 3px;border:1px solid #cbd5e1;border-radius:4px;background:#fffdf5'+(f==="qty"?';text-align:right':'')+'">';};
+  var cols='display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:2px 8px;align-items:center';
+  var h='<div style="max-height:360px;overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px">'
+    +'<div style="'+cols+';padding:3px 8px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:700;position:sticky;top:0;z-index:1"><span>상품 · 상품코드</span><span>수량</span><span>수령인</span><span>주문자명</span></div>';
+  var rows=(it.badRows||[]).map(function(r){return Object.assign({bad:true},r);}).concat(it.rows||[]);
+  rows.forEach(function(r){
+    var fx=(r.key&&FX[r.key])||{},ed=!!(r.key&&FX[r.key]);
+    var nm=String(r.prod||"").trim().split(/\s+/).pop();
+    var full=r.full||r.qty||0,q0=fx.qty||full,code0=String(r.key||"").split("|").pop(),qty0=r.fileQty||full;   /* 파일 원래 값 — 같은 값을 넣으면 고침을 지운다 */
+    var st=String(r.store||"").split("→");
+    h+='<div style="padding:4px 8px;border-top:1px solid #eef2f6;font-size:13px;line-height:1.4'+(r.bad?';background:#fef2f2':ed?';background:#fffbeb':'')+'">'
+      +'<div style="'+cols+'"><span style="color:#1e293b;font-weight:600;overflow-wrap:anywhere" title="'+_escX(r.prod||"")+'">'+_escX(nm)+'</span>'
+      +(r.key?inp("qty",r,q0,qty0,"46px","수량"):'<b style="color:#334155">'+full+'개</b>')
+      +'<span style="white-space:nowrap;color:#334155">'+_escX(r.recv||"")+'</span><span style="white-space:nowrap;color:#334155">'+_escX(r.orderer||"")+'</span></div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;margin-top:2px;font-size:12px;color:#475569">'
+      +(r.key?inp("code",r,fx.code||r.code||"",code0,"128px","상품컬러코드"):'<span style="font-family:ui-monospace,Consolas,monospace">'+_escX(r.code||"")+'</span>')
+      +(r.bad&&r.key
+        ?inp("from",r,fx.from||r.from||"","","52px","보내는")+'→'+inp("to",r,fx.to||r.to||"","","52px","받는")+' <span title="파일의 이름">'+_escX((r.fromName||"")+"→"+(r.toName||""))+'</span>'
+        :'<span title="'+_escX((r.fromName||"")+"→"+(r.toName||""))+'">'+_escX((st[0]||"")+"→"+(st[1]||""))+'</span>')
+      +(ed?' <a href="javascript:void 0" onclick="mvFixClear(\''+dt+'\',\''+_escX(String(r.key).replace(/'/g,"\\'"))+'\')" title="고친 값 지우고 파일 값으로" style="color:#b45309;font-weight:700;text-decoration:none">✏ 고침 ↺</a>':'')
+      +'</div>';
+    if(r.bad)h+='<div style="font-size:12px;color:#b91c1c;font-weight:700">⛔ '+_escX(r.why||"")+'</div>';
+    /* 일부만 옮겨져 있음 — 남은 수량만 넣을지 고른다 */
+    if(!r.bad&&r.moved>0&&r.moved<full)h+='<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#b45309;font-weight:700;cursor:pointer;margin-top:2px">'
+      +'<input type="checkbox" data-mvfix="rest" data-date="'+dt+'" data-key="'+_escX(r.key||"")+'"'+(fx.rest?' checked':'')+' onchange="mvFixSet(this)">'
+      +full+'개 중 '+r.moved+'개는 이미 옮겨짐 — 남은 '+(full-r.moved)+'개만 넣기</label>';
+    else if(!r.bad&&r.moved>=full&&r.moved>0)h+='<div style="font-size:12px;color:#5b6675">이미 옮겨짐('+r.moved+'개) — 넣지 않음</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  if(Object.keys(FX).length)h+='<div style="font-size:12px;color:#5b6675;margin-top:3px">✏️ 고친 값은 팀 공유로 저장돼 다음 확인·등록 때 파일 값 대신 씁니다</div>';
+  return h;
+}
+/* 이 날짜만 다시 확인 — 결과는 카드의 그 날짜에만 끼운다(saip-watch merge) */
+function saipPreviewDate(kind,date){
+  var K=SAIP_KINDS[kind],md=(+date.slice(5,7))+"/"+(+date.slice(8,10));
+  if(_saipLogOf(kind,date)){alert(K.label+" "+md+"는 이미 등록되었습니다.");return;}
+  var cur=(saipReq||{})[kind];
+  if(_saipReqActive(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:date.slice(5,7)+date.slice(8,10),date:date,dates:[date],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
+  if(!saipReq||typeof saipReq!=="object")saipReq={};
+  saipReq[kind]=R;wsSetItem("saipReq",JSON.stringify(saipReq));renderSaipAuto();
+  if(!_saipWatchOk())alert("확인 요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다 — 자동화 PC가 켜지면 처리됩니다.");
+}
+/* 날짜 칸 아래 버튼 — [✅ M/D 등록](그 날짜 하나만 저장) · [🔍 M/D 다시 확인] */
+function _saipDateBtns(kind,it,active,fresh){
+  if(!it.date||_saipLogOf(kind,it.date))return "";
+  var md=(+it.date.slice(5,7))+"/"+(+it.date.slice(8,10)),dq=_escX(it.date);
+  var stale=kind==="mv"&&_mvFixStale(it);
+  var canReg=it.status==="preview"&&(kind==="mv"||!it.already)&&!active&&fresh&&!stale;
+  var h='<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">';
+  if(canReg)h+='<button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+dq+'\',merge:true,expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:5px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+md+' 등록</button>';
+  if(!active)h+='<button class="bs" onclick="saipPreviewDate(\''+kind+'\',\''+dq+'\')" style="font-size:13px;font-weight:700;padding:5px 10px">🔍 '+md+' 다시 확인</button>';
+  h+='</div>';
+  if(stale)h+='<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:2px">고친 값이 있습니다 — [🔍 '+md+' 다시 확인] 뒤에 등록할 수 있습니다</div>';
+  else if(it.status==="preview"&&!fresh)h+='<div style="font-size:12px;color:#5b6675;margin-top:2px">확인한 지 2시간이 지나 다시 확인해 주세요</div>';
+  else if(canReg)h+='<div style="font-size:12px;color:#5b6675;margin-top:2px">'+md+'만 저장합니다 · 확인 뒤 원본이 바뀌었으면 저장하지 않습니다</div>';
+  return h;
+}
+/* opt.noReg — 🤖 자동화 탭: 예전엔 '✅ 이대로 등록'을 띄우지 않았다(2026-10-12). 2026-10-19부터 날짜별 [등록]은 자동화 탭에도 뜬다(_saipDateBtns) */
 function _saipCard(kind,opt){
   var K=SAIP_KINDS[kind],S=_saipStatusOf(kind),R=(saipReq||{})[kind];
   var base=_saipBase(kind);
@@ -21012,28 +21111,18 @@ function _saipCard(kind,opt){
     if(multi)h+='<details'+(it.date===dv?' open':'')+' style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0"><summary style="cursor:pointer;list-style-position:inside">'+head+'</summary>';
     else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+head;
     if(it.skipped&&it.skipped.length)h+='<div style="color:#5b6675">⏭ 발송후취소 중 Cafe24 '+it.skipped.length+'줄은 뺐습니다(매장코드 미정)</div>';
-    if(it.bad&&it.bad.length)h+='<div style="color:#b91c1c">'+it.bad.map(_escX).join("<br>")+'<br><span style="color:#5b6675">'+(kind==="so"||kind==="mv"?'→ 모르는 창고·매장 이름은 자동화 PC의 코드표(warehouse-codes.json·store-codes.json)에 더한 뒤 다시 누르세요':'→ 아래 홈쇼핑 코드매칭표에 추가한 뒤 다시 누르세요')+'</span></div>';
+    if(kind==="mv"&&it.badRows&&it.badRows.length)h+='<div style="color:#b91c1c;font-weight:700">'+it.badRows.length+'줄이 멈췄습니다 — 아래 빨간 줄의 창고코드·상품코드·수량을 고친 뒤 [🔍 이 날짜 다시 확인]</div>';
+    else if(it.bad&&it.bad.length)h+='<div style="color:#b91c1c">'+it.bad.map(_escX).join("<br>")+'<br><span style="color:#5b6675">'+(kind==="so"||kind==="mv"?'→ 모르는 창고·매장 이름은 자동화 PC의 코드표(warehouse-codes.json·store-codes.json)에 더한 뒤 다시 누르세요':'→ 아래 홈쇼핑 코드매칭표에 추가한 뒤 다시 누르세요')+'</span></div>';
     if(it.error&&it.status!=="unmatched")h+='<div style="color:#b91c1c">'+_escX(it.error)+'</div>';
     if(it.verify&&it.status==="savecheck")h+='<div style="color:#b45309">'+_escX(it.verify)+'</div>';
     if(it.already&&!soDone)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>';
-    if(kind==="so"&&S.mode!=="preview"&&it.rows&&it.rows.length)h+=_soRows(it.rows);
+    var iMode=it.mode||S.mode,iFresh=(it.at||S.at)&&Date.now()-new Date(it.at||S.at).getTime()<2*3600*1000;   /* 날짜 하나만 다시 돌린 결과는 그 날짜의 at·mode(saip-watch mergeStatus) */
+    if(kind==="so"&&iMode!=="preview"&&it.rows&&it.rows.length)h+=_soRows(it.rows);
+    /* 창고간이동 — 멈춘 줄(창고코드 모름 등)도 표에 실려 와 고칠 수 있다(2026-10-19) */
+    if(kind==="mv"&&iMode==="preview"&&((it.rows&&it.rows.length)||(it.badRows&&it.badRows.length)))h+=_mvRows(it);
     /* 미리보기 — 등록될 줄을 표로 */
-    if(S.mode==="preview"&&it.rows&&it.rows.length){
-     if(kind==="mv"){
-      /* 창고간이동은 색상(상품명 끝 '올보르/스카이블루') · 수량 · 수령인 · 주문자명만(2026-10-15 영업2팀).
-         수령인·주문자명은 그 뒤 미리보기부터 실린다(playmd-move.mjs) — 예전 결과는 빈칸 */
-      h+='<div style="max-height:300px;overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px">'
-        +'<div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:2px 10px;padding:3px 8px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:700;position:sticky;top:0"><span>상품</span><span>수량</span><span>수령인</span><span>주문자명</span></div>';
-      it.rows.forEach(function(r){
-        var nm=String(r.prod||"").trim().split(/\s+/).pop();
-        h+='<div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:2px 10px;padding:4px 8px;border-top:1px solid #eef2f6;font-size:13px;line-height:1.4;align-items:baseline">'
-          +'<span style="color:#1e293b;font-weight:600;overflow-wrap:anywhere" title="'+_escX(r.prod||"")+'">'+_escX(nm)+'</span>'
-          +'<b style="white-space:nowrap;color:#334155">'+(r.qty||0)+'개</b>'
-          +'<span style="white-space:nowrap;color:#334155">'+_escX(r.recv||"")+'</span>'
-          +'<span style="white-space:nowrap;color:#334155">'+_escX(r.orderer||"")+'</span></div>';
-      });
-      h+='</div>';
-     }else if(kind==="so"){
+    if(kind!=="mv"&&iMode==="preview"&&it.rows&&it.rows.length){
+     if(kind==="so"){
       h+=_soRows(it.rows);
      }else{
       /* 줄마다 두 줄로 — 위: 상품명(전부) · 아래: 매장 · 코드 | 수량 · 공급가. 좁은 카드(자동화 탭 ~290px)에서 5칸 표는
@@ -21050,14 +21139,10 @@ function _saipCard(kind,opt){
       });
       h+='</div>';
      }
-      /* 이대로 등록 — 문제 없는 미리보기, 아직 등록 안 된 날짜, 진행 중인 요청 없음, 2시간 안 */
-      /* '🔍 미리보기만 했습니다 — 저장하지 않았습니다' 문구는 뺐다(2026-10-14 영업2팀 "문구 필요없습니다") */
-      if(it.status==="preview"&&opt&&opt.noReg){}
-      else if(it.status==="preview"&&!it.already&&!_saipLogOf(kind,it.date)&&!active&&fresh)
-        h+='<div style="margin-top:6px"><button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:6px 14px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ 이대로 등록</button>'
-          +' <span style="font-size:12px;color:#5b6675">미리보기 뒤 원본이 바뀌었으면 저장하지 않습니다</span></div>';
-      else if(it.status==="preview"&&!fresh)h+='<div style="font-size:12px;color:#5b6675;margin-top:4px">미리보기가 2시간이 지나 다시 미리보기 해 주세요</div>';
     }
+    /* 날짜별 — 이대로 등록 · 이 날짜만 다시 확인(2026-10-19 영업2팀 "날짜별로 개별 등록도 가능하게").
+       자동화 탭(noReg)에서도 날짜마다 등록할 수 있다 — 예전엔 자동화 탭은 미리보기만(2026-10-12). 저장은 그 날짜 하나만, 결과는 카드의 그 날짜에만 끼운다(merge) */
+    if(iMode==="preview"&&it.status!=="nofile")h+=_saipDateBtns(kind,it,active,iFresh);
     h+=multi?'</details>':'</div>';
   });
   if(noFile.length)h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0;color:#5b6675;font-size:13px">📭 '+(kind==="cc"?"회신 메일":"파일")+' 없음: '+noFile.join(", ")+'</div>';
