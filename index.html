@@ -15356,8 +15356,9 @@ function ocRender(){
   var msg=document.getElementById("ocMsg");
   var unmatched=orderConvRows.filter(function(r){return !r.matched&&r.store;}).length;
   var noSku=orderConvRows.filter(function(r){return r.skuMatched===false;}).length;
+  var anWarnN=orderConvRows.filter(function(r){return r.anWarn;}).length;
   var merged=orderConvRows.reduce(function(a,r){return a+((r.cnt||1)-1);},0);
-  if(msg)msg.textContent=orderConvRows.length?("✅ "+orderConvRows.length+"줄 변환됨"+(merged?(" · 동일상품 "+merged+"건 합산"):"")+(unmatched?(" · 주소 미매칭 "+unmatched+"건"):"")+(noSku?(" · ❗자사코드 미매칭 "+noSku+"건"):"")):"";
+  if(msg)msg.textContent=orderConvRows.length?("✅ "+orderConvRows.length+"줄 변환됨"+(merged?(" · 동일상품 "+merged+"건 합산"):"")+(unmatched?(" · 주소 미매칭 "+unmatched+"건"):"")+(noSku?(" · ❗자사코드 미매칭 "+noSku+"건"):"")+(anWarnN?(" · ⚠아난티 품목명 다름 "+anWarnN+"건"):"")):"";
   var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
   [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량',''],['창고재고',''],['상품코드',''],['수령인',''],['주소','min-width:280px'],['삭제','']].forEach(function(c){
@@ -15370,11 +15371,12 @@ function ocRender(){
   orderConvRows.forEach(function(r,i){
     var _noSku=(r.skuMatched===false);
     var warn=_noSku?' title="상품리스트에서 자사코드를 찾지 못했습니다 ('+_escX(r.src||"")+')" style="background:#fef2f2"'
+      :r.anWarn?' title="'+_escX(r.anWarn)+'" style="background:#fff7ed"'
       :((!r.matched&&r.store)?' title="매장주소록에 없는 매장코드 — 수령인/주소 비어있을 수 있음" style="background:#fff7ed"':'');
     h+='<tr'+warn+'>';
     h+='<td style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc">'+(i+1)+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937">'+_escX(r.store||"")+(r.storeName?' · '+_escX(r.storeName):"")+'</td>';
-    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;white-space:normal">'+(r.added?'<span style="font-size:11px;font-weight:800;color:#7c3aed;background:#f3e8ff;border-radius:8px;padding:0 6px;margin-right:4px" title="직접 추가한 상품">＋추가</span>':'')+(r.an?'<span style="font-size:11px;font-weight:800;color:#0369a1;background:#e0f2fe;border-radius:8px;padding:0 6px;margin-right:4px" title="아난티 발주서에서 붙인 줄 ('+_escX(r.anFile||"")+')">🏨아난티</span>':'')+_escX(r.name||"")+'</td>';
+    h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;color:#1f2937;white-space:normal">'+(r.added?'<span style="font-size:11px;font-weight:800;color:#7c3aed;background:#f3e8ff;border-radius:8px;padding:0 6px;margin-right:4px" title="직접 추가한 상품">＋추가</span>':'')+(r.an?'<span style="font-size:11px;font-weight:800;color:#0369a1;background:#e0f2fe;border-radius:8px;padding:0 6px;margin-right:4px" title="아난티 발주서에서 붙인 줄 ('+_escX(r.anFile||"")+')">🏨아난티</span>':'')+(r.anWarn?'<span style="font-size:11px;font-weight:800;color:#c2410c;background:#ffedd5;border-radius:8px;padding:0 6px;margin-right:4px" title="'+_escX(r.anWarn)+'">⚠품목명 다름</span>':'')+_escX(r.name||"")+'</td>';
     h+='<td style="border:1px solid #e1e6ee;padding:5px 8px;font-family:monospace;color:'+(_noSku?"#dc2626":"#1f2937")+'">'+(_noSku?"❗코드없음":_escX(r.code||""))+'</td>';
     /* 수량은 직접 고칠 수 있다(2026-10-02 영업2팀) — 고치면 창고재고 칸의 '부족'도 다시 계산된다 */
     h+='<td style="border:1px solid #e1e6ee;padding:2px 4px;text-align:right;color:#1f2937;white-space:nowrap"'+(r.cnt>1?' title="주문 '+r.cnt+'건 합산"':'')+'>'
@@ -15555,16 +15557,26 @@ function ocAnMerge(fn,k){
     var o={store:code,storeName:st.name||code,recv:st.recv||"",tel:st.tel||"",addr:st.addr||"",
       name:(r.prodName?(r.prodName+" "+(r.colorName||"")).trim():(r.short||r.itemName||"")),code:sku,qty:String(r.qty),matched:!!st.code,an:true,anFile:fn};
     if(!sku){o.skuMatched=false;o.src="아난티 "+(r.itemName||"")+(r.barcode?" · 바코드 "+r.barcode:"");}
+    if(sku&&r.nameWarn)o.anWarn="아난티 품목명 '"+(r.short||r.itemName||"")+"' · 바코드 "+(r.barcode||"")+" → "+o.name+" ("+r.nameWarn+")";
     return o;
   });
   if(!add.length){say("붙일 상품이 없습니다 (수량 0)","#b91c1c");return;}
+  /* 아난티 품목명과 바코드 상품이 다른 줄이 있으면 넣기 전에 묻는다 (10/19 다른 상품이 나간 일) */
+  var warnRows=anRows.filter(function(r){return r.checked&&(Number(r.qty)||0)>0&&r.skuCode&&r.nameWarn;});
+  if(warnRows.length&&!confirm("⚠ 아난티 품목명과 바코드 상품이 다른 줄이 "+warnRows.length+"줄 있습니다.\n\n"
+      +warnRows.slice(0,12).map(function(r){return "· 아난티: "+(r.short||r.itemName)+" "+r.qty+"개\n   바코드 "+r.barcode+" → "+r.prodName+" "+r.colorName+" ["+r.skuCode+"]";}).join("\n")
+      +"\n\n아난티에 어느 상품이 맞는지 확인해 주세요.\n[확인] 바코드 상품으로 그대로 넣기(주황 줄로 표시)\n[취소] 넣지 않기 — 🏨 아난티 발주 화면 표에서 자사코드를 고친 뒤 다시 올리세요")){
+    say("⚠ 품목명·바코드 다른 줄 "+warnRows.length+"줄 — 넣지 않았습니다. 🏨 아난티 발주 화면에서 자사코드를 고친 뒤 다시 올리세요","#c2410c");
+    return;
+  }
   var before=orderConvRows.length;
   orderConvRows=orderConvRows.filter(function(r){return !(r.an&&r.anFile===fn);}).concat(add);
   var replaced=before+add.length-orderConvRows.length;
   ocRender();
   var noSku=add.filter(function(r){return r.skuMatched===false;}).length,qty=add.reduce(function(a,r){return a+(Number(r.qty)||0);},0);
   say("✔ "+(st.name||code)+" "+add.length+"줄 · "+qty+"개 붙임"+(replaced?" (같은 파일 "+replaced+"줄 바꿈)":"")+" — 표 "+orderConvRows.length+"줄"
-    +(noSku?" · ❗바코드 못 찾은 "+noSku+"줄은 빨간 줄(아난티 발주 화면에서 코드를 넣고 다시 올리거나 ✕로 빼세요)":"")+" · 거래명세서는 🏨 아난티 발주 화면 5단계",noSku?"#b45309":"#047857");
+    +(noSku?" · ❗바코드 못 찾은 "+noSku+"줄은 빨간 줄(아난티 발주 화면에서 코드를 넣고 다시 올리거나 ✕로 빼세요)":"")
+    +(warnRows.length?" · ⚠ 품목명·바코드 다른 "+warnRows.length+"줄은 주황 줄(아난티 확인)":"")+" · 거래명세서는 🏨 아난티 발주 화면 5단계",(noSku||warnRows.length)?"#b45309":"#047857");
 }
 /* 발주불가 = 창고재고현황에 있고 재고가 WH_MIN_ORDER(10)개 이하(whCell과 같은 기준). 재고표에 없는 코드(?)는 발주불가로 보지 않는다 */
 function _ocNoOrder(r){
@@ -15646,6 +15658,7 @@ function ocAutoMail(){
   if(_saipReqActive(cur)){alert("발주 메일이 이미 "+(cur.state==="처리중"?"보내지는 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").");return;}
   var bad=orderConvRows.filter(function(r){return typeof _ocNoOrder==="function"&&_ocNoOrder(r);}).length;
   var noSku=orderConvRows.filter(function(r){return r.skuMatched===false||!r.code;}).length;
+  var anWarnN=orderConvRows.filter(function(r){return r.anWarn;}).length;
   var stores={};orderConvRows.forEach(function(r){var k=r.storeName||r.store||"?";stores[k]=(stores[k]||0)+1;});
   var sl=Object.keys(stores).map(function(k){return k+" "+stores[k]+"줄";}).join(", ");
   var d=new Date(),subj="[도매] 발주서 - "+(d.getMonth()+1)+"/"+d.getDate()+"("+"일월화수목금토".charAt(d.getDay())+")";
@@ -15654,6 +15667,7 @@ function ocAutoMail(){
     +"김구남 센터장(gnkim72@daum.net)께 도매 발주 메일을 보냅니다.\n\n제목: "+subj+"\n참조: 강민준·이유진·이다겸·김민희\n첨부: "+_wholesaleFileName()+" ("+orderConvRows.length+"줄 · "+sl+")\n서명: "+_saipMe()
     +(bad?"\n\n⚠ 창고재고 부족(발주불가) 줄이 "+bad+"줄 있습니다. 빼고 보내려면 취소 후 🗑 발주불가 일괄삭제를 누르세요.":"")
     +(noSku?"\n\n⚠ 자사코드가 없는 줄(❗코드없음)이 "+noSku+"줄 있습니다. 물류에서 찾을 수 없으니 취소 후 ✕로 빼거나 코드를 넣어 주세요.":"")
+    +(anWarnN?"\n\n⚠ 아난티 품목명과 바코드 상품이 다른 줄(⚠품목명 다름)이 "+anWarnN+"줄 있습니다. 아난티에 확인했는지 다시 봐 주세요.":"")
     +"\n\n보낸 메일은 되돌릴 수 없습니다. 보낼까요?"))return;
   var b64=XLSX.write(_ocWorkbook(),{type:"base64",bookType:"xlsx"});
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send",
@@ -22481,6 +22495,47 @@ function _anBarcodeIndex(){
   _anBarcodeIndex._c=idx;_anBarcodeIndex._n=n;
   return idx;
 }
+/* 바코드로 찾은 상품이 아난티 품목명과 같은 상품인지 확인 (2026-10-20 영업2팀).
+   10/19 코드(ANG) 발주서에서 '니트 보닛햇 허슬리아 카키'·'뽀송 울 니트 버킷햇 라르셀'·'둘르우 … 피터리 블루' 줄의
+   바코드(8800230028094·28087·29619·29602)가 실제로는 투시에(WLW30C9Z)·헤르온(WLW17C9V) 바코드였다 —
+   아난티 명세서 쪽 이름과 바코드가 서로 안 맞았는데, 바코드만 믿고 그대로 도매발주서에 넣어 다른 상품이 나갔다.
+   그래서 상품 고유 이름(상품명 마지막 낱말)이나 낱말 대부분이 아난티 품목명에 없으면, 또는 아난티 품목명의 칼라가 다르면
+   경고 문구를 돌려준다(빈 문자열 = 맞음). 경고가 있으면 표가 주황색이고 도매발주서에 넣기 전에 묻는다. */
+var AN_GENERIC_WORDS=["니트","햇","캡","볼캡","버킷햇","보닛햇","머플러","비니","울","코튼","배색","라인","스카프","장갑","썬캡","바이저","벙거지","페도라","헌팅캡","모자","리본","스트랩"];
+function _anColorWords(){
+  var n=(typeof DB!=="undefined"&&DB.length)||0;
+  if(_anColorWords._c&&_anColorWords._n===n)return _anColorWords._c;
+  var set={};
+  var add=function(c){_anColorAlts(c).forEach(function(a){if(a.length>=2)set[a]=1;});};
+  if(typeof DEFAULT_DATA!=="undefined")DEFAULT_DATA.forEach(function(r){add(r[4]);});
+  if(typeof DB!=="undefined")DB.forEach(function(d){add(d["칼라명"]);});
+  _anColorWords._c=Object.keys(set);_anColorWords._n=n;
+  return _anColorWords._c;
+}
+/* "(핑크&크림)베이지" → ["(핑크&크림)베이지","베이지"], "카키or올리브카키" → ["카키","올리브카키"] */
+function _anColorAlts(c){
+  var s=String(c||"").replace(/\s/g,"");if(!s)return [];
+  var out=[];
+  s.split(/or|\/|,/i).forEach(function(p){if(!p)return;out.push(p);var q=p.replace(/\([^)]*\)/g,"");if(q&&q!==p)out.push(q);});
+  return out;
+}
+function _anNameCheck(anName,m){
+  if(!m)return "";
+  var an=String(anName||"").replace(/\s/g,"");if(!an)return "";
+  var pn=String(m.prodName||"").replace(/\[[^\]]*\]/g," ").replace(/\([^)]*\)/g," ").replace(/\b\d{2}(?:SS|FW|SU|WI|HS)\b/gi," ");
+  var toks=pn.split(/[\s_]+/).filter(function(t){return t.length>=2&&AN_GENERIC_WORDS.indexOf(t)<0&&!/^\d+%?$/.test(t);});
+  var why=[];
+  if(toks.length){
+    var last=toks[toks.length-1],hit=toks.filter(function(t){return an.indexOf(t)>=0;}).length;
+    if(an.indexOf(last)<0&&hit/toks.length<0.6)why.push("상품명 다름");
+  }
+  var alts=_anColorAlts(m.colorName);
+  if(alts.length&&!alts.some(function(a){return an.indexOf(a)>=0;})){
+    var other=_anColorWords().filter(function(w){return an.indexOf(w)>=0;});
+    if(other.length)why.push("칼라 다름("+other.sort(function(a,b){return b.length-a.length;})[0]+")");
+  }
+  return why.join(" · ");
+}
 /* 라벨 셀 오른쪽의 첫 값 (c1~c2 열 범위 안) — 공급받는자/공급자가 좌우로 나뉘어 있어 범위로 구분 */
 function _anLabelVal(rows,maxRow,label,c1,c2){
   for(var r=0;r<maxRow;r++){
@@ -22560,7 +22615,7 @@ function _anParse(rows,fileName){
       itemName:nm, short:_anStripPrefix(nm),
       spec:cSpec>=0?String(row[cSpec]||"").trim():"",
       qty:_anNum(row[cQty]), price:pv, priceAuto:pAuto,
-      barcode:bc, checked:true, matched:!!m,
+      barcode:bc, checked:true, matched:!!m, nameWarn:_anNameCheck(_anStripPrefix(nm),m),
       prodName:m?m.prodName:"", colorName:m?m.colorName:"",
       prodCode:m?m.prodCode:"", skuCode:m?m.skuCode:""
     });
@@ -22838,7 +22893,15 @@ function anResetAll(){
 function anRate(){var el=document.getElementById("anRate");var v=_anNum(el&&el.value);if(!v)v=0.7;if(v>1)v=v/100;return v;}
 function anToggle(i,on){if(anRows[i]){anRows[i].checked=!!on;anRenderTable();}}
 function anToggleAll(on){anRows.forEach(function(r){r.checked=!!on;});anRenderTable();}
-function anEditSku(inp){var i=Number(inp.dataset.i);if(!anRows[i])return;anRows[i].skuCode=inp.value.trim();anRows[i].matched=true;anRenderTable();}
+function anEditSku(inp){
+  var i=Number(inp.dataset.i),r=anRows[i];if(!r)return;
+  r.skuCode=inp.value.trim().toUpperCase();r.matched=true;
+  /* 코드를 직접 고치면 그 코드의 상품명으로 바꾸고 이름 다름 경고는 지운다(사람이 확인한 것) */
+  var o=_anSkuIndex()[r.skuCode];
+  if(o){r.prodName=o.prodName;r.colorName=o.colorName;r.prodCode=o.prodCode;}
+  r.nameWarn="";
+  anRenderTable();
+}
 
 function anRenderTable(){
   var st=document.getElementById("anMatchStatus");
@@ -22862,11 +22925,13 @@ function anRenderTable(){
   if(sum){
     var _autoN=picked.filter(function(r){return r.priceAuto;}).length;
     var _noPriceN=picked.filter(function(r){return !r.price;}).length;
+    var _anWarnN=picked.filter(function(r){return r.nameWarn;}).length;
     var _salesTot=picked.reduce(function(a,b){return a+b.price*b.qty;},0);
     sum.innerHTML="발주 "+anRows.length+"건 / 출고 "+picked.length+"건 · 수량 "+picked.reduce(function(a,b){return a+b.qty;},0).toLocaleString()+"개"
       +" · 판매가 "+Math.round(_salesTot).toLocaleString()+"원"
       +(_autoN?' <span style="color:#b45309">💡 판매가 자동입력 '+_autoN+'건(TAG가)</span>':"")
-      +(_noPriceN?' <span style="color:#dc2626;font-weight:700">⚠ 판매가 없음 '+_noPriceN+'건</span>':"");
+      +(_noPriceN?' <span style="color:#dc2626;font-weight:700">⚠ 판매가 없음 '+_noPriceN+'건</span>':"")
+      +(_anWarnN?' <span style="color:#c2410c;font-weight:700">⚠ 품목명·바코드 다름 '+_anWarnN+'건(주황 줄 — 아난티 확인)</span>':"");
   }
 
   var th='border:1px solid #e2e8f0;background:#e3eeee;padding:6px 8px;color:#1b6e82;font-size:14px;white-space:nowrap';
@@ -22878,12 +22943,12 @@ function anRenderTable(){
   anRows.forEach(function(r,i){
     var sup=Math.round(r.price*anRate()/1.1*r.qty);
     var off=!r.checked;
-    h+='<tr style="'+(off?'background:#f8fafc;color:#5b6675':(r.matched?'':'background:#fef2f2'))+'">'
+    h+='<tr style="'+(off?'background:#f8fafc;color:#5b6675':(r.matched?(r.nameWarn?'background:#fff7ed':''):'background:#fef2f2'))+'">'
       +'<td style="'+td+';text-align:center"><input type="checkbox" '+(r.checked?'checked':'')+' onchange="anToggle('+i+',this.checked)" style="width:16px;height:16px;cursor:pointer"></td>'
       +'<td style="'+td+(off?';text-decoration:line-through':'')+'">'+_esc(r.short||r.itemName)+'</td>'
       +'<td style="'+td+';font-size:12.5px;color:#64748b;white-space:nowrap">'+_esc(r.barcode)+'</td>'
-      +'<td style="'+td+'">'+(r.matched?_esc(r.prodName+" "+r.colorName):'<span style="color:#dc2626;font-weight:700">미매칭 — 자사코드 직접 입력</span>')+'</td>'
-      +'<td style="'+td+';padding:2px;min-width:140px"><input type="text" value="'+_esc(r.skuCode)+'" data-i="'+i+'" onchange="anEditSku(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.matched?'#d1d5db':'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:13px'+(r.matched?'':';color:#dc2626')+'"></td>'
+      +'<td style="'+td+'">'+(r.matched?_esc(r.prodName+" "+r.colorName)+(r.nameWarn?'<br><span style="color:#c2410c;font-weight:700;font-size:12.5px" title="아난티 품목명과 바코드 상품이 다릅니다 — 아난티에 확인하고, 맞는 자사코드를 넣으면 경고가 사라집니다">⚠ 아난티 품목명과 '+_esc(r.nameWarn)+' — 바코드 확인</span>':''):'<span style="color:#dc2626;font-weight:700">미매칭 — 자사코드 직접 입력</span>')+'</td>'
+      +'<td style="'+td+';padding:2px;min-width:140px"><input type="text" value="'+_esc(r.skuCode)+'" data-i="'+i+'" onchange="anEditSku(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(r.matched?(r.nameWarn?'#fdba74':'#d1d5db'):'#fca5a5')+';border-radius:5px;padding:4px 6px;font-size:13px'+(r.matched?'':';color:#dc2626')+'"></td>'
       +'<td style="'+td+';text-align:right">'+r.qty.toLocaleString()+'</td>'
       +whCell(r.skuCode,r.qty,td)
       +'<td style="'+td+';text-align:right'+(r.price?'':';color:#dc2626;font-weight:700')+'">'
@@ -22932,6 +22997,8 @@ function _anFileStamp(dp){return String(dp.y).slice(2)+String(dp.m).padStart(2,"
 function anDownloadWholesale(){
   var picked=_anPicked();
   if(!picked.length){alert("출고할 상품이 없습니다.\n표에서 상품을 체크해주세요.");return;}
+  var _w=anRows.filter(function(r){return r.checked&&r.nameWarn;}).length;
+  if(_w&&!confirm("⚠ 아난티 품목명과 바코드 상품이 다른 줄(주황)이 "+_w+"줄 있습니다.\n바코드 상품으로 도매발주서를 만들까요?\n(취소 후 표에서 자사코드를 고치면 경고가 사라집니다)"))return;
   var code=(document.getElementById("anStore")||{}).value||"ANG";
   var st=(typeof _ordStoreByCode==="function")?_ordStoreByCode(code):null;
   var aoa=[ORDER_HEADERS.slice()];
