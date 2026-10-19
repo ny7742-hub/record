@@ -19206,7 +19206,8 @@ function _hsrRowDate(r){return r["in"]||null;}
    (홈쇼핑 상품리스트에 없는 상품은 자동 반품등록이 시트 결과 칸에 처리보류를 적고 빼므로, 다음부터는 여기서 걸러진다).
    반품일자가 입고일이라 입고일은 있어야 한다 */
 function _hsrWhyNot(r){
-  if(r.status==="처리보류")return "처리보류";
+  /* 2026-10-19 영업2팀: 결과가 확인요청·처리보류·출고예정이면 진행하지 않는다(CCR_SKIP, 띄어쓰기 무시) */
+  var st0=String(r.status||"").replace(/\s/g,"");if(CCR_SKIP.indexOf(st0)>=0)return st0;
   if(!r.open)return "해체일 없음";
   if(!r["in"])return "입고일 없음";
   return "";
@@ -19404,7 +19405,7 @@ function _hsrSheetKeep(rows){
   rows.slice(1).forEach(function(r){
     if(cPd>=0&&!String(r[cPd]||"").trim())return;                 /* 빈 줄 */
     var st=cSt>=0?String(r[cSt]||"").trim():"";
-    if(st==="처리보류"){add("처리보류");return;}            /* 2026-10-16: 해체일이 적히면 진행, 처리보류는 뺀다 */
+    var st0=st.replace(/\s/g,"");if(CCR_SKIP.indexOf(st0)>=0){add(st0);return;}   /* 2026-10-16 해체일이 적히면 진행 · 2026-10-19 결과가 확인요청·처리보류·출고예정이면 뺀다 */
     if(!String(r[cOp]||"").trim()){add("해체일 없음");return;}
     if(!String(r[cIn]||"").trim()){add("입고일 없음");return;}
     keep.push(r);
