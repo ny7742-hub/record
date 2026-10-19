@@ -26273,6 +26273,7 @@ var DEF={
   pegAcrylic:{n:"아크릴집기",s:"아크릴집기",w:1136,d:805,h:1610,c:"#E8DCC6",k:"peg",inv:4,disp:4,est:false},
   pegWood:{n:"아크릴 타공집기",s:"타공집기",w:1136,d:805,h:1610,c:"#D9BF94",k:"peg",wood:1,inv:1,disp:1,est:false},
   step2:{n:"라운드 2단 진열대",s:"2단진열대",w:2200,d:800,h:800,c:"#EDE9E0",k:"step2",inv:1,disp:1,est:false},
+  pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
   pedestal:{n:"원형 집기",s:"원형집기",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,disp:4,est:true}
 };
@@ -26728,12 +26729,12 @@ window.fpAuto=function(quiet){
   }
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
-  var pri=["counter","logoTbl","step2"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang"]),want=[];
+  var pri=["counter","logoTbl","step2"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
   pri.forEach(function(t){if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
   want.forEach(function(t){if(rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}else drop[t]=(drop[t]||0)+1;});
-  var ord=["curveL","logoTbl","step2"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","counter","curveR"]);
+  var ord=["curveL","logoTbl","step2"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
   var midZ=backEdge+900+midD/2;
@@ -27501,7 +27502,12 @@ var PEGTX={};
 function pegTex(kind){
   if(PEGTX[kind])return PEGTX[kind];
   var cv=document.createElement("canvas"),g=cv.getContext("2d");
-  if(kind==="board"){
+  if(kind==="ply"){   /* 자작나무 합판 + 듬성한 구멍(우양산 타공집기) */
+    cv.width=400;cv.height=448;
+    var pg=g.createLinearGradient(0,0,400,448);pg.addColorStop(0,"#e3cba5");pg.addColorStop(0.5,"#dcc29a");pg.addColorStop(1,"#d6ba8f");g.fillStyle=pg;g.fillRect(0,0,400,448);
+    g.globalAlpha=0.10;for(var pi=0;pi<60;pi++){g.fillStyle=pi%2?"#8a6a3c":"#fff";g.fillRect(0,pi*7.5+Math.sin(pi*1.7)*3,400,1.5);}g.globalAlpha=1;
+    g.fillStyle="#5a4a38";for(var py=22;py<448;py+=36)for(var px=20;px<400;px+=36){g.beginPath();g.arc(px,py,5,0,Math.PI*2);g.fill();}
+  }else if(kind==="board"){
     cv.width=512;cv.height=360;
     var gr=g.createLinearGradient(0,0,512,0);gr.addColorStop(0,"#c9a878");gr.addColorStop(0.5,"#d2b284");gr.addColorStop(1,"#c6a473");g.fillStyle=gr;g.fillRect(0,0,512,360);
     g.globalAlpha=0.10;for(var i=0;i<45;i++){g.fillStyle=i%2?"#7a5a30":"#fff";g.fillRect(0,i*8+Math.sin(i)*3,512,2);}g.globalAlpha=1;
@@ -27591,6 +27597,24 @@ function buildItem(it,bad){
     mkPrism(g,roundFront(L2+0.04,T2,R2-0.04,T2+du,Math.min(0.22,du*0.5)),h-bs,0xf7f6f2).position.y=bs;
   }else if(c.k==="ped"){
     mkCyl(g,w/2,h,0,h/2,0,WH,48);
+  }else if(c.k==="pstand"){
+    /* 우양산 타공집기(2026-10-19 영업2팀 사진, 가로 1000 × 깊이 800 × 높이 1650) — 자작나무 합판 타공판(바닥에서 32%~맨 위)을
+       양옆 A자 다리(세운 기둥 + 앞뒤로 벌어진 빗살 + 바닥 받침)가 잡는다. 판 앞에 나무 걸이못 몇 개 */
+    var PW=0xdcc29a,PE=0xc9ac80,bt=0.018,b0=h*0.32,ap=h*0.55,lt=0.036,lw=0.09,sx=w/2+lt/2;
+    var bd3=new THREE.Mesh(new THREE.BoxGeometry(w,h-b0,bt),[0,0,0,0,0,0].map(function(_,q){return q===4||q===5?new THREE.MeshLambertMaterial({map:pegTex("ply")}):new THREE.MeshLambertMaterial({color:PE});}));
+    bd3.position.set(0,b0+(h-b0)/2,0);bd3.add(new THREE.LineSegments(new THREE.EdgesGeometry(bd3.geometry),edgeMat()));g.add(bd3);
+    [-1,1].forEach(function(a){
+      var x=a*sx;
+      mk(g,lt,ap,lw,x,ap/2,0,PW);                                   /* 세운 기둥 */
+      mk(g,lt,0.05,d,x,0.025,0,PE);                                 /* 바닥 받침 */
+      [-1,1].forEach(function(b){                                   /* 앞뒤 빗살 */
+        var dz=d/2-0.04,L=Math.sqrt(dz*dz+ap*ap),m=mk(g,lt,L,lw*0.9,x,ap/2,b*dz/2,PW);m.rotation.x=-b*Math.atan2(dz,ap);
+      });
+    });
+    [[-0.32,0.86],[0.0,0.9],[0.32,0.86],[-0.2,0.62],[0.2,0.62],[0,0.45]].forEach(function(q){
+      var pg=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.07,10),new THREE.MeshLambertMaterial({color:0xb8925e}));
+      pg.rotation.x=Math.PI/2;pg.position.set(q[0]*w,b0+(h-b0)*q[1],bt/2+0.035);g.add(pg);
+    });
   }else if(c.k==="psil"){
     /* 입체(사진 모양대로, 2026-10-19 영업2팀 "여기서 이미지 만들어지는 것처럼 3D에서") — 오려 낸 사진의 윤곽을 깊이만큼 밀어 낸 입체,
        앞·뒷면에 사진, 옆면은 사진 평균색. 윤곽은 열마다 위·아래 끝(구멍은 메움) */
