@@ -2635,8 +2635,8 @@ label{font-size:14px!important}
         <div id="fpPfxPrev" style="margin:8px 0"></div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;font-size:12px;color:#5b6675">
           <input id="fpPfxN" type="text" placeholder="이름" style="flex:1 1 120px;padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
-          <select id="fpPfxS" onchange="fpPfxDims()" style="padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"><option value="pbox">사각(상자)</option><option value="pcyl">원형(기둥)</option><option value="panel">판넬(세워 둔 판)</option></select>
-          <input id="fpPfxW" type="number" min="100" step="50" value="1000" oninput="fpPfxDims()" title="가로 mm" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">×<input id="fpPfxD" type="number" min="30" step="50" value="600" title="깊이 mm" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">×<input id="fpPfxH" type="number" min="100" step="50" value="1000" oninput="fpPfxDims('h')" title="높이 mm (사진 비율로 자동)" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"> mm
+          <select id="fpPfxS" onchange="fpPfxDims()" style="padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"><option value="pbox">사각(상자)</option><option value="pcyl">원형(기둥)</option><option value="panel">판넬(세워 둔 판)</option><optgroup label="실제 모양으로 (사진 없이도 됨)"><option value="m_step2">라운드 2단 진열대형</option><option value="m_peg">아크릴집기형(봉·볼 조립)</option><option value="m_pegw">아크릴 타공집기형</option><option value="m_curveL">곡면 2단 진열대형 (좌)</option><option value="m_curveR">곡면 2단 진열대형 (우)</option><option value="m_ped">원형 집기형</option></optgroup></select>
+          <input id="fpPfxW" type="number" min="100" step="50" value="1000" oninput="fpPfxDims()" title="가로 mm" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">×<input id="fpPfxD" type="number" min="30" step="50" value="600" oninput="pfxPreview()" title="깊이 mm" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">×<input id="fpPfxH" type="number" min="100" step="50" value="1000" oninput="fpPfxDims('h')" title="높이 mm (사진 비율로 자동)" style="width:62px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"> mm
           수량 <input id="fpPfxQ" type="number" min="1" max="99" value="1" style="width:46px;padding:5px 4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
           <button onclick="fpPfxAdd()" style="padding:5px 12px;border:none;background:#0f766e;color:#fff;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">3D로 만들기</button>
         </div>
@@ -26318,10 +26318,12 @@ function isRound(c){return !!c&&(c.k==="ped"||c.k==="cyl"||c.k==="pcyl");}
 function clampMm(v,lo,hi){var n=parseInt(v,10);if(isNaN(n))return null;return Math.max(lo,Math.min(hi,n));}
 
 /* ── 집기 정의 · 보유 수량 · 사이즈 ── */
+/* 사진으로 집기 만들기의 '실제 모양' — 만들어 둔 집기와 같은 3D 모양을 넣은 사이즈로 그린다(2026-10-19 영업2팀 "여기에도 위와 같이 집기가 나오게") */
+var PFX_MODEL={m_step2:{k:"step2"},m_peg:{k:"peg"},m_pegw:{k:"peg",wood:1},m_curveL:{k:"curve",side:"L"},m_curveR:{k:"curve",side:"R"},m_ped:{k:"ped"}};
 function buildCat(){
   CAT={};
   Object.keys(DEF).forEach(function(k){CAT[k]=Object.assign({},DEF[k]);});
-  ST.cus.forEach(function(c,i){CAT[c.k]={n:c.n,s:c.n.slice(0,6),w:c.w,d:c.d,h:c.h,c:c.col||CUS_COLORS[i%CUS_COLORS.length],k:({cyl:"cyl",pbox:"pbox",pcyl:"pcyl",panel:"panel"})[c.shape]||"box",inv:1,est:false,cus:true,photo:!!c.img};});
+  ST.cus.forEach(function(c,i){CAT[c.k]={n:c.n,s:c.n.slice(0,6),w:c.w,d:c.d,h:c.h,c:c.col||CUS_COLORS[i%CUS_COLORS.length],k:({cyl:"cyl",pbox:"pbox",pcyl:"pcyl",panel:"panel"})[c.shape]||"box",inv:1,est:false,cus:true,photo:!!c.img};var md=PFX_MODEL[c.shape];if(md){Object.assign(CAT[c.k],md);CAT[c.k].photo=false;}});
   Object.keys(CAT).forEach(function(k){var u=ST.use[k];if(u){["w","d","h","bw","bd","bh","ly","mix"].forEach(function(a){if(u[a])CAT[k][a]=u[a];});if(u.meas)CAT[k].est=false;
     if(u.n){CAT[k].n=u.n;CAT[k].s=u.n.slice(0,8);}}});   /* 바꾼 이름(2026-10-14 영업2팀) — 평면도 글자는 앞 8자 */
   Object.keys(CAT).forEach(function(k){var c=CAT[k];if(c.k==="pallet")c.h=150+(c.ly||4)*c.bh;});   /* 팔레트 높이 = 팔레트 150 + 층 × 박스 높이 */
@@ -26571,25 +26573,48 @@ window.fpPfxCut=function(){
   window.fpPfxDims();
 };
 window.fpPfxDims=function(from){
-  if(from==="h"){PF.hTouched=true;return;}
+  if(from==="h"){PF.hTouched=true;pfxPreview();return;}
   var w=clampMm($("fpPfxW").value,100,9000);if(w==null)return;
-  if(!PF.hTouched&&PF.src)$("fpPfxH").value=snap(Math.min(4000,Math.max(100,w*PF.ratio)));
-  if($("fpPfxS").value==="pcyl")$("fpPfxD").value=w;
+  var sh=$("fpPfxS").value,md=PFX_MODEL[sh];
+  if(!md&&!PF.hTouched&&PF.src)$("fpPfxH").value=snap(Math.min(4000,Math.max(100,w*PF.ratio)));
+  if(sh==="pcyl"||sh==="m_ped")$("fpPfxD").value=w;
+  pfxPreview();
 };
+/* 넣은 모양·사이즈 그대로 3D 그림을 이 칸에 보여 준다(실제 모양일 때) — 사진은 옆에 같이 */
+var pfxPvT=null;
+window.pfxPreview=function(){pfxPreview();};
+function pfxPreview(){
+  clearTimeout(pfxPvT);pfxPvT=setTimeout(function(){
+    var pv=$("fpPfxPrev");if(!pv||!window.THREE)return;
+    var sh=$("fpPfxS").value,md=PFX_MODEL[sh],old=pv.querySelector(".pfx3d");if(old)old.remove();
+    if(!md)return;
+    var w=clampMm($("fpPfxW").value,100,9000),d=clampMm($("fpPfxD").value,30,9000),h=clampMm($("fpPfxH").value,100,4000);if(w==null||d==null||h==null)return;
+    CAT.__pv=Object.assign({n:"미리보기",s:"",w:w,d:sh==="m_ped"?w:d,h:h,c:"#e5e7eb",inv:0,est:false},md);delete THUMB.__pv;
+    makeThumbs();var im=THUMBIMG.__pv;delete CAT.__pv;delete THUMB.__pv;delete THUMBIMG.__pv;
+    if(!im)return;
+    var box=document.createElement("div");box.className="pfx3d";box.style.cssText="display:inline-block;vertical-align:top;margin-left:8px;text-align:center";
+    box.innerHTML='<img src="'+im.src+'" alt="3D 미리보기" style="max-height:160px;max-width:240px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc"><div style="font-size:11.5px;color:#5b6675;margin-top:4px">3D 미리보기 '+w+'×'+(sh==="m_ped"?w:d)+'×'+h+'</div>';
+    pv.appendChild(box);
+  },200);
+}
 window.fpPfxAdd=function(){
-  if(!PF.cut){msg("먼저 집기 사진을 올려 주세요.",true);return;}
-  var nm=($("fpPfxN").value||"").trim()||"사진 집기",sh=$("fpPfxS").value,w=clampMm($("fpPfxW").value,100,9000),d=clampMm($("fpPfxD").value,30,9000),h=clampMm($("fpPfxH").value,100,4000);
+  var sh=$("fpPfxS").value,md=PFX_MODEL[sh];
+  if(!PF.cut&&!md){msg("먼저 집기 사진을 올려 주세요. (실제 모양을 고르면 사진 없이도 됩니다)",true);return;}
+  var nm=($("fpPfxN").value||"").trim()||(md?$("fpPfxS").selectedOptions[0].text.replace(/형.*$/,""):"사진 집기"),w=clampMm($("fpPfxW").value,100,9000),d=clampMm($("fpPfxD").value,30,9000),h=clampMm($("fpPfxH").value,100,4000);
   if(w==null||h==null||d==null){msg("가로·깊이·높이를 mm로 적어 주세요.",true);return;}
-  if(sh==="pcyl")d=w;
+  if(sh==="pcyl"||sh==="m_ped")d=w;
   if(sh==="panel")d=Math.max(50,Math.min(d,300));
   var k="cus"+Date.now().toString(36);
-  try{localStorage.setItem(KEY_IMG+k,PF.cut);}catch(e){msg("브라우저 저장공간이 모자라 사진을 저장하지 못했습니다. 다른 사진 집기를 지우고 다시 해 주세요.",true);return;}
-  shareRaw("img/"+k,PF.cut);
-  ST.cus.push({k:k,n:nm,w:snap(w),d:Math.max(50,snap(d)),h:snap(h),shape:sh,img:true,col:PF.col});
+  /* 실제 모양은 3D로 그리니 사진을 저장하지 않는다(치수는 넣은 그대로 — 눈금에 맞추지 않음) */
+  if(!md){
+    try{localStorage.setItem(KEY_IMG+k,PF.cut);}catch(e){msg("브라우저 저장공간이 모자라 사진을 저장하지 못했습니다. 다른 사진 집기를 지우고 다시 해 주세요.",true);return;}
+    shareRaw("img/"+k,PF.cut);
+  }
+  ST.cus.push(md?{k:k,n:nm,w:w,d:Math.max(30,d),h:h,shape:sh,img:false}:{k:k,n:nm,w:snap(w),d:Math.max(50,snap(d)),h:snap(h),shape:sh,img:true,col:PF.col});
   ST.use[k]={on:true,qty:Math.max(1,parseInt($("fpPfxQ").value,10)||1)};
-  saveUse();buildCat();loadPhImg(k,PF.cut);renderUse();
+  saveUse();buildCat();if(md){delete THUMB[k];makeThumbs();}else loadPhImg(k,PF.cut);renderUse();
   PF={src:null,cut:null,ratio:1,col:"#d6d3cc",hTouched:false};$("fpPfxN").value="";$("fpPfxPrev").innerHTML="";
-  msg("'"+nm+"'을(를) 사진으로 만들어 집기 수량 표에 넣었습니다. 사이즈는 표에서 실측으로 고칠 수 있습니다.");
+  msg("'"+nm+"'을(를) "+(md?"3D 모양으로":"사진으로")+" 만들어 집기 수량 표에 넣었습니다. 사이즈는 표에서 실측으로 고칠 수 있습니다.");
   autoIfOn();
 };
 
