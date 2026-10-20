@@ -3112,7 +3112,10 @@ function fbListen(){
       try{
         var d=typeof v==="string"?JSON.parse(v):v;
         assign(d);
-        localStorage.setItem(localKey,JSON.stringify(d));
+        /* 저장 공간이 꽉 차면(핸드폰은 작다) setItem이 예외를 던진다 — 예전엔 그 예외로 아래 다시 그리기까지 건너뛰어
+           핸드폰 백화점 탭이 예전 저장본(작년 자료만)으로 남아 영업매출·영업수량·베스트 TOP10이 비었다(2026-10-20 영업2팀).
+           저장은 못 해도 화면은 새 자료로 다시 그린다. */
+        try{localStorage.setItem(localKey,JSON.stringify(d));}catch(e){console.warn("localStorage 저장 실패(용량) — 화면은 새 자료로 그립니다:",localKey,e&&e.name);}
         try{renderFn();}catch(e){}
       }catch(e){}
     });
