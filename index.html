@@ -3116,7 +3116,7 @@ function _fbDiagRender(){
     document.body.appendChild(box);}
   var sec=function(t){return t?Math.round((Date.now()-t)/1000)+"초 전":"-";};
   var ls=0;try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);ls+=k.length+(localStorage.getItem(k)||"").length;}}catch(e){ls=-1;}
-  var L=["[자비스 동기화 진단] 연 지 "+sec(_fbDiagT0).replace(" 전",""),
+  var L=["[자비스 동기화 진단 · 버전 10-20c] 연 지 "+sec(_fbDiagT0).replace(" 전",""),
     "로그인: "+(typeof _authState!=="undefined"?_authState:"?")+" · "+((typeof _authUser!=="undefined"&&_authUser&&_authUser.email)||"-")+" · 게이트 "+(typeof _authGateOn!=="undefined"?_authGateOn:"?"),
     "Firebase 연결: "+(_fbDiagConn===null?"확인 중":_fbDiagConn?"연결됨":"끊김")+" · 리스너 "+(_fbListening?"붙음":"안 붙음"),
     "localStorage: 약 "+(ls<0?"?":(ls/1048576).toFixed(1)+"M자")+" · 기기 메모리 "+(navigator.deviceMemory||"?")+"GB · 화면 "+innerWidth+"px",
@@ -3128,10 +3128,25 @@ function _fbDiagRender(){
   L.push("── 스크립트 오류"+(_fbDiagErr.length?"":" 없음"));_fbDiagErr.forEach(function(e){L.push("· "+e);});
   box.textContent=L.join("\n");
 }
-if(/[?&]diag=1/.test(location.search)){
-  try{fbDB.ref(".info/connected").on("value",function(s){_fbDiagConn=!!s.val();});}catch(e){}
-  setInterval(function(){try{_fbDiagRender();}catch(e){}},2000);
+var _fbDiagOn=false;
+function fbDiagOpen(){
+  if(_fbDiagOn)return;_fbDiagOn=true;
+  var bd=document.getElementById("fbDiagBadge");if(bd)bd.remove();
+  setInterval(function(){try{_fbDiagRender();}catch(e){}},2000);try{_fbDiagRender();}catch(e){}
 }
+try{fbDB.ref(".info/connected").on("value",function(s){_fbDiagConn=!!s.val();});}catch(e){}
+if(/[?&]diag=1/.test(location.search))fbDiagOpen();
+/* 로그인돼 있는데 20초가 지나도 팀 자료가 하나도 안 오면 화면 아래에 빨간 표시 — 누르면 진단판(주소를 고칠 필요 없게) */
+setTimeout(function(){
+  if(_fbDiagOn)return;
+  if(typeof _authState==="undefined"||(_authState!=="member"&&_authState!=="open"))return;
+  var got=Object.keys(_fbDiag).some(function(k){return _fbDiag[k].at;});
+  if(got)return;
+  var b=document.createElement("button");b.id="fbDiagBadge";b.onclick=fbDiagOpen;
+  b.textContent="⚠ 팀 자료를 못 받고 있습니다 — 눌러서 확인";
+  b.style.cssText="position:fixed;left:8px;bottom:8px;z-index:2147483000;border:0;border-radius:18px;padding:8px 14px;background:#dc2626;color:#fff;font-size:13px;font-weight:700;box-shadow:0 3px 12px rgba(0,0,0,.3);cursor:pointer";
+  document.body.appendChild(b);
+},20000);
 function fbListen(){
   if(_fbListening)return;
   _fbListening=true;
