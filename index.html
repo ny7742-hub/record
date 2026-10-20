@@ -793,10 +793,11 @@ label{font-size:14px!important}
       <div class="sec-title" style="margin:0;padding:0;border:none;font-size:14px">🔎 상품검색</div>
       <input id="homePsIn" type="search" autocomplete="off" placeholder="상품명 · 상품코드 · 자사코드 · 바코드 · 컬러명" oninput="hpsSearchSoon()" onkeydown="if(event.key==='Escape'){this.value='';hpsSearch();}"
         style="flex:1;min-width:220px;max-width:520px;padding:8px 12px;border:1.5px solid #1b6e82;border-radius:8px;font-size:15px;box-sizing:border-box">
-      <button type="button" onclick="hpsNaver()" title="적은 상품명(상품코드면 그 상품명)으로 네이버쇼핑을 낮은 가격순으로 엽니다"
+      <button type="button" onclick="hpsNaver()" title="적은 상품명(상품코드면 그 상품명)으로 네이버 최저가를 자비스 안에 보여 줍니다(자동화 PC가 찾음)"
         style="padding:8px 14px;background:#03c75a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer;white-space:nowrap">💰 네이버 최저가</button>
       <span id="homePsInfo" style="font-size:12px;color:#5b6675"></span>
     </div>
+    <div id="homeNvOut"></div>
     <div id="homePsOut"></div>
   </div>
   <!-- 자동화 창 로그인 상태(2026-10-02 영업2팀) — 자동화 PC(saip-watch → automation/portal-status.mjs)가 1분마다 보고 ws/portalLogin에 올린다 -->
@@ -2737,7 +2738,7 @@ var FB_PATH={
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
-  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink",   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
+  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -3493,6 +3494,15 @@ function fbListen(){
     function(){}
   );
   /* 베스트 TOP10 상품 이미지 (상품코드 → 주소) */
+  /* 네이버 최저가 요청·결과(2026-10-20) — 열려 있는 최저가 판만 다시 그린다 */
+  apply("ws/naverReq","naverReq",
+    function(d){if(d&&typeof d==="object")naverReq=d;},
+    function(){if(typeof hpsNvRender==="function")hpsNvRender();}
+  );
+  apply("ws/naverPrice","naverPriceDB",
+    function(d){if(d&&typeof d==="object")naverPriceDB=d;},
+    function(){if(typeof hpsNvRender==="function")hpsNvRender();}
+  );
   /* 자사몰 상품 링크·이미지(2026-10-20) — 홈 상품검색 결과를 다시 그린다 */
   apply("ws/mallLink","mallLinkDB",
     function(d){if(d&&typeof d==="object")mallLinkDB=d;},
@@ -16690,7 +16700,74 @@ function hpsNaver(){
   if(!q){alert("상품명이나 상품코드를 먼저 적어 주세요.");if(el)el.focus();return;}
   var k=q.replace(/\s+/g,"").toLowerCase();
   var p=_hpsIndex().list.filter(function(o){return o.exact[k];})[0];   /* 코드가 그대로 맞으면 그 상품명으로 */
-  window.open(_hpsNaverUrl(p?_hpsNaverQuery(p.name):(/화이트샌즈|블랙샌즈/.test(q)?q:"화이트샌즈 "+q)),"_blank","noopener");
+  hpsNvAsk(p?_hpsNaverQuery(p.name):(/화이트샌즈|블랙샌즈/.test(q)?q:"화이트샌즈 "+q),p?p.code:"");
+}
+/* 자비스 안 최저가 판(2026-10-20 영업2팀 "네이버 최저가 가격을 자비스 안에 바로") —
+   API 키는 공개 페이지에 둘 수 없어 자동화 PC(naver-price.mjs)가 대신 찾는다: ws/naverReq에 요청 → 결과 ws/naverPrice[검색어].
+   같은 검색어를 6시간 안에 찾았으면 다시 묻지 않는다. 브랜드(화이트샌즈·블랙샌즈)와 핵심 낱말(검색어 끝 낱말)이 든 것만 먼저 보이고 [전체 보기] */
+var naverReq=(function(){try{return JSON.parse(localStorage.getItem("naverReq")||"null")||{};}catch(e){return {};}})();
+var naverPriceDB=(function(){try{return JSON.parse(localStorage.getItem("naverPriceDB")||"null")||{};}catch(e){return {};}})();
+var _hpsNv={q:"",code:"",all:false,askedAt:0};
+function hpsNvAsk(q,code){
+  _hpsNv={q:q,code:code||"",all:false,askedAt:Date.now()};
+  var R=(naverPriceDB||{})[q];
+  var fresh=R&&!R.err&&R.at&&Date.now()-new Date(R.at).getTime()<6*3600*1000;
+  if(!fresh){
+    naverReq={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),q:q,by:_saipMe(),at:new Date().toISOString(),state:"요청"};
+    wsSetItem("naverReq",JSON.stringify(naverReq));
+  }
+  hpsNvRender();
+  var box=document.getElementById("homeNvOut");if(box)box.scrollIntoView({block:"nearest",behavior:"smooth"});
+}
+function hpsNvClose(){_hpsNv.q="";hpsNvRender();}
+function hpsNvAll(){_hpsNv.all=!_hpsNv.all;hpsNvRender();}
+function _hpsNvKeep(q,x){
+  var s=(x.t+" "+(x.b||"")).replace(/\s+/g,"").toLowerCase();
+  var brand=/블랙샌즈/.test(q)?/블랙샌즈|blacksands/:/화이트샌즈|whitesands/;
+  if(!brand.test(s))return false;
+  var last=q.replace(/화이트샌즈|블랙샌즈/g," ").trim().split(/\s+/).pop()||"";
+  return last.length<2||s.indexOf(last.toLowerCase())>=0;
+}
+function hpsNvRender(){
+  var box=document.getElementById("homeNvOut");if(!box)return;
+  var q=_hpsNv.q;if(!q){box.innerHTML="";return;}
+  var R=(naverPriceDB||{})[q],Q=naverReq||{};
+  var waiting=Q.q===q&&Q.state==="요청"&&(!R||!R.at||new Date(R.at).getTime()<new Date(Q.at).getTime());
+  var head='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">'
+    +'<b style="color:#03a14c;font-size:14px">💰 네이버 최저가</b><span style="font-size:12.5px;color:#334155">「'+_escX(q)+'」</span>'
+    +'<a href="'+_escX(_hpsNaverUrl(q))+'" target="_blank" rel="noopener" style="font-size:12.5px;color:#1b6e82;font-weight:700;text-decoration:none">네이버쇼핑에서 보기 ↗</a>'
+    +'<button class="bs" onclick="hpsNvClose()" style="margin-left:auto;font-size:12px;padding:2px 8px">닫기</button></div>';
+  var body;
+  if(waiting){
+    var late=Date.now()-new Date(Q.at).getTime()>60*1000;
+    body='<div style="color:#1d4ed8;font-weight:700;font-size:13px">⏳ 자동화 PC에서 찾는 중… (보통 10초 안)</div>'
+      +((late||(typeof _saipWatchOk==="function"&&!_saipWatchOk()))?'<div style="color:#b91c1c;font-size:12.5px;margin-top:2px">자동화 PC 신호가 없거나 늦습니다 — 자동화 PC가 켜져 있어야 가격을 가져옵니다. 위 ‘네이버쇼핑에서 보기’로 직접 볼 수 있습니다.</div>':'');
+  }else if(!R){
+    body='<div style="color:#5b6675;font-size:13px">아직 결과가 없습니다.</div>';
+  }else if(R.err){
+    body='<div style="color:#b91c1c;font-weight:700;font-size:13px">❗ '+_escX(R.err)+'</div>';
+  }else{
+    var keep=(R.items||[]).filter(function(x){return _hpsNvKeep(q,x);});
+    var list=_hpsNv.all||!keep.length?(R.items||[]):keep;
+    var P=_hpsNv.code?(_hpsIndex().list.filter(function(o){return o.code===_hpsNv.code;})[0]||null):null;
+    var low=list[0];
+    body='<div style="font-size:12.5px;color:#334155;margin-bottom:4px">'
+      +(low?'최저 <b style="font-size:16px;color:#dc2626">'+low.p.toLocaleString()+'원</b> · '+_escX(low.m||"")
+        +(P&&P.tag?' <span style="color:#5b6675">(TAG가 '+P.tag.toLocaleString()+'원 대비 '+Math.round((1-low.p/P.tag)*100)+'% 낮음)</span>':''):'가격이 있는 상품이 없습니다')
+      +' <span style="color:#5b6675">· '+_escX(_saipFmtAt?_saipFmtAt(R.at):R.at)+' 기준</span></div>'
+      +'<div style="max-height:300px;overflow:auto;border:1px solid #d1fae5;border-radius:8px">'
+      +list.slice(0,_hpsNv.all?40:10).map(function(x,i){
+        return '<a href="'+_escX(x.l||"")+'" target="_blank" rel="noopener" style="display:flex;gap:8px;align-items:center;padding:5px 8px;border-top:'+(i?'1px solid #ecfdf5':'none')+';text-decoration:none;color:inherit">'
+          +(x.i?'<img src="'+_escX(x.i)+'" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex:none">':'<span style="width:40px;flex:none"></span>')
+          +'<span style="flex:1;min-width:0;font-size:12.5px;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_escX(x.t)+'">'+_escX(x.t)+'</span>'
+          +'<span style="flex:none;font-size:12px;color:#5b6675;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_escX(x.m||"")+'</span>'
+          +'<b style="flex:none;font-size:13.5px;color:'+(i?'#334155':'#dc2626')+';min-width:74px;text-align:right">'+x.p.toLocaleString()+'원</b></a>';
+      }).join("")+'</div>'
+      +'<div style="font-size:12px;color:#5b6675;margin-top:3px">'
+      +(keep.length&&keep.length<(R.items||[]).length?(_hpsNv.all?'전체 '+(R.items||[]).length+'개':'브랜드·상품명이 맞는 '+keep.length+'개')+' · <a href="javascript:void 0" onclick="hpsNvAll()" style="color:#1b6e82;font-weight:700">'+(_hpsNv.all?'맞는 것만 보기':'전체 '+(R.items||[]).length+'개 보기')+'</a> · ':'')
+      +'네이버 검색 결과 정확도순 100개 중 가격 낮은 순</div>';
+  }
+  box.innerHTML='<div style="margin-top:10px;padding:10px 12px;border:1.5px solid #6ee7b7;border-radius:10px;background:#f0fdf4">'+head+body+'</div>';
 }
 function _hpsWon(n){return n?Number(n).toLocaleString()+"원":"—";}
 function _hpsCard(o){
@@ -16737,7 +16814,7 @@ function _hpsCard(o){
         +'<span>사전원가 <b>'+_hpsWon(o.cost)+'</b>'+(cr?' <span style="color:#5b6675">('+cr+'%)</span>':'')+'</span>'
       +'</div>'
       +'<div style="font-size:12.5px;margin-bottom:5px">'+mall
-        +' <a href="'+_escX(_hpsNaverUrl(_hpsNaverQuery(o.name)))+'" target="_blank" rel="noopener" title="네이버쇼핑 낮은 가격순: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가 ↗</a></div>'
+        +' <a href="javascript:void 0" onclick="hpsNvAsk(\''+_escX(_hpsNaverQuery(o.name).replace(/\\/g,"\\\\").replace(/'/g,"\\'"))+'\',\''+_escX(o.code)+'\')" title="네이버 최저가를 자비스 안에서 봅니다: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가</a></div>'
       +tbl
     +'</div></div>';
 }
