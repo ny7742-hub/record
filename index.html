@@ -20225,7 +20225,9 @@ function _ccoUnitPrice(shop,prod,colorCode){
 }
 function _ccoParseDate(v){
   var s=String(v||"").trim();
-  var m=s.match(/^(\d{1,2})[\/.](\d{1,2})$/);
+  /* '10/19 블랙샌즈'처럼 날짜 뒤에 글이 붙어 와도 앞의 월/일로 읽는다 — 못 읽으면 오늘이 들어가 백화점몰 10/19가
+     '출고일자(20261020,20261019)가 폴더 날짜와 다릅니다'로 멈췄다(2026-10-20) */
+  var m=s.match(/^(\d{1,2})[\/.](\d{1,2})(?![\d\/.\-])/);
   if(m)return new Date(new Date().getFullYear(),+m[1]-1,+m[2]);
   return ccParseDate(v);
 }
@@ -21072,7 +21074,8 @@ function _saipRowList(kind,rows,maxH){
   var h='<div style="max-height:'+(maxH||"300px")+';overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;line-height:1.5">';
   rows.forEach(function(r,ix){
     var parts=['<b>'+_escX(_saipModelColor(r))+'</b>',(r.qty||0)+'개'];
-    if(r.unit||!/→/.test(r.store||""))parts.push(Number(r.unit||0).toLocaleString()+'원');
+    /* 금액 = 수량 × 공급가(원본 결제금액) — 예전엔 개당 공급가만 보여 3개 줄(141,600원)이 47,200원으로 나와 합계와 안 맞았다(2026-10-20 영업2팀 "금액이 다릅니다") */
+    if(r.unit||!/→/.test(r.store||""))parts.push(Number((r.unit||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1?' <span style="color:#5b6675;font-size:12px">(개당 '+Number(r.unit||0).toLocaleString()+')</span>':''));
     parts.push(_escX(_saipStoreNm(r.store)));
     h+='<div title="'+_escX((r.prod||"")+" · "+(r.code||""))+'" style="padding:3px 8px'+(ix?';border-top:1px solid #eef2f6':'')+';overflow-wrap:anywhere">'
       +parts.join(', ')+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+'</div>';
