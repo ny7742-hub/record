@@ -6247,7 +6247,21 @@ function _homeAllStoreTbl(view,now,Y,M){
    처음 그릴 때만 패널이 올라오고 숫자·선·막대·도넛이 차오른다(_hdAnimated) — 자료가 새로 와서 다시 그릴 때는 바로. */
 var _hdAnimated=false;
 function _hdYmd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
-function _hdDay(ymd){var t=0,A=typeof allSalesDB!=="undefined"?allSalesDB:{};Object.keys(A).forEach(function(ch){var v=(A[ch]||{})[ymd];if(v)t+=Number(v)||0;});return t;}
+/* 영업2팀 채널만 (2026-10-20 영업2팀 "영업2팀으로 — 백화점·코스트코·홈쇼핑·아난티·팩토리·트래블메이트").
+   예전엔 PlayMD 판매일보 전체(allSalesDB — 온라인·홀세일 포함, 코스트코는 반품만 잡혀 음수)를 썼다.
+   지금은 홈 연매출 표와 같은 값 — 일자는 `_chDayMap`(업로드 우선, 없으면 백화점 EDI·코스트코 탭 실적),
+   월·비중은 `_homeYtdByMonth`(홈쇼핑 확정 실적표 우선). 월 단위로만 있는 값(홈쇼핑 확정치·월로 올린 업로드)은 일자 카드·꺾은선엔 안 들어간다. */
+var HD_CH=[["백화점","daily"],["코스트코","costco"],["홈쇼핑","hs"],["아난티",null],["팩토리",null],["트래블메이트",null]];
+var _hdDM={};   /* 그리는 동안만 쓰는 달별 캐시 {"YYYY-MM":{일:금액}} — renderHomeDash 시작에 비운다 */
+function _hdDay(ymd){
+  var ym=ymd.slice(0,7);
+  if(!_hdDM[ym]){
+    var o={},Y=+ym.slice(0,4),m=+ym.slice(5,7);
+    HD_CH.forEach(function(c){var d=_chDayMap(c[0],c[1],Y,m).days;Object.keys(d).forEach(function(k){o[k]=(o[k]||0)+(Number(d[k])||0);});});
+    _hdDM[ym]=o;
+  }
+  return _hdDM[ym][String(+ymd.slice(8,10))]||0;
+}
 function _hdRange(a,b){var t=0,d=new Date(a+"T00:00:00"),e=new Date(b+"T00:00:00");for(;d<=e;d.setDate(d.getDate()+1))t+=_hdDay(_hdYmd(d));return t;}
 function _hdMan(v){var a=Math.abs(v);return (v<0?"-":"")+(a>=1e8?(a/1e8).toFixed(a>=1e9?1:2).replace(/\.?0+$/,"")+"억":Math.round(a/1e4).toLocaleString("ko-KR")+"만");}
 function _hdDelta(cur,prev,unit){
@@ -6329,10 +6343,11 @@ function _hdLgLift(delay){
 }
 function renderHomeDash(){
   var box=document.getElementById("homeDash");if(!box)return;
-  var A=typeof allSalesDB!=="undefined"?allSalesDB:{};
-  if(!Object.keys(A).length){box.innerHTML='<div class="hd-top"><b>대시보드</b><span>판매일보가 올라오면 채워집니다</span></div>';return;}
-  var first=!_hdAnimated;_hdAnimated=true;
+  _hdDM={};
   var now=new Date(),y=new Date(now);y.setDate(y.getDate()-1);
+  var YB=_homeYtdByMonth(y);
+  if(!YB.months.some(function(x){return x.total;})){box.innerHTML='<div class="hd-top"><b>영업2팀 대시보드</b><span>매출 자료가 올라오면 채워집니다</span></div>';return;}
+  var first=!_hdAnimated;_hdAnimated=true;
   var Y=_hdYmd(y),ym=Y.slice(0,7),d=+Y.slice(8,10);
   var pm=new Date(y.getFullYear(),y.getMonth()-1,1),pmLast=new Date(y.getFullYear(),y.getMonth(),0).getDate();
   var pmYm=_hdYmd(pm).slice(0,7),pmTo=pmYm+"-"+String(Math.min(d,pmLast)).padStart(2,"0");
@@ -6343,14 +6358,15 @@ function renderHomeDash(){
   var iCur=icSum(ym+"-01",Y),iPrev=icSum(pmYm+"-01",pmTo);
   /* 최근 12일 · 올해 월별 · 올해 구분 비중 */
   var L=[];for(var i=11;i>=0;i--){var dd=new Date(y);dd.setDate(dd.getDate()-i);var k=_hdYmd(dd);L.push({k:k,v:_hdDay(k)});}
-  var yr=y.getFullYear(),M=[];for(var m=1;m<=12;m++){var mk=yr+"-"+String(m).padStart(2,"0"),t=0;Object.keys(A).forEach(function(ch){Object.keys(A[ch]||{}).forEach(function(dk){if(dk.slice(0,7)===mk)t+=Number(A[ch][dk])||0;});});M.push(t);}
-  var CH=[];Object.keys(A).forEach(function(ch){var t=0;Object.keys(A[ch]||{}).forEach(function(dk){if(dk.slice(0,4)===String(yr))t+=Number(A[ch][dk])||0;});if(t>0)CH.push([ch,t]);});
-  CH.sort(function(a,b){return b[1]-a[1];});
-  var top=CH.slice(0,3),etc=CH.slice(3).reduce(function(a,b){return a+b[1];},0);if(etc>0)top.push(["기타",etc]);
-  var chT=top.reduce(function(a,b){return a+b[1];},0)||1,COL=["#007EEC","#D1D5DB","#6B7280","#374151"];
+  var yr=y.getFullYear(),M=[];for(var m=1;m<=12;m++){var bx=YB.months[m-1];M.push(bx?bx.total:0);}
+  /* 비중 = 영업2팀 6개 채널 올해 누계(0 이하인 채널은 뺀다) — 큰 순 */
+  var top=[];HD_CH.forEach(function(c){var t=0;YB.months.forEach(function(x){t+=Number(x[c[1]||c[0]])||0;});if(t>0)top.push([c[0],t]);});
+  top.sort(function(a,b){return b[1]-a[1];});
+  if(!top.length)top=[["영업2팀",1]];
+  var chT=top.reduce(function(a,b){return a+b[1];},0)||1,COL=["#007EEC","#D1D5DB","#6B7280","#374151","#7DD3FC","#A78BFA"];
   var dl=function(i){return first?' hd-in" style="animation-delay:'+(i*70)+'ms':'';};
   var md=function(k){return k.slice(5,7)+"."+k.slice(8,10);};
-  var h='<div class="hd-top'+dl(0)+'"><b>대시보드</b><span>판매일보 · 송장 자동 집계 기준 실시간 현황</span><em>어제('+md(Y)+')까지</em></div>'
+  var h='<div class="hd-top'+dl(0)+'"><b>영업2팀 대시보드</b><span>백화점 · 코스트코 · 홈쇼핑 · 아난티 · 팩토리 · 트래블메이트</span><em>어제('+md(Y)+')까지</em></div>'
     +'<div class="hd-kpis">'
     +'<div class="hd-p'+dl(1)+'"><div class="hd-kl">이번 달 매출</div><div class="hd-kv" id="hdK1">₩0</div>'+_hdDelta(mCur,mPrev,"지난달 같은 기간 대비")+'</div>'
     +'<div class="hd-p'+dl(2)+'"><div class="hd-kl">어제 매출 · '+md(Y)+'</div><div class="hd-kv" id="hdK2">₩0</div>'+_hdDelta(yCur,yPrev,"지난주 같은 요일 대비")+'</div>'
@@ -6360,7 +6376,7 @@ function renderHomeDash(){
   var mx=Math.max.apply(null,L.map(function(x){return x.v;}).concat([1])),stp=Math.pow(10,Math.floor(Math.log10(mx/3))),top3=Math.ceil(mx/3/stp)*stp*3;
   var px=function(i){return i/11*100;},py=function(v){return 100-Math.max(0,v)/top3*100;};
   var ln=L.map(function(x,i){return (i?"L":"M")+(px(i)*10).toFixed(1)+" "+(py(x.v)*10).toFixed(1);}).join(" ");
-  h+='<div class="hd-p'+dl(4)+'"><div class="hd-h"><b>일별 매출 추이</b><span>최근 12일 · 전체 매장구분</span><em>판매금액</em></div><div class="hd-line" id="hdLine">';
+  h+='<div class="hd-p'+dl(4)+'"><div class="hd-h"><b>일별 매출 추이</b><span>최근 12일 · 영업2팀</span><em>판매금액</em></div><div class="hd-line" id="hdLine">';
   for(var g=0;g<=3;g++)h+='<div class="hd-g" style="top:'+(100-g*100/3)+'%"><span>'+(g?_hdMan(top3*g/3):"0")+'</span></div>';
   h+='<div class="hd-rev'+(first?'':' on')+'" id="hdRev"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">'
     +'<defs><linearGradient id="hdGr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#007EEC" stop-opacity=".42"/><stop offset="1" stop-color="#007EEC" stop-opacity="0"/></linearGradient></defs>'
@@ -6380,7 +6396,7 @@ function renderHomeDash(){
   M.forEach(function(v,i){h+='<div class="hd-b" title="'+(i+1)+'월 '+Math.round(v).toLocaleString("ko-KR")+'원"><div class="hd-bt"><div class="hd-bf'+(i===cm?' cur':'')+(first?'':' on')+'" style="height:'+(Math.max(0,v)/bm*100).toFixed(1)+'%;transition-delay:'+(i*60)+'ms"></div></div><span>'+(i+1)+'</span></div>';});
   h+='</div></div></div></div>';
   /* 도넛 */
-  h+='<div class="hd-p'+dl(6)+'"><div class="hd-h"><b>매장구분 비중</b><span>'+yr+'년 누계</span></div><div class="hd-don"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" stroke="rgba(255,255,255,.05)"/>';
+  h+='<div class="hd-p'+dl(6)+'"><div class="hd-h"><b>채널 비중</b><span>'+yr+'년 누계 · 영업2팀</span></div><div class="hd-don"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" stroke="rgba(255,255,255,.05)"/>';
   var acc=0;
   top.forEach(function(c,i){var p=c[1]/chT*100;h+='<circle class="seg" data-i="'+i+'" data-name="'+_escX(c[0])+'" data-pc="'+Math.round(p)+'" cx="100" cy="100" r="80" pathLength="100" stroke="'+COL[i]+'" stroke-dasharray="'+(first?'0 100':p.toFixed(2)+' '+(100-p).toFixed(2))+'" data-p="'+p.toFixed(2)+'" stroke-dashoffset="'+(-acc).toFixed(2)+'" style="transition-delay:'+(i*250)+'ms'+(i===0?';filter:drop-shadow(0 0 8px rgba(0,126,236,.7))':'')+'"/>';acc+=p;});
   h+='</svg><div class="hd-dc"><b id="hdDp">'+(first?0:Math.round(top[0][1]/chT*100))+'%</b><span id="hdDn">'+_escX(top[0][0])+'</span></div></div><div class="hd-lg">';
