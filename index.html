@@ -787,6 +787,16 @@ label{font-size:14px!important}
       <div id="homeKpis" style="display:flex;gap:12px;flex-wrap:wrap"></div>
     </div>
   </div>
+  <!-- 홈 상품검색(2026-10-20 영업2팀) — 이미지 · TAG가 · 사전원가 · 상품코드 · 컬러코드 · 주희물류 컬러별 재고 · 자사몰 링크 (hpsSearch) -->
+  <div class="card" id="homePsCard" style="margin-bottom:12px;padding:10px 14px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;padding:0;border:none;font-size:14px">🔎 상품검색</div>
+      <input id="homePsIn" type="search" autocomplete="off" placeholder="상품명 · 상품코드 · 자사코드 · 바코드 · 컬러명" oninput="hpsSearchSoon()" onkeydown="if(event.key==='Escape'){this.value='';hpsSearch();}"
+        style="flex:1;min-width:220px;max-width:520px;padding:8px 12px;border:1.5px solid #1b6e82;border-radius:8px;font-size:15px;box-sizing:border-box">
+      <span id="homePsInfo" style="font-size:12px;color:#5b6675"></span>
+    </div>
+    <div id="homePsOut"></div>
+  </div>
   <!-- 자동화 창 로그인 상태(2026-10-02 영업2팀) — 자동화 PC(saip-watch → automation/portal-status.mjs)가 1분마다 보고 ws/portalLogin에 올린다 -->
   <div class="card" id="portalLoginCard" style="margin-bottom:12px;padding:10px 14px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -2725,7 +2735,7 @@ var FB_PATH={
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
-  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg",
+  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink",   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -3481,6 +3491,11 @@ function fbListen(){
     function(){}
   );
   /* 베스트 TOP10 상품 이미지 (상품코드 → 주소) */
+  /* 자사몰 상품 링크·이미지(2026-10-20) — 홈 상품검색 결과를 다시 그린다 */
+  apply("ws/mallLink","mallLinkDB",
+    function(d){if(d&&typeof d==="object")mallLinkDB=d;},
+    function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
+  );
   apply("ws/bestImg","bestImgDB",
     function(d){if(d&&typeof d==="object")bestImgDB=d;},
     function(){var pg=document.getElementById("page-dept");if(pg&&pg.style.display!=="none")renderDeptAllStores();}
@@ -16609,6 +16624,113 @@ function _msStockRow(r,i){
       +_escX(x.name)+' <b>'+x.qty.toLocaleString()+'</b></span>';
   }).join("");
   return '<tr>'+td+'<b style="color:#1b6e82">📦 '+_escX(S.basis)+' 재고</b> <span style="color:#5b6675">('+_escX(code)+' · 합계 '+S.total.toLocaleString()+'개'+(S.date?' · '+_escX(S.date)+' 기준':'')+')</span><br>'+chips+'</td></tr>';
+}
+/* ── 홈 상품검색(2026-10-20 영업2팀) ──
+   상품데이터(DB)를 상품코드별로 묶어 상품명·상품코드·자사코드·바코드·컬러명·컬러코드로 찾는다(띄어 쓴 낱말이 모두 들어 있으면).
+   TAG가·사전원가 = _cpProducts(컬러마다 다르면 가장 많은 값) · 컬러별 재고 = _msColorStock(주희물류 NH) ·
+   이미지·자사몰 링크 = ws/mallLink(자동화 PC mall-links.mjs가 자사몰을 상품코드로 검색해 하나만 나온 것) — 없으면 베스트 이미지(_bestImgFor)·자사몰 검색 링크 */
+var mallLinkDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallLinkDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+var MALL="https://whitesands.co.kr";
+var _hpsIdx=null,_hpsT=null;
+function hpsSearchSoon(){clearTimeout(_hpsT);_hpsT=setTimeout(hpsSearch,180);}
+function _hpsIndex(){
+  var src=(typeof DB!=="undefined"&&DB.length)?DB:[];
+  if(_hpsIdx&&_hpsIdx.sig===src.length)return _hpsIdx;
+  var by={},list=[];
+  src.forEach(function(d){
+    var c=String(d["상품코드"]||"").trim();if(!c)return;
+    var o=by[c];
+    if(!o){o=by[c]={code:c,name:String(d["상품명"]||"").trim(),hay:[]};list.push(o);}
+    o.hay.push(d["상품명"],d["칼라명"],d["칼라코드"],d["자사코드"],d["바코드1"],d["바코드2"]);
+  });
+  var cp={};_cpProducts().list.forEach(function(p){cp[p.code]=p;});
+  list.forEach(function(o){
+    o.flat=(o.code+" "+o.hay.filter(Boolean).join(" ")).toLowerCase().replace(/\s+/g,"");
+    o.exact={};o.hay.concat([o.code]).forEach(function(v){v=String(v||"").trim().toLowerCase();if(v)o.exact[v]=1;});
+    delete o.hay;
+    var p=cp[o.code]||{};o.tag=_msN(p.tag);o.cost=_msN(p.cost);
+  });
+  _hpsIdx={sig:src.length,list:list};
+  return _hpsIdx;
+}
+function hpsSearch(){
+  var inEl=document.getElementById("homePsIn"),out=document.getElementById("homePsOut"),info=document.getElementById("homePsInfo");
+  if(!inEl||!out)return;
+  var q=String(inEl.value||"").trim().toLowerCase();
+  if(!q){out.innerHTML="";if(info)info.textContent="";return;}
+  var toks=q.split(/\s+/).filter(Boolean);
+  var L=_hpsIndex().list;
+  var hit=L.filter(function(o){return toks.every(function(t){return o.flat.indexOf(t)>=0;});});
+  /* 코드·자사코드·바코드가 그대로 맞으면 맨 앞, 그다음 재고 있는 상품, 그다음 이름 순 */
+  var qq=q.replace(/\s+/g,"");
+  var stock=function(o){if(o._st===undefined){var S=_msColorStock(o.code);o._st=S?S.total:0;}return o._st;};
+  hit.sort(function(a,b){
+    var ea=a.exact[qq]?1:0,eb=b.exact[qq]?1:0;if(ea!==eb)return eb-ea;
+    var sa=stock(a)>0?1:0,sb=stock(b)>0?1:0;if(sa!==sb)return sb-sa;
+    return a.name<b.name?-1:a.name>b.name?1:0;
+  });
+  L.forEach(function(o){delete o._st;});
+  var MAXN=8;
+  if(info)info.textContent=hit.length?hit.length+"개 상품"+(hit.length>MAXN?" — 앞의 "+MAXN+"개만 보입니다(낱말을 더 넣어 좁혀 주세요)":""):"";
+  if(!hit.length){out.innerHTML='<div style="margin-top:8px;color:#5b6675;font-size:13px">상품데이터에 맞는 상품이 없습니다.</div>';return;}
+  out.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:10px;margin-top:10px">'+hit.slice(0,MAXN).map(_hpsCard).join("")+'</div>';
+}
+function _hpsWon(n){return n?Number(n).toLocaleString()+"원":"—";}
+function _hpsCard(o){
+  var M=((mallLinkDB||{}).codes||{})[o.code]||null;
+  var img=M&&M.i?MALL+"/web/product/medium/"+M.i:(typeof _bestImgFor==="function"?_bestImgFor(o.code,o.name):"");
+  var search=MALL+"/product/search.html?keyword="+encodeURIComponent(o.code);
+  var mall;
+  if(M&&M.n){
+    var off=M.p&&M.s&&M.s<M.p?Math.round((1-M.s/M.p)*100):0;
+    mall='<a href="'+MALL+'/product/detail.html?product_no='+M.n+'" target="_blank" rel="noopener" style="color:#1b6e82;font-weight:800;text-decoration:none">🛒 자사몰 상품 보기 ↗</a>'
+      +(M.s||M.p?' <span style="color:#334155">'+_hpsWon(M.s||M.p)+(off?' <span style="color:#dc2626;font-weight:700">'+off+'%</span>':'')+'</span>':'')
+      +(M.so?' <span style="font-size:11.5px;font-weight:800;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:0 6px">자사몰 품절</span>':'');
+  }else{
+    var why=M?(M.x>1?"자사몰 검색 결과가 "+M.x+"개라 하나로 못 정함":"자사몰에서 이 상품코드를 못 찾음"):"자사몰 링크를 아직 안 모음";
+    mall='<a href="'+search+'" target="_blank" rel="noopener" title="'+why+'" style="color:#1b6e82;font-weight:700;text-decoration:none">🔍 자사몰에서 검색 ↗</a> <span style="font-size:11.5px;color:#5b6675">'+why+'</span>';
+  }
+  var cr=o.tag&&o.cost?Math.round(o.cost/o.tag*1000)/10:0;
+  var S=_msColorStock(o.code);
+  var tbl;
+  if(!S)tbl='<div style="color:#5b6675;font-size:12.5px">컬러 정보가 없습니다</div>';
+  else{
+    var th='padding:3px 6px;background:#f1f5f9;color:#475569;font-weight:700;font-size:11.5px;text-align:left;position:sticky;top:0';
+    tbl='<div style="max-height:190px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%;font-size:12.5px">'
+      +'<tr><th style="'+th+'">컬러</th><th style="'+th+'">컬러코드</th><th style="'+th+'">자사코드</th><th style="'+th+';text-align:right">'+(S.has?_escX(S.basis)+' 재고':'재고')+'</th></tr>'
+      +S.list.map(function(x){
+        var z=S.has&&x.qty<=0;
+        return '<tr style="border-top:1px solid #eef2f6"><td style="padding:2px 6px;color:#1e293b">'+_escX(x.name)+'</td>'
+          +'<td style="padding:2px 6px;font-family:ui-monospace,Consolas,monospace">'+_escX(x.cc)+'</td>'
+          +'<td style="padding:2px 6px;font-family:ui-monospace,Consolas,monospace;color:#475569">'+_escX(_hpsJasa(o.code,x.cc))+'</td>'
+          +'<td style="padding:2px 6px;text-align:right;font-weight:800;color:'+(z?'#b91c1c':'#1b6e82')+'">'+(S.has?x.qty.toLocaleString():'—')+'</td></tr>';
+      }).join("")+'</table></div>'
+      +'<div style="font-size:11.5px;color:#5b6675;margin-top:2px">'+(S.has?'합계 <b style="color:#334155">'+S.total.toLocaleString()+'개</b>'+(S.date?' · '+_escX(S.date)+' 기준':''):'창고재고현황이 아직 없습니다(홈 📤 PlayMD 자료 업로드)')+'</div>';
+  }
+  return '<div style="border:1px solid #cfe0e5;border-radius:10px;padding:10px;background:#fff;display:flex;gap:10px;align-items:flex-start;min-width:0">'
+    +'<div style="flex:none;width:96px;height:96px;border-radius:8px;overflow:hidden;background:#f1f5f9;display:flex;align-items:center;justify-content:center">'
+      +(img?'<img src="'+_escX(img)+'" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'이미지 없음\',style:\'font-size:11px;color:#5b6675\'}))">'
+        :'<span style="font-size:11px;color:#5b6675">이미지 없음</span>')
+    +'</div>'
+    +'<div style="flex:1;min-width:0">'
+      +'<div style="font-weight:800;color:#0f172a;font-size:14px;line-height:1.35;overflow-wrap:anywhere">'+_escX(o.name)+'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12.5px;color:#334155;margin:3px 0">'
+        +'<span>상품코드 <b style="font-family:ui-monospace,Consolas,monospace">'+_escX(o.code)+'</b></span>'
+        +'<span>TAG가 <b>'+_hpsWon(o.tag)+'</b></span>'
+        +'<span>사전원가 <b>'+_hpsWon(o.cost)+'</b>'+(cr?' <span style="color:#5b6675">('+cr+'%)</span>':'')+'</span>'
+      +'</div>'
+      +'<div style="font-size:12.5px;margin-bottom:5px">'+mall+'</div>'
+      +tbl
+    +'</div></div>';
+}
+/* 자사코드(상품컬러코드) — 그 상품코드·칼라코드의 첫 줄 */
+function _hpsJasa(code,cc){
+  var src=(typeof DB!=="undefined"&&DB.length)?DB:[];
+  if(!_hpsJasa.m||_hpsJasa.sig!==src.length){
+    var m={};src.forEach(function(d){var k=String(d["상품코드"]||"").trim()+"|"+String(d["칼라코드"]||"").trim();if(!m[k]&&d["자사코드"])m[k]=String(d["자사코드"]).trim();});
+    _hpsJasa.m=m;_hpsJasa.sig=src.length;
+  }
+  return _hpsJasa.m[code+"|"+cc]||"";
 }
 function _msCellText(k,c){
   if(!c.has&&k!=="disc")return "";
