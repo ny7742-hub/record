@@ -4944,14 +4944,14 @@ function renderDeptAllStores(){
       h+='<span style="color:#475569;font-weight:700">누적</span><span style="font-weight:800;color:#4338ca;white-space:nowrap">'+(cumul?fmt(cumul):"-")+'</span>';
     }
     h+='</div>';
-    // ── 베스트 TOP10 ── 매장판매일보 판매수량 순(자동). 자료가 없는 기간만 예전 업로드 값을 보여준다
+    // ── 베스트 TOP10 ── 매장판매일보 판매수량 순(자동, 판매금액 0원 상품 제외). 자료가 없는 기간만 예전 업로드 값을 보여준다
     var realProds=prods.filter(function(p){return p.name;});
     var autoBest=Object.keys(ssAgg.prods).map(function(pc){
       var p=ssAgg.prods[pc],nm=ssAgg.names[pc]||pc;
       var cols=Object.keys(p.colors).filter(function(c){return p.colors[c];}).sort(function(x,y){return p.colors[y]-p.colors[x];})
         .map(function(c){return (ssAgg.cn[pc+"|"+c]||c)+" "+p.colors[c];});
       return {code:pc,name:nm,qty:p.q,amt:p.a,colors:cols,img:_bestImgFor(pc,nm)};
-    }).filter(function(p){return p.qty>0;}).sort(function(x,y){return y.qty-x.qty||y.amt-x.amt;}).slice(0,10);
+    }).filter(function(p){return p.qty>0&&p.amt>0;}).sort(function(x,y){return y.qty-x.qty||y.amt-x.amt;}).slice(0,10);   /* 판매금액 0원(증정·사은품 등)은 뺀다(2026-10-20 영업2팀) */
     h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;margin-bottom:6px">';
     h+='<div class="m-sec-title" style="margin-bottom:0">🏆 베스트 TOP10'+(autoBest.length?'<span style="font-size:10px;color:#059669;font-weight:700;margin-left:5px">판매수량 기준</span>':'')+'</div>';
     h+='</div>';
