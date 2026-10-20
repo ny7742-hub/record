@@ -20972,7 +20972,8 @@ function saipConfirmGo(kind){
     return saipAutoGo(kind,{direct:true});
   }
   var it=_saipItemOf(kind,v);
-  if(it&&it.mode==="preview"&&it.at&&Date.now()-new Date(it.at).getTime()<SAIP_CF_FRESH){_saipCfShow(kind,v);return;}
+  var fixed=kind==="mv"&&it&&_mvFixStale(it);                         /* 창고간이동 표에서 검사 뒤에 고쳤으면 고친 값으로 다시 검사 */
+  if(it&&it.mode==="preview"&&it.at&&!fixed&&Date.now()-new Date(it.at).getTime()<SAIP_CF_FRESH){_saipCfShow(kind,v);return;}
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:v.slice(5,7)+v.slice(8,10),date:v,dates:[v],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   saipReq[kind]=R;wsSetItem("saipReq",JSON.stringify(saipReq));
@@ -21255,14 +21256,15 @@ function _saipDateBtns(kind,it,active,fresh){
   if(!it.date||_saipLogOf(kind,it.date))return "";
   var md=(+it.date.slice(5,7))+"/"+(+it.date.slice(8,10)),dq=_escX(it.date);
   var stale=kind==="mv"&&_mvFixStale(it);
-  var canReg=it.status==="preview"&&(kind==="mv"||!it.already)&&!active&&fresh&&!stale;
+  /* [등록]은 누르면 검사 → 미리보기 → 확정이라(saipConfirmGo) 검사가 오래됐거나 표에서 고친 뒤에도 띄운다 —
+     고친 날짜는 다시 검사부터 하고(고친 값으로) 미리보기 창에서 확정한다(2026-10-20 영업2팀 "수정하고 일자별로 등록할 수 있도록") */
+  var canReg=!active&&((it.status==="preview"&&(kind==="mv"||!it.already))||stale);
   var h='<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">';
   if(canReg)h+='<button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+dq+'\',merge:true,expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:5px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+md+' 등록</button>';
   if(!active)h+='<button class="bs" onclick="saipPreviewDate(\''+kind+'\',\''+dq+'\')" style="font-size:13px;font-weight:700;padding:5px 10px">🔍 '+md+' 다시 확인</button>';
   h+='</div>';
-  if(stale)h+='<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:2px">고친 값이 있습니다 — [🔍 '+md+' 다시 확인] 뒤에 등록할 수 있습니다</div>';
-  else if(it.status==="preview"&&!fresh)h+='<div style="font-size:12px;color:#5b6675;margin-top:2px">확인한 지 2시간이 지나 다시 확인해 주세요</div>';
-  else if(canReg)h+='<div style="font-size:12px;color:#5b6675;margin-top:2px">'+md+'만 저장합니다 · 확인 뒤 원본이 바뀌었으면 저장하지 않습니다</div>';
+  if(stale&&canReg)h+='<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:2px">고친 값이 있습니다 — [✅ '+md+' 등록]을 누르면 고친 값으로 다시 검사한 뒤 미리보기에서 확정합니다</div>';
+  else if(canReg)h+='<div style="font-size:12px;color:#5b6675;margin-top:2px">'+md+'만 저장합니다 · 누르면 '+(fresh?'':'다시 검사 → ')+'미리보기 → 확정</div>';
   return h;
 }
 /* opt.noReg — 🤖 자동화 탭: 예전엔 '✅ 이대로 등록'을 띄우지 않았다(2026-10-12). 2026-10-19부터 날짜별 [등록]은 자동화 탭에도 뜬다(_saipDateBtns) */
