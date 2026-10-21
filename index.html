@@ -2821,7 +2821,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload",
-  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
+  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","allStoreDB":"ws/allStore","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
@@ -3403,6 +3403,11 @@ function fbListen(){
       var pg=document.getElementById("page-stock");if(pg&&pg.style.display!=="none"&&typeof renderStockCheckResults==="function"&&stockCheckResults)renderStockCheckResults();}
   );
   /* 매장구분 전체 매출 (팀 공유) */
+  /* 매장명별 하루 금액(2026-10-21) — 홈 대시보드 매체별 매출(홈쇼핑 회사별 등) */
+  apply("ws/allStore","allStoreDB",
+    function(d){if(d&&typeof d==="object")allStoreDB=d;},
+    function(){var pg=document.getElementById("page-home");if(pg&&pg.style.display!=="none"&&typeof hdMediaPick==="function"&&_hdMediaM)hdMediaPick(_hdMediaM);}
+  );
   apply("ws/allSales","allSalesDB",
     function(d){if(d&&typeof d==="object")allSalesDB=d;},
     function(){var pg=document.getElementById("page-home");if(pg&&pg.style.display!=="none"&&typeof renderHomeAll==="function")renderHomeAll(new Date());}
@@ -6122,6 +6127,10 @@ var SS_CHANNELS=["백화점","팩토리"];
    일자별로 그대로 담아 둔 것이다. {매장구분:{"YYYY-MM-DD":판매금액}} · 팀 공유 ws/allSales. */
 var allSalesDB=(function(){try{var d=JSON.parse(localStorage.getItem("allSalesDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 function _allSalesSave(){wsSetItem("allSalesDB",JSON.stringify(allSalesDB));}
+/* 매장명별 하루 금액(2026-10-21 영업2팀 — 홈 대시보드 매체별 매출: 현대·롯데·GS·홈앤쇼핑 …) — {"매장구분|매장명":{"YYYY-MM-DD":판매금액}} · 팀 공유 ws/allStore.
+   백화점(매장별 일별매출 EDI)·코스트코(판매현황 — 판매일보엔 반품만)는 따로 있어 뺀다. 올해 것만 둔다 */
+var ALLSTORE_CH=["홈쇼핑","아난티","팩토리","트래블메이트"];
+var allStoreDB=(function(){try{var d=JSON.parse(localStorage.getItem("allStoreDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 /* 파일에 든 날짜·매장구분은 통째로 바꿔 넣는다 — 다시 올려도 두 번 더해지지 않는다 */
 function _allSalesIngest(rows){
   var sc=_allSalesScan(rows);
@@ -6136,10 +6145,10 @@ function _allSalesScan(rows){
     if(h.indexOf("판매일자")>=0&&h.indexOf("매장구분")>=0){hRow=r;H=h;break;}
   }
   if(hRow<0)return null;
-  var cD=H.indexOf("판매일자"),cC=H.indexOf("매장구분"),cA=H.indexOf("판매금액");
+  var cD=H.indexOf("판매일자"),cC=H.indexOf("매장구분"),cA=H.indexOf("판매금액"),cSn=H.indexOf("매장명");
   if(cA<0)cA=H.indexOf("실판매금액");
   if(cA<0)return null;
-  var Y=new Date().getFullYear(),add={},days={},chs={};
+  var Y=new Date().getFullYear(),add={},days={},chs={},st={};
   for(var i=hRow+1;i<rows.length;i++){
     var row=rows[i];if(!row)continue;
     var day=_extKey(row[cD],Y);if(!day||day.length<10)continue;
@@ -6147,9 +6156,10 @@ function _allSalesScan(rows){
     var amt=_extNum(row[cA]);
     days[day]=1;chs[ch]=1;
     (add[ch]=add[ch]||{})[day]=(add[ch][day]||0)+amt;
+    if(cSn>=0&&ALLSTORE_CH.indexOf(ch)>=0){var sk=ch+"|"+(String(row[cSn]||"").trim()||ch);(st[sk]=st[sk]||{})[day]=(st[sk][day]||0)+amt;}
   }
   if(!Object.keys(days).length)return null;
-  return {add:add,days:days,chs:chs};
+  return {add:add,days:days,chs:chs,st:cSn>=0?st:null};
 }
 /* 훑은 결과를 실제로 넣는다 — 파일에 든 날짜는 그 구분에서 통째로 지우고 새로 채운다 */
 function _allSalesApply(sc){
@@ -6160,6 +6170,22 @@ function _allSalesApply(sc){
     allSalesDB[ch]=cur;
   });
   _allSalesSave();
+  /* 매장명별 — 파일에 든 날짜는 그 구분의 모든 매장에서 지우고 새로 채운다(올해 것만) */
+  if(sc.st){
+    var yy=String(new Date().getFullYear());
+    Object.keys(allStoreDB).forEach(function(k){
+      if(!sc.chs[k.split("|")[0]])return;
+      var cur=allStoreDB[k];Object.keys(sc.days).forEach(function(d){delete cur[d];});
+      Object.keys(cur).forEach(function(d){if(d.slice(0,4)!==yy)delete cur[d];});
+      if(!Object.keys(cur).length)delete allStoreDB[k];
+    });
+    Object.keys(sc.st).forEach(function(k){
+      var cur=allStoreDB[k]||(allStoreDB[k]={});
+      Object.keys(sc.st[k]).forEach(function(d){if(d.slice(0,4)===yy)cur[d]=sc.st[k][d];});
+      if(!Object.keys(cur).length)delete allStoreDB[k];
+    });
+    wsSetItem("allStoreDB",JSON.stringify(allStoreDB));
+  }
   return {chs:Object.keys(sc.chs),days:Object.keys(sc.days).length};
 }
 /* ── 전체 매출 `📤 직접 올리기` (2026-09-21 영업2팀) ──
@@ -6497,6 +6523,84 @@ function _hdLgLift(delay){
   };
   _hdLgT=setTimeout(tick,delay);
 }
+/* ── 홈 대시보드 매체별 매출(2026-10-21 영업2팀 "청량리점 00만원, 잠실점 00만원, 코스트코 온라인·직매입, 현대·롯데·GS·홈앤쇼핑 … 매출이 없으면 안 적어도") ──
+   월별 막대와 같은 달 자료(_homeYtdByMonth)를 나눠 보여 준다.
+   백화점 = 매장별 일별매출 EDI(매장별, _dsNormStoreName으로 묶음) · 코스트코 = 코스트코 판매현황(costcoDB.sales — 상품명에 '직매입'이면 직매입, 아니면 온라인) ·
+   홈쇼핑 = 홈쇼핑 탭 방송 실적(회사별 판매가×판매수량) · 아난티·팩토리·트래블메이트 = 채널 값 그대로. 0 이하는 뺀다.
+   나눌 자료가 없는데 채널 값만 있으면(업로드·확정 실적표) 채널 이름 한 줄로 적는다 */
+var _hdYB=null,_hdMediaM=0;
+function hdMediaPick(m){_hdMediaM=m;var el=document.getElementById("hdMedia");if(el&&_hdYB)el.innerHTML=_hdMediaHtml(_hdYB,m);}
+function _hdWonM(v){return v>=10000?Math.round(v/10000).toLocaleString("ko-KR")+"만원":Math.round(v).toLocaleString("ko-KR")+"원";}
+function _hdStoreLabel(n){
+  var t=(typeof _storeNoCode==="function"?_storeNoCode(n):String(n||"")).trim();
+  if(/온라인/.test(t))return t.replace(/\s+/g," ");
+  t=t.replace(/^(롯데백화점|롯데아울렛|롯데몰|롯데|현대백화점|현대아울렛|현대|신세계백화점|신세계)\s*/,"").trim();
+  return /점$/.test(t)?t:t+"점";
+}
+function _hdMediaList(YB,m){
+  var Y=YB.Y,ym=Y+"-"+String(m).padStart(2,"0"),mo=YB.months[m-1]||{},G=[];
+  /* 백화점 — 매장별 EDI */
+  var dept={},dn={};
+  var md=(typeof dailySalesDB!=="undefined"&&dailySalesDB.data&&dailySalesDB.data[ym])||{};
+  Object.keys(md).forEach(function(day){Object.keys(md[day]||{}).forEach(function(st){
+    var v=Number(String((md[day][st]||{}).edi||0).replace(/,/g,""))||0;if(!v)return;
+    var k=typeof _dsNormStoreName==="function"?_dsNormStoreName(st):st;dept[k]=(dept[k]||0)+v;dn[k]=st;
+  });});
+  var di=Object.keys(dept).map(function(k){return {n:_hdStoreLabel(dn[k]),v:dept[k]};});
+  if(!di.length&&mo.daily>0)di=[{n:"백화점",v:mo.daily}];
+  G.push({ch:"백화점",items:di});
+  /* 코스트코 — 온라인 · 직매입 */
+  var on=0,dm=0;
+  if(typeof costcoDB!=="undefined"&&costcoDB.sales&&typeof ccKeyToMs==="function"){
+    Object.keys(costcoDB.sales).forEach(function(k){
+      var ms=ccKeyToMs(k,Y);if(new Date(ms).getMonth()+1!==m||new Date(ms).getFullYear()!==Y)return;
+      var T=costcoDB.sales[k]||{};
+      Object.keys(T).forEach(function(p){if(p.charAt(0)==="_"||!T[p]||typeof T[p]!=="object")return;
+        Object.keys(T[p]).forEach(function(c){var a=Number((T[p][c]||{}).amount)||0;if(/직매입/.test(p))dm+=a;else on+=a;});
+      });
+    });
+  }
+  var ci=[{n:"코스트코 온라인",v:on},{n:"코스트코 직매입",v:dm}];
+  if(on+dm<=0&&mo.costco>0)ci=[{n:"코스트코",v:mo.costco}];
+  G.push({ch:"코스트코",items:ci});
+  /* 홈쇼핑 — 회사별 방송 실적 */
+  var hs={};
+  if(typeof homeshoppingDB!=="undefined"&&Array.isArray(homeshoppingDB))homeshoppingDB.forEach(function(r){
+    if(!r||String(r.date||"").slice(0,7)!==ym)return;
+    var a=(Number(String(r.price||0).replace(/,/g,""))||0)*(Number(String(r.sold||0).replace(/,/g,""))||0);if(!a)return;
+    var c=String(r.company||"홈쇼핑").trim()||"홈쇼핑";hs[c]=(hs[c]||0)+a;
+  });
+  var byStore=function(ch){var o={};Object.keys(allStoreDB||{}).forEach(function(k){var p=k.split("|");if(p[0]!==ch)return;var D=allStoreDB[k],t=0;
+    Object.keys(D).forEach(function(d){if(d.slice(0,7)===ym)t+=Number(D[d])||0;});if(t)o[p.slice(1).join("|")]=(o[p.slice(1).join("|")]||0)+t;});return o;};
+  /* 판매일보 매장명별이 있으면 그것(합계가 막대와 같다), 없으면 홈쇼핑 탭 방송 실적 회사별 */
+  var hsSt=byStore("홈쇼핑");
+  var hi=Object.keys(hsSt).length?Object.keys(hsSt).map(function(c){return {n:typeof _storeNoCode==="function"?_storeNoCode(c):c,v:hsSt[c]};})
+    :Object.keys(hs).map(function(c){return {n:c,v:hs[c]};});
+  if(!hi.length&&mo.hs>0)hi=[{n:"홈쇼핑",v:mo.hs}];
+  G.push({ch:"홈쇼핑",items:hi});
+  (typeof EXT_CHANNELS!=="undefined"?EXT_CHANNELS:[]).forEach(function(c){
+    if(!(mo[c]>0))return;
+    var o=byStore(c),it=Object.keys(o).map(function(n){return {n:typeof _storeNoCode==="function"?_storeNoCode(n):n,v:o[n]};});
+    G.push({ch:c,items:it.length?it:[{n:c,v:mo[c]}]});
+  });
+  G.forEach(function(g){g.items=g.items.filter(function(x){return x.v>0;}).sort(function(a,b){return b.v-a.v;});});
+  return G.filter(function(g){return g.items.length;});
+}
+function _hdMediaHtml(YB,m){
+  var G=_hdMediaList(YB,m),mo=YB.months[m-1]||{};
+  var h='<div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07)">'
+    +'<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px"><b style="font-size:14px;color:#e8eef7">'+m+'월 매체별 매출</b>'
+    +'<span style="font-size:12px;color:rgba(232,238,247,.55)">합계 '+_hdWonM(mo.total||0)+(m===YB.M?' · 어제까지':'')+' · 막대를 누르면 그 달</span></div>';
+  if(!G.length)return h+'<div style="font-size:13px;color:rgba(232,238,247,.55)">이 달은 매출 자료가 없습니다</div></div>';
+  G.forEach(function(g){
+    h+='<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px"><span style="flex:none;width:64px;font-size:12px;font-weight:700;color:#4da3ff;padding-top:5px">'+_escX(g.ch)+'</span><div style="display:flex;flex-wrap:wrap;gap:6px">'
+      +g.items.map(function(x){return '<span style="display:inline-flex;gap:6px;align-items:baseline;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:13px;color:rgba(232,238,247,.8)" title="'+Math.round(x.v).toLocaleString("ko-KR")+'원">'
+        +_escX(x.n)+' <b style="color:#fff;font-size:14px">'+_hdWonM(x.v)+'</b></span>';}).join("")
+      +'</div></div>';
+  });
+  h+='<div style="font-size:11.5px;color:rgba(232,238,247,.45);margin-top:4px">백화점 = 매장별 일별매출 EDI · 코스트코 = 판매현황(상품명 직매입 / 그 외 온라인) · 홈쇼핑 등 = 판매일보 매장명별(없으면 홈쇼핑 탭 방송 실적) — 막대 합계와 조금 다를 수 있습니다</div>';
+  return h+'</div>';
+}
 function renderHomeDash(){
   var box=document.getElementById("homeDash");if(!box)return;
   _hdDM={};
@@ -6549,8 +6653,11 @@ function renderHomeDash(){
   h+='<div class="hd-p'+dl(5)+'"><div class="hd-h"><b>월별 매출</b><span>'+yr+'년 · 이번 달은 흰색(어제까지)</span></div><div class="hd-bw">';
   for(var bg=0;bg<=3;bg++)h+='<div class="hd-g" style="top:'+(100-bg*100/3)+'%"><span>'+(bg?_hdMan(bm*bg/3):"0")+'</span></div>';
   h+='<div class="hd-bars">';
-  M.forEach(function(v,i){h+='<div class="hd-b" title="'+(i+1)+'월 '+Math.round(v).toLocaleString("ko-KR")+'원"><div class="hd-bt"><div class="hd-bf'+(i===cm?' cur':'')+(first?'':' on')+'" style="height:'+(Math.max(0,v)/bm*100).toFixed(1)+'%;transition-delay:'+(i*60)+'ms"></div></div><span>'+(i+1)+'</span></div>';});
-  h+='</div></div></div></div>';
+  M.forEach(function(v,i){h+='<div class="hd-b" title="'+(i+1)+'월 '+Math.round(v).toLocaleString("ko-KR")+'원 · 누르면 매체별"'+(i<=YB.M-1?' onclick="hdMediaPick('+(i+1)+')" style="cursor:pointer"':'')+'><div class="hd-bt"><div class="hd-bf'+(i===cm?' cur':'')+(first?'':' on')+'" style="height:'+(Math.max(0,v)/bm*100).toFixed(1)+'%;transition-delay:'+(i*60)+'ms"></div></div><span>'+(i+1)+'</span></div>';});
+  h+='</div></div>';
+  /* 매체별 매출(2026-10-21 영업2팀) — 고른 달(처음엔 이번 달)의 매장·채널별 금액. 막대를 누르면 그 달로 */
+  _hdYB=YB;if(!_hdMediaM||_hdMediaM>YB.M)_hdMediaM=cm+1;
+  h+='<div id="hdMedia">'+_hdMediaHtml(YB,_hdMediaM)+'</div></div></div>';
   /* 도넛 */
   h+='<div class="hd-p'+dl(6)+'"><div class="hd-h"><b>채널 비중</b><span>'+yr+'년 누계 · 영업2팀</span></div><div class="hd-don"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" stroke="rgba(255,255,255,.05)"/>';
   var acc=0;
