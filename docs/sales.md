@@ -394,7 +394,10 @@
   **💰 네이버 최저가**(2026-10-20 영업2팀, `hpsNaver`·`_hpsNaverQuery`·`_hpsNaverUrl`): 검색 칸 옆 버튼 + 결과 카드마다 링크 —
   네이버쇼핑 `search/all?query=…&sort=price_asc`(낮은 가격순)를 새 탭으로. 상품명의 `[브랜드 라벨]`·시즌(25SS)은 떼고 화이트샌즈/블랙샌즈를 앞에 붙인다.
   버튼은 적은 값이 상품코드·자사코드·바코드와 그대로 맞으면 그 상품명으로, 아니면 적은 글자 그대로(브랜드 없으면 '화이트샌즈 ' 붙임).
-  **가격은 자비스 안 최저가 판(`#homeNvOut`, `hpsNvAsk`·`hpsNvRender`)에** — API 키를 공개 페이지에 둘 수 없어 **자동화 PC `automation/naver-price.mjs`**가 찾는다:
+  **⚠ 지금은 꺼져 있다(`NAVER_INAPP=false`, 2026-10-21)** — 네이버 개발자센터가 검색 API **신규 추가를 막아**(새 애플리케이션 등록 화면엔 '검색'이 없고,
+  설정 화면에서 추가하면 「신규로 등록할 수 없는 API가 선택되었습니다」) 키를 못 받았다. 계정의 셀러랩스 두 개도 데이터랩뿐(가격 없음).
+  그래서 버튼·카드 링크는 네이버쇼핑 낮은 가격순을 새 탭으로 바로 연다. 검색 API가 든 애플리케이션 키를 얻으면 `naver-api.json`에 넣고 `NAVER_INAPP=true`.
+  (켜면) **가격은 자비스 안 최저가 판(`#homeNvOut`, `hpsNvAsk`·`hpsNvRender`)에** — API 키를 공개 페이지에 둘 수 없어 **자동화 PC `automation/naver-price.mjs`**가 찾는다:
   자비스가 `ws/naverReq` {id,q,by,at,state:'요청'} → saip-watch가 5초마다(밤 15초) `naverTick` → 네이버 검색 API 쇼핑(정확도순 100개 → 가격 낮은 순 40개)
   → `ws/naverPrice[검색어]` {at,q,total,items:[{t,p,m,l,i,b,ty}],err}(최근 60개 검색어). 같은 검색어 6시간 안이면 다시 묻지 않는다.
   판은 **브랜드(화이트샌즈/블랙샌즈)와 검색어 끝 낱말(예: 루노아)이 든 것만** 먼저(`_hpsNvKeep`), [전체 보기]. 상품카드에서 누르면 TAG가 대비 몇 % 낮은지도.

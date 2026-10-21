@@ -16787,8 +16787,13 @@ function hpsNaver(){
   if(!q){alert("상품명이나 상품코드를 먼저 적어 주세요.");if(el)el.focus();return;}
   var k=q.replace(/\s+/g,"").toLowerCase();
   var p=_hpsIndex().list.filter(function(o){return o.exact[k];})[0];   /* 코드가 그대로 맞으면 그 상품명으로 */
-  hpsNvAsk(p?_hpsNaverQuery(p.name):(/화이트샌즈|블랙샌즈/.test(q)?q:"화이트샌즈 "+q),p?p.code:"");
+  var nq=p?_hpsNaverQuery(p.name):(/화이트샌즈|블랙샌즈/.test(q)?q:"화이트샌즈 "+q);
+  if(!NAVER_INAPP){window.open(_hpsNaverUrl(nq),"_blank","noopener");return;}
+  hpsNvAsk(nq,p?p.code:"");
 }
+/* 자비스 안 가격판은 꺼 둔다(2026-10-21) — 네이버가 검색 API 신규 추가를 막아(「신규로 등록할 수 없는 API」) 키를 못 받았다.
+   검색 API가 든 애플리케이션 키를 얻어 자동화 PC naver-api.json에 넣으면 true로 바꾼다. 그전엔 버튼·카드 링크가 네이버쇼핑 낮은 가격순을 바로 연다 */
+var NAVER_INAPP=false;
 /* 자비스 안 최저가 판(2026-10-20 영업2팀 "네이버 최저가 가격을 자비스 안에 바로") —
    API 키는 공개 페이지에 둘 수 없어 자동화 PC(naver-price.mjs)가 대신 찾는다: ws/naverReq에 요청 → 결과 ws/naverPrice[검색어].
    같은 검색어를 6시간 안에 찾았으면 다시 묻지 않는다. 브랜드(화이트샌즈·블랙샌즈)와 핵심 낱말(검색어 끝 낱말)이 든 것만 먼저 보이고 [전체 보기] */
@@ -16901,7 +16906,8 @@ function _hpsCard(o){
         +'<span>사전원가 <b>'+_hpsWon(o.cost)+'</b>'+(cr?' <span style="color:#5b6675">('+cr+'%)</span>':'')+'</span>'
       +'</div>'
       +'<div style="font-size:12.5px;margin-bottom:5px">'+mall
-        +' <a href="javascript:void 0" onclick="hpsNvAsk(\''+_escX(_hpsNaverQuery(o.name).replace(/\\/g,"\\\\").replace(/'/g,"\\'"))+'\',\''+_escX(o.code)+'\')" title="네이버 최저가를 자비스 안에서 봅니다: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가</a></div>'
+        +(!NAVER_INAPP?' <a href="'+_escX(_hpsNaverUrl(_hpsNaverQuery(o.name)))+'" target="_blank" rel="noopener" title="네이버쇼핑 낮은 가격순: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가 ↗</a></div>':'')
+        +(!NAVER_INAPP?'':' <a href="javascript:void 0" onclick="hpsNvAsk(\''+_escX(_hpsNaverQuery(o.name).replace(/\\/g,"\\\\").replace(/'/g,"\\'"))+'\',\''+_escX(o.code)+'\')" title="네이버 최저가를 자비스 안에서 봅니다: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가</a></div>')
       +tbl
     +'</div></div>';
 }
