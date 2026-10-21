@@ -28219,13 +28219,14 @@ function edgeMat(){return R3.EDGE||(R3.EDGE=new THREE.LineBasicMaterial({color:0
 function mk(p,w,h,d,x,y,z,col){
   var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
   m.position.set(x,y,z);
-  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),edgeMat()));
+  /* 가는 봉(두 방향이 30mm 이하)은 테두리 선을 긋지 않는다 — 봉 + 선이 두 겹으로 굵어 보였다(2026-10-21 영업2팀 "모두 같은 선으로, 실물처럼") */
+  if([w,h,d].filter(function(v){return v<=0.03;}).length<2)m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),edgeMat()));
   p.add(m);return m;
 }
 function mkCyl(p,r,h,x,y,z,col,seg){
   var m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,Math.max(seg||40,72)),new THREE.MeshLambertMaterial({color:col}));
   m.position.set(x,y,z);
-  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry,30),edgeMat()));
+  if(r>0.015)m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry,30),edgeMat()));   /* 가는 기둥은 선 없이(위와 같음) */
   p.add(m);return m;
 }
 function curveShape(x0,z0,x1,z1,rad,corner){ /* 로컬 xz 사각형, corner='L'|'R' 앞 모서리 둥글게 → 셰이프(x,-z) */
@@ -28424,21 +28425,24 @@ function pegTex(kind){
   var t=new THREE.CanvasTexture(cv);t.anisotropy=4;PEGTX[kind]=t;return t;
 }
 function buildPeg(g,c,w,d,h){
-  var AL=0x8a929c,WH=0xf3f4f5,FR=0xdfe4e9,T=0.02,EM=new THREE.LineBasicMaterial({color:0x4b5563});
+  /* 선 통일·실물처럼(2026-10-21 영업2팀 "아크릴집기의 선이 두껍게 — 모두 같은 선으로, 실물처럼"): 판 테두리는 다른 집기와 같은 edgeMat,
+     알루미늄 봉은 밝은 은색 막대만(테두리 선을 따로 긋지 않음 — 예전엔 짙은 봉 + 봉마다 테두리라 선이 두 겹으로 두꺼웠다), 모서리 볼도 은색으로 작게 */
+  var AL=0xc3c8ce,WH=0xf3f4f5,FR=0xdfe4e9,T=0.02,EM=edgeMat();
+  function rod(pw,ph,pd,x,y,z){var m=new THREE.Mesh(new THREE.BoxGeometry(pw,ph,pd),new THREE.MeshLambertMaterial({color:AL}));m.position.set(x,y,z);g.add(m);return m;}
   var L=[0.102,0.502,0.810,1.210,1.610].map(function(v){return v*h/1.61;}),leg=L[0],cTop=L[1],ud=Math.min(0.39,d),hw=w/2-T/2,hd=d/2-T/2,uz1=-d/2+ud-T/2;
   function pn(pw,ph,pd,x,y,z,col,op){
     var m=new THREE.Mesh(new THREE.BoxGeometry(pw,ph,pd),new THREE.MeshLambertMaterial(op?{color:col,transparent:true,opacity:op}:{color:col}));
     m.position.set(x,y,z);m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),EM));g.add(m);
   }
   function frame(x0,x1,y0,y1,z0,z1){
-    [y0,y1].forEach(function(y){[z0,z1].forEach(function(z){mk(g,x1-x0,T,T,(x0+x1)/2,y,z,AL);});});
-    [x0,x1].forEach(function(x){[z0,z1].forEach(function(z){mk(g,T,y1-y0,T,x,(y0+y1)/2,z,AL);});});
-    [x0,x1].forEach(function(x){[y0,y1].forEach(function(y){mk(g,T,T,z1-z0,x,y,(z0+z1)/2,AL);});});
+    [y0,y1].forEach(function(y){[z0,z1].forEach(function(z){rod(x1-x0,T,T,(x0+x1)/2,y,z,AL);});});
+    [x0,x1].forEach(function(x){[z0,z1].forEach(function(z){rod(T,y1-y0,T,x,(y0+y1)/2,z,AL);});});
+    [x0,x1].forEach(function(x){[y0,y1].forEach(function(y){rod(T,T,z1-z0,x,y,(z0+z1)/2,AL);});});
     [x0,x1].forEach(function(x){[y0,y1].forEach(function(y){[z0,z1].forEach(function(z){
-      var b=new THREE.Mesh(new THREE.SphereGeometry(T*0.95,12,10),new THREE.MeshLambertMaterial({color:0x6b7280}));b.position.set(x,y,z);g.add(b);});});});
+      var b=new THREE.Mesh(new THREE.SphereGeometry(T*0.72,14,12),new THREE.MeshLambertMaterial({color:0xaeb4bb}));b.position.set(x,y,z);g.add(b);});});});
   }
   /* 다리 */
-  [-1,1].forEach(function(a){[-1,1].forEach(function(b){mk(g,0.016,leg,0.016,a*hw,leg/2,b*hd,AL);});});
+  [-1,1].forEach(function(a){[-1,1].forEach(function(b){rod(0.016,leg,0.016,a*hw,leg/2,b*hd,AL);});});
   /* 아래 수납장 — 위·아래·옆·뒤 흰 판, 앞 반투명 미닫이문 2짝(앞뒤로 살짝 엇갈림) */
   var ch=cTop-leg,cy=leg+ch/2;
   pn(w-T,0.012,d-T,0,cTop-0.006,0,WH);pn(w-T,0.012,d-T,0,leg+0.006,0,WH);
@@ -28446,7 +28450,7 @@ function buildPeg(g,c,w,d,h){
   pn(w-T,ch-T,0.008,0,cy,-(hd-0.006),WH);
   pn(w/2-T,ch-T*2,0.008,-w/4+T/4,cy,hd-0.004,FR,0.78);pn(w/2-T,ch-T*2,0.008,w/4-T/4,cy,hd-0.016,FR,0.78);
   frame(-hw,hw,leg,cTop,-hd,hd);
-  [hd,-hd].forEach(function(z){mk(g,T,ch,T,0,cy,z,AL);});
+  [hd,-hd].forEach(function(z){rod(T,ch,T,0,cy,z,AL);});
   /* 위 박스 3칸(뒤쪽 깊이 400) */
   var uzc=(-hd+uz1)/2,udd=uz1+hd;
   for(var i=0;i<3;i++){
@@ -28459,7 +28463,7 @@ function buildPeg(g,c,w,d,h){
     else if(c.wood){var bd=new THREE.Mesh(new THREE.BoxGeometry(w-T*2,bxH-T,0.012),[0,0,0,0,0,0].map(function(_,q){return q===4?new THREE.MeshLambertMaterial({map:pegTex("board")}):new THREE.MeshLambertMaterial({color:0xb08d5c});}));
       bd.position.set(0,yc,uz1-0.004);bd.add(new THREE.LineSegments(new THREE.EdgesGeometry(bd.geometry),EM));g.add(bd);}
     frame(-hw,hw,y0,y1,-hd,uz1);
-    if(!(c.wood&&i>0))[uz1,-hd].forEach(function(z){mk(g,T,bxH,T,0,yc,z,AL);});else mk(g,T,bxH,T,0,yc,-hd,AL);
+    if(!(c.wood&&i>0))[uz1,-hd].forEach(function(z){rod(T,bxH,T,0,yc,z,AL);});else rod(T,bxH,T,0,yc,-hd,AL);
   }
   /* 로고 간판 — 맨 위 칸 타공판 위쪽 가운데 */
   if(c.wood){var sw=Math.min(w*0.34,0.40),shh=sw*0.43,sg=new THREE.Mesh(new THREE.BoxGeometry(sw,shh,0.01),[0,0,0,0,0,0].map(function(_,q){return q===4?new THREE.MeshLambertMaterial({map:pegTex("sign")}):new THREE.MeshLambertMaterial({color:0xb5b5b2});}));
@@ -28714,8 +28718,9 @@ function makeThumbs(){
       var l2=new THREE.DirectionalLight(0xffffff,0.35);l2.position.set(-5,2,3);TR.scene.add(l2);
       var l3=new THREE.DirectionalLight(0xffffff,0.15);l3.position.set(0,3,-6);TR.scene.add(l3);
     }
-    var em=edgeMat(),oldEdge=em.color.getHex();em.color.setHex(0x5b5a55);
-    var dpr=Math.min(2,window.devicePixelRatio||1),SW=Math.round(144*dpr),SH2=Math.round(108*dpr);
+    var em=edgeMat(),oldEdge=em.color.getHex();em.color.setHex(0x4a4945);
+    /* 표 그림 칸(72×54)을 화면에 보이는 실제 픽셀(body zoom × 화면 배율)로 바로 찍는다 — 예전엔 2배로 찍어 줄여 보여서 1px 선이 반쯤 흐려졌다(2026-10-21 "집기 이미지 선 선명하게") */
+    var bz=parseFloat(getComputedStyle(document.body).zoom)||1,dpr=Math.min(3,(window.devicePixelRatio||1)*bz),SW=Math.round(72*dpr),SH2=Math.round(54*dpr);
     Object.keys(CAT).forEach(function(k){
       if(THUMB[k])return;
       var c=CAT[k],g=buildItem({id:0,t:k,x:ST.W/2,z:ST.D/2,r:0,f:false},false);
@@ -29918,13 +29923,14 @@ function edgeMat(){return R3.EDGE||(R3.EDGE=new THREE.LineBasicMaterial({color:0
 function mk(p,w,h,d,x,y,z,col){
   var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
   m.position.set(x,y,z);
-  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),edgeMat()));
+  /* 가는 봉(두 방향이 30mm 이하)은 테두리 선을 긋지 않는다 — 봉 + 선이 두 겹으로 굵어 보였다(2026-10-21 영업2팀 "모두 같은 선으로, 실물처럼") */
+  if([w,h,d].filter(function(v){return v<=0.03;}).length<2)m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),edgeMat()));
   p.add(m);return m;
 }
 function mkCyl(p,r,h,x,y,z,col,seg){
   var m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,Math.max(seg||40,72)),new THREE.MeshLambertMaterial({color:col}));
   m.position.set(x,y,z);
-  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry,30),edgeMat()));
+  if(r>0.015)m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry,30),edgeMat()));   /* 가는 기둥은 선 없이(위와 같음) */
   p.add(m);return m;
 }
 function curveShape(x0,z0,x1,z1,rad,corner){ /* 로컬 xz 사각형, corner='L'|'R' 앞 모서리 둥글게 → 셰이프(x,-z) */
@@ -30123,21 +30129,24 @@ function pegTex(kind){
   var t=new THREE.CanvasTexture(cv);t.anisotropy=4;PEGTX[kind]=t;return t;
 }
 function buildPeg(g,c,w,d,h){
-  var AL=0x8a929c,WH=0xf3f4f5,FR=0xdfe4e9,T=0.02,EM=new THREE.LineBasicMaterial({color:0x4b5563});
+  /* 선 통일·실물처럼(2026-10-21 영업2팀 "아크릴집기의 선이 두껍게 — 모두 같은 선으로, 실물처럼"): 판 테두리는 다른 집기와 같은 edgeMat,
+     알루미늄 봉은 밝은 은색 막대만(테두리 선을 따로 긋지 않음 — 예전엔 짙은 봉 + 봉마다 테두리라 선이 두 겹으로 두꺼웠다), 모서리 볼도 은색으로 작게 */
+  var AL=0xc3c8ce,WH=0xf3f4f5,FR=0xdfe4e9,T=0.02,EM=edgeMat();
+  function rod(pw,ph,pd,x,y,z){var m=new THREE.Mesh(new THREE.BoxGeometry(pw,ph,pd),new THREE.MeshLambertMaterial({color:AL}));m.position.set(x,y,z);g.add(m);return m;}
   var L=[0.102,0.502,0.810,1.210,1.610].map(function(v){return v*h/1.61;}),leg=L[0],cTop=L[1],ud=Math.min(0.39,d),hw=w/2-T/2,hd=d/2-T/2,uz1=-d/2+ud-T/2;
   function pn(pw,ph,pd,x,y,z,col,op){
     var m=new THREE.Mesh(new THREE.BoxGeometry(pw,ph,pd),new THREE.MeshLambertMaterial(op?{color:col,transparent:true,opacity:op}:{color:col}));
     m.position.set(x,y,z);m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),EM));g.add(m);
   }
   function frame(x0,x1,y0,y1,z0,z1){
-    [y0,y1].forEach(function(y){[z0,z1].forEach(function(z){mk(g,x1-x0,T,T,(x0+x1)/2,y,z,AL);});});
-    [x0,x1].forEach(function(x){[z0,z1].forEach(function(z){mk(g,T,y1-y0,T,x,(y0+y1)/2,z,AL);});});
-    [x0,x1].forEach(function(x){[y0,y1].forEach(function(y){mk(g,T,T,z1-z0,x,y,(z0+z1)/2,AL);});});
+    [y0,y1].forEach(function(y){[z0,z1].forEach(function(z){rod(x1-x0,T,T,(x0+x1)/2,y,z,AL);});});
+    [x0,x1].forEach(function(x){[z0,z1].forEach(function(z){rod(T,y1-y0,T,x,(y0+y1)/2,z,AL);});});
+    [x0,x1].forEach(function(x){[y0,y1].forEach(function(y){rod(T,T,z1-z0,x,y,(z0+z1)/2,AL);});});
     [x0,x1].forEach(function(x){[y0,y1].forEach(function(y){[z0,z1].forEach(function(z){
-      var b=new THREE.Mesh(new THREE.SphereGeometry(T*0.95,12,10),new THREE.MeshLambertMaterial({color:0x6b7280}));b.position.set(x,y,z);g.add(b);});});});
+      var b=new THREE.Mesh(new THREE.SphereGeometry(T*0.72,14,12),new THREE.MeshLambertMaterial({color:0xaeb4bb}));b.position.set(x,y,z);g.add(b);});});});
   }
   /* 다리 */
-  [-1,1].forEach(function(a){[-1,1].forEach(function(b){mk(g,0.016,leg,0.016,a*hw,leg/2,b*hd,AL);});});
+  [-1,1].forEach(function(a){[-1,1].forEach(function(b){rod(0.016,leg,0.016,a*hw,leg/2,b*hd,AL);});});
   /* 아래 수납장 — 위·아래·옆·뒤 흰 판, 앞 반투명 미닫이문 2짝(앞뒤로 살짝 엇갈림) */
   var ch=cTop-leg,cy=leg+ch/2;
   pn(w-T,0.012,d-T,0,cTop-0.006,0,WH);pn(w-T,0.012,d-T,0,leg+0.006,0,WH);
@@ -30145,7 +30154,7 @@ function buildPeg(g,c,w,d,h){
   pn(w-T,ch-T,0.008,0,cy,-(hd-0.006),WH);
   pn(w/2-T,ch-T*2,0.008,-w/4+T/4,cy,hd-0.004,FR,0.78);pn(w/2-T,ch-T*2,0.008,w/4-T/4,cy,hd-0.016,FR,0.78);
   frame(-hw,hw,leg,cTop,-hd,hd);
-  [hd,-hd].forEach(function(z){mk(g,T,ch,T,0,cy,z,AL);});
+  [hd,-hd].forEach(function(z){rod(T,ch,T,0,cy,z,AL);});
   /* 위 박스 3칸(뒤쪽 깊이 400) */
   var uzc=(-hd+uz1)/2,udd=uz1+hd;
   for(var i=0;i<3;i++){
@@ -30158,7 +30167,7 @@ function buildPeg(g,c,w,d,h){
     else if(c.wood){var bd=new THREE.Mesh(new THREE.BoxGeometry(w-T*2,bxH-T,0.012),[0,0,0,0,0,0].map(function(_,q){return q===4?new THREE.MeshLambertMaterial({map:pegTex("board")}):new THREE.MeshLambertMaterial({color:0xb08d5c});}));
       bd.position.set(0,yc,uz1-0.004);bd.add(new THREE.LineSegments(new THREE.EdgesGeometry(bd.geometry),EM));g.add(bd);}
     frame(-hw,hw,y0,y1,-hd,uz1);
-    if(!(c.wood&&i>0))[uz1,-hd].forEach(function(z){mk(g,T,bxH,T,0,yc,z,AL);});else mk(g,T,bxH,T,0,yc,-hd,AL);
+    if(!(c.wood&&i>0))[uz1,-hd].forEach(function(z){rod(T,bxH,T,0,yc,z,AL);});else rod(T,bxH,T,0,yc,-hd,AL);
   }
   /* 로고 간판 — 맨 위 칸 타공판 위쪽 가운데 */
   if(c.wood){var sw=Math.min(w*0.34,0.40),shh=sw*0.43,sg=new THREE.Mesh(new THREE.BoxGeometry(sw,shh,0.01),[0,0,0,0,0,0].map(function(_,q){return q===4?new THREE.MeshLambertMaterial({map:pegTex("sign")}):new THREE.MeshLambertMaterial({color:0xb5b5b2});}));
@@ -30413,8 +30422,9 @@ function makeThumbs(){
       var l2=new THREE.DirectionalLight(0xffffff,0.35);l2.position.set(-5,2,3);TR.scene.add(l2);
       var l3=new THREE.DirectionalLight(0xffffff,0.15);l3.position.set(0,3,-6);TR.scene.add(l3);
     }
-    var em=edgeMat(),oldEdge=em.color.getHex();em.color.setHex(0x5b5a55);
-    var dpr=Math.min(2,window.devicePixelRatio||1),SW=Math.round(144*dpr),SH2=Math.round(108*dpr);
+    var em=edgeMat(),oldEdge=em.color.getHex();em.color.setHex(0x4a4945);
+    /* 표 그림 칸(72×54)을 화면에 보이는 실제 픽셀(body zoom × 화면 배율)로 바로 찍는다 — 예전엔 2배로 찍어 줄여 보여서 1px 선이 반쯤 흐려졌다(2026-10-21 "집기 이미지 선 선명하게") */
+    var bz=parseFloat(getComputedStyle(document.body).zoom)||1,dpr=Math.min(3,(window.devicePixelRatio||1)*bz),SW=Math.round(72*dpr),SH2=Math.round(54*dpr);
     Object.keys(CAT).forEach(function(k){
       if(THUMB[k])return;
       var c=CAT[k],g=buildItem({id:0,t:k,x:ST.W/2,z:ST.D/2,r:0,f:false},false);
