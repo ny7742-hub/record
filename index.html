@@ -27280,7 +27280,9 @@ function polyHit(A,B){   /* 볼록 다각형 분리축 — 1mm 넘게 겹쳐야 
     var a0=Infinity,a1=-Infinity,b0=Infinity,b1=-Infinity;A.forEach(function(v){var d=v[0]*nx+v[1]*nz;a0=Math.min(a0,d);a1=Math.max(a1,d);});B.forEach(function(v){var d=v[0]*nx+v[1]*nz;b0=Math.min(b0,d);b1=Math.max(b1,d);});
     if(a1<=b0+1||b1<=a0+1)return false;}}return true;}
 function rectPoly(r){return [[r.x0,r.z0],[r.x1,r.z0],[r.x1,r.z1],[r.x0,r.z1]];}
-function itemsHit(a,b){var r=rectOf(a),q=rectOf(b);if(!(r.x0<q.x1-1&&r.x1>q.x0+1&&r.z0<q.z1-1&&r.z1>q.z0+1))return false;if(!tilted(a)&&!tilted(b))return true;return polyHit(tilted(a)?cornersOf(a):rectPoly(r),tilted(b)?cornersOf(b):rectPoly(q));}
+/* 청주 큐브는 청주 테이블 양끝 상판 아래로 들어간다(2026-10-21 영업2팀 실물 사진) — 큐브가 상판 밑 높이보다 낮으면 겹침이 아니다 */
+function tuckOk(a,b){var A=CAT[a.t],B=CAT[b.t];if(!A||!B)return false;if(A.k==="ctbl"){var t0=A;A=B;B=t0;}return A.k==="cube"&&B.k==="ctbl"&&A.h<=B.h-90;}
+function itemsHit(a,b){if(tuckOk(a,b))return false;var r=rectOf(a),q=rectOf(b);if(!(r.x0<q.x1-1&&r.x1>q.x0+1&&r.z0<q.z1-1&&r.z1>q.z0+1))return false;if(!tilted(a)&&!tilted(b))return true;return polyHit(tilted(a)?cornersOf(a):rectPoly(r),tilted(b)?cornersOf(b):rectPoly(q));}
 function itemHitBlock(it){if(!tilted(it))return hitBlock(rectOf(it));var C=cornersOf(it);return ST.blocks.some(function(b){return polyHit(C,rectPoly(b));});}
 function rectOf(it){var f=foot(it);return {x0:it.x-f.w/2,x1:it.x+f.w/2,z0:it.z-f.d/2,z1:it.z+f.d/2};}
 function mkItem(t,x,z,r,f){return {id:ST.next++,t:t,x:x,z:z,r:r||0,f:!!f};}
@@ -27599,10 +27601,12 @@ window.fpAuto=function(quiet){
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
   var pri=["counter","logoTbl","step2","cjRound","cjTable","cjCubeW","cjCubeM"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
-  pri.forEach(function(t){if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
+  var tuck=enabled("cjTable")&&dispOf("cjTable")>0?["cjCubeW","cjCubeM"].filter(function(t){return enabled(t)&&dispOf(t)>0;}):[];
+  var TW=function(t){return CAT[t].w+(t==="cjTable"&&tuck.indexOf("cjCubeM")>=0?100:0);};   /* 민트 큐브가 테이블 오른쪽 끝에서 100 나온다 */
+  pri.forEach(function(t){if(tuck.indexOf(t)>=0)return;if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
-  want.forEach(function(t){if(rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}else drop[t]=(drop[t]||0)+1;});
+  want.forEach(function(t){if(rowW+TW(t)<=avail){keep.push(t);rowW+=TW(t);}else{drop[t]=(drop[t]||0)+1;if(t==="cjTable")tuck.forEach(function(k){drop[k]=(drop[k]||0)+1;});}});
   var ord=["curveL","logoTbl","step2","cjRound","cjCubeW","cjTable","cjCubeM"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
@@ -27612,7 +27616,9 @@ window.fpAuto=function(quiet){
   if(dl.length)warn.push("자리가 모자라 못 놓은 집기: "+dl.join(", "));
   var keep=seq;
   var rx=(W-rowW)/2;
-  keep.forEach(function(t){var c=CAT[t];out.push({t:t,x:rx+c.w/2,z:midZ});rx+=c.w;});
+  keep.forEach(function(t){var c=CAT[t];out.push({t:t,x:rx+c.w/2,z:midZ});
+    if(t==="cjTable")tuck.forEach(function(k){var q=CAT[k];out.push({t:k,x:k==="cjCubeW"?rx+q.w/2:rx+c.w+100-q.w/2,z:midZ});});
+    rx+=TW(t);});
   /* 양옆 스탠딩 거울 */
   var mirN=enabled("stdMir")?Math.min(2,dispOf("stdMir")):0,mw=CAT.stdMir.w;
   if(mirN>0&&W>=4000){
@@ -28929,7 +28935,9 @@ function polyHit(A,B){   /* 볼록 다각형 분리축 — 1mm 넘게 겹쳐야 
     var a0=Infinity,a1=-Infinity,b0=Infinity,b1=-Infinity;A.forEach(function(v){var d=v[0]*nx+v[1]*nz;a0=Math.min(a0,d);a1=Math.max(a1,d);});B.forEach(function(v){var d=v[0]*nx+v[1]*nz;b0=Math.min(b0,d);b1=Math.max(b1,d);});
     if(a1<=b0+1||b1<=a0+1)return false;}}return true;}
 function rectPoly(r){return [[r.x0,r.z0],[r.x1,r.z0],[r.x1,r.z1],[r.x0,r.z1]];}
-function itemsHit(a,b){var r=rectOf(a),q=rectOf(b);if(!(r.x0<q.x1-1&&r.x1>q.x0+1&&r.z0<q.z1-1&&r.z1>q.z0+1))return false;if(!tilted(a)&&!tilted(b))return true;return polyHit(tilted(a)?cornersOf(a):rectPoly(r),tilted(b)?cornersOf(b):rectPoly(q));}
+/* 청주 큐브는 청주 테이블 양끝 상판 아래로 들어간다(2026-10-21 영업2팀 실물 사진) — 큐브가 상판 밑 높이보다 낮으면 겹침이 아니다 */
+function tuckOk(a,b){var A=CAT[a.t],B=CAT[b.t];if(!A||!B)return false;if(A.k==="ctbl"){var t0=A;A=B;B=t0;}return A.k==="cube"&&B.k==="ctbl"&&A.h<=B.h-90;}
+function itemsHit(a,b){if(tuckOk(a,b))return false;var r=rectOf(a),q=rectOf(b);if(!(r.x0<q.x1-1&&r.x1>q.x0+1&&r.z0<q.z1-1&&r.z1>q.z0+1))return false;if(!tilted(a)&&!tilted(b))return true;return polyHit(tilted(a)?cornersOf(a):rectPoly(r),tilted(b)?cornersOf(b):rectPoly(q));}
 function itemHitBlock(it){if(!tilted(it))return hitBlock(rectOf(it));var C=cornersOf(it);return ST.blocks.some(function(b){return polyHit(C,rectPoly(b));});}
 function rectOf(it){var f=foot(it);return {x0:it.x-f.w/2,x1:it.x+f.w/2,z0:it.z-f.d/2,z1:it.z+f.d/2};}
 function mkItem(t,x,z,r,f){return {id:ST.next++,t:t,x:x,z:z,r:r||0,f:!!f};}
@@ -29248,10 +29256,12 @@ window.fp2Auto=function(quiet){
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
   var pri=["counter","logoTbl","step2","cjRound","cjTable","cjCubeW","cjCubeM"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
-  pri.forEach(function(t){if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
+  var tuck=enabled("cjTable")&&dispOf("cjTable")>0?["cjCubeW","cjCubeM"].filter(function(t){return enabled(t)&&dispOf(t)>0;}):[];
+  var TW=function(t){return CAT[t].w+(t==="cjTable"&&tuck.indexOf("cjCubeM")>=0?100:0);};   /* 민트 큐브가 테이블 오른쪽 끝에서 100 나온다 */
+  pri.forEach(function(t){if(tuck.indexOf(t)>=0)return;if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
-  want.forEach(function(t){if(rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}else drop[t]=(drop[t]||0)+1;});
+  want.forEach(function(t){if(rowW+TW(t)<=avail){keep.push(t);rowW+=TW(t);}else{drop[t]=(drop[t]||0)+1;if(t==="cjTable")tuck.forEach(function(k){drop[k]=(drop[k]||0)+1;});}});
   var ord=["curveL","logoTbl","step2","cjRound","cjCubeW","cjTable","cjCubeM"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
@@ -29261,7 +29271,9 @@ window.fp2Auto=function(quiet){
   if(dl.length)warn.push("자리가 모자라 못 놓은 집기: "+dl.join(", "));
   var keep=seq;
   var rx=(W-rowW)/2;
-  keep.forEach(function(t){var c=CAT[t];out.push({t:t,x:rx+c.w/2,z:midZ});rx+=c.w;});
+  keep.forEach(function(t){var c=CAT[t];out.push({t:t,x:rx+c.w/2,z:midZ});
+    if(t==="cjTable")tuck.forEach(function(k){var q=CAT[k];out.push({t:k,x:k==="cjCubeW"?rx+q.w/2:rx+c.w+100-q.w/2,z:midZ});});
+    rx+=TW(t);});
   /* 양옆 스탠딩 거울 */
   var mirN=enabled("stdMir")?Math.min(2,dispOf("stdMir")):0,mw=CAT.stdMir.w;
   if(mirN>0&&W>=4000){
