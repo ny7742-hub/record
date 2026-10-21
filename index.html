@@ -3339,6 +3339,7 @@ function fbListen(){
       var fixed=(typeof _fixMergedColorRows==="function")?_fixMergedColorRows(d):{rows:d};
       RAW=fixed.rows;
       DB=RAW.map(function(r){var o={};COLS.forEach(function(c,i){o[c]=r[i];});return o;});
+      window._prodWsAt=Date.now();   /* 자동 사입출고등록(playmd-hs-saip)이 이걸 기다렸다가 상품코드리스트 대조를 한다(2026-10-21) */
     },
     function(){
       if(typeof _renderUpdateInfo==="function")_renderUpdateInfo();
@@ -20665,11 +20666,56 @@ function _ccoProcessRows(rows){
   ccoRows=out;
   renderCcoTable();
 }
+/* ── 상품코드리스트 대조(2026-10-21 영업2팀 "시트의 상품명·상품코드·바코드를 상품코드리스트와 대조해 정확하게 등록") ──
+   시트의 상품컬러코드(자사코드)·바코드·상품코드·옵션 색상을 상품코드리스트(_hsProdRows — 팀 공유 업로드본, 없으면 내장)와 맞춰 본다.
+   · ok       — 상품컬러코드가 리스트에 있고, 바코드·상품코드가 다른 상품을 가리키지 않음
+   · fixed    — 상품컬러코드가 비었거나 리스트에 없어 바코드(바코드1·2) → 상품코드+옵션 색상 순으로 찾아 고쳐 넣음
+   · conflict — 바코드나 상품코드가 다른 상품을 가리킴 / missing — 리스트 어디에도 없음 → 자동 등록은 멈춘다(playmd-hs-saip)
+   색상·상품명이 리스트와 달라 보이면 note에 적기만 한다(쇼핑몰 상품명은 리스트 이름과 늘 다르다).
+   시트 바코드가 리스트에 없는 것(사방넷 자체 바코드 2110…)은 문제로 보지 않는다 */
+function _ccoOptColor(opt){var m=/색상\s*[:：]\s*([^,\/]+)/.exec(String(opt||""));return m?m[1].trim():"";}
+function _ccoVerifyCode(o){
+  /* _hsProdRows는 같은 이름 함수가 둘이라(재고확인용 _hsProdRows(ch,name)) 직접 읽는다 */
+  var rows=(typeof RAW!=="undefined"&&RAW&&RAW.length)?RAW:(typeof DEFAULT_DATA!=="undefined"?DEFAULT_DATA:[]);
+  if(!rows.length||!o)return {code:(o&&o.cc)||"",chk:"",note:""};
+  var U=function(v){return String(v==null?"":v).trim().toUpperCase();};
+  var N=function(v){return String(v==null?"":v).replace(/\s/g,"").toLowerCase();};
+  var cc=U(o.cc),bar=String(o.bar||"").replace(/\s/g,""),pc=U(o.pc);
+  var find=function(code){for(var i=0;i<rows.length;i++)if(rows[i]&&U(rows[i][7])===code)return rows[i];return null;};
+  var byBar={};
+  if(/^\d{8,14}$/.test(bar))rows.forEach(function(r){if(r&&(String(r[8]||"").trim()===bar||String(r[9]||"").trim()===bar))byBar[U(r[7])]=r;});
+  var bk=Object.keys(byBar);
+  var done=function(row,chk,note){
+    var w=[note];
+    var lc=N(row[4]),oc=N(o.color);
+    if(oc&&lc&&lc.indexOf(oc)<0&&oc.indexOf(lc)<0)w.push("옵션 색상 '"+o.color+"' ≠ 리스트 '"+row[4]+"'");
+    /* 상품명 — 리스트 이름의 낱말(브랜드·시즌·한 글자 빼고)이 시트 상품명에 하나도 없으면 */
+    var words=String(row[2]||"").replace(/[\[\]()★]/g," ").split(/\s+/).filter(function(t){return t.length>=2&&!/^(화이트샌즈|블랙샌즈|그린라벨|whitesands|white|sands|\d{2}(ss|fw|aw|su|fa|hs))$/i.test(t);});
+    var nm=N(o.name);
+    if(words.length&&nm&&!words.some(function(t){return nm.indexOf(N(t))>=0;}))w.push("상품명이 리스트('"+String(row[2]).trim()+"')와 달라 보임");
+    return {code:String(row[7]).trim(),chk:chk,note:w.filter(Boolean).join(" · ")};
+  };
+  var row=cc?find(cc):null;
+  if(row){
+    if(bk.length&&bk.indexOf(cc)<0)return {code:o.cc,chk:"conflict",note:"바코드 "+bar+"는 상품코드리스트에서 "+bk.join(",")+" — 시트 상품컬러코드 "+cc+"와 다름"};
+    if(pc&&U(row[1])!==pc)return {code:o.cc,chk:"conflict",note:"시트 상품코드 "+pc+" ≠ 상품코드리스트 "+row[1]+"("+cc+")"};
+    return done(row,"ok","");
+  }
+  var why=cc?"상품컬러코드 "+cc+"가 상품코드리스트에 없어 ":"";
+  if(bk.length===1){
+    if(pc&&U(byBar[bk[0]][1])!==pc)return {code:o.cc,chk:"conflict",note:"바코드 "+bar+"("+bk[0]+")와 시트 상품코드 "+pc+"가 다름"};
+    return done(byBar[bk[0]],"fixed",why+"바코드로 찾음");
+  }
+  if(bk.length>1)return {code:o.cc,chk:"conflict",note:"바코드 "+bar+"가 여러 상품("+bk.join(",")+")"};
+  if(pc&&o.color){var c2=_hsResolveColorCode(pc,o.color),r2=c2?find(U(c2)):null;if(r2)return done(r2,"fixed",why+"상품코드+색상으로 찾음");}
+  if(!cc)return {code:"",chk:"",note:""};          /* 아래 홈쇼핑 매칭표·상품명 매칭으로 */
+  return {code:o.cc,chk:"missing",note:"상품컬러코드 "+cc+"가 상품코드리스트에 없습니다"};
+}
 /* 표(2차원 배열)에서 사입출고양식에 필요한 항목만 뽑는다.
    사입출고등록 탭과 코스트코 발주 4단계가 같은 규칙을 쓰도록 공용으로 둔다.
    형식을 못 읽으면 null, 읽었지만 데이터가 없으면 빈 배열을 돌려준다. */
 function _ccoExtractRows(rows){
-  var hRow=-1,cShop=-1,cProd=-1,cQty=-1,cAmt=-1,cDate=-1,cColorCode=-1,cBarcode=-1;
+  var hRow=-1,cShop=-1,cProd=-1,cQty=-1,cAmt=-1,cDate=-1,cColorCode=-1,cBarcode=-1,cProdCode=-1,cOpt=-1,cProd2=-1;
   for(var r=0;r<Math.min(5,rows.length);r++){
     var row=rows[r]||[];
     for(var c=0;c<row.length;c++){
@@ -20680,6 +20726,9 @@ function _ccoExtractRows(rows){
       if(v==="결제금액"&&cAmt<0)cAmt=c;
       if(v==="상품컬러코드"&&cColorCode<0)cColorCode=c;
       if(v==="바코드"&&cBarcode<0)cBarcode=c;
+      if(v==="상품코드"&&cProdCode<0)cProdCode=c;
+      if(v==="옵션(수집)"&&cOpt<0)cOpt=c;
+      if(v==="상품명(수집)"&&cProd2<0)cProd2=c;
       if((v==="출고일"||v==="출고일자"||/일자|날짜/.test(v))&&cDate<0)cDate=c;
     }
     if(cProd>=0&&cQty>=0){hRow=r;break;}
@@ -20696,16 +20745,22 @@ function _ccoExtractRows(rows){
     var shopVal=cShop>=0?String(row[cShop]==null?"":row[cShop]).trim():"";
     var colorCodeVal=cColorCode>=0?String(row[cColorCode]==null?"":row[cColorCode]).trim():"";
     var barcodeVal=cBarcode>=0?String(row[cBarcode]==null?"":row[cBarcode]).trim():"";
+    var cell=function(c){return c>=0?String(row[c]==null?"":row[c]).trim():"";};
+    var vin={cc:colorCodeVal,bar:barcodeVal,pc:cell(cProdCode),color:_ccoOptColor(cell(cOpt)),name:prodCell+" "+cell(cProd2)};
+    var vc=_ccoVerifyCode(vin);
     var matched=false;
+    if(vc.code)colorCodeVal=vc.code;
     if(!colorCodeVal){
       var hm=_hsFindMatch(shopVal,prodCell);
-      if(hm){colorCodeVal=hm.colorCode;if(!barcodeVal)barcodeVal=hm.colorCode;matched=true;}
+      if(hm){colorCodeVal=hm.colorCode;if(!barcodeVal)barcodeVal=hm.colorCode;matched=true;vin.cc=colorCodeVal;vin.bar="";vc=_ccoVerifyCode(vin);}
     }
     var qtyVal=Number(String(row[cQty]==null?"":row[cQty]).replace(/,/g,""))||0;
     var amtVal=cAmt>=0?(Number(String(row[cAmt]==null?"":row[cAmt]).replace(/,/g,""))||0):0;
+    /* 기타온라인(ETC)에서 결제금액 0원 = 무상 출고(분실 재발송 등, 2026-10-21 영업2팀) — 현재가로 채우지 않고 0원으로 둔다 */
+    var free=!amtVal&&cAmt>=0&&_ccoWhStoreCode(shopVal).store==="ETC";
     /* 홈쇼핑 주문서는 결제금액이 비어 오는 경우가 많다 — 판매단가로 채워 준다 */
     var amtAuto=false,amtSrc="";
-    if(!amtVal){
+    if(!amtVal&&!free){
       var up=_ccoUnitPrice(shopVal,prodCell,colorCodeVal);
       if(up.price>0){amtVal=up.price*(qtyVal||1);amtAuto=true;amtSrc=up.src;}
     }
@@ -20715,6 +20770,7 @@ function _ccoExtractRows(rows){
       colorCode:colorCodeVal,
       barcode:barcodeVal,
       matched:matched,
+      vin:vin,chk:vc.chk,chkNote:vc.note,free:free,
       qty:qtyVal,
       amt:amtVal,
       amtAuto:amtAuto,
@@ -20828,6 +20884,7 @@ function renderCcoTable(){
         +'<input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="ccoEditColorCode(this)" placeholder="코드 직접입력" style="width:100%;box-sizing:border-box;border:1px solid '+(noCode?'#fca5a5':'#d1d5db')+';border-radius:5px;padding:4px 6px;font-size:12px'+(noCode?';color:#dc2626':'')+'">'
         +(r.matched?'<div style="font-size:10px;color:#16a34a;padding:2px 2px 0">🔎자동매칭</div>':'')
         +(noCode?'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">❗코드없음</div>':'')
+        +(r.chk==="conflict"||r.chk==="missing"?'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">⛔'+_esc(r.chkNote)+'</div>':(r.chk==="fixed"||r.chkNote)?'<div style="font-size:10px;color:#b45309;padding:2px 2px 0">💡'+_esc(r.chkNote)+'</div>':r.chk==="ok"?'<div style="font-size:10px;color:#16a34a;padding:2px 2px 0">✔상품코드리스트</div>':'')
       +'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+out.ymd+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.barcode)+'</td>'
@@ -20836,7 +20893,7 @@ function renderCcoTable(){
       +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:90px">'
         +'<input type="text" value="'+r.amt+'" data-i="'+i+'" onchange="ccoEditAmt(this)" style="width:100%;box-sizing:border-box;border:1px solid '+(!r.amt?'#fca5a5':(r.amtAuto?'#fcd34d':'#d1d5db'))+';border-radius:5px;padding:4px 6px;text-align:right;font-size:13px">'
         +(r.amtAuto?'<div style="font-size:10px;color:#b45309;padding:2px 2px 0">💡'+_esc(r.amtSrc||"자동")+' 단가</div>':'')
-        +(!r.amt?'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">❗단가없음</div>':'')
+        +(!r.amt?(r.free?'<div style="font-size:10px;color:#5b6675;padding:2px 2px 0">기타온라인 무상 0원</div>':'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">❗단가없음</div>'):'')
       +'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right;color:#64748b;white-space:nowrap">'+fmtCC(out.unit)+'</td>'
       +'</tr>';
@@ -20856,6 +20913,8 @@ function ccoEditColorCode(input){
   if(!ccoRows[i])return;
   ccoRows[i].colorCode=String(input.value||"").trim();
   ccoRows[i].matched=false;
+  var vin=Object.assign({},ccoRows[i].vin||{},{cc:ccoRows[i].colorCode,bar:"",pc:""}),vc=_ccoVerifyCode(vin);   /* 사람이 고친 코드 — 리스트에 있는지만 다시 본다 */
+  ccoRows[i].chk=vc.chk;ccoRows[i].chkNote=vc.note;
   renderCcoTable();
 }
 var CCO_OUT_WH="CSTC", CCO_OUT_STORE="COSO";
@@ -20870,6 +20929,8 @@ function _ccoWhStoreCode(shop,cancel){
   /* 발송후취소 줄만: GS shop(GS샵) = GSS, GS홈쇼핑 = GSH(2026-10-07 영업2팀). 홈쇼핑 매출등록의 'GS shop'은 예전대로 GSH —
      정규화(_hsCodeNormChannel)하면 둘 다 'gs'가 되므로 이름을 먼저 본다 */
   if(cancel&&/^\s*gs\s*(shop|샵)\s*$/i.test(raw))return{wh:"NH",store:"GSS"};
+  /* 기타온라인 = ETC(출고 NH, 2026-10-21 영업2팀 — 백화점몰 파일에 분실 재발송·오프라인 구입건 배송이 '기타온라인'으로 온다) */
+  if(/기타\s*온라인/.test(raw))return{wh:"NH",store:"ETC"};
   if(/^\s*\(?백\)/.test(raw)||/백화점몰/.test(raw)){
     for(var i=0;i<DS_MALL_STORE_CODE.length;i++)if(DS_MALL_STORE_CODE[i][0].test(raw))return{wh:"NH",store:DS_MALL_STORE_CODE[i][1]};
   }
@@ -21502,7 +21563,9 @@ function _saipRowList(kind,rows,maxH){
     if(r.unit||!/→/.test(r.store||""))parts.push(Number((r.unit||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1?' <span style="color:#5b6675;font-size:12px">(개당 '+Number(r.unit||0).toLocaleString()+')</span>':''));
     parts.push(_escX(_saipStoreNm(r.store)));
     h+='<div title="'+_escX((r.prod||"")+" · "+(r.code||""))+'" style="padding:3px 8px'+(ix?';border-top:1px solid #eef2f6':'')+';overflow-wrap:anywhere">'
-      +parts.join(', ')+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+'</div>';
+      +parts.join(', ')+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+(r.free?' <span style="color:#5b6675;font-size:11px">무상</span>':'')
+      /* 상품코드리스트 대조 메모(2026-10-21) — 고쳐 넣은 코드·색상/상품명 다름 */
+      +(r.note?'<div style="font-size:11.5px;color:'+(r.chk==="conflict"||r.chk==="missing"?'#b91c1c':'#b45309')+'">'+(r.chk==="conflict"||r.chk==="missing"?'⛔ ':'💡 ')+_escX(r.note)+'</div>':'')+'</div>';
   });
   return h+'</div>';
 }
@@ -21545,7 +21608,7 @@ function _saipModelColor(r){
   try{var s=_hsSplitOrderProdName(r.prod);return s.base+(s.color?"/"+s.color:"");}catch(e){return String(r.prod||"");}
 }
 /* 매장코드 → 이름(홈쇼핑 HS_CHANNEL_STORE_CODE 기준 — 현대 HHOME · 홈앤 HNSH). 모르면 수기발주 매장 목록, 그래도 없으면 코드 */
-var SAIP_STORE_NM={HHOME:"현대홈쇼핑",IMALL:"롯데홈쇼핑",GSH:"GS홈쇼핑",SSH:"신세계홈쇼핑",KTA:"K쇼핑",HNSH:"홈앤쇼핑",WST:"스마트스토어",
+var SAIP_STORE_NM={ETC:"기타온라인",HHOME:"현대홈쇼핑",IMALL:"롯데홈쇼핑",GSH:"GS홈쇼핑",SSH:"신세계홈쇼핑",KTA:"K쇼핑",HNSH:"홈앤쇼핑",WST:"스마트스토어",
   COSO:"코스트코 온라인",LTOA:"(백)롯데본점",HDOC:"(백)현대천호",LGY:"(백)롯데고양"};
 function _saipStoreNm(c){
   c=String(c||"");if(SAIP_STORE_NM[c])return SAIP_STORE_NM[c];
