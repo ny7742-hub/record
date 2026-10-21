@@ -329,9 +329,12 @@
   (vbs는 ANSI로 저장 — UTF-8 BOM이면 wscript가 못 읽는다). 자비스는 누를 때 '자동화 크롬 창에 열었습니다' 안내를 5초 띄운다(`qcPortalOpen`).
   롯데 백화점 EDI · 현대 백화점 EDI · 코스트코 DSS · 메일함(하이웍스) · 롯데 파트너오피스(`lotteoffice`) · 더현대 파트너스(`thehyundai`, 2026-10-08 — 백화점몰 상품리스트) 바로가기가 `portalopen:<lotte|hyundai|dss|hiworks>`로
   **자동화 포탈 창**(9333 · `edi-chrome-profile`)에 열린다(HKCU `portalopen` → `automation/portal-open.vbs` → `portal-open.mjs`).
-  **🔑 로그인 창 모두 열기**(2026-10-02 영업2팀, `qcOpenAllLogins` → `portalopen:all`): 회사 PC라 퇴근 때 꺼서 매일 아침 로그인이 다 풀린다 →
-  자동화 창 모드를 켠 PC에서 자비스를 열면 그날 처음 한 번 위에 알림(`_qcLoginNudge`, `qcLoginAllDay`)을 띄우고, [모두 열기]를 누르면
-  첫 창에 롯데 EDI·현대 EDI·코스트코 DSS·메일함, 두 번째 창(9334)에 DSS 2를 연다(이미 열린 탭은 새로 고치지 않음). 바로가기 줄에도 같은 단추가 있다.
+  **🔑 로그인 창 모두 열기는 뺐다**(2026-10-21 영업2팀 — 두 DSS 창을 한꺼번에 로그인 화면으로 열다 2번 창에 DSS26으로 로그인돼 발주가 두 번 멈췄다).
+  아침 알림(`_qcLoginNudge`, `qcLoginAllDay`)은 남겨 [로그인 상태 보기]로 아래 로그인 상태 칸으로 데려가고, 로그인은 **그 칸에서 사이트마다 하나씩** 한다.
+  바로가기 `코스트코 DSS` 칩은 자동화 창으로 열지 않고(평소 새 탭) `코스트코 DSS 2` 칩은 없앴다 — 자동화 창 DSS는 로그인 상태 칸에서만.
+  **창마다 아이디**: 1번 창 `ckr.5834226`(DSS26) · 2번 창 `ckr.5834231`(DSS31) — `automation/portal-status.mjs DSS_ID`, 자비스 `PL_SITES.want`. DSS 칸에 늘 "이 창 아이디 … 📋 복사"를 보이고,
+  다른 아이디면 portal-status가 `wrong`({who, want})으로 올려 칸이 빨갛게 "⚠ 다른 아이디로 로그인됨"(로그인됨으로 치지 않음) + 슬랙 알림(`slack-notify notifyWrongId`, 2분 연속이면 그 창·아이디로 하루 한 번).
+  코스트코 자동 발주(`costco-order.mjs`)도 창 아이디가 다르면 "N번 창이 … 로 로그인돼 있습니다 — … 로 다시 로그인" 으로 멈춘다.
   크롬은 클릭 없이 바깥 프로그램(portalopen:)을 열지 못해 자동으로 열지 않고 알림 단추로 연다.
   **홈 `🔑 로그인 상태`**(2026-10-02 영업2팀, `#portalLoginCard` · `renderPortalLogin`): 롯데 EDI · 현대 EDI · 코스트코 DSS26·DSS31 · 메일(하이웍스)마다
   ✅ 로그인됨 / ❌ 로그인 필요 / ➖ 탭·창 없음 / … 확인 안 됨과 쓰이는 곳(일별매출 08:30, 발주 08:35·송장, 발주 메일)을 보여 준다.
