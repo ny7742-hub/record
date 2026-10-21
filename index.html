@@ -27249,6 +27249,8 @@ var DEF={
   step2:{n:"라운드 2단 진열대",s:"2단진열대",w:2200,d:800,h:800,c:"#EDE9E0",k:"step2",inv:1,disp:1,est:false},
   cjRound:{n:"청주 라운드집기",s:"라운드집기",w:1200,d:400,h:900,c:"#A6E3D8",k:"oval3",inv:1,disp:1,est:false},
   cjTable:{n:"청주 테이블",s:"청주테이블",w:1600,d:600,h:600,c:"#EEF4F2",k:"ctbl",inv:1,disp:1,est:false},
+  cjCubeW:{n:"청주 큐브 (화이트)",s:"큐브(화이트)",w:500,d:500,h:500,c:"#F4F5F4",k:"cube",col:0xf7f8f8,inv:1,disp:1,est:false},
+  cjCubeM:{n:"청주 큐브 (민트)",s:"큐브(민트)",w:500,d:500,h:500,c:"#8FDCCC",k:"cube",col:0x8fdccc,inv:1,disp:1,est:false},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
   pedestal:{n:"원형 집기",s:"원형집기",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,disp:4,est:true}
@@ -27596,12 +27598,12 @@ window.fpAuto=function(quiet){
   }
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
-  var pri=["counter","logoTbl","step2","cjRound","cjTable"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
+  var pri=["counter","logoTbl","step2","cjRound","cjTable","cjCubeW","cjCubeM"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
   pri.forEach(function(t){if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
   want.forEach(function(t){if(rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}else drop[t]=(drop[t]||0)+1;});
-  var ord=["curveL","logoTbl","step2","cjRound","cjTable"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","curveR"]);
+  var ord=["curveL","logoTbl","step2","cjRound","cjCubeW","cjTable","cjCubeM"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
   var midZ=backEdge+900+midD/2;
@@ -28478,14 +28480,15 @@ function buildItem(it,bad){
     var lb=mkPrism(g,roundFront(L2+ins,T2+ins,R2-ins,B2-ins,Math.min(0.30,d*0.35)),bs,0x60a5fa);lb.material.emissive=new THREE.Color(0x2563eb);
     mkPrism(g,roundFront(L2,T2,R2,B2,Math.min(0.32,d*0.4)),hl-bs,WH).position.y=bs;
     mkPrism(g,roundFront(L2+0.04,T2,R2-0.04,T2+du,Math.min(0.22,du*0.5)),h-bs,0xf7f6f2).position.y=bs;
+  }else if(c.k==="cube"){
+    mk(g,w,h,d,0,h/2,0,c.col||WH);                                  /* 청주 큐브(2026-10-21 영업2팀, 500×500×500 화이트·민트) */
   }else if(c.k==="ctbl"){
     /* 청주 테이블(2026-10-21 영업2팀 사진·실물 사진, 1600×600×600) — 왼쪽 40%는 민트 아크릴: 윗면 살대는 좌우로(앞·뒤·왼쪽 테두리 띠),
-       흰 상판과 만나는 곳에 세로 살대 칸막이 판(바닥까지), 그 아래 앞쪽은 비어 있고 왼쪽 끝은 흰 받침이 받친다.
+       흰 상판과 만나는 곳에 세로 살대 칸막이 판(바닥까지), 그 아래는 비어 있다(왼쪽 끝 아래 흰 큐브는 따로 있는 집기 cjCubeW).
        오른쪽 60%는 두꺼운 흰 상판(약 90) + 가운데쯤 앞뒤로 긴 흰 다리 판 하나(가로대 없음) */
     var CW=0xf7f8f8,MT=0x8fdccc,tt=Math.min(0.09,h*0.15),mL=w*0.4,x0=-w/2,xm=x0+mL,sw=0.02,sg=0.015,fb=0.04,ft=0.018,pw=0.04;
     mk(g,w-mL,tt,d,xm+(w-mL)/2,h-tt/2,0,CW);                                     /* 흰 상판 */
     mk(g,0.1,h-tt,d-0.1,xm+(w-mL)*0.51,(h-tt)/2,0,CW);                           /* 흰 다리 판 */
-    var bw=Math.min(0.3,mL*0.45);mk(g,bw,h-fb,d-0.08,x0+bw/2+0.02,(h-fb)/2,0,CW);  /* 왼쪽 흰 받침 */
     [-1,1].forEach(function(b){mk(g,mL-pw,fb,ft,x0+(mL-pw)/2,h-fb/2,b*(d/2-ft/2),MT);});   /* 앞·뒤 테두리 띠 */
     mk(g,ft,fb,d,x0+ft/2,h-fb/2,0,MT);                                           /* 왼쪽 테두리 띠 */
     for(var sz=-d/2+ft+sg+sw/2;sz<d/2-ft-sw/2+1e-6;sz+=sw+sg)mk(g,mL-pw-ft,sw,sw,x0+ft+(mL-pw-ft)/2,h-sw/2,sz,MT);   /* 윗면 살대(좌우로) */
@@ -28904,6 +28907,8 @@ var DEF={
   step2:{n:"라운드 2단 진열대",s:"2단진열대",w:2200,d:800,h:800,c:"#EDE9E0",k:"step2",inv:1,disp:1,est:false},
   cjRound:{n:"청주 라운드집기",s:"라운드집기",w:1200,d:400,h:900,c:"#A6E3D8",k:"oval3",inv:1,disp:1,est:false},
   cjTable:{n:"청주 테이블",s:"청주테이블",w:1600,d:600,h:600,c:"#EEF4F2",k:"ctbl",inv:1,disp:1,est:false},
+  cjCubeW:{n:"청주 큐브 (화이트)",s:"큐브(화이트)",w:500,d:500,h:500,c:"#F4F5F4",k:"cube",col:0xf7f8f8,inv:1,disp:1,est:false},
+  cjCubeM:{n:"청주 큐브 (민트)",s:"큐브(민트)",w:500,d:500,h:500,c:"#8FDCCC",k:"cube",col:0x8fdccc,inv:1,disp:1,est:false},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
   pedestal:{n:"원형 집기",s:"원형집기",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,disp:4,est:true}
@@ -29251,12 +29256,12 @@ window.fp2Auto=function(quiet){
   }
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
-  var pri=["counter","logoTbl","step2","cjRound","cjTable"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
+  var pri=["counter","logoTbl","step2","cjRound","cjTable","cjCubeW","cjCubeM"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
   pri.forEach(function(t){if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
   want.forEach(function(t){if(rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}else drop[t]=(drop[t]||0)+1;});
-  var ord=["curveL","logoTbl","step2","cjRound","cjTable"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","curveR"]);
+  var ord=["curveL","logoTbl","step2","cjRound","cjCubeW","cjTable","cjCubeM"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
   var midZ=backEdge+900+midD/2;
@@ -30133,14 +30138,15 @@ function buildItem(it,bad){
     var lb=mkPrism(g,roundFront(L2+ins,T2+ins,R2-ins,B2-ins,Math.min(0.30,d*0.35)),bs,0x60a5fa);lb.material.emissive=new THREE.Color(0x2563eb);
     mkPrism(g,roundFront(L2,T2,R2,B2,Math.min(0.32,d*0.4)),hl-bs,WH).position.y=bs;
     mkPrism(g,roundFront(L2+0.04,T2,R2-0.04,T2+du,Math.min(0.22,du*0.5)),h-bs,0xf7f6f2).position.y=bs;
+  }else if(c.k==="cube"){
+    mk(g,w,h,d,0,h/2,0,c.col||WH);                                  /* 청주 큐브(2026-10-21 영업2팀, 500×500×500 화이트·민트) */
   }else if(c.k==="ctbl"){
     /* 청주 테이블(2026-10-21 영업2팀 사진·실물 사진, 1600×600×600) — 왼쪽 40%는 민트 아크릴: 윗면 살대는 좌우로(앞·뒤·왼쪽 테두리 띠),
-       흰 상판과 만나는 곳에 세로 살대 칸막이 판(바닥까지), 그 아래 앞쪽은 비어 있고 왼쪽 끝은 흰 받침이 받친다.
+       흰 상판과 만나는 곳에 세로 살대 칸막이 판(바닥까지), 그 아래는 비어 있다(왼쪽 끝 아래 흰 큐브는 따로 있는 집기 cjCubeW).
        오른쪽 60%는 두꺼운 흰 상판(약 90) + 가운데쯤 앞뒤로 긴 흰 다리 판 하나(가로대 없음) */
     var CW=0xf7f8f8,MT=0x8fdccc,tt=Math.min(0.09,h*0.15),mL=w*0.4,x0=-w/2,xm=x0+mL,sw=0.02,sg=0.015,fb=0.04,ft=0.018,pw=0.04;
     mk(g,w-mL,tt,d,xm+(w-mL)/2,h-tt/2,0,CW);                                     /* 흰 상판 */
     mk(g,0.1,h-tt,d-0.1,xm+(w-mL)*0.51,(h-tt)/2,0,CW);                           /* 흰 다리 판 */
-    var bw=Math.min(0.3,mL*0.45);mk(g,bw,h-fb,d-0.08,x0+bw/2+0.02,(h-fb)/2,0,CW);  /* 왼쪽 흰 받침 */
     [-1,1].forEach(function(b){mk(g,mL-pw,fb,ft,x0+(mL-pw)/2,h-fb/2,b*(d/2-ft/2),MT);});   /* 앞·뒤 테두리 띠 */
     mk(g,ft,fb,d,x0+ft/2,h-fb/2,0,MT);                                           /* 왼쪽 테두리 띠 */
     for(var sz=-d/2+ft+sg+sw/2;sz<d/2-ft-sw/2+1e-6;sz+=sw+sg)mk(g,mL-pw-ft,sw,sw,x0+ft+(mL-pw-ft)/2,h-sw/2,sz,MT);   /* 윗면 살대(좌우로) */
