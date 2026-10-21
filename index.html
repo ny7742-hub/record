@@ -9728,6 +9728,7 @@ function _lrSoldFromSS(store,start,end){
       var st=M.stores[sc];if(!st)return;
       var dd=st.d&&st.d[day];if(!dd)return;
       out.found=true;out.stores[st.name]=1;
+      (out.days||(out.days={}))[d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")]=1;
       Object.keys(dd).forEach(function(k){out.amt+=Number(dd[k][1])||0;});
       var lb=st.lb2&&st.lb2[day];
       if(lb){out.n0+=lb[0];out.n1+=lb[1];out.n15+=lb[2];out.gift+=lb[3];return;}
@@ -9805,8 +9806,20 @@ function lrAutoFillSales(){
     +" · 할인판매(할인 30% 이하) "+(ss.n0+ss.n1).toLocaleString()+"개 · 균일가판매(31% 이상) "+ss.n15.toLocaleString()+"개"
     +(ss.unk?" · 할인율 모름 "+ss.unk.toLocaleString()+"개":"")+(ss.est?" (할인율 칸 없이 올린 예전 자료 "+ss.est.toLocaleString()+"개는 TAG가로 어림)":""));
   else lines.push("⚠ 판매수량: 판매일보에서 '"+store+"' 매장의 해당 기간 자료를 찾지 못했습니다 — 직접 입력하고 공제율을 고르세요");
+  /* 판매일보가 기간 일부만 있으면(2026-10-22 영업2팀 — 동부산 5/1~9/30인데 9월 24일치만 있어 285개로 나왔다) 빠진 달을 알린다 */
+  var gap=[];
+  if(ss.found){
+    var per={};
+    for(var d=new Date(d0);d<=d1;d.setDate(d.getDate()+1)){
+      var ym=(d.getMonth()+1)+"월",k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      var p=per[ym]||(per[ym]={n:0,h:0});p.n++;if(ss.days&&ss.days[k])p.h++;
+    }
+    Object.keys(per).forEach(function(ym){if(per[ym].h<per[ym].n)gap.push(ym+" "+per[ym].h+"/"+per[ym].n+"일");});
+    if(gap.length)lines.push("⚠ 판매일보가 기간 일부만 있습니다("+gap.join(" · ")+") — 판매수량이 적게 잡혔습니다. 빠진 기간의 매장판매일보를 📤 판매일보로 올려 주세요");
+  }
   msg.innerHTML=lines.map(_esc).join("<br>");
-  msg.style.color=ss.found?"#047857":"#dc2626";
+  msg.style.color=!ss.found?"#dc2626":gap.length?"#b45309":"#047857";
+  var qe=document.getElementById("lrQty");if(qe)qe.style.background=ss.found&&gap.length?"#fffbeb":"";
 }
 /* 로스 세부내역 머리줄(상품명 열이 있는 줄) → 열 번호. 엑셀 업로드·붙여넣기가 같이 쓴다 */
 function _lrHeaderOf(row){
