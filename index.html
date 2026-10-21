@@ -27251,6 +27251,7 @@ var DEF={
   cjTable:{n:"청주 테이블",s:"청주테이블",w:1600,d:600,h:600,c:"#EEF4F2",k:"ctbl",inv:1,disp:1,est:false},
   cjCubeW:{n:"청주 큐브 (화이트)",s:"큐브(화이트)",w:500,d:500,h:500,c:"#F4F5F4",k:"cube",col:0xf7f8f8,inv:1,disp:1,est:false},
   cjCubeM:{n:"청주 큐브 (민트)",s:"큐브(민트)",w:500,d:500,h:500,c:"#8FDCCC",k:"cube",col:0x8fdccc,inv:1,disp:1,est:false},
+  cjCounter:{n:"청주 카운터",s:"청주카운터",w:1000,d:600,h:1000,c:"#A6E3D8",k:"ccounter",inv:1,disp:1,est:false},
   cj3Acr:{n:"청주 3단 아크릴 집기",s:"3단아크릴",w:3370,d:1000,h:800,c:"#8FDCCC",k:"acr3",inv:1,disp:1,est:false},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
@@ -27601,14 +27602,14 @@ window.fpAuto=function(quiet){
   }
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
-  var pri=["counter","logoTbl","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
+  var pri=["counter","cjCounter","logoTbl","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
   var tuck=enabled("cjTable")&&dispOf("cjTable")>0?["cjCubeW","cjCubeM"].filter(function(t){return enabled(t)&&dispOf(t)>0;}):[];
   var TW=function(t){return CAT[t].w+(t==="cjTable"&&tuck.indexOf("cjCubeM")>=0?100:0);};   /* 민트 큐브가 테이블 오른쪽 끝에서 100 나온다 */
   pri.forEach(function(t){if(tuck.indexOf(t)>=0)return;if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
   want.forEach(function(t){if(rowW+TW(t)<=avail){keep.push(t);rowW+=TW(t);}else{drop[t]=(drop[t]||0)+1;if(t==="cjTable")tuck.forEach(function(k){drop[k]=(drop[k]||0)+1;});}});
-  var ord=["curveL","logoTbl","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","curveR"]);
+  var ord=["curveL","logoTbl","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
   var midZ=backEdge+900+midD/2;
@@ -28053,6 +28054,17 @@ window.fpDel=function(){
   var it=findItem(ST.sel);if(!it)return;
   ST.items=ST.items.filter(function(o){return o.id!==it.id;});ST.sel=null;changed();
 };
+/* 공간 밖 집기 빼기(2026-10-21 영업2팀 "3D보기 공간 밖에 나온 거울 삭제") — 공간 테두리 밖이거나 막힌 칸에 걸친 집기(problems의 oob와 같은 기준)를 확인 뒤 평면도에서 뺀다.
+   3D 보기는 보기만이라 거기서 못 고르고, 평면도 밖이라 눌러 고르기도 어렵다 */
+window.fpOobDel=function(){
+  var out=ST.items.filter(function(it){var a=rectOf(it);return a.x0<-0.5||a.z0<-0.5||a.x1>ST.W+0.5||a.z1>ST.D+0.5||itemHitBlock(it);});
+  if(!out.length){msg("공간 밖으로 나간 집기가 없습니다.");return;}
+  var names=out.map(function(it){return (CAT[it.t]||{}).n||it.t;});
+  if(!confirm("공간 밖(또는 막힌 칸)에 놓인 집기 "+out.length+"개를 평면도에서 뺍니다.\n\n"+names.join(", ")+"\n\n계속할까요?"))return;
+  var ids={};out.forEach(function(it){ids[it.id]=1;});
+  ST.items=ST.items.filter(function(it){return !ids[it.id];});if(ST.sel&&ids[ST.sel])ST.sel=null;
+  changed();msg("공간 밖 집기 "+out.length+"개를 뺐습니다 — "+names.join(", "));
+};
 window.fpSetPos=function(axis,v){
   var it=findItem(ST.sel);if(!it)return;
   var n=parseFloat(v);if(isNaN(n))return;
@@ -28061,7 +28073,7 @@ window.fpSetPos=function(axis,v){
 function renderSel(){
   var el=$("fpSel");if(!el)return;
   var it=findItem(ST.sel);
-  if(!it){el.innerHTML='<div style="font-size:12.5px;color:#5b6675">집기를 누르면 회전·복제·삭제와 위치 입력이 나옵니다. 평면도나 3D에서 끌어 옮기세요.</div>';return;}
+  if(!it){el.innerHTML='<div style="font-size:12.5px;color:#5b6675">집기를 누르면 회전·복제·삭제와 위치 입력이 나옵니다. 평면도에서 끌어 옮기세요(3D는 보기만).</div>';return;}
   var c=CAT[it.t],bt='padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer';
   var inp='width:76px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px';
   el.innerHTML='<div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">'+esc(c.n)+' <span style="font-weight:400;color:#5b6675">'+c.w+'×'+c.d+'×'+c.h+' mm</span></div>'
@@ -28115,7 +28127,7 @@ function renderSum(){
     +'<button onclick="fpAuto()" style="padding:5px 14px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🪄 체크한 집기로 자동 진열</button>'
     +'<button onclick="fpAllUse(true)" style="padding:5px 12px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">☑ 전체 선택</button>'
     +'<button onclick="fpAllUse(false)" style="padding:5px 12px;background:#fff;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">☐ 전체 해제</button></div>';
-  if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:6px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'공간 밖으로 나간 집기 '+pr.oob+'개':'')+'</div>';
+  if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:6px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'공간 밖으로 나간 집기 '+pr.oob+'개 <button onclick="fpOobDel()" title="공간 밖·막힌 칸에 놓인 집기를 평면도에서 뺍니다(확인창)" style="margin-left:6px;padding:2px 9px;border:1px solid #fca5a5;background:#fef2f2;color:#b91c1c;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer">🗑 공간 밖 집기 빼기</button>':'')+'</div>';
   h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;width:100%"><thead><tr style="background:#f1f5f9;color:#334155">'
     +'<th style="padding:5px 8px" title="평면도에 쓰기">쓰기</th><th style="padding:5px 8px"></th><th style="padding:5px 8px;text-align:left;width:1%">집기</th><th style="padding:5px 8px;text-align:center;width:40%" title="평면도에 바로 하나 넣기 — 표의 남는 폭을 이 칸이 다 가져가 버튼이 집기와 사이즈 사이 가운데에 온다(집기 칸은 이름 폭만, 2026-10-21)">넣기</th><th style="padding:5px 8px;text-align:left">사이즈 (mm)</th><th style="padding:5px 8px;text-align:right">보유</th><th style="padding:5px 8px;text-align:right;color:#4f46e5" title="자동 진열이 놓을 개수">진열</th><th style="padding:5px 8px;text-align:right">배치</th><th style="padding:5px 8px" title="지우기"></th></tr></thead><tbody>'
     +rows+'<tr><td></td><td></td><td style="padding:6px 8px;font-weight:700" colspan="3">합계 (체크한 집기)</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+own+'</td><td style="padding:6px 8px;text-align:right;font-weight:700;color:#4f46e5">'+wantSum+'</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+tot+'</td><td></td></tr></tbody></table></div>'
@@ -28485,6 +28497,14 @@ function buildItem(it,bad){
     var lb=mkPrism(g,roundFront(L2+ins,T2+ins,R2-ins,B2-ins,Math.min(0.30,d*0.35)),bs,0x60a5fa);lb.material.emissive=new THREE.Color(0x2563eb);
     mkPrism(g,roundFront(L2,T2,R2,B2,Math.min(0.32,d*0.4)),hl-bs,WH).position.y=bs;
     mkPrism(g,roundFront(L2+0.04,T2,R2-0.04,T2+du,Math.min(0.22,du*0.5)),h-bs,0xf7f6f2).position.y=bs;
+  }else if(c.k==="ccounter"){
+    /* 청주 카운터(2026-10-21 영업2팀 도면·렌더, 1000×600×1000) — 민트 상자, 앞면 위쪽 왼편에 흰 W 로고 */
+    mk(g,w,h,d,0,h/2,0,0xa6e3d8);
+    var lc=document.createElement("canvas");lc.width=lc.height=256;var lx=lc.getContext("2d");
+    lx.fillStyle="#fff";lx.strokeStyle="#fff";lx.font="italic 900 200px Georgia, 'Times New Roman', serif";lx.textAlign="center";lx.textBaseline="middle";lx.fillText("W",140,146);
+    lx.lineWidth=16;lx.lineCap="round";lx.beginPath();lx.arc(62,78,40,Math.PI*0.95,Math.PI*1.95);lx.stroke();   /* 앞의 고리(WS 모노그램 느낌) */
+    var ls=Math.min(w,h)*0.26,lo=new THREE.Mesh(new THREE.PlaneGeometry(ls,ls),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(lc),transparent:true}));
+    lo.position.set(-w*0.14,h*0.68,d/2+0.002);g.add(lo);
   }else if(c.k==="acr3"){
     /* 청주 3단 아크릴 집기 — 모듈마다 흰 바닥 판(스타디움) · 세로 골이 진 민트 아크릴 판 · 짙은 청록 반투명 아크릴 상판, 가운데 모듈 양끝에 흰 기둥.
        크기를 바꾸면 통째로 늘린다(기본 3370 × 1000 × 800) */
@@ -28930,6 +28950,7 @@ var DEF={
   cjTable:{n:"청주 테이블",s:"청주테이블",w:1600,d:600,h:600,c:"#EEF4F2",k:"ctbl",inv:1,disp:1,est:false},
   cjCubeW:{n:"청주 큐브 (화이트)",s:"큐브(화이트)",w:500,d:500,h:500,c:"#F4F5F4",k:"cube",col:0xf7f8f8,inv:1,disp:1,est:false},
   cjCubeM:{n:"청주 큐브 (민트)",s:"큐브(민트)",w:500,d:500,h:500,c:"#8FDCCC",k:"cube",col:0x8fdccc,inv:1,disp:1,est:false},
+  cjCounter:{n:"청주 카운터",s:"청주카운터",w:1000,d:600,h:1000,c:"#A6E3D8",k:"ccounter",inv:1,disp:1,est:false},
   cj3Acr:{n:"청주 3단 아크릴 집기",s:"3단아크릴",w:3370,d:1000,h:800,c:"#8FDCCC",k:"acr3",inv:1,disp:1,est:false},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
@@ -29280,14 +29301,14 @@ window.fp2Auto=function(quiet){
   }
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
-  var pri=["counter","logoTbl","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
+  var pri=["counter","cjCounter","logoTbl","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
   var tuck=enabled("cjTable")&&dispOf("cjTable")>0?["cjCubeW","cjCubeM"].filter(function(t){return enabled(t)&&dispOf(t)>0;}):[];
   var TW=function(t){return CAT[t].w+(t==="cjTable"&&tuck.indexOf("cjCubeM")>=0?100:0);};   /* 민트 큐브가 테이블 오른쪽 끝에서 100 나온다 */
   pri.forEach(function(t){if(tuck.indexOf(t)>=0)return;if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
   want.forEach(function(t){if(rowW+TW(t)<=avail){keep.push(t);rowW+=TW(t);}else{drop[t]=(drop[t]||0)+1;if(t==="cjTable")tuck.forEach(function(k){drop[k]=(drop[k]||0)+1;});}});
-  var ord=["curveL","logoTbl","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","curveR"]);
+  var ord=["curveL","logoTbl","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
   var midZ=backEdge+900+midD/2;
@@ -29732,6 +29753,17 @@ window.fp2Del=function(){
   var it=findItem(ST.sel);if(!it)return;
   ST.items=ST.items.filter(function(o){return o.id!==it.id;});ST.sel=null;changed();
 };
+/* 공간 밖 집기 빼기(2026-10-21 영업2팀 "3D보기 공간 밖에 나온 거울 삭제") — 공간 테두리 밖이거나 막힌 칸에 걸친 집기(problems의 oob와 같은 기준)를 확인 뒤 평면도에서 뺀다.
+   3D 보기는 보기만이라 거기서 못 고르고, 평면도 밖이라 눌러 고르기도 어렵다 */
+window.fp2OobDel=function(){
+  var out=ST.items.filter(function(it){var a=rectOf(it);return a.x0<-0.5||a.z0<-0.5||a.x1>ST.W+0.5||a.z1>ST.D+0.5||itemHitBlock(it);});
+  if(!out.length){msg("공간 밖으로 나간 집기가 없습니다.");return;}
+  var names=out.map(function(it){return (CAT[it.t]||{}).n||it.t;});
+  if(!confirm("공간 밖(또는 막힌 칸)에 놓인 집기 "+out.length+"개를 평면도에서 뺍니다.\n\n"+names.join(", ")+"\n\n계속할까요?"))return;
+  var ids={};out.forEach(function(it){ids[it.id]=1;});
+  ST.items=ST.items.filter(function(it){return !ids[it.id];});if(ST.sel&&ids[ST.sel])ST.sel=null;
+  changed();msg("공간 밖 집기 "+out.length+"개를 뺐습니다 — "+names.join(", "));
+};
 window.fp2SetPos=function(axis,v){
   var it=findItem(ST.sel);if(!it)return;
   var n=parseFloat(v);if(isNaN(n))return;
@@ -29740,7 +29772,7 @@ window.fp2SetPos=function(axis,v){
 function renderSel(){
   var el=$("fp2Sel");if(!el)return;
   var it=findItem(ST.sel);
-  if(!it){el.innerHTML='<div style="font-size:12.5px;color:#5b6675">집기를 누르면 회전·복제·삭제와 위치 입력이 나옵니다. 평면도나 3D에서 끌어 옮기세요.</div>';return;}
+  if(!it){el.innerHTML='<div style="font-size:12.5px;color:#5b6675">집기를 누르면 회전·복제·삭제와 위치 입력이 나옵니다. 평면도에서 끌어 옮기세요(3D는 보기만).</div>';return;}
   var c=CAT[it.t],bt='padding:5px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer';
   var inp='width:76px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px';
   el.innerHTML='<div style="font-size:13px;font-weight:700;color:#154f5e;margin-bottom:6px">'+esc(c.n)+' <span style="font-weight:400;color:#5b6675">'+c.w+'×'+c.d+'×'+c.h+' mm</span></div>'
@@ -29794,7 +29826,7 @@ function renderSum(){
     +'<button onclick="fp2Auto()" style="padding:5px 14px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">🪄 체크한 집기로 자동 진열</button>'
     +'<button onclick="fp2AllUse(true)" style="padding:5px 12px;background:#f8fafc;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">☑ 전체 선택</button>'
     +'<button onclick="fp2AllUse(false)" style="padding:5px 12px;background:#fff;color:#b91c1c;border:1px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">☐ 전체 해제</button></div>';
-  if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:6px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'공간 밖으로 나간 집기 '+pr.oob+'개':'')+'</div>';
+  if(pr.over||pr.oob)h+='<div style="font-size:12.5px;color:#9a3412;font-weight:700;margin-bottom:6px">⚠ '+(pr.over?'겹친 집기 '+pr.over+'쌍':'')+(pr.over&&pr.oob?' · ':'')+(pr.oob?'공간 밖으로 나간 집기 '+pr.oob+'개 <button onclick="fp2OobDel()" title="공간 밖·막힌 칸에 놓인 집기를 평면도에서 뺍니다(확인창)" style="margin-left:6px;padding:2px 9px;border:1px solid #fca5a5;background:#fef2f2;color:#b91c1c;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer">🗑 공간 밖 집기 빼기</button>':'')+'</div>';
   h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:13px;width:100%"><thead><tr style="background:#f1f5f9;color:#334155">'
     +'<th style="padding:5px 8px" title="평면도에 쓰기">쓰기</th><th style="padding:5px 8px"></th><th style="padding:5px 8px;text-align:left;width:1%">집기</th><th style="padding:5px 8px;text-align:center;width:40%" title="평면도에 바로 하나 넣기 — 표의 남는 폭을 이 칸이 다 가져가 버튼이 집기와 사이즈 사이 가운데에 온다(집기 칸은 이름 폭만, 2026-10-21)">넣기</th><th style="padding:5px 8px;text-align:left">사이즈 (mm)</th><th style="padding:5px 8px;text-align:right">보유</th><th style="padding:5px 8px;text-align:right;color:#4f46e5" title="자동 진열이 놓을 개수">진열</th><th style="padding:5px 8px;text-align:right">배치</th><th style="padding:5px 8px" title="지우기"></th></tr></thead><tbody>'
     +rows+'<tr><td></td><td></td><td style="padding:6px 8px;font-weight:700" colspan="3">합계 (체크한 집기)</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+own+'</td><td style="padding:6px 8px;text-align:right;font-weight:700;color:#4f46e5">'+wantSum+'</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+tot+'</td><td></td></tr></tbody></table></div>'
@@ -30164,6 +30196,14 @@ function buildItem(it,bad){
     var lb=mkPrism(g,roundFront(L2+ins,T2+ins,R2-ins,B2-ins,Math.min(0.30,d*0.35)),bs,0x60a5fa);lb.material.emissive=new THREE.Color(0x2563eb);
     mkPrism(g,roundFront(L2,T2,R2,B2,Math.min(0.32,d*0.4)),hl-bs,WH).position.y=bs;
     mkPrism(g,roundFront(L2+0.04,T2,R2-0.04,T2+du,Math.min(0.22,du*0.5)),h-bs,0xf7f6f2).position.y=bs;
+  }else if(c.k==="ccounter"){
+    /* 청주 카운터(2026-10-21 영업2팀 도면·렌더, 1000×600×1000) — 민트 상자, 앞면 위쪽 왼편에 흰 W 로고 */
+    mk(g,w,h,d,0,h/2,0,0xa6e3d8);
+    var lc=document.createElement("canvas");lc.width=lc.height=256;var lx=lc.getContext("2d");
+    lx.fillStyle="#fff";lx.strokeStyle="#fff";lx.font="italic 900 200px Georgia, 'Times New Roman', serif";lx.textAlign="center";lx.textBaseline="middle";lx.fillText("W",140,146);
+    lx.lineWidth=16;lx.lineCap="round";lx.beginPath();lx.arc(62,78,40,Math.PI*0.95,Math.PI*1.95);lx.stroke();   /* 앞의 고리(WS 모노그램 느낌) */
+    var ls=Math.min(w,h)*0.26,lo=new THREE.Mesh(new THREE.PlaneGeometry(ls,ls),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(lc),transparent:true}));
+    lo.position.set(-w*0.14,h*0.68,d/2+0.002);g.add(lo);
   }else if(c.k==="acr3"){
     /* 청주 3단 아크릴 집기 — 모듈마다 흰 바닥 판(스타디움) · 세로 골이 진 민트 아크릴 판 · 짙은 청록 반투명 아크릴 상판, 가운데 모듈 양끝에 흰 기둥.
        크기를 바꾸면 통째로 늘린다(기본 3370 × 1000 × 800) */
