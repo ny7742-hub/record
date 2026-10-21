@@ -860,7 +860,7 @@ label{font-size:14px!important}
       <div class="au-item" id="auProd" data-kind="prod"></div>
     </div>
     <input type="file" id="auWhIn" accept=".xlsx,.xls" style="display:none" onchange="auPick('wh',this)"/>
-    <input type="file" id="auSalesIn" accept=".xlsx,.xls" style="display:none" onchange="auPick('sales',this)"/>
+    <input type="file" id="auSalesIn" accept=".xlsx,.xls" multiple style="display:none" onchange="auPick('sales',this)"/>
     <input type="file" id="auSiIn" accept=".xlsx,.xls" style="display:none" onchange="auPick('si',this)"/>
     <input type="file" id="auProdIn" accept=".xlsx,.xls" style="display:none" onchange="auPick('prod',this)"/>
   </div>
@@ -7955,12 +7955,14 @@ function extLoadFile(input){
   salesIngestFile(f);
 }
 /* 매장판매일보 올리기 — 채널 일자 매출(extSales) + 매장·상품별 집계(storeSales, 백화점 탭 대비매출·베스트) */
-function salesIngestFile(f){
+function salesIngestFile(f,opts){
+  /* opts = {skipConfirm:bool, onDone:fn(ok), label:string} — 여러 파일 순차 처리용(salesIngestBulk) */
   if(!f)return;
-  if(!/\.(xlsx|xls)$/i.test(f.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");return;}
+  if(!/\.(xlsx|xls)$/i.test(f.name)){alert("엑셀 파일(.xlsx/.xls)만 올릴 수 있습니다.");if(opts&&opts.onDone)opts.onDone(false);return;}
   var auto=!!window.__jarvisAuto;
+  var skipConfirm=!!(opts&&opts.skipConfirm);
   var msg0=document.getElementById("auSalesMsg");
-  if(msg0){msg0.style.color="#b45309";msg0.textContent="읽는 중… 큰 파일은 30초 정도 걸릴 수 있습니다";}
+  if(msg0){msg0.style.color="#b45309";msg0.textContent=(opts&&opts.label?opts.label+" ":"")+"읽는 중… 큰 파일은 30초 정도 걸릴 수 있습니다";}
   var reader=new FileReader();
   reader.onload=function(e){
    /* 엑셀 파싱이 화면을 멈추므로, 위 안내가 먼저 그려지도록 한 번 넘긴 뒤 실행한다 */
@@ -7992,8 +7994,8 @@ function salesIngestFile(f){
         var unit=(ms[0]||"").length>7?"일":"개월";
         return "  "+c+" : "+ms.length.toLocaleString()+unit+"치 · "+sum.toLocaleString()+"원 ("+ms[0]+" ~ "+ms[ms.length-1]+")";
       });
-      if(!auto&&!confirm("아래 내용으로 등록할까요? (같은 날짜·같은 달은 덮어씁니다)\n올린 날은 이 값을 쓰고, 안 올린 날은 각 탭 실적으로 채웁니다.\n\n"+lines.join("\n")
-        +(res.skip?"\n\n※ 금액이 0이거나 날짜를 못 읽은 "+res.skip.toLocaleString()+"줄은 제외됩니다.":"")))return;
+      if(!auto&&!skipConfirm&&!confirm("아래 내용으로 등록할까요? (같은 날짜·같은 달은 덮어씁니다)\n올린 날은 이 값을 쓰고, 안 올린 날은 각 탭 실적으로 채웁니다.\n\n"+lines.join("\n")
+        +(res.skip?"\n\n※ 금액이 0이거나 날짜를 못 읽은 "+res.skip.toLocaleString()+"줄은 제외됩니다.":""))){if(opts&&opts.onDone)opts.onDone(false);return;}
       chs.forEach(function(c){
         Object.keys(res.map[c]).forEach(function(ym){_extSet(c,ym,res.map[c][ym]);});
       });
@@ -8011,9 +8013,12 @@ function salesIngestFile(f){
       var pgd=document.getElementById("page-dept");if(pgd&&pgd.style.display!=="none")renderDeptAllStores();
       try{renderHomeAll(new Date());}catch(e2){}
       var msg=document.getElementById("auSalesMsg");
-      if(msg){msg.style.color="#15803d";msg.textContent="✔ "+res.rows.toLocaleString()+"줄 반영됨"+(allS?" · 전체 매출 "+allS.chs.length+"구분":"");clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},4000);}
+      if(msg&&!(opts&&opts.skipConfirm)){msg.style.color="#15803d";msg.textContent="✔ "+res.rows.toLocaleString()+"줄 반영됨"+(allS?" · 전체 매출 "+allS.chs.length+"구분":"");clearTimeout(msg._t);msg._t=setTimeout(function(){msg.textContent="";},4000);}
+      if(opts&&opts.onDone)opts.onDone(true);
     }catch(err){
-      alert("파일 오류: "+err.message);
+      if(opts&&opts.skipConfirm){var mg=document.getElementById("auSalesMsg");if(mg)mg.textContent="✖ "+f.name+": "+err.message;}
+      else alert("파일 오류: "+err.message);
+      if(opts&&opts.onDone)opts.onDone(false);
     }finally{
       var mz=document.getElementById("auSalesMsg");
       if(mz&&/읽는 중/.test(mz.textContent)){mz.style.color="";mz.textContent="";}
@@ -8023,6 +8028,27 @@ function salesIngestFile(f){
   reader.readAsArrayBuffer(f);
 }
 
+/* 여러 판매일보 파일 순차 처리(2026-10-22 영업2팀 "25·26년 전체") */
+function salesIngestBulk(files){
+  var arr=Array.from(files).filter(function(f){return /\.(xlsx|xls)$/i.test(f.name);});
+  if(!arr.length)return;
+  if(arr.length===1){salesIngestFile(arr[0]);return;}
+  if(!confirm(arr.length+"개 파일을 순서대로 처리합니다.\n파일마다 확인 창은 생략하고 자동으로 저장합니다.\n\n"+arr.map(function(f,i){return (i+1)+". "+f.name;}).join("\n")))return;
+  var i=0,ok=0,fail=0;
+  var msg=document.getElementById("auSalesMsg");
+  function next(){
+    if(i>=arr.length){
+      if(msg){msg.style.color="#15803d";msg.textContent="✔ "+arr.length+"개 완료 (저장 "+ok+"개"+(fail?", 실패 "+fail+"개":"")+")";}
+      try{if(typeof renderHomeYtd==="function")renderHomeYtd(new Date());}catch(e){}
+      try{renderHomeAll(new Date());}catch(e){}
+      return;
+    }
+    var f=arr[i++];
+    if(msg){msg.style.color="#b45309";msg.textContent="("+i+"/"+arr.length+") "+f.name+" 처리 중…";}
+    salesIngestFile(f,{skipConfirm:true,label:"("+i+"/"+arr.length+")",onDone:function(success){if(success)ok++;else fail++;next();}});
+  }
+  next();
+}
 function renderHomeDashboard(){
   try{renderAutoUpBar();}catch(e){}
   try{renderHomeAll(new Date());}catch(e){}
@@ -12853,9 +12879,10 @@ function auRunNow(){
   return true;
 }
 function auPick(kind,input){
-  var f=input.files&&input.files[0];input.value="";
-  if(!f)return;
-  _auIngest(kind,f);
+  var files=input.files;input.value="";
+  if(!files||!files.length)return;
+  if(kind==="sales"&&files.length>1){salesIngestBulk(files);return;}
+  _auIngest(kind,files[0]);
 }
 function renderAutoUpBar(){
   setTimeout(function(){try{renderAutoPage();}catch(e){}},0);
