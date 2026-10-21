@@ -16449,6 +16449,71 @@ function _hsPreLiveStock(row){
   h+='<div style="font-size:10px;color:#5b6675;text-align:center">PlayMD '+_escX(S.basis)+(dt?' · '+_escX(dt.slice(5,10))+' 기준':'')+'</div></div>';
   return h;
 }
+/* 컬러별 발주수량 = wssales(발주 시스템) 발주 이력 `reorders`(2026-10-21 영업2팀 "wsstudio 생산 현황 보드의 컬러별 발주수량을 가져오게").
+   wsstudio 화면의 컬러별 수량도 이 표에서 온다(wsstudio production.js salesClient — 공개 읽기 전용 키, 자비스에서 쓰는 것은 2026-10-21 사용자 허락).
+   상품명 → 상품코드(_cpFindProduct) → reorders(master_sku = 상품코드, 또는 sku = 상품코드-컬러). 컬러명은 상품코드리스트(칼라코드 → 칼라명).
+   같은 상품을 여러 차수 발주했으면 **일정체크의 상품발주일자와 발주일(ordered_at)이 같은 차수**, 상품발주일자가 비면 가장 최근 차수(2026-10-21 사용자 선택).
+   다른 차수는 아래에 날짜 · 합계로 보이고, 누르면 그 날짜가 상품발주일자가 된다. 이력이 없거나 못 읽으면 null — 예전처럼 손으로 적는 칸.
+   읽은 결과는 상품코드별로 10분 동안 화면에 둔다(_hsPreOrd). */
+var WSSALES_URL="https://canirurjxheqoblvnfzx.supabase.co",WSSALES_KEY="sb_publishable_fCcmfnK_sLBzQYQG4bANTw_mu5NsJK-";
+var _hsPreOrd={};
+function _hsPreOrdFetch(code){
+  var o=_hsPreOrd[code];
+  if(o&&(o.st==="load"||Date.now()-o.at<10*60*1000))return o;
+  o=_hsPreOrd[code]={st:"load",rows:(o&&o.rows)||[],at:Date.now()};
+  var c=encodeURIComponent(code);
+  fetch(WSSALES_URL+"/rest/v1/reorders?select=sku,master_sku,color_code,qty,ordered_at,expected_arrival_at,status&or=(master_sku.eq."+c+",sku.like."+c+"-*)&order=ordered_at.desc",
+    {headers:{apikey:WSSALES_KEY,Authorization:"Bearer "+WSSALES_KEY}})
+    .then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json();})
+    .then(function(d){o.rows=Array.isArray(d)?d:[];o.st="ok";o.at=Date.now();})
+    .catch(function(e){o.st="err";o.err=String(e&&e.message||e);o.at=Date.now();console.warn("wssales 발주 이력 오류",code,e);})
+    .then(function(){
+      /* 표에서 수량을 적는 중이면 다시 그리지 않는다(다음에 그릴 때 나온다) */
+      var a=document.activeElement,w=document.getElementById("hsPreTableWrap");
+      if(a&&w&&w.contains(a)&&/^(INPUT|TEXTAREA)$/.test(a.tagName))return;
+      if(typeof renderHsPre==="function")renderHsPre();
+    });
+  return o;
+}
+function _hsPreMD(d){var m=/^\d{4}-(\d{2})-(\d{2})/.exec(String(d||""));return m?(+m[1])+"/"+(+m[2]):String(d||"");}
+function _hsPreLiveOrder(row,i){
+  var nm=String(row&&row.name||"").trim();if(!nm||typeof _cpFindProduct!=="function")return null;
+  var p=_cpFindProduct(nm);if(!p||p.many||!p.code)return null;
+  var O=_hsPreOrdFetch(p.code);
+  var box=function(head,bg,body){return '<div style="flex:1.4;min-width:148px;display:flex;flex-direction:column;gap:4px">'
+    +'<div style="display:flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:10px;color:#fff;font-size:13px;font-weight:700;white-space:nowrap;background:'+bg+'">'+head+'</div>'+body+'</div>';};
+  if(O.st==="load"&&!O.rows.length)return box("컬러별 발주수량","#7c3aed",'<div style="font-size:11px;color:#5b6675;text-align:center">wssales 발주 이력 불러오는 중…</div>');
+  if(!O.rows.length)return null;
+  var by={};O.rows.forEach(function(r){var k=String(r.ordered_at||"-").slice(0,10);(by[k]=by[k]||[]).push(r);});
+  var dates=Object.keys(by).sort().reverse(),od=String(row.orderDate||"").slice(0,10);
+  var pick=od?(by[od]?od:null):dates[0];
+  var sum=function(rs){return rs.reduce(function(a,r){return a+(Number(r.qty)||0);},0);};
+  var others=dates.filter(function(d){return d!==pick;}).map(function(d){
+    return '<button onclick="hsPreEdit('+i+',\'orderDate\',\''+d+'\');renderHsPre()" title="이 차수를 보려면 누르세요 — 상품발주일자가 '+d+'로 바뀝니다" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;padding:1px 6px;margin:1px 2px;font-size:10.5px;color:#334155;cursor:pointer">'+_hsPreMD(d)+' '+sum(by[d]).toLocaleString()+'</button>';
+  }).join("");
+  if(!pick)return box("컬러별 발주수량","#7c3aed",'<div style="font-size:11px;color:#b45309;text-align:center;line-height:1.5">상품발주일자 '+_escX(_hsPreMD(od))+'에 wssales 발주가 없습니다<br>발주일:</div><div style="text-align:center">'+others+'</div>');
+  /* 컬러명 — 상품코드리스트(칼라코드 → 칼라명) */
+  var names={};(typeof DB!=="undefined"?DB:[]).forEach(function(x){if(String(x["상품코드"]||"").trim()===p.code){var cc=String(x["칼라코드"]||"").trim().toUpperCase();if(cc&&!names[cc])names[cc]=String(x["칼라명"]||"").trim();}});
+  var q={},ccOf=function(r){return String(r.color_code||String(r.sku||"").split("-").slice(1).join("-")||"").trim().toUpperCase();};
+  by[pick].forEach(function(r){var cc=ccOf(r);q[cc]=(q[cc]||0)+(Number(r.qty)||0);});
+  var N=function(x){return String(x||"").replace(/\s/g,"").toLowerCase();},used={},list=[];
+  _hsPreColors(nm).forEach(function(c){
+    var k=N(c),ccs=Object.keys(q).filter(function(cc){var n=N(names[cc]||cc);return !used[cc]&&n&&k&&(n===k||n.indexOf(k)>=0||k.indexOf(n)>=0);});
+    ccs.forEach(function(cc){used[cc]=1;});
+    list.push({c:c,qty:ccs.length?ccs.reduce(function(a,cc){return a+q[cc];},0):null,cc:ccs.join(",")});
+  });
+  Object.keys(q).forEach(function(cc){if(!used[cc])list.push({c:names[cc]||cc,qty:q[cc],cc:cc,extra:true});});
+  var tot=sum(by[pick]),arr=by[pick].map(function(r){return r.expected_arrival_at;}).filter(Boolean).sort().slice(-1)[0];
+  var body=list.map(function(x){
+    var z=x.qty==null;
+    return '<div style="display:flex;align-items:center;gap:4px" title="'+_escX(z?"이 차수에 이 색 발주가 없습니다":p.code+"-"+x.cc+(x.extra?" · 방송관리 컬러에 없는 색":""))+'">'
+      +'<span style="flex:1;min-width:0;font-size:11.5px;color:'+(x.extra?"#5b6675":"#334155")+';font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_esc(x.c)+'</span>'
+      +'<span style="flex:none;min-width:58px;text-align:right;font-size:12px;font-weight:800;color:'+(z?"#5b6675":"#1f2937")+'">'+(z?"–":x.qty.toLocaleString())+'</span></div>';
+  }).join("");
+  body+='<div style="font-size:10px;color:#5b6675;text-align:center;line-height:1.5">wssales 발주 '+_hsPreMD(pick)+(od?'':' (가장 최근)')+(arr?' · 입고예정 '+_hsPreMD(arr):'')+'</div>';
+  if(others)body+='<div style="font-size:10px;color:#5b6675;text-align:center;line-height:1.6">다른 차수 '+others+'</div>';
+  return box("🧾 컬러별 발주수량 "+tot.toLocaleString(),tot?"#16a34a":"#7c3aed",body);
+}
 /* 한 색의 수량만 고쳐 넣는다. 비우면 그 색은 기록에서 뺀다. */
 function hsPreQtySet(i,key,color,val){
   var r=hsPreDB[i];if(!r)return;
@@ -16606,7 +16671,8 @@ function renderHsPre(){
         +' style="border:1px solid #cbd5e1;border-radius:8px;padding:5px 6px;font-size:12px;text-align:center;color:#1f2937;background:#fff">';
       h+='</div>';
       if(!f.qtyKey)return;
-      if(f.qtyKey==="stockQty"){var LS=_hsPreLiveStock(row);if(LS){h+=LS;return;}}   /* 컬러별 재고 = PlayMD(2026-10-21) — 못 찾으면 아래 손으로 적는 칸 */
+      if(f.qtyKey==="stockQty"){var LS=_hsPreLiveStock(row);if(LS){h+=LS;return;}}
+      if(f.qtyKey==="orderQty"){var LO=_hsPreLiveOrder(row,i);if(LO){h+=LO;return;}}   /* 컬러별 발주수량 = wssales 발주 이력(2026-10-21) — 이력이 없으면 아래 손으로 적는 칸 */   /* 컬러별 재고 = PlayMD(2026-10-21) — 못 찾으면 아래 손으로 적는 칸 */
       /* 날짜 바로 뒤 — 컬러별 수량. **색상은 방송관리 `컬러` 칸을 그대로 따라오고 수량만 적는다**(2026-09-23 영업2팀) */
       var cols=_hsPreColors(row.name),qmap={},extra=[];
       _hsPreQtyList(row[f.qtyKey]).forEach(function(x){qmap[x.c]=x.q;if(cols.indexOf(x.c)<0)extra.push(x.c);});
