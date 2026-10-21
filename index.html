@@ -9776,7 +9776,7 @@ function lrAutoFillSales(){
   var d0=new Date(start+"T00:00:00"),d1=new Date(end+"T00:00:00");
   if(isNaN(d0)||isNaN(d1)||d0>d1){if(msg)msg.textContent="";return;}
   var normTarget=_dsNormStoreName(store);
-  var sumEdi=0,sumEdiQ=0,found=false,hasDs=typeof dailySalesDB!=="undefined"&&dailySalesDB.data;
+  var sumEdi=0,sumEdiQ=0,found=false,ediDays={},hasDs=typeof dailySalesDB!=="undefined"&&dailySalesDB.data;
   for(var d=new Date(d0);hasDs&&d<=d1;d.setDate(d.getDate()+1)){
     var mk=d.getFullYear()+"-"+(d.getMonth()+1<10?"0"+(d.getMonth()+1):(d.getMonth()+1));
     var day=d.getDate();
@@ -9785,7 +9785,9 @@ function lrAutoFillSales(){
     Object.keys(md[day]).forEach(function(sn){
       if(_dsNormStoreName(sn)===normTarget){
         found=true;
-        sumEdi+=Number(String(md[day][sn].edi||0).replace(/,/g,""))||0;
+        var _e=Number(String(md[day][sn].edi||0).replace(/,/g,""))||0;
+        if(_e)ediDays[mk+"-"+String(day).padStart(2,"0")]=1;
+        sumEdi+=_e;
         sumEdiQ+=Number(String(md[day][sn].ediQ||0).replace(/,/g,""))||0;
       }
     });
@@ -9806,12 +9808,14 @@ function lrAutoFillSales(){
     +" · 할인판매(할인 30% 이하) "+(ss.n0+ss.n1).toLocaleString()+"개 · 균일가판매(31% 이상) "+ss.n15.toLocaleString()+"개"
     +(ss.unk?" · 할인율 모름 "+ss.unk.toLocaleString()+"개":"")+(ss.est?" (할인율 칸 없이 올린 예전 자료 "+ss.est.toLocaleString()+"개는 TAG가로 어림)":""));
   else lines.push("⚠ 판매수량: 판매일보에서 '"+store+"' 매장의 해당 기간 자료를 찾지 못했습니다 — 직접 입력하고 공제율을 고르세요");
-  /* 판매일보가 기간 일부만 있으면(2026-10-22 영업2팀 — 동부산 5/1~9/30인데 9월 24일치만 있어 285개로 나왔다) 빠진 달을 알린다 */
+  /* 판매일보가 기간 일부만 있으면(2026-10-22 영업2팀 — 동부산 5/1~9/30인데 9월 24일치만 있어 285개로 나왔다) 빠진 달을 알린다.
+     일별매출이 있으면 EDI 매출이 있던 날만 센다(9/25처럼 매출 없는 날은 판매일보에도 줄이 없다) */
   var gap=[];
   if(ss.found){
     var per={};
     for(var d=new Date(d0);d<=d1;d.setDate(d.getDate()+1)){
       var ym=(d.getMonth()+1)+"월",k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      if(found&&!ediDays[k]&&!(ss.days&&ss.days[k]))continue;
       var p=per[ym]||(per[ym]={n:0,h:0});p.n++;if(ss.days&&ss.days[k])p.h++;
     }
     Object.keys(per).forEach(function(ym){if(per[ym].h<per[ym].n)gap.push(ym+" "+per[ym].h+"/"+per[ym].n+"일");});
