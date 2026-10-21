@@ -9577,9 +9577,28 @@ function initLossReportTab(){
   }
   var _rt=document.getElementById("lrRate");if(_rt)_rt.value=(lrDB.rate==="1"||lrDB.rate==="1.5")?lrDB.rate:"auto";
   if(!lrDB.rows.length)lrDB.rows.push({name:"",color:"",qty:"",tag:""});
+  _lrPaintKind();
   lrRenderRows();
   lrRenderSummary();
   lrFillPopupSelect();
+}
+/* 앨리웁용 / 자사용(2026-10-22 영업2팀) — 지금까지의 품의서는 앨리웁용(로스 공제 · 상계처리).
+   자사용은 로스 공제가 없고, 총판매수량은 판매가 0원(증정)을 뺀 판매일보 판매수량. lrDB.kind '' | 'alleyoop' → 앨리웁용, 'own' → 자사용 */
+function _lrOwn(){return lrDB.kind==="own";}
+function lrSetKind(k){
+  lrDB.kind=k==="own"?"own":"alleyoop";
+  lrSave();_lrPaintKind();lrRenderSummary();lrAutoFillSales();
+}
+function _lrPaintKind(){
+  var own=_lrOwn();
+  [["alleyoop",!own],["own",own]].forEach(function(x){
+    var b=document.getElementById("lrKind_"+x[0]);if(!b)return;
+    b.style.background=x[1]?"#1b6e82":"#fff";b.style.color=x[1]?"#fff":"#1b6e82";b.style.border="1.5px solid #1b6e82";
+  });
+  var h=document.getElementById("lrKindHint");if(h)h.textContent=own?"로스 공제 없음 · 판매수량은 판매가 0원 제외":"로스 공제 · 상계처리";
+  var rw=document.getElementById("lrRateWrap");if(rw)rw.style.display=own?"none":"";
+  var pw=document.getElementById("lrPartnerWrap");if(pw)pw.style.display=own?"none":"";
+  var ql=document.getElementById("lrQtyLabel");if(ql)ql.textContent=own?"총판매수량(개) — 판매일보 기준, 판매가 0원 제외":"총판매수량(개) — 판매일보 기준, 증정(0원) 제외";
 }
 function lrFillPopupSelect(){
   var sel=document.getElementById("lrPopupSel");if(!sel)return;
@@ -9781,7 +9800,8 @@ function lrAutoFillSales(){
   lrSave();lrRenderSummary();
   if(!msg)return;
   lines.push(found?"✔ 총매출: 매장별 일별매출 "+sumEdi.toLocaleString()+"원":ss.found?"✔ 총매출: 일별매출이 없어 판매일보 판매금액 "+Math.round(ss.amt).toLocaleString()+"원":"⚠ 총매출: 일별매출·판매일보에서 찾지 못했습니다 — 직접 입력하세요");
-  if(ss.found)lines.push("✔ 판매수량: 판매일보("+Object.keys(ss.stores).join(", ")+") "+ss.sold.toLocaleString()+"개 — 증정(0원·할인 100%) "+ss.gift.toLocaleString()+"개 제외"
+  if(ss.found&&_lrOwn())lines.push("✔ 판매수량: 판매일보("+Object.keys(ss.stores).join(", ")+") "+ss.sold.toLocaleString()+"개 — 판매가 0원 "+ss.gift.toLocaleString()+"개 제외");
+  else if(ss.found)lines.push("✔ 판매수량: 판매일보("+Object.keys(ss.stores).join(", ")+") "+ss.sold.toLocaleString()+"개 — 증정(0원·할인 100%) "+ss.gift.toLocaleString()+"개 제외"
     +" · 할인판매(할인 30% 이하) "+(ss.n0+ss.n1).toLocaleString()+"개 · 균일가판매(31% 이상) "+ss.n15.toLocaleString()+"개"
     +(ss.unk?" · 할인율 모름 "+ss.unk.toLocaleString()+"개":"")+(ss.est?" (할인율 칸 없이 올린 예전 자료 "+ss.est.toLocaleString()+"개는 TAG가로 어림)":""));
   else lines.push("⚠ 판매수량: 판매일보에서 '"+store+"' 매장의 해당 기간 자료를 찾지 못했습니다 — 직접 입력하고 공제율을 고르세요");
@@ -10069,6 +10089,15 @@ function lrRenderSummary(){
   var c=_lrCalc(sumQty,sumAmt);
   /* 표 맨 아래 — 합계 · 로스 공제 · 공제 후 로스 금액(2026-10-07 영업2팀 "감면 후 로스금액을 표에" → 같은 날 '공제'로 이름 바꿈) */
   var ft=document.getElementById("lrFoot");
+  /* 자사용 — 공제 없이 합계와 로스 금액만 */
+  if(_lrOwn()){
+    var tdl0='style="text-align:right;font-weight:700;padding:7px 8px;border-top:1px solid #e5e7eb"',tdv0='style="text-align:right;font-weight:800;padding:7px 8px;border-top:1px solid #e5e7eb;white-space:nowrap"';
+    if(ft)ft.innerHTML='<tr style="background:#ecfdf5;color:#047857"><td></td><td colspan="2" '+tdl0+'>합계</td><td '+tdl0+'>'+sumQty.toLocaleString()+'</td><td></td><td></td><td '+tdv0+'>'+sumAmt.toLocaleString()+'원</td><td></td></tr>';
+    if(el)el.innerHTML="실 로스 발생 수량 "+c.lq.toLocaleString()+"개 · 최종 로스 금액 "+c.la.toLocaleString()+"원"
+      +'<div style="margin-top:4px;font-weight:600;color:#334155">자사용 — 로스 공제 없음</div>'
+      +(!c.sold?'<div style="color:#b45309;font-weight:600">⚠ 총판매수량(판매가 0원 제외)을 넣어 주세요</div>':'');
+    return;
+  }
   if(ft){
     var tdl='style="text-align:right;font-weight:700;padding:7px 8px;border-top:1px solid #e5e7eb"',tdv='style="text-align:right;font-weight:800;padding:7px 8px;border-top:1px solid #e5e7eb;white-space:nowrap"';
     ft.innerHTML='<tr><td></td><td colspan="2" '+tdl+'>합계</td><td '+tdl+'>'+sumQty.toLocaleString()+'</td><td></td><td></td><td '+tdv+'>'+sumAmt.toLocaleString()+'원</td><td></td></tr>'
@@ -10084,7 +10113,7 @@ function lrRenderSummary(){
 }
 function lrClear(){
   if(!confirm("작성 중인 내용을 모두 지우고 새로 작성할까요?"))return;
-  lrDB={store:"",start:"",end:"",sales:"",qty:"",note:LR_DEFAULT_NOTE,partner:"",rate:"auto",rateV:3,band:null,rows:[{name:"",color:"",qty:"",tag:""}]};
+  lrDB={kind:lrDB.kind||"",store:"",start:"",end:"",sales:"",qty:"",note:LR_DEFAULT_NOTE,partner:"",rate:"auto",rateV:3,band:null,rows:[{name:"",color:"",qty:"",tag:""}]};
   localStorage.setItem("lrDB",JSON.stringify(lrDB));
   initLossReportTab();
 }
@@ -10103,7 +10132,8 @@ function lrDownload(){
   var days="";
   if(start&&end){var d=Math.round((new Date(end)-new Date(start))/86400000)+1;if(d>0)days=d.toLocaleString();}
   function fdate(s){if(!s)return "";var p=s.split("-");return p[0]+"년 "+Number(p[1])+"월 "+Number(p[2])+"일";}
-  var lc=_lrCalc(sumQty,sumAmt);
+  var lc=_lrCalc(sumQty,sumAmt),own=_lrOwn();
+  if(own)partner="";   /* 자사용은 상계처리 없음 */
 
   var rowsHtml=rows.map(function(r,i){
     var amt=_lrAmt(r);
@@ -10129,19 +10159,20 @@ function lrDownload(){
     +'● 운영일수: 총 '+days+'일</p>'
     +'<p><b>2. 매출 현황</b><br>'
     +'● 총매출: '+sales.toLocaleString()+'원<br>'
-    +'● 총판매수량: '+qty.toLocaleString()+'개</p>'
+    +'● 총판매수량: '+qty.toLocaleString()+'개'+(own?' (판매가 0원 제외)':'')+'</p>'
     +'<p><b>3. 로스 발생 현황</b><br>'
     +'● 실 로스 발생 수량: '+Math.abs(sumQty).toLocaleString()+'개<br>'
-    +'● 최종 로스 금액: '+Math.abs(sumAmt).toLocaleString()+'원<br>'
-    +'● 로스 공제: '+_esc(lc.desc)+' = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString()+'원 = '+lc.cut.toLocaleString()+'원<br>'
-    +'● 공제 후 로스 금액: '+lc.after.toLocaleString()+'원</p>'
+    +'● 최종 로스 금액: '+Math.abs(sumAmt).toLocaleString()+'원'
+    +(own?'</p>'
+      :'<br>● 로스 공제: '+_esc(lc.desc)+' = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString()+'원 = '+lc.cut.toLocaleString()+'원<br>'
+      +'● 공제 후 로스 금액: '+lc.after.toLocaleString()+'원</p>')
     +'<p><b>4. 로스 세부내역</b></p>'
     +'<table><thead><tr><th>NO.</th><th>상품명</th><th>색상</th><th>수량</th><th>TAG가</th><th>할인율</th><th>로스 금액</th></tr></thead><tbody>'
     +rowsHtml
     +'<tr><td colspan="3" style="text-align:center;font-weight:bold">합계</td><td style="text-align:center;font-weight:bold">'+sumQty+'</td><td></td><td></td><td style="text-align:right;font-weight:bold">'+sumAmt.toLocaleString()+'원</td></tr>'
-    /* 공제·공제 후 로스 금액도 표에(2026-10-07 영업2팀) */
-    +'<tr><td colspan="6" style="text-align:right">로스 공제 ('+_esc(lc.desc)+' = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString()+'원)</td><td style="text-align:right">−'+lc.cut.toLocaleString()+'원</td></tr>'
-    +'<tr><td colspan="6" style="text-align:center;font-weight:bold;background:#eaf6ee">공제 후 로스 금액</td><td style="text-align:right;font-weight:bold;background:#eaf6ee">'+lc.after.toLocaleString()+'원</td></tr>'
+    /* 공제·공제 후 로스 금액도 표에(2026-10-07 영업2팀) — 자사용은 공제 없음 */
+    +(own?'':'<tr><td colspan="6" style="text-align:right">로스 공제 ('+_esc(lc.desc)+' = '+lc.used.toLocaleString()+'개 × 개당 평균 '+lc.avg.toLocaleString()+'원)</td><td style="text-align:right">−'+lc.cut.toLocaleString()+'원</td></tr>'
+    +'<tr><td colspan="6" style="text-align:center;font-weight:bold;background:#eaf6ee">공제 후 로스 금액</td><td style="text-align:right;font-weight:bold;background:#eaf6ee">'+lc.after.toLocaleString()+'원</td></tr>')
     +'</tbody></table>'
     +(note?'<p style="font-size:9pt;color:#555">*'+_esc(note)+'</p>':'')
     +'<p><b>5. 승인 요청 사항</b><br>'
@@ -10154,7 +10185,7 @@ function lrDownload(){
   var url=URL.createObjectURL(blob);
   var a=document.createElement("a");
   a.href=url;
-  a.download="품의서_"+store.replace(/\s/g,"")+"_"+_ord2(new Date().getMonth()+1)+_ord2(new Date().getDate())+".doc";
+  a.download="품의서_"+(own?"자사_":"")+store.replace(/\s/g,"")+"_"+_ord2(new Date().getMonth()+1)+_ord2(new Date().getDate())+".doc";
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(function(){URL.revokeObjectURL(url);},1000);
 }
