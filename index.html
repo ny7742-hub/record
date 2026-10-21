@@ -2619,7 +2619,7 @@ label{font-size:14px!important}
         <button onclick="fpPng()" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🖼 3D 이미지 저장</button>
       </div>
       <div id="fpView" style="width:100%;position:relative;touch-action:none;cursor:grab;border-radius:8px;background:#eef1f4;overflow:hidden"><div id="fpLoad3d" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#5b6675">3D 화면을 불러오는 중…</div></div>
-      <div style="font-size:12px;color:#5b6675;margin-top:6px">집기를 끌면 옮겨지고, 빈 곳을 끌면 화면이 돌아갑니다. 마우스 휠이나 두 손가락으로 확대·축소합니다.</div>
+      <div style="font-size:12px;color:#5b6675;margin-top:6px">3D는 보기만 합니다 — 끌면 화면이 돌아가고, 마우스 휠이나 두 손가락으로 확대·축소합니다. 집기 옮기기는 평면도에서.</div>
     </div>
   </div>
   <div class="card fp-bottom" style="margin-top:12px;padding:12px 16px">
@@ -2702,7 +2702,7 @@ label{font-size:14px!important}
         <button onclick="fp2Png()" style="padding:4px 12px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">🖼 3D 이미지 저장</button>
       </div>
       <div id="fp2View" style="width:100%;position:relative;touch-action:none;cursor:grab;border-radius:8px;background:#eef1f4;overflow:hidden"><div id="fp2Load3d" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#5b6675">3D 화면을 불러오는 중…</div></div>
-      <div style="font-size:12px;color:#5b6675;margin-top:6px">집기를 끌면 옮겨지고, 빈 곳을 끌면 화면이 돌아갑니다. 마우스 휠이나 두 손가락으로 확대·축소합니다.</div>
+      <div style="font-size:12px;color:#5b6675;margin-top:6px">3D는 보기만 합니다 — 끌면 화면이 돌아가고, 마우스 휠이나 두 손가락으로 확대·축소합니다. 집기 옮기기는 평면도에서.</div>
     </div>
   </div>
   <div class="card fp-bottom" style="margin-top:12px;padding:12px 16px">
@@ -27297,12 +27297,12 @@ function $(id){return document.getElementById(id);}
 function pageOn(){var p=$("page-floor");return !!p&&p.style.display==="block";}
 function snap(v){return Math.round(v/SNAP)*SNAP;}
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");}
-function foot(it){var c=CAT[it.t];if(!c)return {w:0,d:0};if(isRound(c)||it.r%180===0)return {w:c.w,d:c.d};
-  if(it.r%90===0)return {w:c.d,d:c.w};
-  var a=it.r*Math.PI/180,cs=Math.abs(Math.cos(a)),sn=Math.abs(Math.sin(a));return {w:Math.round(c.w*cs+c.d*sn),d:Math.round(c.w*sn+c.d*cs)};}
+function foot(it){var c=CAT[it.t];if(!c)return {w:0,d:0};var D=dimOf(it);if(isRound(c)||it.r%180===0)return {w:D.w,d:D.d};
+  if(it.r%90===0)return {w:D.d,d:D.w};
+  var a=it.r*Math.PI/180,cs=Math.abs(Math.cos(a)),sn=Math.abs(Math.sin(a));return {w:Math.round(D.w*cs+D.d*sn),d:Math.round(D.w*sn+D.d*cs)};}
 /* 45° 회전(2026-10-16 영업2팀) — 비스듬한 집기는 바깥 네모(foot·rectOf)가 실제보다 커서, 겹침·클릭은 실제 네 모서리로 본다.
    2D는 g.rotate(-r)라 로컬 (lx,lz) → (lx·cos+lz·sin, −lx·sin+lz·cos) */
-function cornersOf(it){var c=CAT[it.t];if(!c)return [];var a=it.r*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a),hw=c.w/2,hd=c.d/2;
+function cornersOf(it){var c=CAT[it.t];if(!c)return [];var D=dimOf(it),a=it.r*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a),hw=D.w/2,hd=D.d/2;
   return [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(function(p){return [it.x+p[0]*cs+p[1]*sn,it.z-p[0]*sn+p[1]*cs];});}
 function tilted(it){var c=CAT[it.t];return !!c&&!isRound(c)&&it.r%90!==0;}
 function polyHit(A,B){   /* 볼록 다각형 분리축 — 1mm 넘게 겹쳐야 겹침 */
@@ -27900,10 +27900,10 @@ function setupPhotoTex(){}
 function photoOnFloor(){return false;}
 
 /* ── 2D 평면 ── */
-function shape2d(g,c,w,d,f){ /* 집기 중심 원점, 앞면 +y(아래) — 곡면 진열대는 바깥 앞 모서리를 둥글게 */
+function shape2d(g,c,w,d,f,it){ /* 집기 중심 원점, 앞면 +y(아래) — 곡면 진열대는 바깥 앞 모서리를 둥글게 */
   if(isRound(c)){g.beginPath();g.ellipse(0,0,w/2,d/2,0,0,Math.PI*2);return;}
   g.beginPath();
-  if(c.k==="acr3"){var A=acr3Mods(),sx=w/A.W,sz=d/A.D,Lm=A.L*sx,Dq=A.Dm*sz,rq=Math.min(Dq/2,Lm/2);   /* 청주 3단 아크릴 집기 — 모듈 3개 */
+  if(c.k==="acr3"){var A=acr3Mods(it&&it.j),sx=w/A.W,sz=d/A.D,Lm=A.L*sx,Dq=A.Dm*sz,rq=Math.min(Dq/2,Lm/2);   /* 청주 3단 아크릴 집기 — 모듈 3개 */
     A.m.forEach(function(m){g.save();g.translate(m.x*sx,m.z*sz);g.rotate(-m.a);g.moveTo(-Lm/2+rq,-Dq/2);g.lineTo(Lm/2-rq,-Dq/2);g.arc(Lm/2-rq,0,rq,-Math.PI/2,Math.PI/2);g.lineTo(-Lm/2+rq,Dq/2);g.arc(-Lm/2+rq,0,rq,Math.PI/2,Math.PI*1.5);g.closePath();g.restore();});
     return;}
   if(c.k==="oval3"){var r=Math.min(d/2,w/2);g.moveTo(-w/2+r,-d/2);g.lineTo(w/2-r,-d/2);g.arc(w/2-r,0,r,-Math.PI/2,Math.PI/2);g.lineTo(-w/2+r,d/2);g.arc(-w/2+r,0,r,Math.PI/2,Math.PI*1.5);g.closePath();return;}   /* 청주 라운드집기 */
@@ -27950,15 +27950,15 @@ function draw2d(){
   var pr=problems();
   ST.items.forEach(function(it){
     var c=CAT[it.t];if(!c)return;
-    var bad=pr.bad[it.id],w=c.w*sc,d=c.d*sc,f=foot(it),cx=ox+it.x*sc,cy=oy+it.z*sc;
+    var bad=pr.bad[it.id],dm=dimOf(it),w=dm.w*sc,d=dm.d*sc,f=foot(it),cx=ox+it.x*sc,cy=oy+it.z*sc;
     g.save();g.translate(cx,cy);g.rotate(-it.r*Math.PI/180);
-    shape2d(g,c,w,d,curveRight(it));
+    shape2d(g,c,w,d,curveRight(it),it);
     g.fillStyle=bad?"#fecaca":c.c;g.fill();
     g.strokeStyle=bad?"#dc2626":"#334155";g.lineWidth=bad?2:1;g.stroke();
     if(c.k==="curve"){g.strokeStyle="#94a3b8";g.lineWidth=1;g.beginPath();var sx=(curveRight(it)?1:-1)*(w/2-w*0.55);g.moveTo(sx,-d/2);g.lineTo(sx,d/2);g.stroke();}
     if(c.k==="ctbl"){g.fillStyle="#8fdccc";g.fillRect(-w/2,-d/2,w*0.4,d);g.strokeStyle="#334155";g.lineWidth=1;g.strokeRect(-w/2,-d/2,w,d);}   /* 청주 테이블 — 왼쪽 40% 민트 살대 */
     if(!isRound(c)&&c.k!=="acr3"){var fx=c.k==="oval3"?Math.max(0,w/2-d/2):w/2-2;g.strokeStyle="#154f5e";g.lineWidth=4;g.beginPath();g.moveTo(-fx,d/2-2);g.lineTo(fx,d/2-2);g.stroke();}
-    if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;shape2d(g,c,w+6,d+6,curveRight(it));g.stroke();}
+    if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;shape2d(g,c,w+6,d+6,curveRight(it),it);g.stroke();}
     g.restore();
     var fw=f.w*sc,fd=f.d*sc;
     g.fillStyle="#1e293b";g.font="700 11px sans-serif";g.textAlign="center";g.textBaseline="middle";
@@ -28068,6 +28068,7 @@ function nearSpot(src){
 }
 function placeCopy(src){
   var over=leftOf(src.t)<=0,p=nearSpot(src),n=mkItem(src.t,p.x,p.z,src.r,src.f);
+  if(src.j)n.j=src.j.slice();
   ST.items.push(n);ST.sel=n.id;
   msg(CAT[src.t].n+"을(를) 복사했습니다."+(over?" (보유 "+qtyOf(src.t)+"개보다 많이 놓았습니다)":""),over);
   changed();return n;
@@ -28078,6 +28079,17 @@ window.fpPaste=function(){
   if(!CLIP||!CAT[CLIP.t]){msg("먼저 집기를 누르고 Ctrl+C로 복사하세요.",true);return;}
   var base=findItem(ST.sel);base=base&&base.t===CLIP.t?base:{t:CLIP.t,x:CLIP.x,z:CLIP.z,r:CLIP.r,f:CLIP.f};
   placeCopy({t:CLIP.t,x:base.x,z:base.z,r:CLIP.r,f:CLIP.f});
+};
+/* 3단 아크릴 집기 관절 각도 — i=0 왼쪽 · 1 오른쪽, i=-1 처음 모양. 가운데 모듈이 제자리에 있도록 집기 중심을 옮긴다 */
+window.fpJoint=function(i,v){
+  var it=findItem(ST.sel);if(!it||!CAT[it.t]||CAT[it.t].k!=="acr3")return;
+  var c=CAT[it.t],j=(it.j||[30,30]).slice();
+  if(i<0)j=[30,30];else{var n=parseFloat(v);if(isNaN(n))return;j[i]=Math.max(-90,Math.min(90,Math.round(n)));}
+  var A0=acr3Mods(),B=acr3Mods(it.j),N=acr3Mods(j),sx=c.w/A0.W,sz=c.d/A0.D;
+  var dx=(B.m[1].x-N.m[1].x)*sx,dz=(B.m[1].z-N.m[1].z)*sz,a=it.r*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a);
+  it.x=Math.round(it.x+dx*cs+dz*sn);it.z=Math.round(it.z-dx*sn+dz*cs);
+  if(j[0]===30&&j[1]===30)delete it.j;else it.j=j;
+  changed();
 };
 window.fpDel=function(){
   var it=findItem(ST.sel);if(!it)return;
@@ -28117,6 +28129,11 @@ function renderSel(){
    +'<span style="font-size:12px;color:#5b6675;margin-left:6px">중심 X</span><input type="number" step="50" value="'+it.x+'" onchange="fpSetPos(\'x\',this.value)" style="'+inp+'">'
    +'<span style="font-size:12px;color:#5b6675">Z</span><input type="number" step="50" value="'+it.z+'" onchange="fpSetPos(\'z\',this.value)" style="'+inp+'">'
    +'</div>';
+  /* 청주 3단 아크릴 집기 — 관절 각도(2026-10-21) */
+  if(c.k==="acr3"){var jv=it.j||[30,30],jb='padding:3px 8px;border:1px solid #a5b4fc;background:#fff;color:#4338ca;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer';
+    el.innerHTML+='<div style="margin-top:8px;padding:8px 10px;border:1px solid #c7d2fe;border-radius:8px;background:#eef2ff;font-size:12.5px"><b style="color:#4338ca">🦴 관절 각도</b> <span style="color:#5b6675">모듈끼리 꺾인 각도 · 0 = 일자 · 처음 30°</span><div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">'
+      +[0,1].map(function(i){return '<span style="display:inline-flex;align-items:center;gap:4px">'+(i?'오른쪽':'왼쪽')+' <button onclick="fpJoint('+i+','+(jv[i]-15)+')" style="'+jb+'">−15</button><input type="number" step="5" min="-90" max="90" value="'+jv[i]+'" onchange="fpJoint('+i+',this.value)" style="width:58px;padding:3px 5px;border:1px solid #a5b4fc;border-radius:6px;font-size:12.5px;text-align:right">°<button onclick="fpJoint('+i+','+(jv[i]+15)+')" style="'+jb+'">+15</button></span>';}).join('')
+      +'<button onclick="fpJoint(-1)" style="'+jb+'">처음 모양</button></div></div>';}
 }
 /* 집기 수량 표 — 집기마다 체크(평면도에 쓰기) · 그림 · 이름 · 사이즈(고침) · 보유 수량(고침) · 배치 수. 체크를 끈 줄은 흐리게 */
 function renderSum(){
@@ -28191,9 +28208,14 @@ function init3d(){
   R3.ren=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
   R3.ren.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
   R3.ren.setSize(W,H);
+  /* 실물처럼(2026-10-21 영업2팀 "모든 집기를 실제 집기처럼") — 부드러운 그림자 + 하늘·바닥 빛. 선(테두리)은 그대로 둔다 */
+  R3.ren.shadowMap.enabled=true;R3.ren.shadowMap.type=THREE.PCFSoftShadowMap;
   host.appendChild(R3.ren.domElement);
-  R3.scene.add(new THREE.AmbientLight(0xffffff,0.85));
-  var dl=new THREE.DirectionalLight(0xffffff,0.55);dl.position.set(3,6,5);R3.scene.add(dl);
+  R3.scene.add(new THREE.AmbientLight(0xffffff,0.62));
+  R3.scene.add(new THREE.HemisphereLight(0xffffff,0xd9d4c7,0.32));
+  var dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(3,6,5);
+  dl.castShadow=true;dl.shadow.mapSize.set(2048,2048);dl.shadow.bias=-0.0006;dl.shadow.normalBias=0.02;dl.shadow.radius=3;
+  R3.scene.add(dl);R3.scene.add(dl.target);R3.sun=dl;
   R3.EDGE=new THREE.LineBasicMaterial({color:0x888780});
   T3.rad=Math.max(ST.W,ST.D)/1000*1.5+2;
   host.addEventListener("pointerdown",function(e){
@@ -28267,8 +28289,20 @@ function curveShape(x0,z0,x1,z1,rad,corner){ /* 로컬 xz 사각형, corner='L'|
 }
 /* 청주 3단 아크릴 집기(2026-10-21 영업2팀 도면) — 모듈 3개(가로 1500 × 깊이 500, 높이 800 · 700 · 800)를 지그재그로:
    왼쪽 가로 · 가운데 30° 비스듬히(오른쪽 끝이 뒤로) · 오른쪽 가로. 모듈끼리 끝 반원 중심이 겹친다. 집기 가운데 기준 mm, a = 회전(라디안) */
-function acr3Mods(){var L=1500,Dm=500,a=Math.PI/6,ox=(L-Dm)/2+(L-Dm)/2*Math.cos(a),oz=-(L-Dm)/2*Math.sin(a);
-  return {L:L,Dm:Dm,W:2*ox+L,D:-2*oz+Dm,m:[{x:-ox,z:-oz,a:0,h:800},{x:0,z:0,a:a,h:700},{x:ox,z:oz,a:0,h:800}]};}
+/* 청주 3단 아크릴 집기 모듈 — j=[왼쪽 관절, 오른쪽 관절](도, 모듈끼리 꺾인 각도, 기본 30·30 = 처음 모양). 가운데 모듈은 30° 그대로,
+   관절 = 가운데 모듈 양끝 반원 중심. 세 모듈을 감싸는 네모의 가운데가 원점(2026-10-21 영업2팀 "3개가 연결되는 구조라 관절이 움직였으면") */
+function acr3Mods(j){var L=1500,Dm=500,hf=(L-Dm)/2,rd=Math.PI/180,aM=30*rd,
+  aL=aM-((j&&j[0]!=null?j[0]:30)*rd),aR=aM-((j&&j[1]!=null?j[1]:30)*rd),
+  J2=[hf*Math.cos(aM),-hf*Math.sin(aM)],J1=[-J2[0],-J2[1]];
+  var m=[{x:J1[0]-hf*Math.cos(aL),z:J1[1]+hf*Math.sin(aL),a:aL,h:800},{x:0,z:0,a:aM,h:700},{x:J2[0]+hf*Math.cos(aR),z:J2[1]-hf*Math.sin(aR),a:aR,h:800}];
+  var x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;
+  m.forEach(function(q){var hx=hf*Math.abs(Math.cos(q.a))+Dm/2,hz=hf*Math.abs(Math.sin(q.a))+Dm/2;x0=Math.min(x0,q.x-hx);x1=Math.max(x1,q.x+hx);z0=Math.min(z0,q.z-hz);z1=Math.max(z1,q.z+hz);});
+  var cx=(x0+x1)/2,cz=(z0+z1)/2;m.forEach(function(q){q.x-=cx;q.z-=cz;});
+  return {L:L,Dm:Dm,W:x1-x0,D:z1-z0,m:m,J:[[J1[0]-cx,J1[1]-cz],[J2[0]-cx,J2[1]-cz]]};}
+/* 집기 하나의 실제 크기 — 관절을 움직인 3단 아크릴 집기만 종류 크기와 다르다(사이즈 표에서 바꾼 비율은 그대로) */
+function dimOf(it){var c=CAT[it.t];if(!c)return {w:0,d:0};
+  if(c.k==="acr3"&&it.j){var A0=acr3Mods(),A=acr3Mods(it.j);return {w:Math.round(A.W*c.w/A0.W),d:Math.round(A.D*c.d/A0.D)};}
+  return {w:c.w,d:c.d};}
 /* 양끝이 반원인 네모(스타디움) — 가운데 원점, 바깥에서 ins만큼 안으로. hole이 있으면 그 폭만 남긴 테두리(청주 라운드집기) */
 function stadium(w,d,ins,hole){
   var mkS=function(P,i){var hw=w/2-i,hd=d/2-i,r=Math.min(hd,hw);P.moveTo(-hw+r,-hd);P.lineTo(hw-r,-hd);P.absarc(hw-r,0,r,-Math.PI/2,Math.PI/2,false);P.lineTo(-hw+r,hd);P.absarc(-hw+r,0,r,Math.PI/2,Math.PI*1.5,false);return P;};
@@ -28499,7 +28533,7 @@ function buildPeg(g,c,w,d,h){
     sg.position.set(0,L[4]-T-0.03-shh/2,uz1+0.008);g.add(sg);}
 }
 function buildItem(it,bad){
-  var c=CAT[it.t],g=new THREE.Group(),w=c.w/1000,d=c.d/1000,h=c.h/1000,WH=0xf4f2ec;
+  var c=CAT[it.t],g=new THREE.Group(),dm=dimOf(it),w=dm.w/1000,d=dm.d/1000,h=c.h/1000,WH=0xf4f2ec;
   g.position.set((it.x-ST.W/2)/1000,0,(it.z-ST.D/2)/1000);
   g.rotation.y=it.r*Math.PI/180;
   if(c.k==="shelf"){
@@ -28541,7 +28575,7 @@ function buildItem(it,bad){
   }else if(c.k==="acr3"){
     /* 청주 3단 아크릴 집기 — 모듈마다 흰 바닥 판(스타디움) · 세로 골이 진 민트 아크릴 판 · 짙은 청록 반투명 아크릴 상판, 가운데 모듈 양끝에 흰 기둥.
        크기를 바꾸면 통째로 늘린다(기본 3370 × 1000 × 800) */
-    var A=acr3Mods(),S=new THREE.Group(),L3=A.L/1000,Dm=A.Dm/1000,bt=0.03,tp=0.12,lp=L3*0.5,sp=0.026;
+    var A=acr3Mods(it.j),S=new THREE.Group(),L3=A.L/1000,Dm=A.Dm/1000,bt=0.03,tp=0.12,lp=L3*0.5,sp=0.026;
     var GL=new THREE.MeshLambertMaterial({color:0x0e5a60,transparent:true,opacity:0.55,depthWrite:false}),RB=new THREE.MeshLambertMaterial({color:0x9fe3d6}),RG=new THREE.CylinderGeometry(0.011,0.011,1,10);
     A.m.forEach(function(m){
       var M=new THREE.Group(),H=m.h/1000,ph=H-bt-0.05;M.position.set(m.x/1000,0,m.z/1000);M.rotation.y=m.a;S.add(M);
@@ -28551,8 +28585,8 @@ function buildItem(it,bad){
       var gg=new THREE.ExtrudeGeometry(stadium(L3,Dm,0),{depth:0.015,bevelEnabled:false,curveSegments:48});gg.rotateX(-Math.PI/2);
       var gm=new THREE.Mesh(gg,GL);gm.position.y=H-0.015;M.add(gm);                             /* 짙은 청록 상판 */
     });
-    var a3=A.m[1].a,hx=(A.L-A.Dm)/2000*Math.cos(a3),hz=-(A.L-A.Dm)/2000*Math.sin(a3),PH=A.m[0].h/1000;
-    [[hx,hz],[-hx,-hz]].forEach(function(q){mkCyl(S,0.025,PH-bt,q[0],bt+(PH-bt)/2,q[1],0xf7f8f8,24);});   /* 흰 기둥 */
+    var PH=A.m[0].h/1000;
+    A.J.forEach(function(q){mkCyl(S,0.025,PH-bt,q[0]/1000,bt+(PH-bt)/2,q[1]/1000,0xf7f8f8,24);});   /* 흰 기둥 = 관절 */
     S.scale.set(w/(A.W/1000),h/0.8,d/(A.D/1000));g.add(S);
   }else if(c.k==="cube"){
     mk(g,w,h,d,0,h/2,0,c.col||WH);                                  /* 청주 큐브(2026-10-21 영업2팀, 500×500×500 화이트·민트) */
@@ -28665,7 +28699,12 @@ function rebuild3d(){
     root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xb4b2a9})));
     var bd=[new THREE.Vector3(-w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,d/2),new THREE.Vector3(-w/2,0.005,d/2)];
     root.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bd),new THREE.LineBasicMaterial({color:0x444441})));
-    ST.items.forEach(function(it){if(CAT[it.t])root.add(buildItem(it,!!pr.bad[it.id]));});
+    /* 그림자 받는 바닥(투명, 그림자만 보임) */
+    var sc0=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.ShadowMaterial({opacity:0.3}));sc0.rotation.x=-Math.PI/2;sc0.position.y=0.001;sc0.receiveShadow=true;root.add(sc0);
+    ST.items.forEach(function(it){if(!CAT[it.t])return;var gi=buildItem(it,!!pr.bad[it.id]);
+      gi.traverse(function(o){if(o.isMesh){o.castShadow=!(o.material&&o.material.transparent&&o.material.opacity<0.5);o.receiveShadow=true;}});root.add(gi);});
+    if(R3.sun){var ext=Math.max(w,d)/2+1.5,sh=R3.sun.shadow.camera;R3.sun.position.set(1.2,8,1.8);R3.sun.target.position.set(0,0,0);
+      sh.left=-ext;sh.right=ext;sh.top=ext;sh.bottom=-ext;sh.near=0.5;sh.far=30;sh.updateProjectionMatrix();}
     var WHm=(ST.wallH||2400)/1000;
     ST.blocks.forEach(function(b){var bw2=(b.x1-b.x0)/1000,bd2=(b.z1-b.z0)/1000;mk(root,bw2,WHm,bd2,(b.x0+b.x1)/2000-w/2,WHm/2,(b.z0+b.z1)/2000-d/2,0xf3d2bf);});
     walls().forEach(function(wl){var lx=(wl.x1-wl.x0)/1000,lz=(wl.z1-wl.z0)/1000,T=0.06;
@@ -29002,12 +29041,12 @@ function $(id){return document.getElementById(id);}
 function pageOn(){var p=$("page-floor2");return !!p&&p.style.display==="block";}
 function snap(v){return Math.round(v/SNAP)*SNAP;}
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");}
-function foot(it){var c=CAT[it.t];if(!c)return {w:0,d:0};if(isRound(c)||it.r%180===0)return {w:c.w,d:c.d};
-  if(it.r%90===0)return {w:c.d,d:c.w};
-  var a=it.r*Math.PI/180,cs=Math.abs(Math.cos(a)),sn=Math.abs(Math.sin(a));return {w:Math.round(c.w*cs+c.d*sn),d:Math.round(c.w*sn+c.d*cs)};}
+function foot(it){var c=CAT[it.t];if(!c)return {w:0,d:0};var D=dimOf(it);if(isRound(c)||it.r%180===0)return {w:D.w,d:D.d};
+  if(it.r%90===0)return {w:D.d,d:D.w};
+  var a=it.r*Math.PI/180,cs=Math.abs(Math.cos(a)),sn=Math.abs(Math.sin(a));return {w:Math.round(D.w*cs+D.d*sn),d:Math.round(D.w*sn+D.d*cs)};}
 /* 45° 회전(2026-10-16 영업2팀) — 비스듬한 집기는 바깥 네모(foot·rectOf)가 실제보다 커서, 겹침·클릭은 실제 네 모서리로 본다.
    2D는 g.rotate(-r)라 로컬 (lx,lz) → (lx·cos+lz·sin, −lx·sin+lz·cos) */
-function cornersOf(it){var c=CAT[it.t];if(!c)return [];var a=it.r*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a),hw=c.w/2,hd=c.d/2;
+function cornersOf(it){var c=CAT[it.t];if(!c)return [];var D=dimOf(it),a=it.r*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a),hw=D.w/2,hd=D.d/2;
   return [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(function(p){return [it.x+p[0]*cs+p[1]*sn,it.z-p[0]*sn+p[1]*cs];});}
 function tilted(it){var c=CAT[it.t];return !!c&&!isRound(c)&&it.r%90!==0;}
 function polyHit(A,B){   /* 볼록 다각형 분리축 — 1mm 넘게 겹쳐야 겹침 */
@@ -29605,10 +29644,10 @@ function setupPhotoTex(){}
 function photoOnFloor(){return false;}
 
 /* ── 2D 평면 ── */
-function shape2d(g,c,w,d,f){ /* 집기 중심 원점, 앞면 +y(아래) — 곡면 진열대는 바깥 앞 모서리를 둥글게 */
+function shape2d(g,c,w,d,f,it){ /* 집기 중심 원점, 앞면 +y(아래) — 곡면 진열대는 바깥 앞 모서리를 둥글게 */
   if(isRound(c)){g.beginPath();g.ellipse(0,0,w/2,d/2,0,0,Math.PI*2);return;}
   g.beginPath();
-  if(c.k==="acr3"){var A=acr3Mods(),sx=w/A.W,sz=d/A.D,Lm=A.L*sx,Dq=A.Dm*sz,rq=Math.min(Dq/2,Lm/2);   /* 청주 3단 아크릴 집기 — 모듈 3개 */
+  if(c.k==="acr3"){var A=acr3Mods(it&&it.j),sx=w/A.W,sz=d/A.D,Lm=A.L*sx,Dq=A.Dm*sz,rq=Math.min(Dq/2,Lm/2);   /* 청주 3단 아크릴 집기 — 모듈 3개 */
     A.m.forEach(function(m){g.save();g.translate(m.x*sx,m.z*sz);g.rotate(-m.a);g.moveTo(-Lm/2+rq,-Dq/2);g.lineTo(Lm/2-rq,-Dq/2);g.arc(Lm/2-rq,0,rq,-Math.PI/2,Math.PI/2);g.lineTo(-Lm/2+rq,Dq/2);g.arc(-Lm/2+rq,0,rq,Math.PI/2,Math.PI*1.5);g.closePath();g.restore();});
     return;}
   if(c.k==="oval3"){var r=Math.min(d/2,w/2);g.moveTo(-w/2+r,-d/2);g.lineTo(w/2-r,-d/2);g.arc(w/2-r,0,r,-Math.PI/2,Math.PI/2);g.lineTo(-w/2+r,d/2);g.arc(-w/2+r,0,r,Math.PI/2,Math.PI*1.5);g.closePath();return;}   /* 청주 라운드집기 */
@@ -29655,15 +29694,15 @@ function draw2d(){
   var pr=problems();
   ST.items.forEach(function(it){
     var c=CAT[it.t];if(!c)return;
-    var bad=pr.bad[it.id],w=c.w*sc,d=c.d*sc,f=foot(it),cx=ox+it.x*sc,cy=oy+it.z*sc;
+    var bad=pr.bad[it.id],dm=dimOf(it),w=dm.w*sc,d=dm.d*sc,f=foot(it),cx=ox+it.x*sc,cy=oy+it.z*sc;
     g.save();g.translate(cx,cy);g.rotate(-it.r*Math.PI/180);
-    shape2d(g,c,w,d,curveRight(it));
+    shape2d(g,c,w,d,curveRight(it),it);
     g.fillStyle=bad?"#fecaca":c.c;g.fill();
     g.strokeStyle=bad?"#dc2626":"#334155";g.lineWidth=bad?2:1;g.stroke();
     if(c.k==="curve"){g.strokeStyle="#94a3b8";g.lineWidth=1;g.beginPath();var sx=(curveRight(it)?1:-1)*(w/2-w*0.55);g.moveTo(sx,-d/2);g.lineTo(sx,d/2);g.stroke();}
     if(c.k==="ctbl"){g.fillStyle="#8fdccc";g.fillRect(-w/2,-d/2,w*0.4,d);g.strokeStyle="#334155";g.lineWidth=1;g.strokeRect(-w/2,-d/2,w,d);}   /* 청주 테이블 — 왼쪽 40% 민트 살대 */
     if(!isRound(c)&&c.k!=="acr3"){var fx=c.k==="oval3"?Math.max(0,w/2-d/2):w/2-2;g.strokeStyle="#154f5e";g.lineWidth=4;g.beginPath();g.moveTo(-fx,d/2-2);g.lineTo(fx,d/2-2);g.stroke();}
-    if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;shape2d(g,c,w+6,d+6,curveRight(it));g.stroke();}
+    if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;shape2d(g,c,w+6,d+6,curveRight(it),it);g.stroke();}
     g.restore();
     var fw=f.w*sc,fd=f.d*sc;
     g.fillStyle="#1e293b";g.font="700 11px sans-serif";g.textAlign="center";g.textBaseline="middle";
@@ -29773,6 +29812,7 @@ function nearSpot(src){
 }
 function placeCopy(src){
   var over=leftOf(src.t)<=0,p=nearSpot(src),n=mkItem(src.t,p.x,p.z,src.r,src.f);
+  if(src.j)n.j=src.j.slice();
   ST.items.push(n);ST.sel=n.id;
   msg(CAT[src.t].n+"을(를) 복사했습니다."+(over?" (보유 "+qtyOf(src.t)+"개보다 많이 놓았습니다)":""),over);
   changed();return n;
@@ -29783,6 +29823,17 @@ window.fp2Paste=function(){
   if(!CLIP||!CAT[CLIP.t]){msg("먼저 집기를 누르고 Ctrl+C로 복사하세요.",true);return;}
   var base=findItem(ST.sel);base=base&&base.t===CLIP.t?base:{t:CLIP.t,x:CLIP.x,z:CLIP.z,r:CLIP.r,f:CLIP.f};
   placeCopy({t:CLIP.t,x:base.x,z:base.z,r:CLIP.r,f:CLIP.f});
+};
+/* 3단 아크릴 집기 관절 각도 — i=0 왼쪽 · 1 오른쪽, i=-1 처음 모양. 가운데 모듈이 제자리에 있도록 집기 중심을 옮긴다 */
+window.fp2Joint=function(i,v){
+  var it=findItem(ST.sel);if(!it||!CAT[it.t]||CAT[it.t].k!=="acr3")return;
+  var c=CAT[it.t],j=(it.j||[30,30]).slice();
+  if(i<0)j=[30,30];else{var n=parseFloat(v);if(isNaN(n))return;j[i]=Math.max(-90,Math.min(90,Math.round(n)));}
+  var A0=acr3Mods(),B=acr3Mods(it.j),N=acr3Mods(j),sx=c.w/A0.W,sz=c.d/A0.D;
+  var dx=(B.m[1].x-N.m[1].x)*sx,dz=(B.m[1].z-N.m[1].z)*sz,a=it.r*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a);
+  it.x=Math.round(it.x+dx*cs+dz*sn);it.z=Math.round(it.z-dx*sn+dz*cs);
+  if(j[0]===30&&j[1]===30)delete it.j;else it.j=j;
+  changed();
 };
 window.fp2Del=function(){
   var it=findItem(ST.sel);if(!it)return;
@@ -29822,6 +29873,11 @@ function renderSel(){
    +'<span style="font-size:12px;color:#5b6675;margin-left:6px">중심 X</span><input type="number" step="50" value="'+it.x+'" onchange="fp2SetPos(\'x\',this.value)" style="'+inp+'">'
    +'<span style="font-size:12px;color:#5b6675">Z</span><input type="number" step="50" value="'+it.z+'" onchange="fp2SetPos(\'z\',this.value)" style="'+inp+'">'
    +'</div>';
+  /* 청주 3단 아크릴 집기 — 관절 각도(2026-10-21) */
+  if(c.k==="acr3"){var jv=it.j||[30,30],jb='padding:3px 8px;border:1px solid #a5b4fc;background:#fff;color:#4338ca;border-radius:6px;font-size:12px;font-weight:800;cursor:pointer';
+    el.innerHTML+='<div style="margin-top:8px;padding:8px 10px;border:1px solid #c7d2fe;border-radius:8px;background:#eef2ff;font-size:12.5px"><b style="color:#4338ca">🦴 관절 각도</b> <span style="color:#5b6675">모듈끼리 꺾인 각도 · 0 = 일자 · 처음 30°</span><div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">'
+      +[0,1].map(function(i){return '<span style="display:inline-flex;align-items:center;gap:4px">'+(i?'오른쪽':'왼쪽')+' <button onclick="fp2Joint('+i+','+(jv[i]-15)+')" style="'+jb+'">−15</button><input type="number" step="5" min="-90" max="90" value="'+jv[i]+'" onchange="fp2Joint('+i+',this.value)" style="width:58px;padding:3px 5px;border:1px solid #a5b4fc;border-radius:6px;font-size:12.5px;text-align:right">°<button onclick="fp2Joint('+i+','+(jv[i]+15)+')" style="'+jb+'">+15</button></span>';}).join('')
+      +'<button onclick="fp2Joint(-1)" style="'+jb+'">처음 모양</button></div></div>';}
 }
 /* 집기 수량 표 — 집기마다 체크(평면도에 쓰기) · 그림 · 이름 · 사이즈(고침) · 보유 수량(고침) · 배치 수. 체크를 끈 줄은 흐리게 */
 function renderSum(){
@@ -29896,9 +29952,14 @@ function init3d(){
   R3.ren=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
   R3.ren.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
   R3.ren.setSize(W,H);
+  /* 실물처럼(2026-10-21 영업2팀 "모든 집기를 실제 집기처럼") — 부드러운 그림자 + 하늘·바닥 빛. 선(테두리)은 그대로 둔다 */
+  R3.ren.shadowMap.enabled=true;R3.ren.shadowMap.type=THREE.PCFSoftShadowMap;
   host.appendChild(R3.ren.domElement);
-  R3.scene.add(new THREE.AmbientLight(0xffffff,0.85));
-  var dl=new THREE.DirectionalLight(0xffffff,0.55);dl.position.set(3,6,5);R3.scene.add(dl);
+  R3.scene.add(new THREE.AmbientLight(0xffffff,0.62));
+  R3.scene.add(new THREE.HemisphereLight(0xffffff,0xd9d4c7,0.32));
+  var dl=new THREE.DirectionalLight(0xffffff,0.6);dl.position.set(3,6,5);
+  dl.castShadow=true;dl.shadow.mapSize.set(2048,2048);dl.shadow.bias=-0.0006;dl.shadow.normalBias=0.02;dl.shadow.radius=3;
+  R3.scene.add(dl);R3.scene.add(dl.target);R3.sun=dl;
   R3.EDGE=new THREE.LineBasicMaterial({color:0x888780});
   T3.rad=Math.max(ST.W,ST.D)/1000*1.5+2;
   host.addEventListener("pointerdown",function(e){
@@ -29972,8 +30033,20 @@ function curveShape(x0,z0,x1,z1,rad,corner){ /* 로컬 xz 사각형, corner='L'|
 }
 /* 청주 3단 아크릴 집기(2026-10-21 영업2팀 도면) — 모듈 3개(가로 1500 × 깊이 500, 높이 800 · 700 · 800)를 지그재그로:
    왼쪽 가로 · 가운데 30° 비스듬히(오른쪽 끝이 뒤로) · 오른쪽 가로. 모듈끼리 끝 반원 중심이 겹친다. 집기 가운데 기준 mm, a = 회전(라디안) */
-function acr3Mods(){var L=1500,Dm=500,a=Math.PI/6,ox=(L-Dm)/2+(L-Dm)/2*Math.cos(a),oz=-(L-Dm)/2*Math.sin(a);
-  return {L:L,Dm:Dm,W:2*ox+L,D:-2*oz+Dm,m:[{x:-ox,z:-oz,a:0,h:800},{x:0,z:0,a:a,h:700},{x:ox,z:oz,a:0,h:800}]};}
+/* 청주 3단 아크릴 집기 모듈 — j=[왼쪽 관절, 오른쪽 관절](도, 모듈끼리 꺾인 각도, 기본 30·30 = 처음 모양). 가운데 모듈은 30° 그대로,
+   관절 = 가운데 모듈 양끝 반원 중심. 세 모듈을 감싸는 네모의 가운데가 원점(2026-10-21 영업2팀 "3개가 연결되는 구조라 관절이 움직였으면") */
+function acr3Mods(j){var L=1500,Dm=500,hf=(L-Dm)/2,rd=Math.PI/180,aM=30*rd,
+  aL=aM-((j&&j[0]!=null?j[0]:30)*rd),aR=aM-((j&&j[1]!=null?j[1]:30)*rd),
+  J2=[hf*Math.cos(aM),-hf*Math.sin(aM)],J1=[-J2[0],-J2[1]];
+  var m=[{x:J1[0]-hf*Math.cos(aL),z:J1[1]+hf*Math.sin(aL),a:aL,h:800},{x:0,z:0,a:aM,h:700},{x:J2[0]+hf*Math.cos(aR),z:J2[1]-hf*Math.sin(aR),a:aR,h:800}];
+  var x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;
+  m.forEach(function(q){var hx=hf*Math.abs(Math.cos(q.a))+Dm/2,hz=hf*Math.abs(Math.sin(q.a))+Dm/2;x0=Math.min(x0,q.x-hx);x1=Math.max(x1,q.x+hx);z0=Math.min(z0,q.z-hz);z1=Math.max(z1,q.z+hz);});
+  var cx=(x0+x1)/2,cz=(z0+z1)/2;m.forEach(function(q){q.x-=cx;q.z-=cz;});
+  return {L:L,Dm:Dm,W:x1-x0,D:z1-z0,m:m,J:[[J1[0]-cx,J1[1]-cz],[J2[0]-cx,J2[1]-cz]]};}
+/* 집기 하나의 실제 크기 — 관절을 움직인 3단 아크릴 집기만 종류 크기와 다르다(사이즈 표에서 바꾼 비율은 그대로) */
+function dimOf(it){var c=CAT[it.t];if(!c)return {w:0,d:0};
+  if(c.k==="acr3"&&it.j){var A0=acr3Mods(),A=acr3Mods(it.j);return {w:Math.round(A.W*c.w/A0.W),d:Math.round(A.D*c.d/A0.D)};}
+  return {w:c.w,d:c.d};}
 /* 양끝이 반원인 네모(스타디움) — 가운데 원점, 바깥에서 ins만큼 안으로. hole이 있으면 그 폭만 남긴 테두리(청주 라운드집기) */
 function stadium(w,d,ins,hole){
   var mkS=function(P,i){var hw=w/2-i,hd=d/2-i,r=Math.min(hd,hw);P.moveTo(-hw+r,-hd);P.lineTo(hw-r,-hd);P.absarc(hw-r,0,r,-Math.PI/2,Math.PI/2,false);P.lineTo(-hw+r,hd);P.absarc(-hw+r,0,r,Math.PI/2,Math.PI*1.5,false);return P;};
@@ -30204,7 +30277,7 @@ function buildPeg(g,c,w,d,h){
     sg.position.set(0,L[4]-T-0.03-shh/2,uz1+0.008);g.add(sg);}
 }
 function buildItem(it,bad){
-  var c=CAT[it.t],g=new THREE.Group(),w=c.w/1000,d=c.d/1000,h=c.h/1000,WH=0xf4f2ec;
+  var c=CAT[it.t],g=new THREE.Group(),dm=dimOf(it),w=dm.w/1000,d=dm.d/1000,h=c.h/1000,WH=0xf4f2ec;
   g.position.set((it.x-ST.W/2)/1000,0,(it.z-ST.D/2)/1000);
   g.rotation.y=it.r*Math.PI/180;
   if(c.k==="shelf"){
@@ -30246,7 +30319,7 @@ function buildItem(it,bad){
   }else if(c.k==="acr3"){
     /* 청주 3단 아크릴 집기 — 모듈마다 흰 바닥 판(스타디움) · 세로 골이 진 민트 아크릴 판 · 짙은 청록 반투명 아크릴 상판, 가운데 모듈 양끝에 흰 기둥.
        크기를 바꾸면 통째로 늘린다(기본 3370 × 1000 × 800) */
-    var A=acr3Mods(),S=new THREE.Group(),L3=A.L/1000,Dm=A.Dm/1000,bt=0.03,tp=0.12,lp=L3*0.5,sp=0.026;
+    var A=acr3Mods(it.j),S=new THREE.Group(),L3=A.L/1000,Dm=A.Dm/1000,bt=0.03,tp=0.12,lp=L3*0.5,sp=0.026;
     var GL=new THREE.MeshLambertMaterial({color:0x0e5a60,transparent:true,opacity:0.55,depthWrite:false}),RB=new THREE.MeshLambertMaterial({color:0x9fe3d6}),RG=new THREE.CylinderGeometry(0.011,0.011,1,10);
     A.m.forEach(function(m){
       var M=new THREE.Group(),H=m.h/1000,ph=H-bt-0.05;M.position.set(m.x/1000,0,m.z/1000);M.rotation.y=m.a;S.add(M);
@@ -30256,8 +30329,8 @@ function buildItem(it,bad){
       var gg=new THREE.ExtrudeGeometry(stadium(L3,Dm,0),{depth:0.015,bevelEnabled:false,curveSegments:48});gg.rotateX(-Math.PI/2);
       var gm=new THREE.Mesh(gg,GL);gm.position.y=H-0.015;M.add(gm);                             /* 짙은 청록 상판 */
     });
-    var a3=A.m[1].a,hx=(A.L-A.Dm)/2000*Math.cos(a3),hz=-(A.L-A.Dm)/2000*Math.sin(a3),PH=A.m[0].h/1000;
-    [[hx,hz],[-hx,-hz]].forEach(function(q){mkCyl(S,0.025,PH-bt,q[0],bt+(PH-bt)/2,q[1],0xf7f8f8,24);});   /* 흰 기둥 */
+    var PH=A.m[0].h/1000;
+    A.J.forEach(function(q){mkCyl(S,0.025,PH-bt,q[0]/1000,bt+(PH-bt)/2,q[1]/1000,0xf7f8f8,24);});   /* 흰 기둥 = 관절 */
     S.scale.set(w/(A.W/1000),h/0.8,d/(A.D/1000));g.add(S);
   }else if(c.k==="cube"){
     mk(g,w,h,d,0,h/2,0,c.col||WH);                                  /* 청주 큐브(2026-10-21 영업2팀, 500×500×500 화이트·민트) */
@@ -30370,7 +30443,12 @@ function rebuild3d(){
     root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xb4b2a9})));
     var bd=[new THREE.Vector3(-w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,d/2),new THREE.Vector3(-w/2,0.005,d/2)];
     root.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bd),new THREE.LineBasicMaterial({color:0x444441})));
-    ST.items.forEach(function(it){if(CAT[it.t])root.add(buildItem(it,!!pr.bad[it.id]));});
+    /* 그림자 받는 바닥(투명, 그림자만 보임) */
+    var sc0=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.ShadowMaterial({opacity:0.3}));sc0.rotation.x=-Math.PI/2;sc0.position.y=0.001;sc0.receiveShadow=true;root.add(sc0);
+    ST.items.forEach(function(it){if(!CAT[it.t])return;var gi=buildItem(it,!!pr.bad[it.id]);
+      gi.traverse(function(o){if(o.isMesh){o.castShadow=!(o.material&&o.material.transparent&&o.material.opacity<0.5);o.receiveShadow=true;}});root.add(gi);});
+    if(R3.sun){var ext=Math.max(w,d)/2+1.5,sh=R3.sun.shadow.camera;R3.sun.position.set(1.2,8,1.8);R3.sun.target.position.set(0,0,0);
+      sh.left=-ext;sh.right=ext;sh.top=ext;sh.bottom=-ext;sh.near=0.5;sh.far=30;sh.updateProjectionMatrix();}
     var WHm=(ST.wallH||2400)/1000;
     ST.blocks.forEach(function(b){var bw2=(b.x1-b.x0)/1000,bd2=(b.z1-b.z0)/1000;mk(root,bw2,WHm,bd2,(b.x0+b.x1)/2000-w/2,WHm/2,(b.z0+b.z1)/2000-d/2,0xf3d2bf);});
     walls().forEach(function(wl){var lx=(wl.x1-wl.x0)/1000,lz=(wl.z1-wl.z0)/1000,T=0.06;
