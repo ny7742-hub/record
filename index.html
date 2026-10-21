@@ -2770,6 +2770,7 @@ label{font-size:14px!important}
       <div class="fg"><label>운영일수</label><input id="lrDays" type="text" disabled style="background:#f3f4f6"></div>
     </div>
     <div id="lrSalesMsg" style="font-size:11px;margin-top:6px"></div>
+    <div id="lrDataWarn" style="display:none;margin-top:8px;padding:10px 12px;border-radius:8px;font-size:13px;font-weight:700;line-height:1.5"></div>
   </div>
   <div class="card">
     <div class="ri">
@@ -9578,6 +9579,7 @@ function initLossReportTab(){
   var _rt=document.getElementById("lrRate");if(_rt)_rt.value=(lrDB.rate==="1"||lrDB.rate==="1.5")?lrDB.rate:"auto";
   if(!lrDB.rows.length)lrDB.rows.push({name:"",color:"",qty:"",tag:""});
   _lrPaintKind();
+  _lrPaintWarn();
   lrRenderRows();
   lrRenderSummary();
   lrFillPopupSelect();
@@ -9663,7 +9665,7 @@ function _lrSetPeriod(store,start,end){
   document.getElementById("lrStart").value=start||"";
   document.getElementById("lrEnd").value=end||"";
   var sel=document.getElementById("lrPopupSel");if(sel)sel.value="";
-  lrDB.band=null;lrSave();lrRenderSummary();lrAutoFillSales();
+  lrDB.band=null;lrSave();lrRenderSummary();lrAutoFillSales(true);
 }
 function lrPickPopupRange(list){
   var ps=list.map(function(i){return popupDB[i];}).filter(Boolean);if(!ps.length)return;
@@ -9691,7 +9693,7 @@ function lrLoadFromPopup(){
   document.getElementById("lrEnd").value=p.end||"";
   lrSave();
   lrRenderSummary();
-  lrAutoFillSales();
+  lrAutoFillSales(true);
 }
 /* 로스 품의서 판매수량(2026-10-07 영업2팀 — EDI 수량이 아니라 **판매일보 판매수량**, 0원·할인 100%는 증정이라 뺀다).
    storeSalesDB(홈 판매일보 업로드)에서 매장 이름이 같은 PlayMD 매장(없으면 백화점 탭 매장이 같은 것)의 기간 합.
@@ -9761,20 +9763,39 @@ function lrSalesFile(input){
       var r=_ssIngest(rows,{onlyStores:true});
       if(!r){alert("매장판매일보 형식이 아닙니다(판매일자·매장코드·상품코드·판매수량 열이 필요합니다).");if(msg)msg.textContent="";return;}
       if(!r.stores){alert("백화점·팩토리 매장 줄이 없습니다.");if(msg)msg.textContent="";return;}
-      lrAutoFillSales();
+      lrAutoFillSales(true);
     }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
   },30);};
   rd.readAsArrayBuffer(file);
   input.value="";
 }
-function lrAutoFillSales(){
+/* 운영기간 판매데이터 없음 알림(2026-10-22 영업2팀 "판매데이터가 없으면 없다고 알려줘야") — lrDB.cover {key:매장|시작|종료, none, gap[]}.
+   총매출 밑에 큰 띠로 늘 보이고, 팝업을 불러오거나 판매일보를 올렸을 때는 창으로도 알리고, 품의서 다운로드 때 한 번 더 묻는다 */
+function _lrCoverKey(){return [(document.getElementById("lrStore").value||"").trim(),document.getElementById("lrStart").value,document.getElementById("lrEnd").value].join("|");}
+function _lrCoverText(cv){
+  if(!cv||cv.key!==_lrCoverKey())return "";
+  var p=cv.key.split("|"),per=p[1]+" ~ "+p[2];
+  if(cv.none)return "⛔ 운영기간("+per+") 동안 '"+p[0]+"' 판매데이터(판매일보)가 없습니다.\n판매수량을 셀 수 없습니다 — PlayMD 매장판매일보를 📤 판매일보로 올리거나 총판매수량을 직접 넣어 주세요.";
+  if(cv.gap&&cv.gap.length)return "⚠ 운영기간("+per+") 중 판매데이터(판매일보)가 빠진 날이 있습니다 — "+cv.gap.join(" · ")+"\n판매수량이 적게 잡혔습니다 — 빠진 기간의 매장판매일보를 📤 판매일보로 올려 주세요.";
+  return "";
+}
+function _lrPaintWarn(){
+  var el=document.getElementById("lrDataWarn");if(!el)return;
+  var cv=lrDB.cover,t=_lrCoverText(cv);
+  if(!t){el.style.display="none";el.textContent="";return;}
+  var red=cv.none;
+  el.style.display="block";el.style.whiteSpace="pre-line";
+  el.style.color=red?"#b91c1c":"#92400e";el.style.background=red?"#fef2f2":"#fffbeb";el.style.border="1.5px solid "+(red?"#fca5a5":"#fcd34d");
+  el.textContent=t;
+}
+function lrAutoFillSales(notify){
   var msg=document.getElementById("lrSalesMsg");
   var store=(document.getElementById("lrStore").value||"").trim();
   var start=document.getElementById("lrStart").value;
   var end=document.getElementById("lrEnd").value;
-  if(!store||!start||!end){if(msg)msg.textContent="";return;}
+  if(!store||!start||!end){if(msg)msg.textContent="";lrDB.cover=null;_lrPaintWarn();return;}
   var d0=new Date(start+"T00:00:00"),d1=new Date(end+"T00:00:00");
-  if(isNaN(d0)||isNaN(d1)||d0>d1){if(msg)msg.textContent="";return;}
+  if(isNaN(d0)||isNaN(d1)||d0>d1){if(msg)msg.textContent="";lrDB.cover=null;_lrPaintWarn();return;}
   var normTarget=_dsNormStoreName(store);
   var sumEdi=0,sumEdiQ=0,found=false,ediDays={},hasDs=typeof dailySalesDB!=="undefined"&&dailySalesDB.data;
   for(var d=new Date(d0);hasDs&&d<=d1;d.setDate(d.getDate()+1)){
@@ -9799,9 +9820,11 @@ function lrAutoFillSales(){
   if(ss.found){
     document.getElementById("lrQty").value=ss.sold.toLocaleString();
     lrDB.band={v:2,n0:ss.n0,n1:ss.n1,n15:ss.n15,gift:ss.gift,unk:ss.unk,est:ss.est,stores:Object.keys(ss.stores)};
-  }else lrDB.band=null;
-  lrSave();lrRenderSummary();
-  if(!msg)return;
+  }else{
+    lrDB.band=null;
+    /* 다른 팝업을 불러왔는데 판매데이터가 없으면 앞 매장 판매수량이 남지 않게 비운다(직접 친 값은 🔄·칸 이동 때는 그대로) */
+    if(notify)document.getElementById("lrQty").value="";
+  }
   lines.push(found?"✔ 총매출: 매장별 일별매출 "+sumEdi.toLocaleString()+"원":ss.found?"✔ 총매출: 일별매출이 없어 판매일보 판매금액 "+Math.round(ss.amt).toLocaleString()+"원":"⚠ 총매출: 일별매출·판매일보에서 찾지 못했습니다 — 직접 입력하세요");
   if(ss.found&&_lrOwn())lines.push("✔ 판매수량: 판매일보("+Object.keys(ss.stores).join(", ")+") "+ss.sold.toLocaleString()+"개 — 판매가 0원 "+ss.gift.toLocaleString()+"개 제외");
   else if(ss.found)lines.push("✔ 판매수량: 판매일보("+Object.keys(ss.stores).join(", ")+") "+ss.sold.toLocaleString()+"개 — 증정(0원·할인 100%) "+ss.gift.toLocaleString()+"개 제외"
@@ -9819,11 +9842,14 @@ function lrAutoFillSales(){
       var p=per[ym]||(per[ym]={n:0,h:0});p.n++;if(ss.days&&ss.days[k])p.h++;
     }
     Object.keys(per).forEach(function(ym){if(per[ym].h<per[ym].n)gap.push(ym+" "+per[ym].h+"/"+per[ym].n+"일");});
-    if(gap.length)lines.push("⚠ 판매일보가 기간 일부만 있습니다("+gap.join(" · ")+") — 판매수량이 적게 잡혔습니다. 빠진 기간의 매장판매일보를 📤 판매일보로 올려 주세요");
   }
+  lrDB.cover={key:_lrCoverKey(),none:!ss.found,gap:gap};
+  lrSave();lrRenderSummary();_lrPaintWarn();
+  var qe=document.getElementById("lrQty");if(qe)qe.style.background=!ss.found||gap.length?"#fffbeb":"";
+  if(notify){var _wt=_lrCoverText(lrDB.cover);if(_wt)setTimeout(function(){alert(_wt);},50);}
+  if(!msg)return;
   msg.innerHTML=lines.map(_esc).join("<br>");
   msg.style.color=!ss.found?"#dc2626":gap.length?"#b45309":"#047857";
-  var qe=document.getElementById("lrQty");if(qe)qe.style.background=ss.found&&gap.length?"#fffbeb":"";
 }
 /* 로스 세부내역 머리줄(상품명 열이 있는 줄) → 열 번호. 엑셀 업로드·붙여넣기가 같이 쓴다 */
 function _lrHeaderOf(row){
@@ -10144,6 +10170,8 @@ function lrDownload(){
   var partner=(document.getElementById("lrPartner").value||"").trim();
   var rows=lrDB.rows.filter(function(r){return r.name;});
   if(!rows.length){alert("로스 세부내역을 1건 이상 입력하세요.");return;}
+  var _cw=_lrCoverText(lrDB.cover);
+  if(_cw&&!confirm(_cw+"\n\n지금 총판매수량("+(qty?qty.toLocaleString()+"개":"비어 있음")+")으로 품의서를 받을까요?"))return;
   var sumQty=0,sumAmt=0;
   rows.forEach(function(r){sumQty+=Number(r.qty)||0;sumAmt+=_lrAmt(r);});
   var days="";
