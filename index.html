@@ -6449,6 +6449,44 @@ function _hdDay(ymd){
   }
   return _hdDM[ym][String(+ymd.slice(8,10))]||0;
 }
+/* 일별 매출 추이 툴팁의 내역(2026-10-21 영업2팀 "커서를 옮기면 매출의 내역이") — 그날 채널별 금액(_chDayMap, 꺾은선과 같은 값)과
+   채널 안의 매장별: 백화점 = 매장별 일별매출 EDI(dailySalesDB), 홈쇼핑·아난티 등 = 판매일보 매장명별(allStoreDB "구분|매장명").
+   채널 금액은 업로드가 우선이라 매장 합과 조금 다를 수 있다. 코스트코는 일자별 매장 구분이 없어 채널 금액만 */
+function _hdDayDetail(ymd){
+  var Y=+ymd.slice(0,4),m=+ymd.slice(5,7),d=String(+ymd.slice(8,10)),ym=ymd.slice(0,7),out=[];
+  HD_CH.forEach(function(c){
+    var v=Number(_chDayMap(c[0],c[1],Y,m).days[d])||0;if(!v)return;
+    var it={};
+    if(c[0]==="백화점"){
+      var md=(typeof dailySalesDB!=="undefined"&&dailySalesDB&&dailySalesDB.data&&dailySalesDB.data[ym])||{},row=md[d]||md[d.padStart(2,"0")]||{};
+      Object.keys(row).forEach(function(st){var a=Number(String((row[st]||{}).edi||0).replace(/,/g,""))||0;if(a)it[st]=(it[st]||0)+a;});
+    }else{
+      var AS=(typeof allStoreDB!=="undefined"&&allStoreDB)||{};
+      Object.keys(AS).forEach(function(k){var q=k.split("|");if(q[0]!==c[0]||q.length<2)return;var a=Number((AS[k]||{})[ymd])||0;if(a){var n=q.slice(1).join("|");it[n]=(it[n]||0)+a;}});
+    }
+    var items=Object.keys(it).map(function(n){return {n:typeof _storeNoCode==="function"?_storeNoCode(n):n,v:it[n]};}).sort(function(a,b){return b.v-a.v;});
+    out.push({ch:c[0],v:v,items:items});
+  });
+  return out.sort(function(a,b){return b.v-a.v;});
+}
+function _hdTipHtml(ymd,total,md){
+  var W=function(v){return Math.round(v).toLocaleString("ko-KR");},MAXS=5;
+  var h='<small>'+md+' 일별 매출</small><b>₩'+W(total)+'</b>';
+  var D=_hdDayDetail(ymd);
+  if(!D.length)return h;
+  h+='<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.12);min-width:200px">';
+  D.forEach(function(g){
+    h+='<div style="display:flex;justify-content:space-between;gap:14px;font-size:13px;font-weight:700;color:#4da3ff;margin-top:3px"><span>'+_escX(g.ch)+'</span><span>₩'+W(g.v)+'</span></div>';
+    g.items.slice(0,MAXS).forEach(function(x){
+      h+='<div style="display:flex;justify-content:space-between;gap:14px;font-size:12px;color:rgba(232,238,247,.78);padding-left:10px"><span>'+_escX(x.n)+'</span><span>'+W(x.v)+'</span></div>';
+    });
+    var isum=g.items.reduce(function(a,x){return a+x.v;},0);   /* 매장 합이 채널 금액과 1% 넘게 다르면(채널은 판매일보 업로드 우선 · 매장은 EDI) 적어 둔다 */
+    if(g.items.length>MAXS){var rest=g.items.slice(MAXS);
+      h+='<div style="font-size:11.5px;color:rgba(232,238,247,.5);padding-left:10px">외 '+rest.length+'곳 '+W(rest.reduce(function(a,x){return a+x.v;},0))+'</div>';}
+    if(g.items.length&&Math.abs(isum-g.v)>g.v*0.01)h+='<div style="font-size:11px;color:rgba(232,238,247,.45);padding-left:10px">매장 합 '+W(isum)+(g.ch==="백화점"?' (EDI 기준)':' (판매일보 매장별)')+'</div>';
+  });
+  return h+'</div>';
+}
 function _hdRange(a,b){var t=0,d=new Date(a+"T00:00:00"),e=new Date(b+"T00:00:00");for(;d<=e;d.setDate(d.getDate()+1))t+=_hdDay(_hdYmd(d));return t;}
 function _hdMan(v){var a=Math.abs(v);return (v<0?"-":"")+(a>=1e8?(a/1e8).toFixed(a>=1e9?1:2).replace(/\.?0+$/,"")+"억":Math.round(a/1e4).toLocaleString("ko-KR")+"만");}
 function _hdDelta(cur,prev,unit){
@@ -6689,11 +6727,14 @@ function renderHomeDash(){
     line.onmousemove=function(e){
       var r=line.getBoundingClientRect(),i=Math.max(0,Math.min(11,Math.round((e.clientX-r.left)/r.width*11))),x=L[i];
       vl.style.display="block";vl.style.left=px(i)+"%";
-      tip.style.display="block";tip.innerHTML='<small>'+md(x.k)+' 일별 매출</small><b>₩'+Math.round(x.v).toLocaleString("ko-KR")+'</b>';
-      var tl=r.width*px(i)/100+14;if(tl+170>r.width)tl=r.width*px(i)/100-184;
-      tip.style.left=tl+"px";tip.style.top=Math.max(-10,r.height*py(x.v)/100-70)+"px";
+      /* 내역(채널·매장별)까지 — 날이 바뀔 때만 다시 만든다(2026-10-21) */
+      if(tip._k!==x.k){tip._k=x.k;tip.innerHTML=_hdTipHtml(x.k,x.v,md(x.k));}
+      tip.style.display="block";
+      var tw=tip.offsetWidth||170,th=tip.offsetHeight||60;
+      var tl=r.width*px(i)/100+14;if(tl+tw>r.width)tl=r.width*px(i)/100-tw-14;
+      tip.style.left=Math.max(-40,tl)+"px";tip.style.top=Math.max(-30,Math.min(r.height*py(x.v)/100-70,r.height-th+10))+"px";
     };
-    line.onmouseleave=function(){vl.style.display="none";tip.style.display="none";};
+    line.onmouseleave=function(){vl.style.display="none";tip.style.display="none";tip._k=null;};
   }
 }
 function renderHomeAll(now){
