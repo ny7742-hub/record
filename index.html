@@ -11432,8 +11432,10 @@ function _dsMsg(t,err){
   el.style.color=err?"#b91c1c":"#059669";el.textContent=t||"";
   clearTimeout(el._t);if(t)el._t=setTimeout(function(){el.textContent="";},8000);
 }
-/* 판매일보가 올라오면 **빈 칸만** 조용히 채운다 (2026-09-22 영업2팀 — 매일 손으로 누르지 않게).
-   이미 적힌 값은 건드리지 않는다. 값이 다른 칸은 `📥 판매일보 → PLAY MD` 버튼으로 확인 후 덮어쓴다.
+/* 판매일보가 올라오면 PLAY MD 칸을 조용히 채운다 (2026-09-22 영업2팀 — 매일 손으로 누르지 않게).
+   2026-10-21 영업2팀 "자동으로 넣은 칸은 새 판매일보가 오면 계속 바꾸고, 손으로 고친 칸만 그대로" — 예전엔 빈 칸만 채워
+   매시 받는 판매일보의 **영업 중 금액**(10/20 잠실 56,700 → 마감 139,700)이 그대로 굳어 EDI와 안 맞았다.
+   이제 손으로 고친 칸(cell.pmHand, dsEdit가 남김)만 건드리지 않는다. 표시가 없는 예전 칸은 자동으로 넣은 것으로 본다.
    그 달뿐 아니라 판매일보가 올라온 **모든 달**을 본다(달이 바뀌는 날 지난달도 같이 올라온다). */
 function _dsAutoPlaymd(){
   if(typeof storeSalesDB!=="object"||!storeSalesDB)return 0;
@@ -11448,8 +11450,10 @@ function _dsAutoPlaymd(){
         if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
         if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
         var cell=dailySalesDB.data[mk][day][st.name]||(dailySalesDB.data[mk][day][st.name]={});
-        if(cell.playmd!==""&&cell.playmd!=null)return;
-        cell.playmd=String(Math.round(t.d[day]));n++;
+        if(cell.pmHand&&cell.playmd!==""&&cell.playmd!=null)return;
+        var nv=String(Math.round(t.d[day]));
+        if(String(cell.playmd)===nv)return;
+        cell.playmd=nv;n++;
       });
     });
   });
@@ -11606,7 +11610,7 @@ function dsFillPlaymd(){
     if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
     if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
     var c=dailySalesDB.data[mk][day][nm]||(dailySalesDB.data[mk][day][nm]={});
-    c.playmd=String(f[2]);
+    c.playmd=String(f[2]);delete c.pmHand;
   });
   saveDaily();renderDaily();
   try{renderHomeAll(new Date());}catch(e){}
@@ -11617,7 +11621,7 @@ function dsFillPlaymd(){
     if(confirm("빈 칸 "+fill.length+"개를 채웠습니다.\n\n아래 "+diff.length+"개는 이미 값이 있는데 판매일보와 다릅니다.\n\n"+lines.join("\n")+"\n\n판매일보 값으로 덮어쓸까요?")){
       diff.forEach(function(d){
         var c=dailySalesDB.data[mk][d[0]][d[1]];
-        if(c)c.playmd=String(d[3]);
+        if(c){c.playmd=String(d[3]);delete c.pmHand;}
       });
       saveDaily();renderDaily();
       try{renderHomeAll(new Date());}catch(e){}
@@ -11883,6 +11887,8 @@ function dsStores(mk){
   }
   return dailySalesDB.monthStores[mk];
 }
+/* EDI가 아직 없는 칸(오늘처럼 다음 날 아침에 들어온다)은 PLAY MD와 비교하지 않는다 — 빨강 안 칠함(2026-10-21 영업2팀) */
+function _dsHasEdi(c){return !!c&&c.edi!=null&&String(c.edi).trim()!=="";}
 function dsEdit(day,si,field,val){
   var s=dsStores()[si];if(!s)return "";
   var mk=dsKey(),num=_dsN(val),v=(String(val).trim()===""?"":String(num));
@@ -11891,6 +11897,8 @@ function dsEdit(day,si,field,val){
   if(!dailySalesDB.data[mk][day][s.name])dailySalesDB.data[mk][day][s.name]={};
   var cell=dailySalesDB.data[mk][day][s.name];
   cell[field]=v;
+  /* PLAY MD를 손으로 고치면 자동 채우기가 덮지 않는다(2026-10-21) — 비우면 다시 자동으로 */
+  if(field==="playmd"){if(v!=="")cell.pmHand=true;else delete cell.pmHand;}
   /* 백화점수량 + 온라인수량 → EDI수량 자동 합산 */
   if(field==="deptQ"||field==="onlineQ"){
     var eq=_dsN(cell.deptQ)+_dsN(cell.onlineQ);
@@ -11900,7 +11908,7 @@ function dsEdit(day,si,field,val){
   }
   /* EDI금액 ≠ PLAY MD금액 이면 PLAY MD 금액을 빨강 표시 (즉시 갱신) */
   if(field==="edi"||field==="playmd"){
-    var mism=!_dsPlaymdOnly(s.name)&&_dsN(cell.edi)!==_dsN(cell.playmd);
+    var mism=!_dsPlaymdOnly(s.name)&&_dsHasEdi(cell)&&_dsN(cell.edi)!==_dsN(cell.playmd);
     var pm=document.getElementById("dsIn_"+day+"_"+si+"_playmd");
     if(pm){pm.style.color=mism?"#dc2626":"";pm.style.fontWeight=mism?"700":"";if(pm.parentNode)pm.parentNode.style.background=mism?"#fee2e2":"";}
     var ed=document.getElementById("dsIn_"+day+"_"+si+"_edi");
@@ -12268,7 +12276,7 @@ function renderDaily(){
     var _col=0;
     stores.forEach(function(s,si){
       var c=dsCell(mk,d,s.name);
-      var mism=!_dsPlaymdOnly(s.name)&&_dsN(c.edi)!==_dsN(c.playmd);
+      var mism=!_dsPlaymdOnly(s.name)&&_dsHasEdi(c)&&_dsN(c.edi)!==_dsN(c.playmd);
       _dsFldsOf(s.name,mk).forEach(function(f,fi){
         var red=(mism&&f.k==="playmd");
         /* 온라인 주력주차 — 지정 기간·매장의 온라인/수량 칸을 노랗게 */
