@@ -8440,16 +8440,17 @@ function renderAutoPage(){
   var up=document.getElementById("autoUp");
   if(up){
     var now=new Date();
-    up.innerHTML=[["wh","📦 창고재고현황"],["sales","🧾 매장판매일보"],["si","🏬 매장재고현황"],["prod","🏷️ 상품코드리스트"]].map(function(c){
+    up.innerHTML=[["wh","📦 창고재고현황","auWhIn"],["sales","🧾 매장판매일보","auSalesIn"],["si","🏬 매장재고현황","auSiIn"],["prod","🏷️ 상품코드리스트","auProdIn"]].map(function(c){
       var L=(uploadLog||{})[c[0]];
-      if(!L)return '<div class="ap-sub" style="padding:3px 0"><b style="color:#334155">'+c[1]+'</b> · <span style="color:#b91c1c">기록 없음</span></div>';
+      var upBtn='<button class="ap-btn sub" style="margin-left:auto;padding:2px 8px" onclick="window.__jarvisAuto=false;document.getElementById(\''+c[2]+'\').click()">📤 올리기</button>';
+      if(!L)return '<div class="ap-sub" style="padding:3px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><b style="color:#334155">'+c[1]+'</b><span style="color:#b91c1c">기록 없음</span>'+upBtn+'</div>';
       var la=new Date(L.at),today=la.toDateString()===now.toDateString();
       var stale=now.getDay()>0&&now.getDay()<6&&now.getHours()>=9&&!today;
       var det=c[0]==="wh"?(L.n||0).toLocaleString()+'품목':c[0]==="si"?(L.n||0).toLocaleString()+'줄 · 매장 '+(L.stores||0)+'곳':c[0]==="prod"?(L.n||0).toLocaleString()+'행':(L.from||"")+'~'+(L.to||"")+' · '+(L.rows||0).toLocaleString()+'줄';
       return '<div class="ap-sub" style="padding:3px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><b style="color:#334155;min-width:120px">'+c[1]+'</b>'
         +'<span style="font-weight:800;color:'+(stale?'#b91c1c':today?'#047857':'#334155')+'">'+(stale?'⚠ ':today?'✅ ':'')+_escX(_auFmtAt(L.at))+'</span>'
         +'<span class="au-tag '+(L.mode==="auto"?"auto":"manual")+'">'+(L.mode==="auto"?"자동":"수동")+'</span><span>'+_escX(det)+'</span>'
-        +(stale?'<b style="color:#b91c1c">오늘 아직 안 올라옴</b>':'')+'</div>';
+        +(stale?'<b style="color:#b91c1c">오늘 아직 안 올라옴</b>':'')+upBtn+'</div>';
     }).join("");
   }
   /* 사입출고등록 4개 */
@@ -31139,17 +31140,18 @@ window.renderFloorPage2=function(){
      탭 밖(body 바로 밑)에 position:fixed로 둬서 어느 탭이든 오른쪽 아래 같은 자리에 있다. 열림·대화는 이 브라우저(localStorage)에 남는다.
      답은 자동화 PC(automation/jarvis-chat.mjs)가 Claude API로 만든다 — 질문은 ws/jvChat/{id}, 답은 같은 칸 ans에 이어 쓰인다. 상세 docs/jvchat.md -->
 <style>
-#jvcBtn{position:fixed;right:18px;bottom:18px;z-index:9990;display:none;align-items:center;gap:7px;padding:10px 16px 10px 13px;border:none;border-radius:999px;
-  background:linear-gradient(135deg,#154f5e,#1b6e82);color:#fff;font:800 13.5px/1 inherit;font-family:inherit;cursor:pointer;box-shadow:0 6px 20px rgba(21,79,94,.35)}
-#jvcBtn:hover{filter:brightness(1.08)}
-#jvcBtn .jvc-dot{width:8px;height:8px;border-radius:50%;background:#86efac;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+#jvcBtn{position:fixed;right:18px;top:14px;z-index:9990;display:none;align-items:center;gap:10px;padding:16px 28px 16px 22px;border:none;border-radius:999px;
+  background:#111;color:#fff;font-family:inherit;font-size:20px;font-weight:800;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+#jvcBtn:hover{background:#2a2a2a}
+#jvcBtn .jvc-dot{width:12px;height:12px;border-radius:50%;background:#86efac;box-shadow:0 0 0 3px rgba(255,255,255,.2)}
 #jvcBtn.off .jvc-dot{background:#fca5a5}
-#jvcPanel{position:fixed;right:18px;bottom:70px;z-index:9991;width:410px;height:calc(86vh / 1.12);max-height:640px;display:none;flex-direction:column;
+body.jvc-on #authChip{margin-right:250px}   /* 오른쪽 위 하이 자비스 단추가 이름·로그아웃 칩을 가리지 않게 비켜 둔다 */
+#jvcPanel{position:fixed;right:18px;top:80px;z-index:9991;width:410px;height:calc(100vh / 1.12 - 100px);max-height:680px;display:none;flex-direction:column;
   background:#fff;border:1px solid #d9e2e7;border-radius:16px;box-shadow:0 18px 50px rgba(15,23,42,.22);overflow:hidden;font-family:inherit}
 #jvcPanel.on{display:flex}
-.jvc-hd{display:flex;align-items:center;gap:8px;padding:11px 12px 11px 14px;background:linear-gradient(135deg,#154f5e,#1b6e82);color:#fff}
+.jvc-hd{display:flex;align-items:center;gap:8px;padding:11px 12px 11px 14px;background:#111;color:#fff}
 .jvc-hd b{font-size:14.5px;font-weight:800}
-.jvc-hd .jvc-sub{font-size:11px;color:#cfe6e6;font-weight:500}
+.jvc-hd .jvc-sub{font-size:11px;color:#d4d4d4;font-weight:500}
 .jvc-hd button{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:8px;padding:4px 9px;font:700 11.5px inherit;font-family:inherit;cursor:pointer}
 .jvc-hd button:hover{background:rgba(255,255,255,.26)}
 #jvcLog{flex:1;overflow-y:auto;padding:14px 14px 6px;background:#fbfaf7;font-size:13.5px;line-height:1.65;color:#1f2937}
@@ -31189,8 +31191,11 @@ window.renderFloorPage2=function(){
 .jvc-opt label{display:flex!important;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;font-weight:500;margin:0;width:auto}
 .jvc-opt input{width:auto!important;height:auto;margin:0!important;padding:0}
 @media (max-width:700px){
-  #jvcBtn{right:12px;bottom:12px;padding:9px 13px 9px 11px;font-size:12.5px}
-  #jvcPanel{left:8px;right:8px;bottom:62px;width:auto;height:calc(78vh / 1.12);max-height:none}
+  body.jvc-on #authChip{margin-right:0}                 /* 모바일 헤더는 줄바꿈 — 칩은 둘째 줄로, 첫 줄 제목 오른쪽을 단추 자리로 비운다 */
+  body.jvc-on .header-left{padding-right:140px}
+  #jvcBtn{right:10px;top:10px;gap:7px;padding:10px 14px 10px 12px;font-size:14px}
+  #jvcBtn .jvc-dot{width:9px;height:9px}
+  #jvcPanel{left:8px;right:8px;top:58px;width:auto;height:calc(100vh / 1.12 - 80px);max-height:none}
 }
 </style>
 <button type="button" id="jvcBtn" onclick="jvcToggle()" title="하이 자비스 — 자비스 쓰는 법·화면 숫자·궁금한 것을 물어보세요"><span class="jvc-dot"></span>💬 하이 자비스</button>
@@ -31384,7 +31389,7 @@ function boot(){
   setInterval(function(){
     var ok=typeof _authState!=="undefined"&&_authState==="member";
     if(ok===shown)return;shown=ok;
-    $("jvcBtn").style.display=ok?"flex":"none";
+    $("jvcBtn").style.display=ok?"flex":"none";document.body.classList.toggle("jvc-on",ok);
     if(!ok){$("jvcPanel").classList.remove("on");return;}
     try{fbDB.ref("ws/jvChatAlive").on("value",function(s){alive=s.val();renderPc();});}catch(e){}
     if(lsGet(LS_OPEN,false))jvcToggle(true);
