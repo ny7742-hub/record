@@ -27612,6 +27612,10 @@ function wsLogoDraw(g,I,x,y,s,col){var t=document.createElement("canvas");t.widt
 var DEF={
   shelfImg:{n:"선반집기 이미지형",s:"선반(이미지)",w:1200,d:600,h:1800,c:"#85B7EB",k:"shelf",p:1,pc:0x85B7EB,inv:8,disp:2,est:false},
   shelfMir:{n:"선반집기 거울형",s:"선반(거울)",w:1200,d:600,h:1800,c:"#A8CBDD",k:"shelf",p:-1,pc:0xcfe3ee,inv:9,disp:1,est:false},
+  /* 유리 선반집기(2026-10-22 영업2팀 매장 사진 3장) — 아래 흰 수납장(높이 34%) 위에 가는 흰 틀 + 유리 선반 2단(가운데 · 맨 위), 뒤는 트여 있다.
+     dr 1 = 수납장 앞 여닫이문 2짝 + 손잡이(2번 사진), 0 = 민짜 앞판(1번 사진 — 3개 붙인 것). off = 처음엔 체크 안 함 */
+  gShelf12:{n:"선반집기(1200)",s:"선반1200",w:1200,d:400,h:1520,c:"#F1EFEA",k:"gshelf",dr:0,inv:2,disp:2,est:false,off:1},
+  gShelf10:{n:"선반집기(1000)",s:"선반1000",w:1000,d:310,h:1310,c:"#F1EFEA",k:"gshelf",dr:1,inv:6,disp:3,est:false,off:1},
   logoTbl:{n:"로고테이블",s:"로고테이블",w:1000,d:600,h:750,c:"#D3D1C7",k:"table",inv:2,disp:2,est:false},
   /* 700집기(2026-10-21 영업2팀 사진 2장 · 가로 1000 × 높이 700·750·800 × 깊이 600) — lg 1 = 큰 WS 로고(1번 사진) · 2 = 로고 + WHITE SANDS(2번 사진) · 0 = 로고 없음.
      off = 처음엔 체크 안 함(새로 들어온 집기가 자동 배치로 팀 배치에 갑자기 깔리지 않게 — ➕ 넣기를 누르면 켜진다). B3 수량 1개(10/21 영업2팀 확인) */
@@ -27946,7 +27950,7 @@ window.fpAuto=function(quiet){
   for(ai=Math.ceil(nA/2);ai<nA;ai++)blk.push("pegAcrylic");
   while(blk.length&&blk.reduce(function(t,k){return t+CAT[k].w;},0)>cap){var drop=blk.lastIndexOf("pegAcrylic");blk.splice(drop>=0?drop:blk.length-1,1);}
   var pegN=blk.length;pegW=blk.reduce(function(t,k){return t+CAT[k].w;},0);
-  var shelfTypes=["shelfImg","shelfMir"].filter(function(t){return CAT[t]&&enabled(t)&&dispOf(t)>0;}),sh=[],rowW=pegW,cnt={},guard=0;
+  var shelfTypes=["shelfImg","shelfMir","gShelf12","gShelf10"].filter(function(t){return CAT[t]&&enabled(t)&&dispOf(t)>0;}),sh=[],rowW=pegW,cnt={},guard=0;
   while(shelfTypes.length&&guard++<200){
     var added=false;
     shelfTypes.forEach(function(t){
@@ -28898,6 +28902,19 @@ function buildItem(it,bad){
     [0.6,0.95,1.3,h-0.02].forEach(function(y){if(y<h)mk(g,w*2/3,0.02,d-0.02,sx,y,0,WH);});
     mk(g,w/3-0.02,h-0.6,0.05,px,0.6+(h-0.6)/2,0,c.pc);
     mk(g,w/3-0.02,0.02,d-0.02,px,h-0.01,0,WH);
+  }else if(c.k==="gshelf"){
+    /* 유리 선반집기(2026-10-22 영업2팀 사진) — 흰 수납장(높이 34%, 바닥 걸레받이) 위 네 모서리 기둥 · 가운데와 맨 위 테두리 틀에 유리 선반. 뒤는 트임.
+       틀은 35mm — 30mm 이하면 mk가 테두리 선을 빼서 흰 틀이 배경에 묻혔다 */
+    var ft=0.035,hb=Math.round(h*0.34*1000)/1000,ys=[hb+(h-hb)*0.47,h],GLS=new THREE.MeshLambertMaterial({color:0xcfe6ea,transparent:true,opacity:0.45,depthWrite:false});
+    mk(g,w-0.04,0.03,d-0.04,0,0.015,0,0xdedbd3);                                  /* 걸레받이 */
+    mk(g,w,hb-0.03,d,0,0.03+(hb-0.03)/2,0,WH);                                   /* 수납장 */
+    if(c.dr){[-1,1].forEach(function(a){mk(g,w/2-0.03,hb-0.09,0.006,a*w/4,0.03+(hb-0.03)/2,d/2+0.003,0xf7f6f2);   /* 문 2짝 */
+      mk(g,0.012,Math.min(0.09,hb*0.2),0.014,a*0.035,0.03+(hb-0.03)*0.6,d/2+0.013,0x8f8c84);});}               /* 손잡이 */
+    [-1,1].forEach(function(a){[-1,1].forEach(function(b){mk(g,ft,h-hb,ft,a*(w/2-ft/2),hb+(h-hb)/2,b*(d/2-ft/2),WH);});});   /* 기둥 */
+    ys.forEach(function(y){
+      [-1,1].forEach(function(b){mk(g,w,ft,ft,0,y-ft/2,b*(d/2-ft/2),WH);mk(g,ft,ft,d,b*(w/2-ft/2),y-ft/2,0,WH);});   /* 테두리 틀 */
+      var gm=new THREE.Mesh(new THREE.BoxGeometry(w-ft*2,0.008,d-ft*2),GLS);gm.position.y=y-0.006;g.add(gm);       /* 유리 */
+    });
   }else if(c.k==="table"){
     mk(g,w,h,d,0,h/2,0,WH);
     [-w/2+0.05,w/2-0.05].forEach(function(cx){mk(g,0.06,0.06,0.06,cx,0.03,d/2-0.1,0x5F5E5A);mk(g,0.06,0.06,0.06,cx,0.03,-d/2+0.1,0x5F5E5A);});
@@ -29381,6 +29398,10 @@ window.renderFloorPage=function(){
 var DEF={
   shelfImg:{n:"선반집기 이미지형",s:"선반(이미지)",w:1200,d:600,h:1800,c:"#85B7EB",k:"shelf",p:1,pc:0x85B7EB,inv:8,disp:2,est:false},
   shelfMir:{n:"선반집기 거울형",s:"선반(거울)",w:1200,d:600,h:1800,c:"#A8CBDD",k:"shelf",p:-1,pc:0xcfe3ee,inv:9,disp:1,est:false},
+  /* 유리 선반집기(2026-10-22 영업2팀 매장 사진 3장) — 아래 흰 수납장(높이 34%) 위에 가는 흰 틀 + 유리 선반 2단(가운데 · 맨 위), 뒤는 트여 있다.
+     dr 1 = 수납장 앞 여닫이문 2짝 + 손잡이(2번 사진), 0 = 민짜 앞판(1번 사진 — 3개 붙인 것). off = 처음엔 체크 안 함 */
+  gShelf12:{n:"선반집기(1200)",s:"선반1200",w:1200,d:400,h:1520,c:"#F1EFEA",k:"gshelf",dr:0,inv:2,disp:2,est:false,off:1},
+  gShelf10:{n:"선반집기(1000)",s:"선반1000",w:1000,d:310,h:1310,c:"#F1EFEA",k:"gshelf",dr:1,inv:6,disp:3,est:false,off:1},
   logoTbl:{n:"로고테이블",s:"로고테이블",w:1000,d:600,h:750,c:"#D3D1C7",k:"table",inv:2,disp:2,est:false},
   /* 700집기(2026-10-21 영업2팀 사진 2장 · 가로 1000 × 높이 700·750·800 × 깊이 600) — lg 1 = 큰 WS 로고(1번 사진) · 2 = 로고 + WHITE SANDS(2번 사진) · 0 = 로고 없음.
      off = 처음엔 체크 안 함(새로 들어온 집기가 자동 배치로 팀 배치에 갑자기 깔리지 않게 — ➕ 넣기를 누르면 켜진다). B3 수량 1개(10/21 영업2팀 확인) */
@@ -29715,7 +29736,7 @@ window.fp2Auto=function(quiet){
   for(ai=Math.ceil(nA/2);ai<nA;ai++)blk.push("pegAcrylic");
   while(blk.length&&blk.reduce(function(t,k){return t+CAT[k].w;},0)>cap){var drop=blk.lastIndexOf("pegAcrylic");blk.splice(drop>=0?drop:blk.length-1,1);}
   var pegN=blk.length;pegW=blk.reduce(function(t,k){return t+CAT[k].w;},0);
-  var shelfTypes=["shelfImg","shelfMir"].filter(function(t){return CAT[t]&&enabled(t)&&dispOf(t)>0;}),sh=[],rowW=pegW,cnt={},guard=0;
+  var shelfTypes=["shelfImg","shelfMir","gShelf12","gShelf10"].filter(function(t){return CAT[t]&&enabled(t)&&dispOf(t)>0;}),sh=[],rowW=pegW,cnt={},guard=0;
   while(shelfTypes.length&&guard++<200){
     var added=false;
     shelfTypes.forEach(function(t){
@@ -30667,6 +30688,19 @@ function buildItem(it,bad){
     [0.6,0.95,1.3,h-0.02].forEach(function(y){if(y<h)mk(g,w*2/3,0.02,d-0.02,sx,y,0,WH);});
     mk(g,w/3-0.02,h-0.6,0.05,px,0.6+(h-0.6)/2,0,c.pc);
     mk(g,w/3-0.02,0.02,d-0.02,px,h-0.01,0,WH);
+  }else if(c.k==="gshelf"){
+    /* 유리 선반집기(2026-10-22 영업2팀 사진) — 흰 수납장(높이 34%, 바닥 걸레받이) 위 네 모서리 기둥 · 가운데와 맨 위 테두리 틀에 유리 선반. 뒤는 트임.
+       틀은 35mm — 30mm 이하면 mk가 테두리 선을 빼서 흰 틀이 배경에 묻혔다 */
+    var ft=0.035,hb=Math.round(h*0.34*1000)/1000,ys=[hb+(h-hb)*0.47,h],GLS=new THREE.MeshLambertMaterial({color:0xcfe6ea,transparent:true,opacity:0.45,depthWrite:false});
+    mk(g,w-0.04,0.03,d-0.04,0,0.015,0,0xdedbd3);                                  /* 걸레받이 */
+    mk(g,w,hb-0.03,d,0,0.03+(hb-0.03)/2,0,WH);                                   /* 수납장 */
+    if(c.dr){[-1,1].forEach(function(a){mk(g,w/2-0.03,hb-0.09,0.006,a*w/4,0.03+(hb-0.03)/2,d/2+0.003,0xf7f6f2);   /* 문 2짝 */
+      mk(g,0.012,Math.min(0.09,hb*0.2),0.014,a*0.035,0.03+(hb-0.03)*0.6,d/2+0.013,0x8f8c84);});}               /* 손잡이 */
+    [-1,1].forEach(function(a){[-1,1].forEach(function(b){mk(g,ft,h-hb,ft,a*(w/2-ft/2),hb+(h-hb)/2,b*(d/2-ft/2),WH);});});   /* 기둥 */
+    ys.forEach(function(y){
+      [-1,1].forEach(function(b){mk(g,w,ft,ft,0,y-ft/2,b*(d/2-ft/2),WH);mk(g,ft,ft,d,b*(w/2-ft/2),y-ft/2,0,WH);});   /* 테두리 틀 */
+      var gm=new THREE.Mesh(new THREE.BoxGeometry(w-ft*2,0.008,d-ft*2),GLS);gm.position.y=y-0.006;g.add(gm);       /* 유리 */
+    });
   }else if(c.k==="table"){
     mk(g,w,h,d,0,h/2,0,WH);
     [-w/2+0.05,w/2-0.05].forEach(function(cx){mk(g,0.06,0.06,0.06,cx,0.03,d/2-0.1,0x5F5E5A);mk(g,0.06,0.06,0.06,cx,0.03,-d/2+0.1,0x5F5E5A);});
