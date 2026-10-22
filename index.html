@@ -31944,7 +31944,8 @@ function selKind(s){s=String(s||"");if(/드랍/.test(s))return "drop";if(/납품
 function selVal(s){var k=selKind(s);return k==="drop"?"드랍":k==="done"?"확정":"제안";}   /* 선정여부는 제안·확정·드랍 셋 중 하나(2026-10-22 영업2팀) */
 
 var COLS=[ /* [키, 제목, 폭, 종류] 종류: t=글(여러 줄) n=숫자 c=계산 */
-  ["no","번호",44,"n"],["img","이미지",84,"img"],["season","시즌",58,"t"],["sel","선정여부",76,"sel"],["name","상품명",190,"t"],["colors","컬러",104,"t"],
+  ["no","번호",44,"n"],["img","이미지",84,"img"],["season","시즌",58,"t"],["pdate","제안일자",118,"d"],["sel","선정여부",76,"sel"],   /* 제안일자(2026-10-22 영업2팀 "시즌과 선정여부 사이에") */
+  ["name","상품명",190,"t"],["colors","컬러",104,"t"],
   ["tag","TAG가",76,"n"],["origin","원산지",66,"t"],["price","코코 제안가\n(+VAT)",84,"n"],["fee","수수료\n(%)",58,"f"],["_supply","공급가\n(VAT별도)",86,"c"],["_vat","부가세",66,"c"],
   ["qty","납품수량",110,"t"],["note","비고",210,"t"],["memo","진행 메모",200,"t"],["_del","",30,"del"]
 ];
@@ -31984,6 +31985,7 @@ window.cppRender=function(){
       if(c[3]==="img")h+='<td><div class="cpp-img" tabindex="0" data-img="'+esc(r._id)+'" title="눌러서 고른 뒤 Ctrl+V로 붙여넣기(복사한 사진·사진 주소) · 끌어 놓기 · 📁 파일 고르기"></div></td>';
       else if(c[3]==="sel"){var sv=selVal(r.sel);h+='<td><select class="cpp-sel s-'+selKind(sv)+'" data-k="sel">'+["제안","확정","드랍"].map(function(o){return '<option'+(o===sv?' selected':'')+'>'+o+'</option>';}).join("")+'</select></td>';}
       else if(c[3]==="c")h+='<td class="cpp-c" data-calc="'+key+'"></td>';
+      else if(c[3]==="d")h+='<td><input type="date" class="cpp-in cpp-date" data-k="'+key+'" value="'+esc(r[key]||"")+'" title="제안일자"></td>';
       else if(c[3]==="del")h+='<td style="text-align:center"><button class="cpp-del" title="이 상품 지우기" onclick="cppDel(\''+esc(r._id)+'\')">✕</button></td>';
       else if(c[3]==="n")h+='<td><input class="cpp-in cpp-num" data-k="'+key+'" value="'+esc(key==="no"?(r.no==null?"":r.no):won(num(r[key])))+'"></td>';
       else if(c[3]==="f")h+='<td><input class="cpp-in cpp-num" data-k="fee" inputmode="decimal" placeholder="%" title="수수료(%) — 넣으면 공급가(VAT별도)·부가세가 자동으로 나옵니다" value="'+esc(r.fee==null?"":r.fee)+'"></td>';
@@ -32051,7 +32053,8 @@ document.addEventListener("focusout",function(e){
 window.cppAdd=function(){
   if(!D)return;
   var max=0;rowsSorted().forEach(function(r){max=Math.max(max,Number(r.no)||0);});
-  var id=newId(),r={no:max+1,season:$("cppSeason").value||"",sel:"제안",name:"",colors:"",tag:"",origin:"",price:"",fee:FEE0,qty:"",note:"",memo:"",at:new Date().toISOString(),by:me()};
+  var td=new Date(),today=td.getFullYear()+"-"+String(td.getMonth()+1).padStart(2,"0")+"-"+String(td.getDate()).padStart(2,"0");   /* 새 줄 제안일자 = 오늘 */
+  var id=newId(),r={no:max+1,season:$("cppSeason").value||"",pdate:today,sel:"제안",name:"",colors:"",tag:"",origin:"",price:"",fee:FEE0,qty:"",note:"",memo:"",at:new Date().toISOString(),by:me()};
   if(!D.rows)D.rows={};
   D.rows[id]=r;
   if(!offline)ref("rows/"+id).set(r);
@@ -32147,14 +32150,14 @@ window.cppExcel=function(){
   if(typeof XLSX==="undefined"){alert("엑셀 라이브러리를 아직 불러오지 못했습니다. 잠시 뒤 다시 눌러 주세요.");return;}
   var ids={};$("cppWrap").querySelectorAll("tr[data-id]").forEach(function(tr){ids[tr.dataset.id]=1;});
   var rows=rowsSorted().filter(function(r){return ids[r._id];});
-  var aoa=[["코스트코 직매입 제안 상품 리스트"],["번호","시즌","선정여부","상품명","컬러","TAG가","원산지","코코 제안가(+VAT)","수수료(%)","공급가(VAT별도)","부가세","납품수량","비고","진행 메모"]];
+  var aoa=[["코스트코 직매입 제안 상품 리스트"],["번호","시즌","제안일자","선정여부","상품명","컬러","TAG가","원산지","코코 제안가(+VAT)","수수료(%)","공급가(VAT별도)","부가세","납품수량","비고","진행 메모"]];
   rows.forEach(function(r){
-    aoa.push([r.no,r.season||"",selVal(r.sel),r.name||"",r.colors||"",num(r.tag),r.origin||"",num(r.price),num(r.fee),supply(r),vat(r),r.qty||"",r.note||"",r.memo||""]);
+    aoa.push([r.no,r.season||"",r.pdate||"",selVal(r.sel),r.name||"",r.colors||"",num(r.tag),r.origin||"",num(r.price),num(r.fee),supply(r),vat(r),r.qty||"",r.note||"",r.memo||""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[6,7,9,30,14,9,9,12,8,14,9,14,30,30].map(function(w){return {wch:w};});
-  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:13}}];
-  for(var R=2;R<aoa.length;R++)[5,7,9,10].forEach(function(C){var a=XLSX.utils.encode_cell({r:R,c:C});if(ws[a]&&typeof ws[a].v==="number")ws[a].z="#,##0";});
+  ws["!cols"]=[6,7,11,9,30,14,9,9,12,8,14,9,14,30,30].map(function(w){return {wch:w};});
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:14}}];
+  for(var R=2;R<aoa.length;R++)[6,8,10,11].forEach(function(C){var a=XLSX.utils.encode_cell({r:R,c:C});if(ws[a]&&typeof ws[a].v==="number")ws[a].z="#,##0";});
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"제안상품");
   var d=new Date(),md=String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
   XLSX.writeFile(wb,"코스트코 직매입 제안 상품 리스트("+md+").xlsx");
