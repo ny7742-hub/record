@@ -3731,6 +3731,11 @@ function fbListen(){
           /* Firebase 데이터로 교체 후에도 상품/세일 보정 재적용 (루시아 등 신규 상품 유실 방지) */
           if(typeof ccApplyDataFixes==="function")ccApplyDataFixes(costcoDB);
           try{localStorage.setItem("costcoDB",JSON.stringify(costcoDB));}catch(e2){console.warn("costcoDB localStorage 저장 실패(용량)",e2&&e2.name);}   /* 저장 실패해도 화면은 새 자료로 */
+          if(typeof _ccSnap==="function")_ccSnap();   /* 공유본 = 이 화면의 기준(2026-10-22) */
+          if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();
+        }else if(typeof _ccMergeRemote==="function"&&_ccMergeRemote(d)){
+          /* 이 브라우저 것이 더 최신이어도 공유본에만 있는 판매일은 받아 둔다(2026-10-22 — 예전엔 통째로 무시해 다음 저장 때 지워졌다) */
+          try{localStorage.setItem("costcoDB",JSON.stringify(costcoDB));}catch(e2){}
           if(document.getElementById("page-costco").style.display!=="none")renderCostcoPage();
         }
       }catch(e){}
@@ -19311,6 +19316,7 @@ if(ccApplyDataFixes(costcoDB))_needSave=true;
 })();
 /* _migrated 플래그 대신 "월요일 키 + _uploaded 없음 = 주간합계" 판별 함수 사용 */
 if(_needSave)localStorage.setItem("costcoDB",JSON.stringify(costcoDB));
+_ccSnap();   /* 저장 때 이 화면이 고친 날짜를 가려내는 기준(아래 saveCostcoDB) */
 
 
 /* ── 코스트코 파일 업로드 파싱 ── */
@@ -19825,10 +19831,69 @@ function ccMatchColor(v,prodName){
   return null;
 }
 
+/* ── 판매현황이 예전 자료에 덮여 사라지지 않게(2026-10-22 영업2팀) ──
+   예전 저장 = 이 화면의 costcoDB를 통째로 ws/costco에 썼다. 코스트코는 실시간 리스너가 없어(탭을 열 때 한 번만 읽음)
+   오래 열어 둔 화면이 저장하면 그 사이 다른 사람·자동화 PC가 넣은 판매일이 지워졌다(10/6·10/7 — ccPdfDone은 병합돼 남아 다시 등록도 막혔다).
+   이제 저장 직전에 공유본을 읽어 **판매현황 날짜(sales 키)마다** 합친 뒤 쓴다:
+   · salesAt[날짜] = 그 날짜를 마지막으로 고친 시각 — 저장 때 직전 공유 상태(_ccBase)와 비교해 바뀐 날짜(지운 날짜 포함)만 지금 시각.
+   · 날짜마다 시각이 늦은 쪽이 이긴다(지운 날짜가 더 늦으면 지움). 시각이 같으면 이 화면이 그 날짜를 고쳤을 때만 이 화면 것, 아니면 공유본 것,
+     공유본에 없으면 이 화면 것을 남긴다 — 공유본에 없다는 이유만으로는 지우지 않는다(낡은 화면이 덮어쓴 경우라서).
+   · ccPdfDone은 합집합, periods는 남은 날짜에 맞춘다. 상품·세일·단종 등 나머지는 예전처럼 이 화면 것.
+   공유본을 8초 안에 못 읽으면 예전처럼 그대로 쓴다. 저장이 겹치면 앞 저장이 끝난 뒤 한 번 더 */
+var _ccBase,_ccSaving=false,_ccSaveAgain=false;   /* _ccBase는 초기값을 주지 않는다 — 위(불러온 직후)의 _ccSnap() 결과가 지워지지 않게 */
+function _ccSnap(){var b={},S=(costcoDB&&costcoDB.sales)||{};Object.keys(S).forEach(function(k){b[k]=JSON.stringify(S[k]);});_ccBase=b;}
+function _ccStamp(){
+  if(!_ccBase||!costcoDB.sales)return;
+  var S=costcoDB.sales,A=costcoDB.salesAt||(costcoDB.salesAt={}),now=Date.now();
+  Object.keys(S).forEach(function(k){if(_ccBase[k]!==JSON.stringify(S[k]))A[k]=now;});
+  Object.keys(_ccBase).forEach(function(k){if(!(k in S))A[k]=now;});
+}
+/* 공유본 d를 이 화면 costcoDB에 날짜별로 합친다 — 화면에 보이는 게 바뀌었으면 true */
+function _ccMergeRemote(d){
+  if(!d||typeof d!=="object")return false;
+  var L=costcoDB.sales||(costcoDB.sales={}),R=d.sales||{},LA=costcoDB.salesAt||(costcoDB.salesAt={}),RA=d.salesAt||{},B=_ccBase||{},ch=false,keys={};
+  [L,R,LA,RA].forEach(function(o){Object.keys(o).forEach(function(k){keys[k]=1;});});
+  Object.keys(keys).forEach(function(k){
+    var la=+LA[k]||0,ra=+RA[k]||0,inL=Object.prototype.hasOwnProperty.call(L,k),inR=Object.prototype.hasOwnProperty.call(R,k),useR;
+    if(ra!==la)useR=ra>la;
+    else useR=inR&&(!inL||B[k]===JSON.stringify(L[k]));
+    if(!useR)return;
+    if(inR){if(!inL||JSON.stringify(L[k])!==JSON.stringify(R[k])){L[k]=R[k];ch=true;}}
+    else if(inL){delete L[k];ch=true;}
+    if(ra)LA[k]=ra;
+  });
+  var D=costcoDB.ccPdfDone||(costcoDB.ccPdfDone={});
+  Object.keys(d.ccPdfDone||{}).forEach(function(k){if(!D[k])D[k]=d.ccPdfDone[k];});
+  var P=[],seen={};
+  (costcoDB.periods||[]).concat(d.periods||[],Object.keys(L)).forEach(function(k){if(!seen[k]&&Object.prototype.hasOwnProperty.call(L,k)){seen[k]=1;P.push(k);}});
+  if(JSON.stringify(P)!==JSON.stringify(costcoDB.periods||[])){costcoDB.periods=P;ch=true;}
+  return ch;
+}
 function saveCostcoDB(isUpload){
   if(isUpload)window._ccUploadTs=Date.now();
+  _ccStamp();
   costcoDB._savedAt=Date.now();
-  wsSetItem("costcoDB",JSON.stringify(costcoDB));
+  try{localStorage.setItem("costcoDB",JSON.stringify(costcoDB));}catch(e){console.warn("costcoDB localStorage 저장 실패(용량)",e&&e.name);}
+  _ccPush();
+}
+function _ccPush(){
+  if(_ccSaving){_ccSaveAgain=true;return;}
+  var can=typeof fbDB!=="undefined"&&fbDB&&!WS_LOCAL_ONLY&&(_authState==="member"||_authState==="open");
+  if(!can){wsSetItem("costcoDB",JSON.stringify(costcoDB));_ccSnap();return;}
+  _ccSaving=true;
+  var done=false,fin=function(v){
+    if(done)return;done=true;
+    var ch=false;
+    try{if(v){var o=typeof v==="string"?JSON.parse(v):v;ch=_ccMergeRemote(o);}}catch(e){console.warn("코스트코 공유본 합치기 실패 — 이 화면 것으로 씁니다",e);}
+    costcoDB._savedAt=Date.now();
+    wsSetItem("costcoDB",JSON.stringify(costcoDB));
+    _ccSnap();_ccSaving=false;
+    var pg=document.getElementById("page-costco");
+    if(ch&&pg&&pg.style.display!=="none"&&typeof renderCostcoPage==="function")renderCostcoPage();
+    if(_ccSaveAgain){_ccSaveAgain=false;_ccPush();}
+  };
+  try{fbDB.ref("ws/costco").once("value",function(s){fin(s.val());},function(){fin(null);});}catch(e){fin(null);}
+  setTimeout(function(){fin(null);},8000);
 }
 
 function ccTotalCumul(){
