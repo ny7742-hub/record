@@ -129,6 +129,7 @@
   ④ 하이웍스 메일 쓰기 화면(`data-testid` input-address-to/cc/subject · iframe `se-contents-edit` · input-upload-file-picker · btn-write-send/save):
   받는 사람 김구남 gnkim72@daum.net · 참조 offline@·cs@ · 제목 `화이트샌즈(MMDD) - 영업2팀` · 서명 = 누른 사람(`automation/mail-signature.json`, 없으면 '영업2팀').
   미리보기는 **[저장하기](임시보관함)** 까지. 같은 날 두 번 발주는 `ws/ccOrderLog[YYYY-MM-DD]`로 막는다. 결과 `ws/ccOrderStatus`.
+  **카드에는 오늘 결과(또는 진행 중)만 보인다**(2026-10-23 영업2팀 "지난 내용 삭제 · 자동발주를 안 쓰는 날도 있으니 최신화") — 지난 날짜의 `❗ 발주 멈춤` 등은 숨기고(`_ccDayOf`), 실패 요청 줄도 오늘 것만.
   멈춤: 한 아이디라도 못 읽음 · 두 창이 같은 아이디 · 상품 매칭 안 된 줄. 배송메세지는 API에서 아직 못 찾아 비운다(9/29 0건 · 9/30 1건뿐이었음).
   **[발주하기]는 제목 바로 옆(왼쪽)**이고, 새 주문이 있으면 보라 **'발주 요망 N건'**(`_ccAutoPaint`) · 오늘 발주했으면 '✅ 오늘 발주 완료 · 다음 발주 N건 대기'.
   새 주문 수는 자동화 PC가 10분마다 DSS 로그인 유지(`portal-keepalive.mjs`)를 하면서 GET으로만 읽어 `ws/ccOrderReady`({at,total,accounts})에 올린다(3시간 넘은 값은 안 씀).
