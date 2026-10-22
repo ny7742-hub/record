@@ -3340,7 +3340,8 @@ function fbListen(){
   /* 홈쇼핑 */
   apply("ws/homeshopping","homeshoppingDB",
     function(d){if(Array.isArray(d))homeshoppingDB=d;},
-    function(){if(document.getElementById("page-homeshopping")&&document.getElementById("page-homeshopping").style.display!=="none")renderHomeshopping();}
+    function(){if(document.getElementById("page-homeshopping")&&document.getElementById("page-homeshopping").style.display!=="none")renderHomeshopping();
+      if(typeof _hpsHsRows==="function")_hpsHsRows.c={};var q=document.getElementById("homePsIn");if(q&&q.value.trim()&&typeof hpsSearch==="function")hpsSearch();}   /* 홈 상품검색의 홈쇼핑 방송도 다시 */
   );
   /* 홈쇼핑 사전미팅일정 */
   apply("ws/hsPre","hsPreDB",
@@ -17430,8 +17431,45 @@ function _hpsCard(o){
       +'<div style="font-size:15px;margin-bottom:10px">'+mall
         +(!NAVER_INAPP?' <a href="'+_escX(_hpsNaverUrl(_hpsNaverQuery(o.name)))+'" target="_blank" rel="noopener" title="네이버쇼핑 낮은 가격순: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가 ↗</a></div>':'')
         +(!NAVER_INAPP?'':' <a href="javascript:void 0" onclick="hpsNvAsk(\''+_escX(_hpsNaverQuery(o.name).replace(/\\/g,"\\\\").replace(/'/g,"\\'"))+'\',\''+_escX(o.code)+'\')" title="네이버 최저가를 자비스 안에서 봅니다: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가</a></div>')
-      +tbl
+      +tbl+_hpsHs(o)
     +'</div></div>';
+}
+/* 홈쇼핑 방송(2026-10-22 영업2팀 "상품검색에 홈쇼핑 진행일자·시간·판매수량") — 홈쇼핑 탭 방송관리(homeshoppingDB)에서 이 상품의 줄.
+   방송관리 상품명 → 상품코드(_cpFindProduct)가 같으면, 코드를 못 정하면 상품명 낱말(_cpNameKey)이 모두 들어 있으면 같은 상품.
+   판매수량은 방송관리에 방송마다 합계 하나뿐이라 합계만(컬러별 숫자는 없음 — 2026-10-22 영업2팀 "합계만"), 컬러는 방송관리 컬러 칸 그대로.
+   방송일 최근 순(방송일 없는 제안 줄은 맨 뒤), 지난 방송은 회색 바탕(_hsAired) */
+function _hpsHsRows(o){
+  var rows=(typeof homeshoppingDB!=="undefined"&&Array.isArray(homeshoppingDB))?homeshoppingDB:[];
+  var C=_hpsHsRows.c||(_hpsHsRows.c={});
+  return rows.filter(function(r){
+    var nm=String(r&&r.name||"").trim();if(!nm)return false;
+    if(!(nm in C)){var p=_cpFindProduct(nm);C[nm]={code:p&&p.code||"",toks:_cpNameKey(nm).toLowerCase().split(" ").filter(Boolean)};}
+    var m=C[nm];
+    if(m.code)return m.code===o.code;
+    return m.toks.length>0&&m.toks.every(function(t){return o.flat.indexOf(t)>=0;});
+  }).sort(function(a,b){var da=String(a.date||""),db=String(b.date||"");if(!da!==!db)return da?-1:1;if(da!==db)return da<db?1:-1;return String(a.time||"")<String(b.time||"")?1:-1;});
+}
+function _hpsHs(o){
+  var L=_hpsHsRows(o);if(!L.length)return "";
+  var WD="일월화수목금토",th='padding:6px 10px;background:#eef2ff;color:#3730a3;font-weight:700;font-size:13.5px;text-align:left;white-space:nowrap';
+  var num=function(v){return Number(String(v==null?"":v).replace(/[^0-9.-]/g,""))||0;};
+  var tot=0;L.forEach(function(r){tot+=num(r.sold);});
+  return '<div style="margin-top:12px;font-weight:800;color:#3730a3;font-size:15px">📺 홈쇼핑 방송 '+L.length+'건'+(tot?' <span style="font-weight:700;color:#334155;font-size:14px">· 판매수량 합계 '+tot.toLocaleString()+'개</span>':'')+'</div>'
+    +'<div style="max-height:300px;overflow:auto;border:1px solid #e0e7ff;border-radius:8px;margin-top:4px"><table style="border-collapse:collapse;width:100%;font-size:14.5px">'
+    +'<tr><th style="'+th+'">방송일</th><th style="'+th+'">시간</th><th style="'+th+'">홈쇼핑사</th><th style="'+th+'">구분</th><th style="'+th+'">컬러</th><th style="'+th+';text-align:right">판매수량</th></tr>'
+    +L.map(function(r){
+      var d=String(r.date||"").trim(),dd=/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d)?new Date(d+"T00:00:00"):null,past=_hsAired(r);
+      var sold=num(r.sold);
+      var td='padding:5px 10px;color:#0f172a;vertical-align:top';
+      return '<tr style="border-top:1px solid #eef2f6'+(past?';background:#f1f4f8':'')+'">'
+        +'<td style="'+td+';white-space:nowrap;font-weight:700">'+(dd?_escX(d.slice(2).replace(/-/g,"."))+'('+WD[dd.getDay()]+')':'<span style="color:#5b6675;font-weight:400">미정</span>')+'</td>'
+        +'<td style="'+td+';white-space:nowrap">'+_escX(String(r.time||"").trim()||"—")+'</td>'
+        +'<td style="'+td+';white-space:nowrap">'+_escX(r.company||"—")+'</td>'
+        +'<td style="'+td+';white-space:nowrap">'+_escX(r.stage||"")+(dd&&!past?' <span style="font-size:12px;font-weight:800;color:#1d4ed8;background:#dbeafe;border-radius:6px;padding:0 5px">예정</span>':'')+'</td>'
+        +'<td style="'+td+';overflow-wrap:anywhere">'+_escX(r.color||"")+'</td>'
+        +'<td style="'+td+';text-align:right;font-weight:800;color:'+(sold?'#3730a3':'#5b6675')+'">'+(sold?sold.toLocaleString():(past?'—':'방송 전'))+'</td></tr>';
+    }).join("")+'</table></div>'
+    +'<div style="font-size:13px;color:#5b6675;margin-top:4px">홈쇼핑 탭 방송관리 기준 · 판매수량은 방송별 합계(컬러별 숫자는 방송관리에 없음)</div>';
 }
 /* 자사코드(상품컬러코드) — 그 상품코드·칼라코드의 첫 줄 */
 function _hpsJasa(code,cc){
