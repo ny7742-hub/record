@@ -22171,6 +22171,15 @@ function _ccPrevLine(it,dv,opt,active,fresh){
   if(why.length)h+='<div style="font-size:12px;color:#5b6675">'+why.map(_escX).join(' · ')+'</div>';
   if(saleErr)h+='<div style="font-size:12px;color:#b91c1c">매출: '+_escX(it.error||(SAIP_ITEM_TXT[it.status]||[0,it.status])[1]||"")+'</div>';
   if(D)(D.errors||[]).forEach(function(e){h+='<div style="font-size:12px;color:#b91c1c">DSS: '+_escX(e)+'</div>';});
+  /* 내역 · 상품코드 고치기(2026-10-22 영업2팀 "코스트코 매출등록도 내역 보여주고, 수정할 수 있도록") — 홈쇼핑·백화점몰과 같은 줄 목록(_saipRowList, ws/saipFix).
+     10/14 "13줄·17줄 내용은 필요없습니다"라 접어 두고, 고른 날짜·멈춘 줄·고친 코드가 있는 날만 펼친다. 확정 창은 위에 줄 목록이 따로 있어 뺀다(noRows) */
+  if(it.rows&&it.rows.length&&!(opt&&opt.noRows)){
+    var nBad=it.rows.filter(function(r){return r.chk==="conflict"||r.chk==="missing";}).length;
+    var nFx=Object.keys((((saipFix||{}).cc||{})[it.mmdd])||{}).length;
+    h+='<details'+(it.date===dv||nBad||nFx?' open':'')+' style="margin-top:4px"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#334155">📋 내역 '+it.rows.length+'줄 · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원'
+      +(nBad?' <span style="color:#b91c1c">· ⛔ '+nBad+'줄 확인</span>':'')+(nFx?' <span style="color:#b45309">· ✏️ '+nFx+'줄 고침</span>':'')+' — 상품코드 고치기</summary>'
+      +_saipRowList("cc",it.rows,"300px",it.mmdd)+'</details>';
+  }
   if(saleTodo&&!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&!active&&fresh)
     h+='<div style="margin-top:4px"><button class="bs" onclick="saipAutoGo(\'cc\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:13px;font-weight:800;padding:4px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+imd+' 이대로 등록</button></div>';
   return h+'</div>';
@@ -22520,7 +22529,7 @@ function _saipCfShow(kind,date,o){
       h+=_saipRowList(kind,it.rows,"50vh",it.mmdd);
     }
     if(kind==="mv"&&it.offRows&&it.offRows.length)h+='<div style="margin-top:4px;color:#b45309;font-weight:700">체크를 뺀 '+it.offRows.length+'줄은 넣지 않습니다 — 나중에 체크하고 다시 등록할 수 있습니다</div>';
-    if(kind==="cc"&&it.date)h+=_ccPrevLine(it,date,{noReg:true},true,false);
+    if(kind==="cc"&&it.date)h+=_ccPrevLine(it,date,{noReg:true,noRows:true},true,false);
     if(stale)h+='<div style="color:#b45309;font-weight:700;margin-top:6px">고친 값이 있습니다 — 다시 검사한 뒤 확정할 수 있습니다</div>';
     else if(it.status==="preview"&&!fresh&&!L)h+='<div style="color:#5b6675;margin-top:6px">검사한 지 2시간이 지나 다시 검사해 주세요</div>';
     if(canReg){
