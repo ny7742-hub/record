@@ -17496,12 +17496,12 @@ function _hpsHs(o){
 var HPS_ORD_ST={pending:"발주 대기",ordered:"발주 완료",arrived:"입고 완료",mix:"일부 입고"};
 function _hpsOrd(code){
   if(!code||typeof _hsPreOrdFetch!=="function")return null;
-  /* 오늘 기준 입고된 것은 뺀다(2026-10-22 영업2팀 "당일기준 입고되었으면 안 보여도 됨") — 상태 arrived이거나 입고예정일이 오늘이거나 지났으면 입고로 본다 */
-  var O=_hsPreOrdFetch(code),now=new Date(),today=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0"),last="";
+  /* 입고된 것은 뺀다(2026-10-22 영업2팀 "당일기준 입고되었으면 안 보여도 됨") — 상태 arrived만 입고로 본다.
+     입고예정일이 지났어도 입고 처리가 안 된 발주는 보인다(같은 날 "입고가 안 된 발주건은 보이게" — 입고예정 칸 빨강 '지남') */
+  var O=_hsPreOrdFetch(code),last="";
   var rs=O.rows.filter(function(r){
     if(r.status==="cancelled")return false;
-    var a=String(r.expected_arrival_at||"").slice(0,10);
-    if(r.status==="arrived"||(a&&a<=today)){if(a>last)last=a;return false;}
+    if(r.status==="arrived"){var a=String(r.expected_arrival_at||"").slice(0,10);if(a>last)last=a;return false;}
     return true;
   });
   if(!rs.length)return {st:O.st,last:last,any:O.rows.length>0};
@@ -17518,7 +17518,12 @@ function _hpsOrdBadge(st){
   var c=st==="arrived"?"#047857;background:#d1fae5":st==="pending"?"#9a3412;background:#ffedd5":"#1d4ed8;background:#dbeafe";
   return ' <span style="font-size:12px;font-weight:800;color:'+c+';border-radius:6px;padding:0 5px;white-space:nowrap">'+t+'</span>';
 }
-function _hpsOrdArr(g){return g.arr?_escX(g.arr.slice(5).replace(/-/g,".")):'<span style="color:#5b6675">미정</span>';}   /* MM.DD만 — 한 화면에 들어가게(연도·상태는 표 아래 줄에) */
+function _hpsToday(){var n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0");}
+function _hpsOrdArr(g){
+  if(!g.arr)return '<span style="color:#5b6675">미정</span>';
+  var late=g.arr<_hpsToday();   /* 입고예정일이 지났는데 아직 입고 처리 전 */
+  return '<span'+(late?' title="입고예정일이 지났는데 아직 입고 처리가 안 됐습니다" style="color:#b91c1c"':'')+'>'+_escX(g.arr.slice(5).replace(/-/g,"."))+(late?' 지남':'')+'</span>';
+}   /* MM.DD만 — 한 화면에 들어가게(연도·상태는 표 아래 줄에) */
 function _hpsOrdNote(R){
   var box=function(t){return '<div style="font-size:13.5px;color:#334155;font-weight:600;margin-top:6px;line-height:1.6">'+t+'</div>';};
   if(!R)return "";
@@ -17528,7 +17533,7 @@ function _hpsOrdNote(R){
     return box('<span style="color:#5b6675">🧾 '+(R.any?'진행 중인 발주 없음'+(R.last?' · 마지막 입고 '+_escX(R.last.slice(2).replace(/-/g,".")):''):'wsstudio 생산관리에 이 상품 발주가 없습니다')+'</span>');
   }
   var md=function(d){return _escX(String(d||"").slice(2).replace(/-/g,"."));};
-  return box('🧾 wsstudio 생산관리 발주 <b style="color:#6d28d9">'+md(R.pick)+' 차수</b> · '+R.tot.toLocaleString()+'개'+(R.arr?' · 입고예정 '+md(R.arr):'')+_hpsOrdBadge(R.ost)
+  return box('🧾 wsstudio 생산관리 발주 <b style="color:#6d28d9">'+md(R.pick)+' 차수</b> · '+R.tot.toLocaleString()+'개'+(R.arr?' · 입고예정 '+(R.arr<_hpsToday()?'<span style="color:#b91c1c">'+md(R.arr)+' 지남</span>':md(R.arr)):'')+_hpsOrdBadge(R.ost)
     +(R.others.length?'<br><span style="color:#5b6675;font-weight:500">입고 전 다른 차수: '+R.others.map(function(x){return md(x.d)+' '+x.tot.toLocaleString()+'개'+(x.arr?' (입고예정 '+md(x.arr)+')':'')+_hpsOrdBadge(x.st);}).join(' · ')+'</span>':''));
 }
 /* 자사코드(상품컬러코드) — 그 상품코드·칼라코드의 첫 줄 */
