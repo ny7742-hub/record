@@ -17408,22 +17408,22 @@ function _hpsCard(o){
   var tbl;
   if(!S)tbl='<div style="color:#5b6675;font-size:15px">컬러 정보가 없습니다</div>'+_hpsOrdNote(ORD);
   else{
-    var th='padding:6px 10px;background:#f1f5f9;color:#475569;font-weight:700;font-size:13.5px;text-align:left;position:sticky;top:0';
+    var th='padding:6px 8px;background:#f1f5f9;color:#475569;font-weight:700;font-size:13.5px;text-align:left;position:sticky;top:0;white-space:nowrap',tp='padding:5px 8px;white-space:nowrap';
     /* 발주수량 · 입고예정 = wsstudio 생산관리 발주(wssales reorders) 가장 최근 차수(2026-10-22 영업2팀) — 발주에만 있는 컬러는 줄을 더한다 */
     var oc=ORD&&ORD.pick?ORD.q:null,rows=S.list.map(function(x){return {name:x.name,cc:x.cc,qty:x.qty};});
     if(oc)Object.keys(oc).forEach(function(cc){if(!rows.some(function(r){return String(r.cc).toUpperCase()===cc;}))rows.push({name:ORD.names[cc]||cc,cc:cc,qty:null});});
-    var ftd='padding:6px 10px;font-weight:800;color:#0f172a;background:#f1f5f9;border-top:2px solid #cbd5e1;position:sticky;bottom:0';
-    tbl='<div style="max-height:340px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"><table style="border-collapse:collapse;width:100%;font-size:15px">'
+    var ftd='padding:6px 8px;white-space:nowrap;font-weight:800;color:#0f172a;background:#f1f5f9;border-top:2px solid #cbd5e1;position:sticky;bottom:0';
+    tbl='<div style="max-height:480px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"><table style="border-collapse:collapse;width:100%;font-size:14.5px">'
       +'<tr><th style="'+th+'">컬러</th><th style="'+th+'">컬러코드</th><th style="'+th+'">자사코드</th><th style="'+th+';text-align:right">'+(S.has?_escX(S.basis)+' 재고':'재고')+'</th>'
       +(oc?'<th style="'+th+';text-align:right;color:#6d28d9">발주수량</th><th style="'+th+';color:#6d28d9">입고예정</th>':'')+'</tr>'
       +rows.map(function(x){
         var z=S.has&&x.qty!=null&&x.qty<=0,g=oc?oc[String(x.cc).toUpperCase()]:null;
-        return '<tr style="border-top:1px solid #eef2f6"><td style="padding:5px 10px;color:#1e293b">'+_escX(x.name)+'</td>'
-          +'<td style="padding:5px 10px;font-family:ui-monospace,Consolas,monospace">'+_escX(x.cc)+'</td>'
-          +'<td style="padding:5px 10px;font-family:ui-monospace,Consolas,monospace;color:#475569">'+_escX(_hpsJasa(o.code,x.cc))+'</td>'
-          +'<td style="padding:5px 10px;text-align:right;font-weight:800;color:'+(z?'#b91c1c':'#1b6e82')+'">'+(S.has&&x.qty!=null?x.qty.toLocaleString():'—')+'</td>'
-          +(oc?'<td style="padding:5px 10px;text-align:right;font-weight:800;color:#6d28d9">'+(g?g.qty.toLocaleString():'—')+'</td>'
-            +'<td style="padding:5px 10px;white-space:nowrap;font-weight:700;color:#0f172a">'+(g?_hpsOrdArr(g):'')+'</td>':'')+'</tr>';
+        return '<tr style="border-top:1px solid #eef2f6"><td style="'+tp+';color:#1e293b">'+_escX(x.name)+'</td>'
+          +'<td style="'+tp+';font-family:ui-monospace,Consolas,monospace">'+_escX(x.cc)+'</td>'
+          +'<td style="'+tp+';font-family:ui-monospace,Consolas,monospace;color:#475569">'+_escX(_hpsJasa(o.code,x.cc))+'</td>'
+          +'<td style="'+tp+';text-align:right;font-weight:800;color:'+(z?'#b91c1c':'#1b6e82')+'">'+(S.has&&x.qty!=null?x.qty.toLocaleString():'—')+'</td>'
+          +(oc?'<td style="'+tp+';text-align:right;font-weight:800;color:#6d28d9">'+(g?g.qty.toLocaleString():'—')+'</td>'
+            +'<td style="'+tp+';font-weight:700;color:#0f172a">'+(g?_hpsOrdArr(g):'')+'</td>':'')+'</tr>';
       }).join("")
       /* 합계는 표 맨 아래 재고 칸 오른쪽 끝에 진하게(2026-10-22 영업2팀 "합계수량 재고수량에 맞게 오른쪽 끝에") — 컬러가 많아 표가 스크롤돼도 보이게 아래에 붙인다 */
       +(S.has||oc?'<tr><td colspan="3" style="'+ftd+'">합계</td>'
@@ -17433,8 +17433,9 @@ function _hpsCard(o){
       +'<div style="font-size:13.5px;color:#5b6675;margin-top:4px">'+(S.has?(S.date?_escX(S.date)+' 기준':''):'창고재고현황이 아직 없습니다(홈 📤 PlayMD 자료 업로드)')+'</div>'
       +_hpsOrdNote(ORD);
   }
-  return '<div style="border:1px solid #cfe0e5;border-radius:12px;padding:16px;background:#fff;display:flex;gap:16px;align-items:flex-start;min-width:0">'
-    +'<div style="flex:none;width:clamp(110px,16vw,180px);aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#f1f5f9;display:flex;align-items:center;justify-content:center">'
+  return '<div style="border:1px solid #cfe0e5;border-radius:12px;padding:16px;background:#fff;min-width:0">'   /* 컬러 표는 카드 폭 전체로(2026-10-22 영업2팀 "한 화면에 다 보이게") — 위 줄 = 이미지 + 상품 정보 */
+    +'<div style="display:flex;gap:16px;align-items:flex-start;min-width:0">'
+    +'<div style="flex:none;width:clamp(90px,11vw,140px);aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#f1f5f9;display:flex;align-items:center;justify-content:center">'
       +(img?'<img src="'+_escX(img)+'" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{textContent:\'이미지 없음\',style:\'font-size:13px;color:#5b6675\'}))">'
         :'<span style="font-size:13px;color:#5b6675">이미지 없음</span>')
     +'</div>'
@@ -17448,8 +17449,8 @@ function _hpsCard(o){
       +'<div style="font-size:15px;margin-bottom:10px">'+mall
         +(!NAVER_INAPP?' <a href="'+_escX(_hpsNaverUrl(_hpsNaverQuery(o.name)))+'" target="_blank" rel="noopener" title="네이버쇼핑 낮은 가격순: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가 ↗</a></div>':'')
         +(!NAVER_INAPP?'':' <a href="javascript:void 0" onclick="hpsNvAsk(\''+_escX(_hpsNaverQuery(o.name).replace(/\\/g,"\\\\").replace(/'/g,"\\'"))+'\',\''+_escX(o.code)+'\')" title="네이버 최저가를 자비스 안에서 봅니다: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가</a></div>')
-      +tbl+_hpsHs(o)
-    +'</div></div>';
+    +'</div></div>'
+    +'<div style="margin-top:2px;min-width:0">'+tbl+_hpsHs(o)+'</div></div>';
 }
 /* 홈쇼핑 방송(2026-10-22 영업2팀 "상품검색에 홈쇼핑 진행일자·시간·판매수량") — 홈쇼핑 탭 방송관리(homeshoppingDB)에서 이 상품의 줄.
    방송관리 상품명 → 상품코드(_cpFindProduct)가 같으면, 코드를 못 정하면 상품명 낱말(_cpNameKey)이 모두 들어 있으면 같은 상품.
@@ -17495,8 +17496,15 @@ function _hpsHs(o){
 var HPS_ORD_ST={pending:"발주 대기",ordered:"발주 완료",arrived:"입고 완료",mix:"일부 입고"};
 function _hpsOrd(code){
   if(!code||typeof _hsPreOrdFetch!=="function")return null;
-  var O=_hsPreOrdFetch(code),rs=O.rows.filter(function(r){return r.status!=="cancelled";});
-  if(!rs.length)return {st:O.st};
+  /* 오늘 기준 입고된 것은 뺀다(2026-10-22 영업2팀 "당일기준 입고되었으면 안 보여도 됨") — 상태 arrived이거나 입고예정일이 오늘이거나 지났으면 입고로 본다 */
+  var O=_hsPreOrdFetch(code),now=new Date(),today=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0"),last="";
+  var rs=O.rows.filter(function(r){
+    if(r.status==="cancelled")return false;
+    var a=String(r.expected_arrival_at||"").slice(0,10);
+    if(r.status==="arrived"||(a&&a<=today)){if(a>last)last=a;return false;}
+    return true;
+  });
+  if(!rs.length)return {st:O.st,last:last,any:O.rows.length>0};
   var ccOf=function(r){return String(r.color_code||String(r.sku||"").split("-").slice(1).join("-")||"").trim().toUpperCase();};
   var grp=function(list){var q={},tot=0,arr="",st="";list.forEach(function(r){var cc=ccOf(r),g=q[cc]||(q[cc]={qty:0,arr:"",st:""}),a=String(r.expected_arrival_at||"").slice(0,10),n=Number(r.qty)||0;
       g.qty+=n;tot+=n;if(a>g.arr)g.arr=a;if(a>arr)arr=a;g.st=g.st&&g.st!==r.status?"mix":r.status;st=st&&st!==r.status?"mix":r.status;});return {q:q,tot:tot,arr:arr,st:st};};
@@ -17510,18 +17518,18 @@ function _hpsOrdBadge(st){
   var c=st==="arrived"?"#047857;background:#d1fae5":st==="pending"?"#9a3412;background:#ffedd5":"#1d4ed8;background:#dbeafe";
   return ' <span style="font-size:12px;font-weight:800;color:'+c+';border-radius:6px;padding:0 5px;white-space:nowrap">'+t+'</span>';
 }
-function _hpsOrdArr(g){return (g.arr?_escX(g.arr.slice(2).replace(/-/g,".")):'<span style="color:#5b6675">미정</span>')+_hpsOrdBadge(g.st);}
+function _hpsOrdArr(g){return g.arr?_escX(g.arr.slice(5).replace(/-/g,".")):'<span style="color:#5b6675">미정</span>';}   /* MM.DD만 — 한 화면에 들어가게(연도·상태는 표 아래 줄에) */
 function _hpsOrdNote(R){
   var box=function(t){return '<div style="font-size:13.5px;color:#334155;font-weight:600;margin-top:6px;line-height:1.6">'+t+'</div>';};
   if(!R)return "";
   if(!R.pick){
     if(R.st==="load")return box('🧾 wsstudio 생산관리 발주 불러오는 중…');
     if(R.st==="err")return box('<span style="color:#9a3412">🧾 wsstudio 생산관리 발주를 읽지 못했습니다 — 잠시 뒤 다시 검색해 주세요</span>');
-    return box('<span style="color:#5b6675">🧾 wsstudio 생산관리에 이 상품 발주가 없습니다</span>');
+    return box('<span style="color:#5b6675">🧾 '+(R.any?'진행 중인 발주 없음'+(R.last?' · 마지막 입고 '+_escX(R.last.slice(2).replace(/-/g,".")):''):'wsstudio 생산관리에 이 상품 발주가 없습니다')+'</span>');
   }
   var md=function(d){return _escX(String(d||"").slice(2).replace(/-/g,"."));};
   return box('🧾 wsstudio 생산관리 발주 <b style="color:#6d28d9">'+md(R.pick)+' 차수</b> · '+R.tot.toLocaleString()+'개'+(R.arr?' · 입고예정 '+md(R.arr):'')+_hpsOrdBadge(R.ost)
-    +(R.others.length?'<br><span style="color:#5b6675;font-weight:500">이전 차수: '+R.others.map(function(x){return md(x.d)+' '+x.tot.toLocaleString()+'개'+(x.arr?' (입고 '+md(x.arr)+')':'')+_hpsOrdBadge(x.st);}).join(' · ')+'</span>':''));
+    +(R.others.length?'<br><span style="color:#5b6675;font-weight:500">입고 전 다른 차수: '+R.others.map(function(x){return md(x.d)+' '+x.tot.toLocaleString()+'개'+(x.arr?' (입고예정 '+md(x.arr)+')':'')+_hpsOrdBadge(x.st);}).join(' · ')+'</span>':''));
 }
 /* 자사코드(상품컬러코드) — 그 상품코드·칼라코드의 첫 줄 */
 function _hpsJasa(code,cc){
