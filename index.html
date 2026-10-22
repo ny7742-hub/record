@@ -702,6 +702,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-daily" onclick="switchTab('daily')">📅 매장별 일별매출</button>
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
   <button class="tab-btn" id="tab-ccprop" onclick="switchTab('ccprop')">💡 코스트코 제안상품</button>
+  <button class="tab-btn" id="tab-higgs" onclick="switchTab('higgs')">🎨 힉스필드</button>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산 · 공문</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <div class="tab-drop" id="tabDropStock">
@@ -2402,6 +2403,40 @@ label{font-size:14px!important}
   </div>
 </div>
 </div><!-- /page-ecount -->
+<!-- 🎨 힉스필드(2026-10-22 영업2팀) — 코스트코 RRP(진열 박스) 디자인 시안을 힉스필드에서 만들고 여기 모아 팀이 본다. docs/higgsfield.md -->
+<div id="page-higgs" style="display:none">
+<div class="main" style="max-width:1200px;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:15px">🎨 힉스필드 — 코스트코 RRP 디자인</div>
+      <button class="bs" onclick="hgOpenSite()" style="margin-left:auto;padding:8px 16px;font-size:13px;font-weight:700;background:#111827;color:#fff;border-color:#111827">↗ 힉스필드 열기</button>
+    </div>
+    <div style="font-size:12.5px;color:#5b6675;margin-top:8px;line-height:1.7">
+      힉스필드(higgsfield.ai)는 자비스 안에 화면을 넣을 수 없어(사이트가 막아 둠) <b>새 창</b>으로 엽니다.
+      거기서 만든 시안 이미지를 <b>복사해 이 화면에서 Ctrl+V</b> 하거나, 저장한 파일을 아래 칸에 끌어 놓으면 <b>팀 전체가 같이</b> 봅니다.
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:12px;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="sec-title" style="margin:0;font-size:14px">🖼 RRP 시안 모음</div>
+      <span id="hgCount" style="font-size:12px;color:#5b6675;font-weight:600"></span>
+      <span style="margin-left:auto;display:inline-flex;gap:4px">
+        <button class="bs" id="hgFAll" onclick="hgFilter('all')" style="padding:4px 12px;font-size:12.5px">전체</button>
+        <button class="bs" id="hgFPick" onclick="hgFilter('pick')" style="padding:4px 12px;font-size:12.5px">⭐ 채택만</button>
+      </span>
+    </div>
+    <label id="hgDrop" style="display:block;border:2px dashed #cbd5e1;border-radius:10px;padding:18px 12px;text-align:center;cursor:pointer;font-size:13px;color:#5b6675;background:#fafafa">
+      <input type="file" id="hgFile" accept="image/*" multiple style="display:none" onchange="hgAddFiles(this.files);this.value=''">
+      <b style="color:#334155">＋ 시안 이미지 올리기</b> — 눌러서 고르거나, 파일을 끌어 놓거나, 이 화면에서 <b>Ctrl+V</b>
+      <div id="hgMsg" style="font-size:12px;margin-top:6px;min-height:16px"></div>
+    </label>
+    <div id="hgGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;align-items:start"></div>
+  </div>
+</div>
+</div><!-- /page-higgs -->
+<div id="hgView" onclick="this.style.display='none'" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.85);align-items:center;justify-content:center;cursor:zoom-out;padding:20px;box-sizing:border-box">
+  <img id="hgViewImg" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;background:#fff">
+</div>
 <div id="page-unship" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
@@ -3499,6 +3534,14 @@ function fbListen(){
     function(d){if(d&&typeof d==="object"&&d.wh)ecStock=d;},
     function(){if(typeof renderEcount==="function")renderEcount();}
   );
+  /* 힉스필드 RRP 시안(2026-10-22) — 목록만 듣고, 이미지(ws/hgRrp/files/{id})는 탭을 열 때 한 장씩 받는다(_hgLoadImg) */
+  fbDB.ref("ws/hgRrp/items").on("value",function(snap){
+    if(WS_LOCAL_ONLY)return;   /* 로컬 실행은 팀 공유에 안 쓰므로 빈 공유본이 이 브라우저 시안을 지우지 않게 */
+    hgItems=snap.val()||{};
+    try{localStorage.setItem("hgRrpItems",JSON.stringify(hgItems));}catch(e){}
+    /* 한 박자 늦게 — 제목 칸에서 메모 칸을 누르면 포커스가 옮겨 간 뒤에 그려야 renderHiggs가 그 칸을 되살린다 */
+    setTimeout(function(){try{if(document.getElementById("page-higgs").style.display!=="none")renderHiggs();}catch(e){}},0);
+  });
   fbDB.ref("ws/ecReturns").on("value",function(snap){
     ecReturns=snap.val()||{};
     try{localStorage.setItem("ecReturns",JSON.stringify(ecReturns));}catch(e){}
@@ -9140,6 +9183,9 @@ function switchTab(tab){
   document.getElementById("page-ecount").style.display=tab==="ecount"?"block":"none";
   document.getElementById("tab-ecount").classList.toggle("active",tab==="ecount");
   if(tab==="ecount")renderEcount();
+  document.getElementById("page-higgs").style.display=tab==="higgs"?"block":"none";
+  document.getElementById("tab-higgs").classList.toggle("active",tab==="higgs");
+  if(tab==="higgs")renderHiggs();
   document.getElementById("tab-home").classList.toggle("active",tab==="home");
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
@@ -9188,6 +9234,142 @@ function switchTab(tab){
   if(tab==="floor") renderFloorPage();
   if(tab==="floor2") renderFloorPage2();
 }
+
+/* ── 🎨 힉스필드 — 코스트코 RRP 디자인 시안 모음(2026-10-22 영업2팀) ──
+   힉스필드(higgsfield.ai)는 X-Frame-Options·frame-ancestors로 끼워 넣기를 막아 iframe이 안 된다 → 새 창으로 열고,
+   만든 시안 이미지는 여기 올려 팀이 같이 본다. 시안마다 따로 저장해 동시에 올려도 서로 덮지 않는다:
+   ws/hgRrp/items/{id} = {t 제목, memo 메모·프롬프트, pick 채택, by, at, w, h} · ws/hgRrp/files/{id} = 이미지(JPEG dataURL).
+   목록은 fbListen이 듣고, 이미지는 탭을 열 때 한 장씩 받아 _hgImg에 둔다(다른 탭만 쓰는 사람은 이미지를 안 받는다). */
+var hgItems=(function(){try{return JSON.parse(localStorage.getItem("hgRrpItems")||"null")||{};}catch(e){return {};}})();
+var _hgImg={},_hgImgReq={},_hgFilt="all";
+function _hgShared(){return !WS_LOCAL_ONLY&&(_authState==="member"||_authState==="open");}
+function _hgMe(){try{if(_authMe&&_authMe.name)return String(_authMe.name);if(_authUser&&_authUser.email)return String(_authUser.email).split("@")[0];}catch(e){}return "";}
+function hgOpenSite(){window.open("https://higgsfield.ai/","_blank","noopener");}
+function _hgMsg(t,bad){var e=document.getElementById("hgMsg");if(e){e.textContent=t||"";e.style.color=bad?"#b91c1c":"#047857";}}
+/* 로컬 실행(팀 공유 꺼짐)에서는 이 브라우저에만 둔다 */
+function _hgLocalFiles(){try{return JSON.parse(localStorage.getItem("hgRrpFiles")||"{}")||{};}catch(e){return {};}}
+function _hgPut(id,o,file){
+  if(o)hgItems[id]=o;else delete hgItems[id];
+  if(file!==undefined){if(file)_hgImg[id]=file;else delete _hgImg[id];}
+  try{localStorage.setItem("hgRrpItems",JSON.stringify(hgItems));}catch(e){}
+  if(_hgShared()){
+    var up={};up["ws/hgRrp/items/"+id]=o||null;if(file!==undefined)up["ws/hgRrp/files/"+id]=file||null;
+    fbDB.ref().update(up).catch(function(e){_hgMsg("저장 실패: "+(e&&e.message||e),true);});
+  }else if(file!==undefined){
+    var lf=_hgLocalFiles();if(file)lf[id]=file;else delete lf[id];
+    try{localStorage.setItem("hgRrpFiles",JSON.stringify(lf));}catch(e){_hgMsg("이 브라우저 저장 공간이 꽉 찼습니다(로컬 실행은 팀 공유가 꺼져 있음)",true);}
+  }
+}
+function _hgLoadImg(id){
+  if(_hgImg[id]||_hgImgReq[id])return;
+  if(!_hgShared()){var lf=_hgLocalFiles();if(lf[id])_hgImg[id]=lf[id];return;}
+  _hgImgReq[id]=1;
+  fbDB.ref("ws/hgRrp/files/"+id).once("value").then(function(s){
+    var v=s.val();delete _hgImgReq[id];if(!v)return;_hgImg[id]=v;
+    _hgShowImg(id);
+  }).catch(function(){delete _hgImgReq[id];});
+}
+function _hgShowImg(id){
+  var im=document.getElementById("hgImg_"+id);if(!im||!_hgImg[id])return;
+  if(!im.getAttribute("src")){im.src=_hgImg[id];im.style.opacity="1";}
+  var ld=document.getElementById("hgLd_"+id);if(ld)ld.remove();
+}
+/* 긴 변 1600px · JPEG — 하나에 1.2MB를 넘으면 화질을 낮춘다(투명 배경은 흰색으로) */
+function _hgShrink(file,cb){
+  var rd=new FileReader();
+  rd.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var mx=1600,w=img.width,h=img.height;
+      if(w>mx||h>mx){var r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}
+      var cv=document.createElement("canvas");cv.width=w;cv.height=h;
+      var cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,w,h);cx.drawImage(img,0,0,w,h);
+      var out=cv.toDataURL("image/jpeg",0.86);
+      if(out.length>1200000)out=cv.toDataURL("image/jpeg",0.7);
+      cb(out,w,h);
+    };
+    img.onerror=function(){cb(null);};
+    img.src=e.target.result;
+  };
+  rd.onerror=function(){cb(null);};
+  rd.readAsDataURL(file);
+}
+function hgAddFiles(files){
+  var list=Array.prototype.filter.call(files||[],function(f){return /^image\//.test(f.type);});
+  if(!list.length){_hgMsg("이미지 파일이 아닙니다",true);return;}
+  var done=0,ok=0;
+  _hgMsg("올리는 중... (0/"+list.length+")");
+  list.forEach(function(f,k){
+    _hgShrink(f,function(data,w,h){
+      done++;
+      if(data){
+        var id="hg"+Date.now().toString(36)+k+Math.random().toString(36).slice(2,6);
+        var t=String(f.name||"").replace(/\.[^.]+$/,"").replace(/^image$/,"").slice(0,60);
+        _hgPut(id,{t:t,memo:"",pick:false,by:_hgMe(),at:Date.now(),w:w,h:h},data);ok++;
+      }
+      _hgMsg(done<list.length?"올리는 중... ("+done+"/"+list.length+")":(ok?"✅ "+ok+"장 올렸습니다"+(_hgShared()?" — 팀 전체에 보입니다":" (로컬 실행 — 이 브라우저에만)"):"이미지를 읽지 못했습니다"),!ok&&done===list.length);
+      if(done===list.length)renderHiggs();
+    });
+  });
+}
+function hgSet(id,k,v){var o=hgItems[id];if(!o)return;o=Object.assign({},o);o[k]=v;_hgPut(id,o);if(k==="pick")renderHiggs();}
+function hgDel(id){
+  var o=hgItems[id];if(!o)return;
+  if(!confirm("이 시안을 삭제할까요?"+(o.t?"\n"+o.t:"")+"\n(팀 전체에서 지워집니다)"))return;
+  _hgPut(id,null,null);renderHiggs();
+}
+function hgZoom(id){var s=_hgImg[id];if(!s)return;document.getElementById("hgViewImg").src=s;document.getElementById("hgView").style.display="flex";}
+function hgSave(id){
+  var s=_hgImg[id],o=hgItems[id]||{};if(!s)return;
+  var a=document.createElement("a");a.href=s;a.download=(o.t||"RRP시안_"+id)+".jpg";document.body.appendChild(a);a.click();a.remove();
+}
+function hgFilter(f){_hgFilt=f;renderHiggs();}
+function renderHiggs(){
+  var g=document.getElementById("hgGrid");if(!g)return;
+  var E=_authEsc,ids=Object.keys(hgItems).sort(function(a,b){return (hgItems[b].at||0)-(hgItems[a].at||0);});
+  var picks=ids.filter(function(id){return hgItems[id].pick;}).length;
+  document.getElementById("hgCount").textContent=ids.length?"시안 "+ids.length+"장 · 채택 "+picks+"장":"";
+  [["hgFAll","all"],["hgFPick","pick"]].forEach(function(p){var b=document.getElementById(p[0]);if(!b)return;var on=_hgFilt===p[1];b.style.background=on?"#1b6e82":"";b.style.color=on?"#fff":"";b.style.borderColor=on?"#1b6e82":"";});
+  if(_hgFilt==="pick")ids=ids.filter(function(id){return hgItems[id].pick;});
+  /* 내가 저장해도 리스너가 다시 그린다 — 쓰던 칸(제목·메모)의 포커스·커서를 되살린다 */
+  var ae=document.activeElement,keep=ae&&g.contains(ae)&&ae.getAttribute("data-hg")?{k:ae.getAttribute("data-hg"),v:ae.value,s:ae.selectionStart,e:ae.selectionEnd}:null;
+  if(!ids.length){g.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#5b6675;font-size:13px;padding:24px 0">'+(_hgFilt==="pick"?"채택한 시안이 없습니다 — 시안의 ☆를 누르면 채택됩니다":"아직 올린 시안이 없습니다")+'</div>';return;}
+  g.innerHTML=ids.map(function(id){
+    var o=hgItems[id],src=_hgImg[id]||"",d=new Date(o.at||0);
+    var when=o.at?(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"):"";
+    return '<div style="border:'+(o.pick?'2px solid #f59e0b':'1px solid #e2e8f0')+';border-radius:10px;overflow:hidden;background:#fff;display:flex;flex-direction:column">'
+      +'<div style="position:relative;background:#f1f5f9;height:210px;display:flex;align-items:center;justify-content:center;cursor:zoom-in" onclick="hgZoom(\''+id+'\')">'
+      +'<img id="hgImg_'+id+'" alt="" src="'+src+'" style="max-width:100%;max-height:100%;object-fit:contain;'+(src?'':'opacity:0')+'">'
+      +(src?'':'<span id="hgLd_'+id+'" style="position:absolute;font-size:12px;color:#5b6675">불러오는 중...</span>')
+      +'<button onclick="event.stopPropagation();hgSet(\''+id+'\',\'pick\','+(!o.pick)+')" title="'+(o.pick?'채택 취소':'채택')+'" style="position:absolute;top:6px;left:6px;border:0;border-radius:14px;padding:3px 9px;font-size:12px;font-weight:700;cursor:pointer;background:'+(o.pick?'#f59e0b;color:#fff':'rgba(255,255,255,.92);color:#334155')+'">'+(o.pick?'⭐ 채택':'☆ 채택')+'</button>'
+      +'</div>'
+      +'<div style="padding:8px 10px;display:flex;flex-direction:column;gap:6px">'
+      +'<input type="text" data-hg="'+id+':t" value="'+E(o.t||"")+'" placeholder="제목 (예: 앞면 A안)" onchange="hgSet(\''+id+'\',\'t\',this.value.trim())" style="border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:13px;font-weight:700">'
+      +'<textarea rows="3" data-hg="'+id+':memo" placeholder="메모 · 프롬프트" onchange="hgSet(\''+id+'\',\'memo\',this.value)" style="border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:12px;resize:vertical;font-family:inherit">'+E(o.memo||"")+'</textarea>'
+      +'<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5b6675">'
+      +'<span>'+E(o.by||"")+(o.by&&when?' · ':'')+when+(o.w?' · '+o.w+'×'+o.h:'')+'</span>'
+      +'<button class="bs" onclick="hgSave(\''+id+'\')" title="이미지 받기" style="margin-left:auto;padding:2px 8px;font-size:12px">⬇</button>'
+      +'<button class="bs" onclick="hgDel(\''+id+'\')" title="삭제" style="padding:2px 8px;font-size:12px;color:#b91c1c">🗑</button>'
+      +'</div></div></div>';
+  }).join("");
+  if(keep){var fe=g.querySelector('[data-hg="'+keep.k+'"]');if(fe){fe.value=keep.v;fe.focus();try{fe.setSelectionRange(keep.s,keep.e);}catch(e){}}}
+  ids.forEach(function(id){_hgLoadImg(id);_hgShowImg(id);});
+}
+/* 붙여넣기 · 끌어 놓기 — 힉스필드 탭이 열려 있을 때만 */
+function _hgOn(){var p=document.getElementById("page-higgs");return !!(p&&p.style.display!=="none");}
+document.addEventListener("paste",function(e){
+  if(!_hgOn())return;
+  var its=(e.clipboardData&&e.clipboardData.items)||[],fs=[];
+  for(var i=0;i<its.length;i++)if(/^image\//.test(its[i].type)){var f=its[i].getAsFile();if(f)fs.push(f);}
+  if(fs.length){e.preventDefault();hgAddFiles(fs);}
+});
+document.addEventListener("dragover",function(e){if(_hgOn()){e.preventDefault();var d=document.getElementById("hgDrop");if(d)d.style.borderColor="#1b6e82";}});
+document.addEventListener("dragleave",function(e){if(_hgOn()&&!e.relatedTarget){var d=document.getElementById("hgDrop");if(d)d.style.borderColor="";}});
+document.addEventListener("drop",function(e){
+  if(!_hgOn())return;
+  e.preventDefault();var d=document.getElementById("hgDrop");if(d)d.style.borderColor="";
+  if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length)hgAddFiles(e.dataTransfer.files);
+});
 
 /* ── 🧮 이카운트 매장 발주(2026-10-12 영업2팀) ──
    "매장은 창고이동으로, 매장에서 주문을 넣고 본사에서 승인" — 이카운트 [재고Ⅰ > 기타이동 > 창고이동]의 미확인→확인 흐름을 자비스에서 먼저 돌린다.
