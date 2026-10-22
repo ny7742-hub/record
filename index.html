@@ -2414,7 +2414,32 @@ label{font-size:14px!important}
     <div style="font-size:12.5px;color:#5b6675;margin-top:8px;line-height:1.7">
       힉스필드(higgsfield.ai)는 자비스 안에 화면을 넣을 수 없어(사이트가 막아 둠) <b>새 창</b>으로 엽니다.
       거기서 만든 시안 이미지를 <b>복사해 이 화면에서 Ctrl+V</b> 하거나, 저장한 파일을 아래 칸에 끌어 놓으면 <b>팀 전체가 같이</b> 봅니다.
+      아래 <b>✨ 힉스필드로 만들기</b>에 문구·참고 이미지를 넣으면 자동화 PC가 힉스필드에서 만들어 시안 모음에 바로 넣습니다(크레딧 사용).
     </div>
+  </div>
+  <!-- ✨ 만들기 — 문구·참고 이미지 → 자동화 PC가 힉스필드 API로 만들어 아래 시안 모음에 넣는다(브라우저에서는 API를 못 부름) -->
+  <div class="card" id="hgGenCard" style="margin-bottom:12px;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <div class="sec-title" style="margin:0;font-size:14px">✨ 힉스필드로 만들기</div>
+      <span id="hgWatch" style="font-size:12px;color:#5b6675"></span>
+    </div>
+    <textarea id="hgPrompt" rows="4" placeholder="만들고 싶은 모습을 적어 주세요 (예: 코스트코 진열용 RRP 박스, 앞면에 WHITESANDS 로고, 하늘색 PANTONE 657C 바탕, 모자 6개가 보이는 창)" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <label class="bs" style="padding:5px 12px;font-size:12.5px;cursor:pointer">＋ 참고 이미지<input type="file" accept="image/*" multiple style="display:none" onchange="hgRefAddFiles(this.files);this.value=''"></label>
+      <span style="font-size:12px;color:#5b6675">이 칸에서 Ctrl+V 하거나, 아래 시안의 <b>➕ 참고로</b>를 눌러도 들어갑니다 · 없으면 문구만으로 만듭니다</span>
+    </div>
+    <div id="hgRefs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:12.5px">
+      <label>모델 <select id="hgModel" onchange="_hgRefRender()" style="font-size:12.5px;padding:4px 6px">
+        <option value="grok">Grok Image 2.0 — 새로 만들기 · 참고 0~10장</option>
+        <option value="qwen">Qwen Image 3 — 참고 이미지 고치기 · 1~3장</option></select></label>
+      <label>비율 <select id="hgAr" style="font-size:12.5px;padding:4px 6px">
+        <option value="auto">자동</option><option>1:1</option><option>3:4</option><option>4:3</option><option>2:3</option><option>3:2</option><option>9:16</option><option>16:9</option></select></label>
+      <label>해상도 <select id="hgRes" style="font-size:12.5px;padding:4px 6px"><option value="1k">1K</option><option value="2k">2K</option></select></label>
+      <button class="bs" id="hgGenBtn" onclick="hgGenerate()" style="margin-left:auto;padding:7px 18px;font-size:13px;font-weight:700;background:#1b6e82;color:#fff;border-color:#1b6e82">✨ 만들기</button>
+    </div>
+    <div id="hgGenMsg" style="font-size:12px;margin-top:6px;min-height:16px"></div>
+    <div id="hgJobs" style="display:flex;flex-direction:column;gap:4px;margin-top:6px"></div>
   </div>
   <div class="card" style="margin-bottom:12px;padding:14px 16px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -3542,6 +3567,9 @@ function fbListen(){
     /* 한 박자 늦게 — 제목 칸에서 메모 칸을 누르면 포커스가 옮겨 간 뒤에 그려야 renderHiggs가 그 칸을 되살린다 */
     setTimeout(function(){try{if(document.getElementById("page-higgs").style.display!=="none")renderHiggs();}catch(e){}},0);
   });
+  /* 힉스필드 만들기 요청·자동화 PC 신호(2026-10-22) — 결과 이미지는 위 ws/hgRrp로 들어온다 */
+  fbDB.ref("ws/hgGen").on("value",function(snap){hgGen=snap.val()||{};try{_hgJobsRender();}catch(e){}});
+  fbDB.ref("ws/hgGenWatch").on("value",function(snap){hgGenWatch=snap.val()||null;try{_hgJobsRender();}catch(e){}});
   fbDB.ref("ws/ecReturns").on("value",function(snap){
     ecReturns=snap.val()||{};
     try{localStorage.setItem("ecReturns",JSON.stringify(ecReturns));}catch(e){}
@@ -9262,6 +9290,7 @@ function _hgPut(id,o,file){
 }
 function _hgLoadImg(id){
   if(_hgImg[id]||_hgImgReq[id])return;
+  var it=hgItems[id];if(it&&it.u){_hgImg[id]=it.u;return;}   /* 너무 커서 힉스필드 주소만 둔 결과(7일 이상 보관) */
   if(!_hgShared()){var lf=_hgLocalFiles();if(lf[id])_hgImg[id]=lf[id];return;}
   _hgImgReq[id]=1;
   fbDB.ref("ws/hgRrp/files/"+id).once("value").then(function(s){
@@ -9326,6 +9355,7 @@ function hgSave(id){
 function hgFilter(f){_hgFilt=f;renderHiggs();}
 function renderHiggs(){
   var g=document.getElementById("hgGrid");if(!g)return;
+  _hgJobsRender();_hgRefRender();
   var E=_authEsc,ids=Object.keys(hgItems).sort(function(a,b){return (hgItems[b].at||0)-(hgItems[a].at||0);});
   var picks=ids.filter(function(id){return hgItems[id].pick;}).length;
   document.getElementById("hgCount").textContent=ids.length?"시안 "+ids.length+"장 · 채택 "+picks+"장":"";
@@ -9347,8 +9377,9 @@ function renderHiggs(){
       +'<input type="text" data-hg="'+id+':t" value="'+E(o.t||"")+'" placeholder="제목 (예: 앞면 A안)" onchange="hgSet(\''+id+'\',\'t\',this.value.trim())" style="border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:13px;font-weight:700">'
       +'<textarea rows="3" data-hg="'+id+':memo" placeholder="메모 · 프롬프트" onchange="hgSet(\''+id+'\',\'memo\',this.value)" style="border:1px solid #e2e8f0;border-radius:6px;padding:5px 8px;font-size:12px;resize:vertical;font-family:inherit">'+E(o.memo||"")+'</textarea>'
       +'<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5b6675">'
-      +'<span>'+E(o.by||"")+(o.by&&when?' · ':'')+when+(o.w?' · '+o.w+'×'+o.h:'')+'</span>'
-      +'<button class="bs" onclick="hgSave(\''+id+'\')" title="이미지 받기" style="margin-left:auto;padding:2px 8px;font-size:12px">⬇</button>'
+      +'<span>'+(o.gen?'✨ '+E(o.gen.m||"")+'<br>':'')+E(o.by||"")+(o.by&&when?' · ':'')+when+(o.w?' · '+o.w+'×'+o.h:'')+'</span>'
+      +'<button class="bs" onclick="hgRefFromItem(\''+id+'\')" title="✨ 만들기의 참고 이미지로 넣기" style="margin-left:auto;padding:2px 8px;font-size:12px">➕ 참고로</button>'
+      +'<button class="bs" onclick="hgSave(\''+id+'\')" title="이미지 받기" style="padding:2px 8px;font-size:12px">⬇</button>'
       +'<button class="bs" onclick="hgDel(\''+id+'\')" title="삭제" style="padding:2px 8px;font-size:12px;color:#b91c1c">🗑</button>'
       +'</div></div></div>';
   }).join("");
@@ -9361,8 +9392,93 @@ document.addEventListener("paste",function(e){
   if(!_hgOn())return;
   var its=(e.clipboardData&&e.clipboardData.items)||[],fs=[];
   for(var i=0;i<its.length;i++)if(/^image\//.test(its[i].type)){var f=its[i].getAsFile();if(f)fs.push(f);}
-  if(fs.length){e.preventDefault();hgAddFiles(fs);}
+  if(!fs.length)return;
+  e.preventDefault();
+  /* 만들기 칸(문구 칸 등)에 커서가 있으면 참고 이미지로, 아니면 시안 모음으로 */
+  var gc=document.getElementById("hgGenCard"),ae=document.activeElement;
+  if(gc&&ae&&gc.contains(ae))hgRefAddFiles(fs);else hgAddFiles(fs);
 });
+
+/* ── ✨ 힉스필드로 만들기(2026-10-22) — 힉스필드 API는 브라우저에서 못 부른다(CORS) → 팀 공유에 요청만 남기고
+   자동화 PC(saip-watch → automation/higgs-gen.mjs)가 만들어 결과를 ws/hgRrp(시안 모음)에 넣는다.
+   ws/hgGen/{id} = {state 요청→처리중→완료/실패, prompt, model, ar, res, by, at, nref, hs 힉스필드 상태, out 결과 시안 id, error}
+   참고 이미지는 ws/hgGenRef/{id}/{i}(JPEG dataURL) — 자동화 PC가 다 쓰면 지운다. 자동화 PC 신호 ws/hgGenWatch = {at, key}. */
+var hgGen={},hgGenWatch=null,_hgRefs=[];   /* _hgRefs = 아직 안 보낸 참고 이미지 [{src}] */
+var HG_MODEL={grok:{n:"Grok Image 2.0",min:0,max:10},qwen:{n:"Qwen Image 3",min:1,max:3}};
+function _hgGenMsg(t,bad){var e=document.getElementById("hgGenMsg");if(e){e.textContent=t||"";e.style.color=bad?"#b91c1c":"#047857";}}
+function _hgModel(){var s=document.getElementById("hgModel");return HG_MODEL[s&&s.value]?s.value:"grok";}
+function hgRefAddFiles(files){
+  var list=Array.prototype.filter.call(files||[],function(f){return /^image\//.test(f.type);});
+  list.forEach(function(f){_hgShrink(f,function(d){if(!d)return;_hgRefs.push({src:d});_hgRefRender();});});
+}
+function hgRefFromItem(id){
+  var s=_hgImg[id];if(!s){_hgGenMsg("이미지를 아직 불러오는 중입니다 — 잠시 뒤 다시 눌러 주세요",true);return;}
+  if(/^https?:/.test(s)){_hgGenMsg("힉스필드 주소로만 있는 큰 이미지라 참고로 넣을 수 없습니다 — ⬇로 받아 다시 올려 주세요",true);return;}
+  _hgRefs.push({src:s});_hgRefRender();
+  var c=document.getElementById("hgGenCard");if(c)c.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function hgRefDel(i){_hgRefs.splice(i,1);_hgRefRender();}
+function _hgRefRender(){
+  var b=document.getElementById("hgRefs");if(!b)return;
+  var M=HG_MODEL[_hgModel()];
+  b.innerHTML=_hgRefs.map(function(r,i){
+    return '<div style="position:relative;width:76px;height:76px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;background:#f1f5f9">'
+      +'<img src="'+r.src+'" alt="" style="width:100%;height:100%;object-fit:cover">'
+      +'<button onclick="hgRefDel('+i+')" title="빼기" style="position:absolute;top:2px;right:2px;border:0;border-radius:10px;width:20px;height:20px;line-height:18px;padding:0;font-size:12px;cursor:pointer;background:rgba(15,23,42,.7);color:#fff">×</button></div>';
+  }).join("")+(_hgRefs.length?'<span style="align-self:center;font-size:12px;color:'+(_hgRefs.length>M.max||_hgRefs.length<M.min?'#b91c1c':'#5b6675')+'">참고 '+_hgRefs.length+'장 · '+M.n+'은 '+M.min+'~'+M.max+'장</span>':'');
+}
+function hgGenerate(){
+  var p=String((document.getElementById("hgPrompt")||{}).value||"").trim(),m=_hgModel(),M=HG_MODEL[m];
+  if(!p){_hgGenMsg("만들고 싶은 모습을 문구로 적어 주세요",true);return;}
+  if(_hgRefs.length<M.min){_hgGenMsg(M.n+"은 참고 이미지가 "+M.min+"장 이상 있어야 합니다",true);return;}
+  if(_hgRefs.length>M.max){_hgGenMsg(M.n+"은 참고 이미지를 "+M.max+"장까지 넣을 수 있습니다",true);return;}
+  if(!_hgShared()){_hgGenMsg("로컬 실행은 팀 공유가 꺼져 있어 만들기 요청을 보낼 수 없습니다 — 배포 주소에서 해 주세요",true);return;}
+  var id="hq"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  var req={state:"요청",prompt:p.slice(0,4000),model:m,ar:document.getElementById("hgAr").value,res:document.getElementById("hgRes").value,by:_hgMe(),at:Date.now(),nref:_hgRefs.length};
+  if(m==="qwen"&&req.ar==="auto")req.ar="1:1";
+  /* 참고 이미지를 먼저 다 쓰고 요청을 남긴다 — 자동화 PC가 이미지 없이 가져가지 않게 */
+  var refUp={};_hgRefs.forEach(function(r,i){refUp["ws/hgGenRef/"+id+"/"+i]=r.src;});
+  var btn=document.getElementById("hgGenBtn");if(btn)btn.disabled=true;
+  fbDB.ref().update(refUp).then(function(){return fbDB.ref("ws/hgGen/"+id).set(req);}).then(function(){
+    _hgRefs=[];_hgRefRender();_hgGenMsg("✅ 요청했습니다 — 자동화 PC가 힉스필드에서 만들면 아래 시안 모음에 들어옵니다(보통 1~3분)");
+  }).catch(function(e){_hgGenMsg("요청 실패: "+(e&&e.message||e),true);})
+    .then(function(){if(btn)btn.disabled=false;});
+}
+function hgGenDel(id){
+  var R=hgGen[id];if(!R)return;
+  if(R.state==="처리중"){alert("자동화 PC가 만들고 있는 중이라 지울 수 없습니다");return;}
+  var up={};up["ws/hgGen/"+id]=null;up["ws/hgGenRef/"+id]=null;fbDB.ref().update(up);
+}
+function hgGenRetry(id){
+  var R=hgGen[id];if(!R)return;
+  document.getElementById("hgPrompt").value=R.prompt||"";
+  var s=document.getElementById("hgModel");if(s&&HG_MODEL[R.model])s.value=R.model;
+  if(R.ar)document.getElementById("hgAr").value=R.ar;if(R.res)document.getElementById("hgRes").value=R.res;
+  _hgRefRender();
+  _hgGenMsg(R.nref?"문구·설정을 다시 넣었습니다 — 참고 이미지는 다시 넣어 주세요":"문구·설정을 다시 넣었습니다");
+}
+function _hgJobsRender(){
+  var w=document.getElementById("hgWatch");
+  if(w){
+    var on=hgGenWatch&&hgGenWatch.at&&Date.now()-hgGenWatch.at<3*60*1000;
+    w.innerHTML=!hgGenWatch?'자동화 PC 신호 없음':(on?'🟢 자동화 PC 켜짐':'⚪ 자동화 PC 꺼짐(켜지면 처리)')+(hgGenWatch.key?' · API 키 있음':' · <b style="color:#b91c1c">API 키 없음</b>');
+  }
+  var b=document.getElementById("hgJobs");if(!b)return;
+  var E=_authEsc,ids=Object.keys(hgGen).sort(function(a,c){return (hgGen[c].at||0)-(hgGen[a].at||0);}).slice(0,8);
+  b.innerHTML=ids.map(function(id){
+    var R=hgGen[id],d=new Date(R.at||0),t=(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+    var c=R.state==="완료"?"#047857":R.state==="실패"?"#b91c1c":"#1b6e82";
+    var st=R.state==="처리중"?"만드는 중"+(R.hs?" ("+E(R.hs)+")":""):R.state==="완료"?"완료 — 시안 "+((R.out||[]).length)+"장 들어옴":R.state==="실패"?"실패 — "+E(R.error||""):"대기 중";
+    return '<div style="display:flex;align-items:center;gap:8px;font-size:12px;border:1px solid #e2e8f0;border-radius:8px;padding:5px 8px;background:#fff">'
+      +'<b style="color:'+c+';white-space:nowrap">'+(R.state==="완료"?"✅":R.state==="실패"?"⛔":"⏳")+'</b>'
+      +'<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+E(R.prompt||"")+'">'+E(R.prompt||"")+'</span>'
+      +'<span style="color:'+c+';white-space:nowrap">'+st+'</span>'
+      +'<span style="color:#5b6675;white-space:nowrap">'+E(R.by||"")+' '+t+(R.nref?' · 참고 '+R.nref+'장':'')+'</span>'
+      +(R.state==="실패"?'<button class="bs" onclick="hgGenRetry(\''+id+'\')" style="padding:1px 8px;font-size:11.5px">다시 넣기</button>':'')
+      +(R.state!=="처리중"?'<button class="bs" onclick="hgGenDel(\''+id+'\')" title="기록 지우기" style="padding:1px 6px;font-size:11.5px">×</button>':'')
+      +'</div>';
+  }).join("");
+}
 document.addEventListener("dragover",function(e){if(_hgOn()){e.preventDefault();var d=document.getElementById("hgDrop");if(d)d.style.borderColor="#1b6e82";}});
 document.addEventListener("dragleave",function(e){if(_hgOn()&&!e.relatedTarget){var d=document.getElementById("hgDrop");if(d)d.style.borderColor="";}});
 document.addEventListener("drop",function(e){
