@@ -418,6 +418,13 @@
   발주수량 합 · 입고예정(`expected_arrival_at`, 여럿이면 늦은 날, 칸엔 MM.DD만). 합계 줄에 발주 합계. 발주에만 있는 컬러는 줄을 더한다(재고 —).
   표 아래 `🧾 wsstudio 생산관리 발주 YY.MM.DD 차수 · N개 · 입고예정 YY.MM.DD · 상태 배지`(pending 발주 대기 · ordered 발주 완료), 입고 전 다른 차수는 `입고 전 다른 차수:`로.
   입고 전 발주가 없으면 두 열을 빼고 `진행 중인 발주 없음 · 마지막 입고 YY.MM.DD`(발주 기록이 아예 없으면 그렇게) 한 줄.
+  **입고예정 = wsstudio 생산 보드 우선**(같은 날 영업2팀 "오비크 입고예정일 10/30" — wssales 발주는 10/04, wsstudio 생산 현황 보드는 오더에 손으로 넣은 입고예정 10/30):
+  wsstudio 생산 오더(`production_orders`)는 로그인해야만 읽혀(RLS, 공개 키로는 `[]`) 자동화 PC가 읽어 팀 공유 **`ws/wsProd`**(`wsProdDB`)에 올린다 —
+  `automation/wsstudio-login.mjs`(사람이 한 번 로그인 → `wsstudio-state.json`, 2026-10-22 mj.kang 계정) · `wsstudio-sync.mjs`(세션 만료 2분 전이면 refresh_token으로 새로 받아 state에 다시 저장,
+  `{at,n,codes:{품번:[{id,st,inc,qty,reg}]}}`, 품번 = 오더 item_code → 작업지시서 item_code → 지정 발주행 master_sku) · saip-watch `wsProdTick` 8~21시 30분마다(실패는 하루 한 번 로그).
+  자비스 `_hpsProdOrder`: 그 품번의 주희물류(received) 전 오더 중 가장 늦게 등록한 것 — 입고예정(`inc`)이 있으면 가장 최근 차수의 모든 컬러 입고예정을 그 날짜로(wsstudio `effectiveIncoming`과 같은 순서),
+  표 아래 줄에 `(생산 보드)`와 단계 배지(자재발주 · 자재출고 · 공장입고 · 생산중 · 생산완료 · JS(완성)). 첫 실행: 생산 오더 105건 · 품번 101개 · 입고예정 100건.
+  로그인이 풀리면(refresh 실패) 자동화 PC에서 `node wsstudio-login.mjs` 다시.
   **한 화면에**(같은 날): 카드 위 줄 = 이미지(90~140px) + 상품 정보, 컬러 표는 그 아래 카드 폭 전체(예전엔 이미지 옆이라 6칸이 좁아 옆으로 스크롤됐다) · 칸 여백 8px · 줄바꿈 없음 · 높이 480px까지.
 
   이미지·자사몰 링크는 팀 공유 **`ws/mallLink`**(`mallLinkDB`) — 자비스는 CORS로 자사몰을 못 읽어 **자동화 PC `automation/mall-links.mjs`**가

@@ -2861,7 +2861,7 @@ var FB_PATH={
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","allStoreDB":"ws/allStore","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
-  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
+  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","wsProdDB":"ws/wsProd","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -3642,6 +3642,11 @@ function fbListen(){
     function(){if(typeof hpsNvRender==="function")hpsNvRender();}
   );
   /* 자사몰 상품 링크·이미지(2026-10-20) — 홈 상품검색 결과를 다시 그린다 */
+  /* wsstudio 생산 오더 입고예정(2026-10-22) — 자동화 PC wsstudio-sync.mjs가 30분마다. 홈 상품검색을 다시 그린다 */
+  apply("ws/wsProd","wsProdDB",
+    function(d){if(d&&typeof d==="object")wsProdDB=d;},
+    function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
+  );
   apply("ws/mallLink","mallLinkDB",
     function(d){if(d&&typeof d==="object")mallLinkDB=d;},
     function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
@@ -17260,6 +17265,7 @@ function _msStockRow(r,i){
    상품데이터(DB)를 상품코드별로 묶어 상품명·상품코드·자사코드·바코드·컬러명·컬러코드로 찾는다(띄어 쓴 낱말이 모두 들어 있으면).
    TAG가·사전원가 = _cpProducts(컬러마다 다르면 가장 많은 값) · 컬러별 재고 = _msColorStock(주희물류 NH) ·
    이미지·자사몰 링크 = ws/mallLink(자동화 PC mall-links.mjs가 자사몰을 상품코드로 검색해 하나만 나온 것) — 없으면 베스트 이미지(_bestImgFor)·자사몰 검색 링크 */
+var wsProdDB=(function(){try{var d=JSON.parse(localStorage.getItem("wsProdDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 var mallLinkDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallLinkDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 var MALL="https://whitesands.co.kr";
 var _hpsIdx=null,_hpsT=null;
@@ -17516,7 +17522,19 @@ function _hpsOrd(code){
   var by={};rs.forEach(function(r){var k=String(r.ordered_at||"-").slice(0,10);(by[k]=by[k]||[]).push(r);});
   var dates=Object.keys(by).sort().reverse(),G=grp(by[dates[0]]),names={};
   (typeof DB!=="undefined"?DB:[]).forEach(function(x){if(String(x["상품코드"]||"").trim()===code){var cc=String(x["칼라코드"]||"").trim().toUpperCase();if(cc&&!names[cc])names[cc]=String(x["칼라명"]||"").trim();}});
-  return {st:O.st,pick:dates[0],q:G.q,tot:G.tot,arr:G.arr,ost:G.st,names:names,others:dates.slice(1).map(function(d){var g=grp(by[d]);return {d:d,tot:g.tot,arr:g.arr,st:g.st};})};
+  /* wsstudio 생산 오더에 손으로 넣은 입고예정이 있으면 그 날짜(2026-10-22 영업2팀 "오비크 입고예정일 10/30" — 발주 10/04 · 생산 보드 10/30).
+     wsstudio 화면도 오더의 입고예정(expected_incoming_date)을 발주 예상입고보다 먼저 쓴다. 가장 최근 차수에만 적용 */
+  var P=_hpsProdOrder(code);
+  if(P&&P.inc){G.arr=P.inc;Object.keys(G.q).forEach(function(cc){G.q[cc].arr=P.inc;});}
+  return {st:O.st,pick:dates[0],q:G.q,tot:G.tot,arr:G.arr,ost:G.st,prod:P,names:names,others:dates.slice(1).map(function(d){var g=grp(by[d]);return {d:d,tot:g.tot,arr:g.arr,st:g.st};})};
+}
+/* wsstudio 생산 오더(ws/wsProd — 자동화 PC wsstudio-sync.mjs) 중 이 품번의 진행 중(주희물류 입고 전) 오더 — 여럿이면 가장 늦게 등록한 것 */
+var HPS_PROD_ST={material_order:"자재발주",material_shipped:"자재출고",in_factory:"공장입고",producing:"생산중",produced:"생산완료",qc:"JS(완성)",received:"주희물류"};
+function _hpsProdOrder(code){
+  var L=((wsProdDB||{}).codes||{})[String(code||"").toUpperCase()];if(!Array.isArray(L)||!L.length)return null;
+  var open=L.filter(function(x){return x&&x.st!=="received";});if(!open.length)return null;
+  open.sort(function(a,b){return String(b.reg||"").localeCompare(String(a.reg||""))||(+b.id||0)-(+a.id||0);});
+  return open[0];
 }
 function _hpsOrdBadge(st){
   var t=HPS_ORD_ST[st];if(!t)return "";
@@ -17538,7 +17556,8 @@ function _hpsOrdNote(R){
     return box('<span style="color:#5b6675">🧾 '+(R.any?'진행 중인 발주 없음'+(R.last?' · 마지막 입고 '+_escX(R.last.slice(2).replace(/-/g,".")):''):'wsstudio 생산관리에 이 상품 발주가 없습니다')+'</span>');
   }
   var md=function(d){return _escX(String(d||"").slice(2).replace(/-/g,"."));};
-  return box('🧾 wsstudio 생산관리 발주 <b style="color:#6d28d9">'+md(R.pick)+' 차수</b> · '+R.tot.toLocaleString()+'개'+(R.arr?' · 입고예정 '+(R.arr<_hpsToday()?'<span style="color:#b91c1c">'+md(R.arr)+' 지남</span>':md(R.arr)):'')+_hpsOrdBadge(R.ost)
+  var P=R.prod,stg=P&&HPS_PROD_ST[P.st]?' <span title="wsstudio 생산 현황 보드 단계" style="font-size:12px;font-weight:800;color:#b45309;background:#fef3c7;border-radius:6px;padding:0 5px;white-space:nowrap">'+HPS_PROD_ST[P.st]+'</span>':'';
+  return box('🧾 wsstudio 생산관리 발주 <b style="color:#6d28d9">'+md(R.pick)+' 차수</b> · '+R.tot.toLocaleString()+'개'+(R.arr?' · 입고예정 '+(R.arr<_hpsToday()?'<span style="color:#b91c1c">'+md(R.arr)+' 지남</span>':md(R.arr))+(P&&P.inc?' <span style="color:#5b6675;font-weight:500">(생산 보드)</span>':''):'')+(stg||_hpsOrdBadge(R.ost))
     +(R.others.length?'<br><span style="color:#5b6675;font-weight:500">입고 전 다른 차수: '+R.others.map(function(x){return md(x.d)+' '+x.tot.toLocaleString()+'개'+(x.arr?' (입고예정 '+md(x.arr)+')':'')+_hpsOrdBadge(x.st);}).join(' · ')+'</span>':''));
 }
 /* 자사코드(상품컬러코드) — 그 상품코드·칼라코드의 첫 줄 */
