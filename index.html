@@ -17482,13 +17482,14 @@ function _hpsHs(o){
   var L=_hpsHsRows(o);if(!L.length)return "";
   var WD="일월화수목금토",th='padding:6px 10px;background:#eef2ff;color:#1e1b4b;font-weight:800;font-size:13.5px;text-align:left;white-space:nowrap';
   var num=function(v){return Number(String(v==null?"":v).replace(/[^0-9.-]/g,""))||0;};
-  var tot=0;L.forEach(function(r){tot+=num(r.sold);});
-  return '<div style="margin-top:12px;font-weight:800;color:#3730a3;font-size:15px">📺 홈쇼핑 방송 '+L.length+'건'+(tot?' <span style="font-weight:700;color:#334155;font-size:14px">· 판매수량 합계 '+tot.toLocaleString()+'개</span>':'')+'</div>'
+  /* 매출금액 = 판매가 × 판매수량(2026-10-22 영업2팀 "매출 금액도") — 방송관리 칸 그대로, 다른 화면(홈 매체별 매출)의 홈쇼핑 방송 실적과 같은 계산 */
+  var tot=0,amt=0;L.forEach(function(r){tot+=num(r.sold);amt+=num(r.sold)*num(r.price);});
+  return '<div style="margin-top:12px;font-weight:800;color:#3730a3;font-size:15px">📺 홈쇼핑 방송 '+L.length+'건'+(tot?' <span style="font-weight:700;color:#334155;font-size:14px">· 판매수량 합계 '+tot.toLocaleString()+'개</span>':'')+(amt?' <span style="font-weight:700;color:#334155;font-size:14px">· 매출 합계 '+amt.toLocaleString()+'원</span>':'')+'</div>'
     +'<div style="max-height:300px;overflow:auto;border:1px solid #e0e7ff;border-radius:8px;margin-top:4px"><table style="border-collapse:collapse;width:100%;font-size:14.5px">'
-    +'<tr><th style="'+th+'">방송일</th><th style="'+th+'">시간</th><th style="'+th+'">홈쇼핑사</th><th style="'+th+'">구분</th><th style="'+th+'">컬러</th><th style="'+th+';text-align:right">판매수량</th></tr>'
+    +'<tr><th style="'+th+'">방송일</th><th style="'+th+'">시간</th><th style="'+th+'">홈쇼핑사</th><th style="'+th+'">구분</th><th style="'+th+'">컬러</th><th style="'+th+';text-align:right">판매수량</th><th style="'+th+';text-align:right">매출금액</th></tr>'
     +L.map(function(r){
       var d=String(r.date||"").trim(),dd=/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d)?new Date(d+"T00:00:00"):null,past=_hsAired(r);
-      var sold=num(r.sold);
+      var sold=num(r.sold),pr=num(r.price),ra=sold*pr;
       var td='padding:5px 10px;color:#000;font-weight:700;vertical-align:top';   /* 진하게(2026-10-22 영업2팀 "방송 아래 내용은 진하게") */
       return '<tr style="border-top:1px solid #eef2f6'+(past?';background:#f1f4f8':'')+'">'
         +'<td style="'+td+';white-space:nowrap;font-weight:800">'+(dd?_escX(d.slice(2).replace(/-/g,"."))+'('+WD[dd.getDay()]+')':'미정')+'</td>'
@@ -17496,9 +17497,10 @@ function _hpsHs(o){
         +'<td style="'+td+';white-space:nowrap">'+_escX(r.company||"—")+'</td>'
         +'<td style="'+td+';white-space:nowrap">'+_escX(r.stage||"")+(dd&&!past?' <span style="font-size:12px;font-weight:800;color:#1d4ed8;background:#dbeafe;border-radius:6px;padding:0 5px">예정</span>':'')+'</td>'
         +'<td style="'+td+';overflow-wrap:anywhere">'+_escX(r.color||"")+'</td>'
-        +'<td style="'+td+';text-align:right;font-weight:800;color:'+(sold?'#3730a3':'#000')+'">'+(sold?sold.toLocaleString():(past?'—':'방송 전'))+'</td></tr>';
+        +'<td style="'+td+';text-align:right;font-weight:800;color:'+(sold?'#3730a3':'#000')+'">'+(sold?sold.toLocaleString():(past?'—':'방송 전'))+'</td>'
+        +'<td title="'+(pr?'판매가 '+pr.toLocaleString()+'원 × '+sold.toLocaleString()+'개':'방송관리에 판매가가 없습니다')+'" style="'+td+';text-align:right;font-weight:800;white-space:nowrap;color:'+(ra?'#0f766e':'#000')+'">'+(ra?ra.toLocaleString()+'원':(sold&&!pr?'판매가 없음':'—'))+'</td></tr>';
     }).join("")+'</table></div>'
-    +'<div style="font-size:13px;color:#334155;font-weight:600;margin-top:4px">홈쇼핑 탭 방송관리 기준 · 판매수량은 방송별 합계(컬러별 숫자는 방송관리에 없음)</div>';
+    +'<div style="font-size:13px;color:#334155;font-weight:600;margin-top:4px">홈쇼핑 탭 방송관리 기준 · 판매수량은 방송별 합계(컬러별 숫자는 방송관리에 없음) · 매출금액 = 판매가 × 판매수량</div>';
 }
 /* 생산 발주(2026-10-22 영업2팀 "wsstudio 생산관리의 컬러별 발주수량 · 입고예정일자도 상품검색에") — 컬러별 발주수량 · 입고예정.
    **1순위 = wsstudio 생산 오더**(ws/wsProd — 자동화 PC wsstudio-sync.mjs가 30분마다, 같은 날 영업2팀 "그라스 10/23 — 세 번째, 다른 상품도?"):
