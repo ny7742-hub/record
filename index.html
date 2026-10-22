@@ -2929,7 +2929,7 @@ var FB_PATH={
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
   "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","cpProgress":"ws/cpProgress","cpOrderReady":"ws/cpOrderReady","cpCountReq":"ws/cpCountReq","cpOrderLog":"ws/cpOrderLog","cpPause":"ws/cpPause","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
-  "saipLog":"ws/saipLog","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen","unshipSrc":"ws/unshipSrc","usSaipStatus":"ws/usSaipStatus",
+  "saipLog":"ws/saipLog","saipFix":"ws/saipFix","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen","unshipSrc":"ws/unshipSrc","usSaipStatus":"ws/usSaipStatus",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix","mvFix":"ws/mvFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
@@ -3669,6 +3669,11 @@ function fbListen(){
     function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
   );
   /* 등록 기록 · 등록 요청 · 자동화 PC 신호 (팀 공유, 2026-09-30) */
+  /* 매출등록 미리보기에서 고친 상품코드(2026-10-22 영업2팀) */
+  apply("ws/saipFix","saipFix",
+    function(d){if(d&&typeof d==="object")saipFix=d;},
+    function(){if(typeof renderSaipAuto==="function"&&!_saipFixEditing())renderSaipAuto();}
+  );
   apply("ws/saipLog","saipLog",
     function(d){if(d&&typeof d==="object")saipLog=d;},
     function(){if(typeof renderSaipAuto==="function")renderSaipAuto();}
@@ -22248,6 +22253,27 @@ function _saipCheckLine(k,date){
    버튼을 누르면 ① 등록 기록에 그 날짜가 있으면 **언제·누가 등록했는지 안내하고 멈춘다** ② 요청이 진행 중이면 멈춘다
    ③ 아니면 누른 사람 이름으로 요청을 남긴다 → 자동화 PC의 saip-watch.mjs가 가져가 playmd-hs-saip.mjs --by=이름으로 등록한다. */
 var saipLog=(function(){try{return JSON.parse(localStorage.getItem("saipLog")||"null")||{};}catch(e){return {};}})();
+/* 매출등록 미리보기에서 고친 상품코드(2026-10-22 영업2팀 "여기서 상품코드 수정할 수 있게") — 팀 공유 ws/saipFix {종류:{MMDD:{줄열쇠:{code,by,at}}}}.
+   자동화(playmd-hs-saip.mjs)가 다음 미리보기·등록 때 시트 상품컬러코드 대신 쓴다 — 고친 코드도 상품코드리스트 대조를 다시 거친다(없는 코드면 멈춤).
+   줄 열쇠 = 출고일자|쇼핑몰|상품명|수량|공급가|취소 — 같은 줄이 둘이면 같은 코드로 고쳐진다. 반품등록은 따로(ws/retFix) */
+var saipFix=(function(){try{return JSON.parse(localStorage.getItem("saipFix")||"null")||{};}catch(e){return {};}})();
+function _saipFixKey(r){return [r.ymd||"",r.shop||"",r.prod||"",r.qty||0,r.unit||0,r.cancel?1:0].join("|");}
+function _saipFixEditing(){var a=document.activeElement;return !!(a&&a.dataset&&a.dataset.saipfix);}
+function _saipFixOf(kind,mmdd,r){return (((saipFix||{})[kind]||{})[mmdd]||{})[_saipFixKey(r)]||null;}
+function saipFixSet(el){
+  var kind=el.dataset.kind,mmdd=el.dataset.mmdd,key=el.dataset.key,orig=String(el.dataset.orig||"").trim().toUpperCase();
+  var v=String(el.value||"").replace(/\s/g,"").toUpperCase();el.value=v;
+  if(!saipFix||typeof saipFix!=="object")saipFix={};
+  var K=saipFix[kind]=saipFix[kind]||{},D=K[mmdd]=K[mmdd]||{};
+  if(!v||v===orig)delete D[key];                                   /* 비우거나 원래 코드로 되돌리면 고친 값을 지운다 */
+  else D[key]={code:v,by:_saipMe(),at:new Date().toISOString()};
+  if(!Object.keys(D).length)delete K[mmdd];
+  wsSetItem("saipFix",JSON.stringify(saipFix));
+  el.style.background=D[key]?"#fef9c3":"#fffdf5";
+  var n=document.querySelectorAll('[data-saipfixnote="'+kind+mmdd+'"]');n.forEach(function(x){x.style.display=Object.keys(D).length?"":"none";});
+  /* 모델명/색상·같은 줄(같은 열쇠) 칸도 바로 바꿔 보이게 — 다른 칸을 고치는 중이면 그 뒤에 */
+  setTimeout(function(){if(!_saipFixEditing()&&typeof renderSaipAuto==="function")renderSaipAuto();},0);
+}
 var saipReq=(function(){try{return JSON.parse(localStorage.getItem("saipReq")||"null")||{};}catch(e){return {};}})();
 var saipWatch=(function(){try{return JSON.parse(localStorage.getItem("saipWatch")||"null");}catch(e){return null;}})();
 var SAIP_BASELINE="2026-09-23";                 /* 홈쇼핑·백화점몰은 이 날짜까지 사람이 직접 등록했다(자동화 기준일) */
@@ -22491,7 +22517,7 @@ function _saipCfShow(kind,date,o){
     if(kind==="mv"&&it.badRows&&it.badRows.length)h+='<div style="color:#b91c1c;font-weight:700">'+it.badRows.length+'줄이 멈췄습니다 — 사입출고등록 탭 카드에서 창고코드·상품코드·수량을 고친 뒤 다시 검사</div>';
     if(it.rows&&it.rows.length){
       h+='<div style="margin-top:8px;font-weight:700;color:#334155">미리보기 · '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</div>';
-      h+=_saipRowList(kind,it.rows,"50vh");
+      h+=_saipRowList(kind,it.rows,"50vh",it.mmdd);
     }
     if(kind==="mv"&&it.offRows&&it.offRows.length)h+='<div style="margin-top:4px;color:#b45309;font-weight:700">체크를 뺀 '+it.offRows.length+'줄은 넣지 않습니다 — 나중에 체크하고 다시 등록할 수 있습니다</div>';
     if(kind==="cc"&&it.date)h+=_ccPrevLine(it,date,{noReg:true},true,false);
@@ -22518,24 +22544,42 @@ function _saipCfShow(kind,date,o){
   m.firstChild.innerHTML=h;
 }
 /* 미리보기 줄 목록 — 카드와 확정 창이 같이 쓴다 */
-function _saipRowList(kind,rows,maxH){
+function _saipRowList(kind,rows,maxH,mmdd){
   if(kind==="so")return _soRows(rows);
+  var canFix=!!mmdd&&(kind==="hs"||kind==="ds"||kind==="cc"||kind==="xc");   /* 상품코드 고치기 — 매출등록 4종만 */
   /* 줄마다 두 줄로 — 위: 상품명(전부) · 아래: 매장 · 코드 | 수량 · 공급가. 좁은 카드(자동화 탭 ~290px)에서 5칸 표는
      상품명이 한 글자씩 꺾이고 수량·공급가가 잘려 안 보였다(2026-10-14 영업2팀) */
   /* 한 줄에 '먼스터/블랙, 1개, 23,541원, 현대홈쇼핑'(2026-10-15 영업2팀) — 모델명/색상은 상품코드로 상품데이터에서(_saipModelColor),
      매장은 코드 대신 이름(_saipStoreNm). 전체 상품명·코드는 마우스를 올리면(title) */
   var h='<div style="max-height:'+(maxH||"300px")+';overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;line-height:1.5">';
   rows.forEach(function(r,ix){
-    var parts=['<b>'+_escX(_saipModelColor(r))+'</b>',(r.qty||0)+'개'];
+    var fxr=canFix?_saipFixOf(kind,mmdd,r):null;                     /* 고친 코드가 있으면 모델명/색상도 그 코드로 */
+    var parts=['<b>'+_escX(_saipModelColor(fxr?Object.assign({},r,{code:fxr.code}):r))+'</b>',(r.qty||0)+'개'];
     /* 금액 = 수량 × 공급가(원본 결제금액) — 예전엔 개당 공급가만 보여 3개 줄(141,600원)이 47,200원으로 나와 합계와 안 맞았다(2026-10-20 영업2팀 "금액이 다릅니다") */
     if(r.unit||!/→/.test(r.store||""))parts.push(Number((r.unit||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1?' <span style="color:#5b6675;font-size:12px">(개당 '+Number(r.unit||0).toLocaleString()+')</span>':''));
     parts.push(_escX(_saipStoreNm(r.store)));
     h+='<div title="'+_escX((r.prod||"")+" · "+(r.code||""))+'" style="padding:3px 8px'+(ix?';border-top:1px solid #eef2f6':'')+';overflow-wrap:anywhere">'
       +parts.join(', ')+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+(r.free?' <span style="color:#5b6675;font-size:11px">무상</span>':'')
       /* 상품코드리스트 대조 메모(2026-10-21) — 고쳐 넣은 코드·색상/상품명 다름 */
-      +(r.note?'<div style="font-size:11.5px;color:'+(r.chk==="conflict"||r.chk==="missing"?'#b91c1c':'#b45309')+'">'+(r.chk==="conflict"||r.chk==="missing"?'⛔ ':'💡 ')+_escX(r.note)+'</div>':'')+'</div>';
+      +(r.note?'<div style="font-size:11.5px;color:'+(r.chk==="conflict"||r.chk==="missing"?'#b91c1c':'#b45309')+'">'+(r.chk==="conflict"||r.chk==="missing"?'⛔ ':'💡 ')+_escX(r.note)+'</div>':'')
+      +(canFix?_saipFixInput(kind,mmdd,r):'')+'</div>';
   });
-  return h+'</div>';
+  h+='</div>';
+  if(canFix){
+    var anyFix=Object.keys((((saipFix||{})[kind]||{})[mmdd])||{}).length;
+    h+='<div data-saipfixnote="'+kind+mmdd+'" style="font-size:12px;color:#5b6675;margin-top:3px'+(anyFix?'':';display:none')+'">✏️ 고친 상품코드는 팀 공유로 저장돼 다음 미리보기·등록 때 씁니다 — [🔍 다시 확인]으로 맞는지 먼저 보세요</div>';
+  }
+  return h;
+}
+/* 줄마다 상품코드 칸 — 고친 코드가 있으면 노란 바탕(원래 시트 코드는 마우스를 올리면) */
+function _saipFixInput(kind,mmdd,r){
+  var fx=_saipFixOf(kind,mmdd,r),v=fx?fx.code:(r.code||"");
+  return '<div style="display:flex;align-items:center;gap:4px;margin-top:2px;font-size:12px;color:#334155">상품코드'
+    +'<input data-saipfix="1" data-kind="'+kind+'" data-mmdd="'+_escX(mmdd)+'" data-key="'+_escX(_saipFixKey(r))+'" data-orig="'+_escX(r.origCode||r.code||"")+'"'
+    +' value="'+_escX(v)+'" onchange="saipFixSet(this)" onkeydown="if(event.key===\'Enter\')this.blur()" spellcheck="false"'
+    +' title="상품컬러코드(자사코드)를 고치면 다음 미리보기·등록 때 이 코드로 넣습니다'+(r.origCode&&r.origCode!==r.code?' · 시트 원래 코드 '+_escX(r.origCode):'')+(fx?' · '+_escX(fx.by||"")+' 고침':'')+'"'
+    +' style="flex:1;min-width:0;max-width:170px;font-size:12px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;font-family:Consolas,monospace;background:'+(fx?'#fef9c3':'#fffdf5')+'">'
+    +(fx?'<span style="color:#b45309;font-weight:700" title="'+_escX((fx.by||"")+" · "+_saipFmtAt(fx.at))+'">✏️</span>':'')+'</div>';
 }
 var SAIP_ITEM_TXT={
   saved:["✅","저장 완료 · 확인됨","#15803d"],savecheck:["⚠️","저장했지만 확인 필요 — 플레이엠디 매장출고반품현황을 봐 주세요","#b45309"],
@@ -22834,7 +22878,7 @@ function _saipCard(kind,opt){
     if(kind==="mv"&&iMode==="preview"&&((it.rows&&it.rows.length)||(it.badRows&&it.badRows.length)))h+=_mvRows(it);
     /* 미리보기 — 등록될 줄을 표로 */
     if(kind!=="mv"&&iMode==="preview"&&it.rows&&it.rows.length){
-      h+=_saipRowList(kind,it.rows);
+      h+=_saipRowList(kind,it.rows,null,it.mmdd);
     }
     /* 날짜별 — 이대로 등록 · 이 날짜만 다시 확인(2026-10-19 영업2팀 "날짜별로 개별 등록도 가능하게").
        자동화 탭(noReg)에서도 날짜마다 등록할 수 있다 — 예전엔 자동화 탭은 미리보기만(2026-10-12). 저장은 그 날짜 하나만, 결과는 카드의 그 날짜에만 끼운다(merge) */
