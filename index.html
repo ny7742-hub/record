@@ -21505,19 +21505,33 @@ function _ccoVerifyCode(o){
     if(words.length&&nm&&!words.some(function(t){return nm.indexOf(N(t))>=0;}))w.push("상품명이 리스트('"+String(row[2]).trim()+"')와 달라 보임");
     return {code:String(row[7]).trim(),chk:chk,note:w.filter(Boolean).join(" · ")};
   };
+  /* 시트 상품코드가 '다른 상품'을 가리킬 때만 conflict — 리스트에 없는 상품코드는 사방넷 쪽 표기 차이라 메모만 한다.
+     10/21 백화점몰 소리아 브라운: 시트 상품코드 WJF122H9(끝 S 빠짐) · 상품컬러코드 WJF122H9SBRX · 바코드 8800230013625가 모두 같은 상품인데 멈췄다 */
+  var pcIn=pc?rows.some(function(r){return r&&U(r[1])===pc;}):false;
+  var pcNote=function(lp){return pc&&!pcIn?"시트 상품코드 "+pc+"는 리스트에 없음(리스트 "+lp+")":"";};
   var row=cc?find(cc):null;
   if(row){
     if(bk.length&&bk.indexOf(cc)<0)return {code:o.cc,chk:"conflict",note:"바코드 "+bar+"는 상품코드리스트에서 "+bk.join(",")+" — 시트 상품컬러코드 "+cc+"와 다름"};
-    if(pc&&U(row[1])!==pc)return {code:o.cc,chk:"conflict",note:"시트 상품코드 "+pc+" ≠ 상품코드리스트 "+row[1]+"("+cc+")"};
-    return done(row,"ok","");
+    if(pcIn&&U(row[1])!==pc)return {code:o.cc,chk:"conflict",note:"시트 상품코드 "+pc+" ≠ 상품코드리스트 "+row[1]+"("+cc+")"};
+    return done(row,"ok",U(row[1])!==pc?pcNote(row[1]):"");
   }
   var why=cc?"상품컬러코드 "+cc+"가 상품코드리스트에 없어 ":"";
   if(bk.length===1){
-    if(pc&&U(byBar[bk[0]][1])!==pc)return {code:o.cc,chk:"conflict",note:"바코드 "+bar+"("+bk[0]+")와 시트 상품코드 "+pc+"가 다름"};
+    if(pcIn&&U(byBar[bk[0]][1])!==pc)return {code:o.cc,chk:"conflict",note:"바코드 "+bar+"("+bk[0]+")와 시트 상품코드 "+pc+"가 다름"};
     return done(byBar[bk[0]],"fixed",why+"바코드로 찾음");
   }
   if(bk.length>1)return {code:o.cc,chk:"conflict",note:"바코드 "+bar+"가 여러 상품("+bk.join(",")+")"};
   if(pc&&o.color){var c2=_hsResolveColorCode(pc,o.color),r2=c2?find(U(c2)):null;if(r2)return done(r2,"fixed",why+"상품코드+색상으로 찾음");}
+  /* 상품컬러코드 칸에 상품코드만 들어온 줄(10/21 기타온라인 루미야: GKM129Z9Z, 바코드·옵션 없음) — 그 상품의 색이 하나뿐이거나
+     리스트 색 이름이 시트 상품명에 딱 하나 들어 있을 때만 고쳐 넣는다(여럿이면 어느 색인지 몰라 missing 그대로) */
+  var base=[cc,pc].filter(function(v,i,a){return v&&a.indexOf(v)===i;});
+  for(var b=0;b<base.length;b++){
+    var cand=rows.filter(function(r){return r&&U(r[1])===base[b];});
+    if(!cand.length)continue;
+    var nm2=N(o.name);
+    var hit=cand.length===1?cand:cand.filter(function(r){var c=N(r[4]).replace(/[()&]/g,"");return c&&nm2.indexOf(c)>=0;});
+    if(hit.length===1)return done(hit[0],"fixed",why+(cand.length===1?"상품코드 "+base[b]+"의 유일한 색으로 찾음":"상품코드 "+base[b]+"+상품명 색으로 찾음"));
+  }
   if(!cc)return {code:"",chk:"",note:""};          /* 아래 홈쇼핑 매칭표·상품명 매칭으로 */
   return {code:o.cc,chk:"missing",note:"상품컬러코드 "+cc+"가 상품코드리스트에 없습니다"};
 }
