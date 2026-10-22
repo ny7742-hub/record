@@ -16632,11 +16632,13 @@ function renderHomeshopping(){
   var wrap=document.getElementById("hsTableWrap");if(!wrap)return;
   hsSelImgIdx=null;
   var h='<style>#hsTableWrap td.hsImgSel{outline:2px solid #2563eb;outline-offset:-2px}#hsTableWrap tr.hsDropOver td{border-top:2px solid #2563eb !important}#hsTableWrap tr.hsDropOver td:first-child{box-shadow:inset 0 2px 0 #2563eb}'
-    +'#hsTableWrap .hsNameIn:empty:before{content:attr(data-ph);color:#5b6675}'
+    +'#hsTableWrap .hsNameIn:empty:before{content:attr(data-ph);color:#000}'
+    /* 글자는 모두 검정(2026-10-22 영업2팀 "회색 글자 모두 블랙으로") — 빈 날짜·시간 칸 글자까지 */
+    +'#hsTableWrap input[type=date],#hsTableWrap input[type=time],#hsTableWrap input::-webkit-datetime-edit{color:#000}'
     +'#hsTableWrap .hsNameIn:focus{background:#f1f5f9}'
-    /* 지난 방송 줄 — 칸·입력·선택까지 전부 회색 */
-    +'#hsTableWrap tr.hsPast td{background:#e6eaf0 !important;color:#5b6675 !important}'
-    +'#hsTableWrap tr.hsPast td input,#hsTableWrap tr.hsPast td select,#hsTableWrap tr.hsPast td .hsNameIn{background:transparent !important;color:#5b6675 !important}'
+    /* 지난 방송 줄 — 칸은 회색 바탕, 글자는 검정(2026-10-22 영업2팀 — 예전엔 글자도 회색이라 안 보였다) */
+    +'#hsTableWrap tr.hsPast td{background:#e6eaf0 !important;color:#000 !important}'
+    +'#hsTableWrap tr.hsPast td input,#hsTableWrap tr.hsPast td select,#hsTableWrap tr.hsPast td .hsNameIn{background:transparent !important;color:#000 !important}'
     +'#hsTableWrap tr.hsPast td img{opacity:.55}</style>';
   h+='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
@@ -16647,28 +16649,28 @@ function renderHomeshopping(){
   h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 6px;color:#1b6e82;font-weight:700;width:40px">삭제</th>';
   h+='</tr></thead><tbody>';
   if(!homeshoppingDB.length){
-    h+='<tr><td colspan="'+(HS_COLS.length+2)+'" style="padding:30px;text-align:center;color:#475569;border:1px solid #e1e6ee">＋ 행 추가 버튼으로 방송 일정을 등록하세요</td></tr>';
+    h+='<tr><td colspan="'+(HS_COLS.length+2)+'" style="padding:30px;text-align:center;color:#000;border:1px solid #e1e6ee">＋ 행 추가 버튼으로 방송 일정을 등록하세요</td></tr>';
   }
   homeshoppingDB.forEach(function(row,i){
     var _past=_hsAired(row);
     h+='<tr'+(_past?' class="hsPast" title="방송이 지난 상품"':'')+' ondragover="hsDragOver('+i+',event)" ondragleave="hsDragLeave(event)" ondrop="hsDrop('+i+',event)" ondragend="hsDragEnd()">';
-    h+='<td draggable="true" ondragstart="hsDragStart('+i+',event)" title="드래그하여 순서 변경" style="border:1px solid #e1e6ee;text-align:center;color:#475569;font-weight:700;background:#f8fafc;cursor:grab;user-select:none"><span style="color:#5b6675;font-size:11px">↕</span><br>'+(i+1)+'</td>';
+    h+='<td draggable="true" ondragstart="hsDragStart('+i+',event)" title="드래그하여 순서 변경" style="border:1px solid #e1e6ee;text-align:center;color:#000;font-weight:700;background:#f8fafc;cursor:grab;user-select:none"><span style="color:#000;font-size:11px">↕</span><br>'+(i+1)+'</td>';
     HS_COLS.forEach(function(col){
       if(col.type==="img"){
         var inner;
         if(row.img){
           inner='<img src="'+_escX(row.img)+'" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'" style="width:48px;height:48px;object-fit:cover;border-radius:5px;display:block;margin:auto">'
-            +'<div style="display:none;width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;align-items:center;justify-content:center;color:#8593a6;margin:auto">📷</div>'
+            +'<div style="display:none;width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;align-items:center;justify-content:center;color:#000;margin:auto">📷</div>'
             +'<button onclick="hsClearImg('+i+',event)" title="이미지 삭제" style="position:absolute;top:1px;right:1px;width:16px;height:16px;line-height:14px;padding:0;border:none;border-radius:50%;background:rgba(220,38,38,.9);color:#fff;font-size:11px;font-weight:700;cursor:pointer">×</button>';
         }else{
-          inner='<div style="width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8593a6;margin:auto;font-size:9px;line-height:1.15">📷<span>붙여넣기</span></div>';
+          inner='<div style="width:48px;height:48px;border:1.5px dashed #cbd5e1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#000;margin:auto;font-size:9px;line-height:1.15">📷<span>붙여넣기</span></div>';
         }
         h+='<td onclick="hsSelImg('+i+',this)" ondblclick="hsSetImg('+i+')" title="클릭 후 Ctrl+V로 사진 붙여넣기 · 더블클릭=URL 입력" style="border:1px solid #e1e6ee;padding:3px;text-align:center;position:relative;cursor:pointer">'+inner+'</td>';
       }else if(col.type==="sel"){
         /* 확정은 초록, 제안은 주황으로 물들여 한눈에 구분되게 한다 */
         var sv=row[col.key]||"";
         var tone=/확정$/.test(sv)?"background:#ecfdf5;color:#047857;font-weight:700"
-                :(/제안$/.test(sv)?"background:#fff7ed;color:#9a3412;font-weight:700":"color:#5b6675");
+                :(/제안$/.test(sv)?"background:#fff7ed;color:#9a3412;font-weight:700":"color:#000");
         var opt='<option value=""></option>';
         col.opts.forEach(function(o){
           opt+='<option value="'+_escX(o)+'"'+(sv===o?' selected':'')+'>'+_escX(o)+'</option>';
@@ -16680,15 +16682,15 @@ function renderHomeshopping(){
       }else if(col.type==="calc"){
         h+='<td id="hsEff_'+i+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:center;font-weight:700;color:#1b6e82;background:#f1f5f9">'+_hsEff(row)+'</td>';
       }else if(col.type==="date"){
-        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="date" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value);renderHomeshopping()" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
+        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="date" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value);renderHomeshopping()" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#000"></td>';
       }else if(col.type==="time"){
-        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="time" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value);renderHomeshopping()" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#1f2937"></td>';
+        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px"><input type="time" value="'+_escX(row[col.key]||"")+'" onchange="hsEdit('+i+',\''+col.key+'\',this.value);renderHomeshopping()" style="width:100%;border:none;outline:none;font-size:13px;background:transparent;color:#000"></td>';
       }else if(col.key==="name"){
         /* 다른 칸처럼 바로 타이핑해서 입력한다.
            예전엔 클릭=사전미팅추가 / 더블클릭=입력이었는데, 빈 칸을 더블클릭하면
            첫 클릭의 "상품명을 먼저 입력해주세요" alert이 두 번째 클릭을 먹어버려서
            입력창이 아예 뜨지 않았다. 사전미팅 추가는 📋 버튼으로 분리. */
-        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px;color:#1f2937">'
+        h+='<td style="border:1px solid #e1e6ee;padding:2px 4px;color:#000">'
           +'<div style="display:flex;align-items:center;gap:4px">'
           +'<div class="hsNameIn" contenteditable="true" data-ph="상품명 입력"'
           +' onblur="hsEdit('+i+',\'name\',this.textContent.trim())"'
@@ -16699,7 +16701,7 @@ function renderHomeshopping(){
           +'</div></td>';
       }else{
         var align=(col.type==="num")?"text-align:right;":"";
-        h+='<td contenteditable="true" onblur="hsEdit('+i+',\''+col.key+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#1f2937;'+align+'">'+_escX(row[col.key]||"")+'</td>';
+        h+='<td contenteditable="true" onblur="hsEdit('+i+',\''+col.key+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#000;'+align+'">'+_escX(row[col.key]||"")+'</td>';
       }
     });
     h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="hsDelRow('+i+')" style="background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;padding:3px 8px">✕</button></td>';
