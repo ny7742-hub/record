@@ -2432,8 +2432,7 @@ label{font-size:14px!important}
       <div class="sec-title" style="margin:0;font-size:14px">🛒 코스트코 직매입 제안 상품 리스트</div>
       <span id="cppSync" style="font-size:12px;color:#5b6675"></span>
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <label style="font-size:12px;color:#5b6675;display:flex;align-items:center;gap:4px" title="공급가(-VAT) = 제안가 × (1 − 수수료율) ÷ 1.1 · 부가세 = 공급가 × 10%">코코 수수료
-          <input id="cppFee" type="text" inputmode="decimal" onchange="cppSetFee(this.value)" style="width:56px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;text-align:right">%</label>
+        <span style="font-size:12px;color:#5b6675" title="공급가(VAT별도) = 제안가 × (1 − 수수료%) ÷ 1.1 · 부가세 = 공급가 × 10%">TAG가·제안가·수수료(%)를 넣으면 공급가(VAT별도)·부가세가 자동으로 나옵니다</span>
         <button class="bs" style="padding:6px 12px;font-size:12.5px" onclick="cppAdd()">＋ 상품 추가</button>
         <button class="bg" style="padding:6px 14px;font-size:12.5px;background:#0f766e" onclick="cppExcel()">📥 엑셀 받기</button>
       </div>
@@ -2441,7 +2440,7 @@ label{font-size:14px!important}
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:12.5px">
       <select id="cppSeason" onchange="cppRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"></select>
       <select id="cppSel" onchange="cppRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
-        <option value="">선정여부 전체</option><option value="__live">드랍 빼고</option><option value="__done">납품·선정</option><option value="__drop">드랍만</option><option value="__none">아직 비어 있음</option>
+        <option value="">선정여부 전체</option><option>제안</option><option>확정</option><option>드랍</option><option value="__live">드랍 빼고</option>
       </select>
       <input id="cppQ" type="search" placeholder="상품명·컬러·비고 찾기" oninput="cppRender()" style="width:200px;padding:5px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">
       <span id="cppCount" style="color:#5b6675"></span>
@@ -31757,8 +31756,13 @@ window.renderFloorPage2=function(){
 #cppWrap th{position:sticky;top:0;background:#eef5f6;color:#154f5e;font-weight:800;border:1px solid #d9e2e7;padding:6px 5px;white-space:nowrap;z-index:1}
 #cppWrap td{border:1px solid #e1e6ee;padding:2px;vertical-align:top;background:#fff}
 #cppWrap td.cpp-c{padding:6px 7px;text-align:right;background:#f8fafb;color:#334155;white-space:nowrap}
-#cppWrap tr.cpp-drop td{background:#f3f4f6;color:#6b7280}
-#cppWrap tr.cpp-drop td textarea,#cppWrap tr.cpp-drop td input{color:#6b7280}
+#cppWrap tr.cpp-drop td,#cppWrap tr.cpp-drop td.cpp-c{background:#dfe2e6;color:#6b7280}   /* 드랍 = 줄 전체 회색 */
+#cppWrap tr.cpp-drop td textarea,#cppWrap tr.cpp-drop td input,#cppWrap tr.cpp-drop td select{color:#6b7280;background:transparent}
+#cppWrap tr.cpp-drop .cpp-img{background:#d3d7dc;border-color:#b6bcc4}
+#cppWrap tr.cpp-drop .cpp-img img{filter:grayscale(1);opacity:.55}
+#cppWrap select.cpp-sel{width:100%;box-sizing:border-box;border:1px solid #d9e2e7;border-radius:5px;padding:4px 3px;font:inherit;font-size:12.5px;font-weight:800;background:#fff;color:#1b6e82;cursor:pointer}
+#cppWrap select.cpp-sel.s-done{color:#15803d;border-color:#bbf7d0}
+#cppWrap select.cpp-sel.s-drop{color:#6b7280;border-color:#b6bcc4}
 #cppWrap tr.cpp-done td{background:#f0fdf4}
 #cppWrap textarea,#cppWrap input.cpp-in{width:100%;box-sizing:border-box;border:1px solid transparent;border-radius:4px;background:transparent;font:inherit;font-size:12.5px;padding:4px 5px;resize:none;color:#1f2937;line-height:1.45;overflow:hidden}
 #cppWrap textarea:hover,#cppWrap input.cpp-in:hover{border-color:#d9e2e7}
@@ -31766,7 +31770,10 @@ window.renderFloorPage2=function(){
 #cppWrap input.cpp-num{text-align:right}
 .cpp-img{width:74px;height:74px;border:1px dashed #cbd5e1;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#5b6675;font-size:11px;background:#fbfaf7;overflow:hidden;margin:2px auto;position:relative}
 .cpp-img img{width:100%;height:100%;object-fit:cover}
-.cpp-img.drag{border-color:#1b6e82;background:#e6f1f3}
+.cpp-img.drag,.cpp-img.on{border:2px solid #1b6e82;background:#e6f1f3;outline:none}
+.cpp-img .cpp-f{position:absolute;bottom:1px;left:1px;font-size:11px;line-height:1;padding:2px 3px;border-radius:4px;background:rgba(255,255,255,.85);display:none}
+.cpp-img:hover .cpp-f,.cpp-img.on .cpp-f{display:block}
+.cpp-img .cpp-h{text-align:center;line-height:1.3}
 .cpp-img .cpp-x{position:absolute;top:1px;right:1px;background:rgba(0,0,0,.55);color:#fff;border-radius:4px;font-size:10px;padding:0 4px;display:none}
 .cpp-img:hover .cpp-x{display:block}
 .cpp-del{border:none;background:none;color:#b91c1c;cursor:pointer;font-size:14px;padding:4px}
@@ -31776,7 +31783,8 @@ window.renderFloorPage2=function(){
    팀 공유 ws/ccPropose = {fee:13.9, seeded:true, rows:{id:{no,season,sel,name,colors,tag,origin,price,qty,note,memo,at,by}}}
    칸 하나를 고치면 그 칸만 쓴다(rows/{id}/{칸}) — 여러 사람이 같이 고쳐도 서로 덮지 않는다.
    사진은 ws/ccProposeImg/{id}에 300px JPEG(dataURL)로 따로 — 탭을 처음 열 때만 받는다.
-   공급가(-VAT) = 제안가 × (1 − 수수료율) ÷ 1.1, 부가세 = 공급가 × 10% (엑셀 「코코 수수료 13.9%」와 같은 값: 25,990 → 20,343 · 2,034) */
+   공급가(VAT별도) = 제안가 × (1 − 수수료%) ÷ 1.1, 부가세 = 공급가 × 10% — 수수료는 줄마다(rows/{id}/fee, 2026-10-22 영업2팀 "수수료를 입력하면 자동으로").
+   엑셀 「코코 수수료 13.9%」와 같은 값: 25,990 → 20,343 · 2,034. 수수료 칸이 비면 계산하지 않는다(새 줄은 13.9로 시작) */
 (function(){
 var CPP_SEED=[[1, "24FW", "", "캘러한", "아이보리\n블랙\n베이지\n모카", 29000, "중국", 15990, "", "", ""], [2, "24FW", "", "달스턴", "블랙\n아이보리\n그레이\n베이지", 49000, "한국", 25990, "", "", ""], [3, "24FW", "", "카이걸", "블랙\n애쉬\n아이보리\n더스트", 49000, "베트남", 25990, "", "", ""], [4, "24FW", "", "애니", "블랙\n모카\n오트밀\n베이지", 49000, "한국", 25990, "", "", ""], [5, "24FW", "", "허미니", "아이보리\n베이지\n블랙", 43000, "한국", 21990, "", "", ""], [6, "24FW", "", "헤이스", "블랙\n베이지", 49000, "한국", 25990, "", "", ""], [7, "24FW", "", "모나카", "아이보리\n모카\n올리브\n블랙", 59000, "베트남", 26990, "", "", ""], [8, "24FW", "", "코나", "블랙\n애쉬\n아이보리\n베이지", 49000, "베트남", 25990, "", "", ""], [9, "25SS", "", "리나", "아이보리\n오트밀\n블랙", 39000, "베트남", 23990, "", "", ""], [10, "25SS", "", "아소라", "블랙\n베이지\n아이보리\n블루", 59000, "한국", 25990, "", "", ""], [11, "25SS", "25년 07.01\n납품", "로슬라", "베이지\n블랙\n카키브라운\n챠콜", 63000, "베트남", 26990, "베이지:2,688\n블랙: 4,032", "", ""], [12, "25SS", "드랍", "에밀리", "아이보리\n다크 브라운\n블랙", 49000, "중국", 25990, "", "", ""], [13, "25SS", "", "에이미", "아이보리\n베이지\n블랙", 49000, "중국", 25990, "", "", ""], [14, "25SS", "", "메이나", "내츄럴\n피넛\n그레이\n블랙", 59000, "중국", 26990, "", "", ""], [15, "25SS", "", "웨이드", "애쉬\n블랙", 43000, "베트남", 23990, "", "", ""], [16, "25SS", "", "uv 와이드 카멜라", "블랙", 39000, "한국", 19990, "", "", ""], [17, "26SS", "드랍", "라바울", "베이지\n핑크\n딥블루\n블루그레이\n블랙", 49000, "베트남", 25990, "", "", ""], [18, "26SS", "드랍", "팀바라", "아이보리\n베이지\n카키\n그레이\n블랙", 49000, "베트남", 25990, "", "", ""], [19, "26SS", "드랍", "도랜즈", "아이보리\n핑크\n블루그레이\n블랙", 49000, "베트남", 25990, "", "", ""], [20, "26SS", "26년 07월 납품예정", "아쿠아가드 보닛햇 듀리에", "베이지\n블랙", 49000, "중국", 19990, "베이지 : 5,544\n블랙 : 4,536", "", ""], [21, "26FW", "", "다이애그널 보닛햇\n페어뷰", "베이지\n블랙\n네이비", 49000, "한국/중국", 23990, "", "9월\n폴리에스터 95%, 스판 5%", ""], [22, "26FW", "", "울니트 후면 스트랩 비니\n로벤다", "블랙\n오트밀", "", "한국", 19990, "", "9월\n혼용률 울 100%", ""], [23, "26FW", "", "울 체크 버킷햇\n살루잇", "베이지\n미드나잇\n올리브", 49000, "중국", 26990, "", "10월\n혼용률 울 100%", ""], [24, "26FW", "", "울 니트 캡\n루오스", "블랙\n챠콜", "", "한국", 23990, "", "10월\n혼용률 울 100%\n니트 스베리추가\n앞쪽 화이트샌즈 로고심볼", ""], [25, "26FW", "", "울 니트 보닛햇\n바르셀\n(기존 볼드린)", "베이지\n블랙\n그레이\n아이보리", 49000, "한국", 23990, "", "10월\n혼용률 울 100%", ""], [26, "26FW", "", "울 니트 귀달이퍼 둥근 햇\n알라스\n(기존 아르벨)", "아이보리\n애쉬핑크\n다크베이지\n다크그레이", 69000, "한국", 25990, "", "11월\n혼용률 울 100%", ""], [27, "26FW", "", "플리스 바라클라바 넥워머", "블랙\n아이보리", "", "한국", 23990, "", "12월\n혼용률 폴리에스터", ""], [28, "26FW", "", "울 니트햇\n아부르\n(기존 오슬로)", "연베이지\n퍼플\n딥블루\n챠콜", 59000, "한국", 23990, "", "12월\n혼용률 울 100%", ""], [29, "26FW", "", "패딩 보닛햇\n아나카", "베이지\n카키\n블랙", 49000, "한국", 23990, "", "12월\n폴리에스터 100%", ""], [30, "26SS", "", "UV 프로텍션 초경량 솔리드 우산 양산 겸용 루노아(2PCS)", "버터옐로우\n베이지", 90000, "중국", 49990, "", "폴리에스터 100%\n접었을때 높이 : 23cm\n펼쳤을때 높이 : 51cm\n폭 : 90cm\n중량 : 170g", ""], [31, "26SS", "", "UV 프로텍션 쿨링 끈 조절 마스크 린다우(2PCS)", "화이트\n스킨\n라이트그레이\n블랙", 30000, "중국", 15990, "", "나일론 74%, 스판덱스 26%\n폭 : 12.8cm\n높이 : 15cm", ""], [32, "26SS", "", "UV 프로텍션 쿨링 이어 마스크 메르신(2PCS)", "화이트\n라이트그레이\n블랙", 38000, "중국", 17990, "", "1)나일론 74%, 스판덱스 26%\n2) 폴리에스테르 94%, 스판덱스 6%\n폭 : 27.5cm\n높이 : 25.5cm", ""], [33, "26SS", "", "UV 프로텍션 쿨링 하프 마스크 아다나(2PCS)", "화이트\n스킨\n라이트그레이\n블랙", 30000, "중국", 15990, "", "1)나일론 74%, 스판덱스 26%\n2) 폴리에스테르 94%, 스판덱스 6%\n폭 : 30cm\n높이 : 28cm", "우양산 2종+카라비너+스트랩"], [34, "26SS", "", "그린라벨 UV 프로텍션 6살 초경량 투톤 우산 양산 겸용 에로나", "라이트그레이\n+버터옐로우\n+인디핑크\n(2종)", "", "중국", 36990, "", "폴리에스터 100%\n접었을때 높이 : 21cm\n펼쳤을때 높이 : 49cm\n폭 : 90cm\n중량 : 130g\n살대 : 6", "디자인 컨펌요청 2/3 · 2/3 · 2/4\n경량 6살\n본사 카라비너 사용\n파우치 25SS 기존 파우치 형태\n스트랩X\n투톤 디자인\n라이트 그레이 [솔리드]\n신형 원단으로 교체"], [35, "26SS", "", "자동", "", "", "중국", 22990, "", "폴리에스터 100%\n접었을때 높이 : 23cm\n펼쳤을때 높이 : 51cm\n폭 : 90cm\n중량 : 170g\n살대 : 6", ""], [36, "26SS", "", "필름", "", "", "중국", 23990, "", "폴리에스터 100%\n접었을때 높이 : 19cm\n펼쳤을때 높이 : 51cm\n폭 : 88cm\n중량 : 198g\n살대 : 6", ""], [37, "26SS", "", "장우산", "", "", "중국", 19990, "", "폴리에스터 100%\n길이 : 85cm\n폭 : 104cm\n중량 : 346g\n살대: 6", ""], [38, "26SS", "", "중우산", "", "", "중국", 22990, "", "폴리에스터 100%\n길이 : 33cm\n폭 : 99cm\n중량 : 261g\n살대 : 8", ""], [39, "26FW", "", "비즈포인트 니트 비니", "", "", "거화", "", "", "캐시미어 3%, 울 97%", ""], [40, "26FW", "", "펄사 루즈핏 스트링 비니", "", "", "", "", "", "캐시미어5%,  울95", ""], [41, "26FW", "", "페어아일 탁텔 니트 비니", "", "", "한국", "", "", "", ""], [42, "26FW", "", "플리스 비니", "", "", "베트남", "", "", "폴리 72%, 레이온 28%", ""], [43, "26FW", "", "배색 스티지 머플러", "", "", "한국", "", "", "폴리59%, 나일론 25% 울 10%,  스판 6%", ""], [44, "26FW", "", "베이직 울 머플러 그리웰", "베이지\n핑크\n오프화이트", 45000, "중국", "", "", "울 100%", ""], [45, "26FW", "", "체크 울 머플러 태들리", "네이비\n블랙\n아이보리", 53000, "중국", "", "", "울 100%", ""], [46, "26FW", "", "타탄체크 머플러 도빌르", "블루", 39000, "중국", "", "", "폴리에스터 100%", ""], [47, "26FW", "", "울 니트 보닛햇 바르셀", "베이지\n블랙\n그레이", 25900, "한국", 58990, "10,000", "울 100%", ""]];
 var D=null;            /* ws/ccPropose */
@@ -31786,17 +31794,17 @@ function $(i){return document.getElementById(i);}
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function num(v){var n=Number(String(v==null?"":v).replace(/[^0-9.\-]/g,""));return isFinite(n)&&String(v).trim()!==""?n:"";}
 function won(n){return n===""||n==null||!n?"":Math.round(n).toLocaleString("ko-KR");}
-function fee(){var f=D&&D.fee!=null?Number(D.fee):13.9;return isFinite(f)?f:13.9;}
-function supply(p){p=num(p);return p===""||!p?"":Math.round(p*(1-fee()/100)/1.1);}
-function vat(p){var s=supply(p);return s===""?"":Math.round(s*0.1);}
+var FEE0=13.9;   /* 새 줄 기본 수수료(엑셀 「코코 수수료 13.9%」) */
+function supply(r){var p=num(r&&r.price),f=num(r&&r.fee);return p===""||!p||f===""?"":Math.round(p*(1-f/100)/1.1);}
+function vat(r){var s=supply(r);return s===""?"":Math.round(s*0.1);}
 function me(){try{return typeof _saipMe==="function"?_saipMe():"";}catch(e){return "";}}
 function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function seedObj(){
   var rows={};
   CPP_SEED.forEach(function(r,i){
-    rows["s"+String(r[0]).padStart(3,"0")]={no:r[0],season:r[1],sel:r[2],name:r[3],colors:r[4],tag:r[5],origin:r[6],price:r[7],qty:r[8],note:r[9],memo:r[10]};
+    rows["s"+String(r[0]).padStart(3,"0")]={no:r[0],season:r[1],sel:selVal(r[2]),name:r[3],colors:r[4],tag:r[5],origin:r[6],price:r[7],fee:FEE0,qty:r[8],note:r[9],memo:r[10]};
   });
-  return {fee:13.9,seeded:true,rows:rows};
+  return {seeded:true,rows:rows};
 }
 function ref(p){return fbDB.ref("ws/ccPropose"+(p?"/"+p:""));}
 
@@ -31827,17 +31835,17 @@ function rowsSorted(){
   return Object.keys(R).map(function(id){var r=R[id]||{};r._id=id;return r;})
     .sort(function(a,b){return (Number(a.no)||9999)-(Number(b.no)||9999)||String(a._id).localeCompare(String(b._id));});
 }
-function selKind(s){s=String(s||"");if(/드랍/.test(s))return "drop";if(/납품|선정|확정/.test(s))return "done";return s.trim()?"etc":"none";}
+function selKind(s){s=String(s||"");if(/드랍/.test(s))return "drop";if(/납품|선정|확정/.test(s))return "done";return "none";}
+function selVal(s){var k=selKind(s);return k==="drop"?"드랍":k==="done"?"확정":"제안";}   /* 선정여부는 제안·확정·드랍 셋 중 하나(2026-10-22 영업2팀) */
 
 var COLS=[ /* [키, 제목, 폭, 종류] 종류: t=글(여러 줄) n=숫자 c=계산 */
-  ["no","번호",44,"n"],["img","이미지",84,"img"],["season","시즌",58,"t"],["sel","선정여부",96,"t"],["name","상품명",190,"t"],["colors","컬러",104,"t"],
-  ["tag","정가",76,"n"],["origin","원산지",66,"t"],["price","코코 제안가\n(+VAT)",84,"n"],["_supply","공급가(-VAT)\n코코 수수료 %",92,"c"],["_vat","부가세",66,"c"],
+  ["no","번호",44,"n"],["img","이미지",84,"img"],["season","시즌",58,"t"],["sel","선정여부",76,"sel"],["name","상품명",190,"t"],["colors","컬러",104,"t"],
+  ["tag","TAG가",76,"n"],["origin","원산지",66,"t"],["price","코코 제안가\n(+VAT)",84,"n"],["fee","수수료\n(%)",58,"f"],["_supply","공급가\n(VAT별도)",86,"c"],["_vat","부가세",66,"c"],
   ["qty","납품수량",110,"t"],["note","비고",210,"t"],["memo","진행 메모",200,"t"],["_del","",30,"del"]
 ];
 window.cppRender=function(){
   var w=$("cppWrap");if(!w)return;
   if(!D){w.innerHTML='<div style="padding:20px;color:#5b6675">불러오는 중…</div>';return;}
-  var fe=$("cppFee");if(fe&&document.activeElement!==fe)fe.value=String(fee());
   var all=rowsSorted();
   /* 시즌 목록 */
   var ss=$("cppSeason"),cur=ss.value,seasons={};
@@ -31849,30 +31857,31 @@ window.cppRender=function(){
     if(cur&&String(r.season||"").trim()!==cur)return false;
     var k=selKind(r.sel);
     if(fs==="__live"&&k==="drop")return false;
-    if(fs==="__done"&&k!=="done")return false;
-    if(fs==="__drop"&&k!=="drop")return false;
-    if(fs==="__none"&&k!=="none")return false;
+    if(fs&&fs!=="__live"&&selVal(r.sel)!==fs)return false;
     if(q&&[r.name,r.colors,r.note,r.memo,r.sel,r.origin].join(" ").toLowerCase().indexOf(q)<0)return false;
     return true;
   });
   $("cppCount").textContent=rows.length+"개"+(rows.length!==all.length?" / 전체 "+all.length+"개":"")
-    +" · 드랍 "+all.filter(function(r){return selKind(r.sel)==="drop";}).length+"개";
+    +" · 제안 "+all.filter(function(r){return selVal(r.sel)==="제안";}).length+" · 확정 "+all.filter(function(r){return selVal(r.sel)==="확정";}).length
+    +" · 드랍 "+all.filter(function(r){return selVal(r.sel)==="드랍";}).length;
   $("cppSync").innerHTML=offline?'<span style="color:#b91c1c;font-weight:700">● 저장 안 됨 — 로그인 후 다시 열어 주세요</span>':'<span style="color:#15803d">● 팀 공유</span>';
   /* 입력 중인 칸은 다시 그리지 않는다(글자가 날아가지 않게) */
   var a=document.activeElement;
-  if(a&&w.contains(a)&&(a.tagName==="TEXTAREA"||a.tagName==="INPUT")){paintCalc();return;}
+  if(a&&w.contains(a)&&(a.tagName==="TEXTAREA"||a.tagName==="INPUT"||a.tagName==="SELECT")){paintCalc();return;}
   var h='<table><thead><tr>'+COLS.map(function(c){
-    var t=c[0]==="_supply"?"공급가(-VAT)<br>코코 수수료 "+esc(fee())+"%":esc(c[1]).replace(/\n/g,"<br>");
+    var t=esc(c[1]).replace(/\n/g,"<br>");
     return '<th style="min-width:'+c[2]+'px;width:'+c[2]+'px">'+t+'</th>';}).join("")+'</tr></thead><tbody>';
   rows.forEach(function(r){
     var k=selKind(r.sel);
     h+='<tr data-id="'+esc(r._id)+'" class="'+(k==="drop"?"cpp-drop":k==="done"?"cpp-done":"")+'">';
     COLS.forEach(function(c){
       var key=c[0];
-      if(c[3]==="img")h+='<td><div class="cpp-img" data-img="'+esc(r._id)+'" title="눌러서 사진 넣기 · 끌어 놓기 · 붙여넣기(Ctrl+V)">사진</div></td>';
+      if(c[3]==="img")h+='<td><div class="cpp-img" tabindex="0" data-img="'+esc(r._id)+'" title="눌러서 고른 뒤 Ctrl+V로 붙여넣기(복사한 사진·사진 주소) · 끌어 놓기 · 📁 파일 고르기"></div></td>';
+      else if(c[3]==="sel"){var sv=selVal(r.sel);h+='<td><select class="cpp-sel s-'+selKind(sv)+'" data-k="sel">'+["제안","확정","드랍"].map(function(o){return '<option'+(o===sv?' selected':'')+'>'+o+'</option>';}).join("")+'</select></td>';}
       else if(c[3]==="c")h+='<td class="cpp-c" data-calc="'+key+'"></td>';
       else if(c[3]==="del")h+='<td style="text-align:center"><button class="cpp-del" title="이 상품 지우기" onclick="cppDel(\''+esc(r._id)+'\')">✕</button></td>';
       else if(c[3]==="n")h+='<td><input class="cpp-in cpp-num" data-k="'+key+'" value="'+esc(key==="no"?(r.no==null?"":r.no):won(num(r[key])))+'"></td>';
+      else if(c[3]==="f")h+='<td><input class="cpp-in cpp-num" data-k="fee" inputmode="decimal" placeholder="%" title="수수료(%) — 넣으면 공급가(VAT별도)·부가세가 자동으로 나옵니다" value="'+esc(r.fee==null?"":r.fee)+'"></td>';
       else h+='<td><textarea rows="1" data-k="'+key+'">'+esc(r[key]==null?"":r[key])+'</textarea></td>';
     });
     h+='</tr>';
@@ -31888,23 +31897,25 @@ function paintCalc(){
   w.querySelectorAll("tr[data-id]").forEach(function(tr){
     var r=(D.rows||{})[tr.dataset.id]||{};
     var a=tr.querySelector('[data-calc="_supply"]'),b=tr.querySelector('[data-calc="_vat"]');
-    if(a)a.textContent=won(supply(r.price));
-    if(b)b.textContent=won(vat(r.price));
+    if(a)a.textContent=won(supply(r));
+    if(b)b.textContent=won(vat(r));
   });
 }
 function paintImgs(){
   var w=$("cppWrap");if(!w)return;
   w.querySelectorAll("[data-img]").forEach(function(el){
     var src=IMG[el.dataset.img];
-    var want=src?'<img src="'+src+'" alt=""><span class="cpp-x" title="사진 지우기">✕</span>':"사진";
+    var want=(src?'<img src="'+esc(src)+'" alt=""><span class="cpp-x" title="사진 지우기">✕</span>':'<span class="cpp-h">사진<br>붙여넣기</span>')
+      +'<span class="cpp-f" title="파일 고르기">📁</span>';
     if(el.innerHTML!==want)el.innerHTML=want;
+    el.classList.toggle("on",el.dataset.img===selImg);
   });
 }
 
 /* 칸 저장 */
 function save(id,key,val){
   if(!D||!D.rows||!D.rows[id])return;
-  if(key==="tag"||key==="price"){val=num(val);}
+  if(key==="tag"||key==="price"||key==="fee"){val=num(val);}
   else if(key==="no"){val=num(val);}
   else val=String(val);
   if(String(D.rows[id][key]==null?"":D.rows[id][key])===String(val))return;
@@ -31918,29 +31929,24 @@ document.addEventListener("input",function(e){
   var t=e.target;if(!t.closest||!t.closest("#cppWrap"))return;
   if(t.tagName==="TEXTAREA")fit(t);
   var tr=t.closest("tr[data-id]");
-  if(tr&&(t.dataset.k==="price")){var r=(D.rows||{})[tr.dataset.id];if(r){var keep=r.price;r.price=num(t.value);paintCalc();r.price=keep;}}
+  if(tr&&(t.dataset.k==="price"||t.dataset.k==="fee")){var r=(D.rows||{})[tr.dataset.id];if(r){var k2=t.dataset.k,keep=r[k2];r[k2]=num(t.value);paintCalc();r[k2]=keep;}}
 });
 document.addEventListener("change",function(e){
   var t=e.target;if(!t.closest||!t.closest("#cppWrap")||!t.dataset.k)return;
   var tr=t.closest("tr[data-id]");if(!tr)return;
   save(tr.dataset.id,t.dataset.k,t.value);
   if(t.dataset.k==="tag"||t.dataset.k==="price")t.value=won(num(t.value));
-  if(t.dataset.k==="sel"){var k=selKind(t.value);tr.className=k==="drop"?"cpp-drop":k==="done"?"cpp-done":"";}
+  if(t.dataset.k==="sel"){var k=selKind(t.value);tr.className=k==="drop"?"cpp-drop":k==="done"?"cpp-done":"";t.className="cpp-sel s-"+k;}
 });
 document.addEventListener("focusout",function(e){
   var t=e.target;if(!t.closest||!t.closest("#cppWrap"))return;
-  setTimeout(function(){var a=document.activeElement;if(!(a&&$("cppWrap").contains(a)&&(a.tagName==="TEXTAREA"||a.tagName==="INPUT")))cppRender();},50);
+  setTimeout(function(){var a=document.activeElement;if(!(a&&$("cppWrap").contains(a)&&(a.tagName==="TEXTAREA"||a.tagName==="INPUT"||a.tagName==="SELECT")))cppRender();},50);
 });
 
-window.cppSetFee=function(v){
-  var f=num(v);if(f===""||f<0||f>=100){alert("수수료율은 0~99 사이 숫자로 적어 주세요.");$("cppFee").value=String(fee());return;}
-  D.fee=f;cppRender();
-  if(!offline)ref("fee").set(f);
-};
 window.cppAdd=function(){
   if(!D)return;
   var max=0;rowsSorted().forEach(function(r){max=Math.max(max,Number(r.no)||0);});
-  var id=newId(),r={no:max+1,season:$("cppSeason").value||"",sel:"",name:"",colors:"",tag:"",origin:"",price:"",qty:"",note:"",memo:"",at:new Date().toISOString(),by:me()};
+  var id=newId(),r={no:max+1,season:$("cppSeason").value||"",sel:"제안",name:"",colors:"",tag:"",origin:"",price:"",fee:FEE0,qty:"",note:"",memo:"",at:new Date().toISOString(),by:me()};
   if(!D.rows)D.rows={};
   D.rows[id]=r;
   if(!offline)ref("rows/"+id).set(r);
@@ -31979,32 +31985,56 @@ function putImg(id,file){
     if(!offline)fbDB.ref("ws/ccProposeImg/"+id).set(url).catch(function(e){alert("사진을 저장하지 못했습니다: "+((e&&e.message)||e));});
   });
 }
-var imgTarget=null;
-document.addEventListener("click",function(e){
-  var x=e.target.closest&&e.target.closest(".cpp-x");
-  var box=e.target.closest&&e.target.closest("#cppWrap [data-img]");
-  if(!box)return;
-  var id=box.dataset.img;
-  if(x){e.stopPropagation();if(confirm("이 사진을 지울까요?")){delete IMG[id];paintImgs();if(!offline)fbDB.ref("ws/ccProposeImg/"+id).remove();}return;}
-  imgTarget=id;
+var selImg=null,hoverImg=null;   /* 눌러서 고른 사진 칸 · 마우스가 올라간 사진 칸 */
+function putUrl(id,url){   /* 사진 주소만 둔다(공홈 사진·다른 사이트에서 복사한 사진) */
+  IMG[id]=url;paintImgs();
+  if(!offline)fbDB.ref("ws/ccProposeImg/"+id).set(url).catch(function(e){alert("사진을 저장하지 못했습니다: "+((e&&e.message)||e));});
+}
+function pick(id){
   var f=document.createElement("input");f.type="file";f.accept="image/*";
   f.onchange=function(){if(f.files[0])putImg(id,f.files[0]);};
   f.click();
+}
+document.addEventListener("click",function(e){
+  var box=e.target.closest&&e.target.closest("#cppWrap [data-img]");
+  if(!box){if(selImg&&e.target.closest&&e.target.closest("#cppWrap")){selImg=null;paintImgs();}return;}
+  var id=box.dataset.img;
+  if(e.target.closest(".cpp-x")){e.stopPropagation();if(confirm("이 사진을 지울까요?")){delete IMG[id];paintImgs();if(!offline)fbDB.ref("ws/ccProposeImg/"+id).remove();}return;}
+  if(e.target.closest(".cpp-f")){pick(id);return;}
+  selImg=id;paintImgs();box.focus();
 });
-document.addEventListener("mouseover",function(e){var b=e.target.closest&&e.target.closest("#cppWrap [data-img]");if(b)imgTarget=b.dataset.img;});
+document.addEventListener("dblclick",function(e){var b=e.target.closest&&e.target.closest("#cppWrap [data-img]");if(b&&!e.target.closest(".cpp-x"))pick(b.dataset.img);});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&selImg){selImg=null;paintImgs();}});
+document.addEventListener("mouseover",function(e){var b=e.target.closest&&e.target.closest("#cppWrap [data-img]");hoverImg=b?b.dataset.img:null;});
 document.addEventListener("dragover",function(e){var b=e.target.closest&&e.target.closest("#cppWrap [data-img]");if(b){e.preventDefault();b.classList.add("drag");}});
 document.addEventListener("dragleave",function(e){var b=e.target.closest&&e.target.closest("#cppWrap [data-img]");if(b)b.classList.remove("drag");});
 document.addEventListener("drop",function(e){
   var b=e.target.closest&&e.target.closest("#cppWrap [data-img]");if(!b)return;
   e.preventDefault();b.classList.remove("drag");
-  var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)putImg(b.dataset.img,f);
+  var dt=e.dataTransfer,f=dt&&dt.files&&dt.files[0];
+  if(f){putImg(b.dataset.img,f);return;}
+  var u=imgUrlFrom(dt);if(u)putUrl(b.dataset.img,u);   /* 다른 창의 사진을 끌어 온 경우 — 주소만 */
 });
+/* 복사한 것에서 사진 주소 찾기 — 웹페이지 사진을 '이미지 복사'하면 html에 <img src>, '이미지 주소 복사'면 글로 온다 */
+function imgUrlFrom(dt){
+  if(!dt||!dt.getData)return "";
+  var h=dt.getData("text/html");
+  var m=h&&/<img[^>]+src=["']([^"']+)["']/i.exec(h);
+  if(m&&/^https?:\/\//.test(m[1]))return m[1];
+  var t=String(dt.getData("text/plain")||"").trim();
+  if(/^https?:\/\/\S+$/i.test(t))return t;
+  return "";
+}
 document.addEventListener("paste",function(e){
   var pg=$("page-ccprop");if(!pg||pg.style.display==="none")return;
   var a=document.activeElement;if(a&&(a.tagName==="TEXTAREA"||a.tagName==="INPUT"))return;   /* 글 칸에 붙여넣기는 그대로 */
-  var it=[].slice.call((e.clipboardData&&e.clipboardData.items)||[]).find(function(x){return /^image\//.test(x.type);});
-  if(!it||!imgTarget)return;
-  e.preventDefault();putImg(imgTarget,it.getAsFile());
+  var id=selImg||hoverImg;if(!id)return;
+  var cd=e.clipboardData;
+  var it=[].slice.call((cd&&cd.items)||[]).find(function(x){return x.kind==="file"&&/^image\//.test(x.type);});
+  if(it){e.preventDefault();putImg(id,it.getAsFile());return;}
+  var u=imgUrlFrom(cd);
+  if(u){e.preventDefault();putUrl(id,u);return;}
+  alert("붙여넣을 사진이 없습니다 — 사진을 복사(이미지 복사)한 뒤 다시 Ctrl+V 해 주세요.");
 });
 
 /* 엑셀 — 지금 보이는(걸러진) 줄, 원래 엑셀과 같은 칸 */
@@ -32012,14 +32042,14 @@ window.cppExcel=function(){
   if(typeof XLSX==="undefined"){alert("엑셀 라이브러리를 아직 불러오지 못했습니다. 잠시 뒤 다시 눌러 주세요.");return;}
   var ids={};$("cppWrap").querySelectorAll("tr[data-id]").forEach(function(tr){ids[tr.dataset.id]=1;});
   var rows=rowsSorted().filter(function(r){return ids[r._id];});
-  var aoa=[["코스트코 직매입 제안 상품 리스트"],["번호","시즌","선정여부","상품명","컬러","정가","원산지","코코 제안가(+VAT)","공급가(-VAT) 코코 수수료 "+fee()+"%","부가세","납품수량","비고","진행 메모"]];
+  var aoa=[["코스트코 직매입 제안 상품 리스트"],["번호","시즌","선정여부","상품명","컬러","TAG가","원산지","코코 제안가(+VAT)","수수료(%)","공급가(VAT별도)","부가세","납품수량","비고","진행 메모"]];
   rows.forEach(function(r){
-    aoa.push([r.no,r.season||"",r.sel||"",r.name||"",r.colors||"",num(r.tag),r.origin||"",num(r.price),supply(r.price),vat(r.price),r.qty||"",r.note||"",r.memo||""]);
+    aoa.push([r.no,r.season||"",selVal(r.sel),r.name||"",r.colors||"",num(r.tag),r.origin||"",num(r.price),num(r.fee),supply(r),vat(r),r.qty||"",r.note||"",r.memo||""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[6,7,12,30,14,9,9,12,14,9,14,30,30].map(function(w){return {wch:w};});
-  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:12}}];
-  for(var R=2;R<aoa.length;R++)[5,7,8,9].forEach(function(C){var a=XLSX.utils.encode_cell({r:R,c:C});if(ws[a]&&typeof ws[a].v==="number")ws[a].z="#,##0";});
+  ws["!cols"]=[6,7,9,30,14,9,9,12,8,14,9,14,30,30].map(function(w){return {wch:w};});
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:13}}];
+  for(var R=2;R<aoa.length;R++)[5,7,9,10].forEach(function(C){var a=XLSX.utils.encode_cell({r:R,c:C});if(ws[a]&&typeof ws[a].v==="number")ws[a].z="#,##0";});
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"제안상품");
   var d=new Date(),md=String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
   XLSX.writeFile(wb,"코스트코 직매입 제안 상품 리스트("+md+").xlsx");
