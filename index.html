@@ -22177,7 +22177,7 @@ function _ccPrevLine(it,dv,opt,active,fresh){
     var nBad=it.rows.filter(function(r){return r.chk==="conflict"||r.chk==="missing";}).length;
     var nFx=Object.keys((((saipFix||{}).cc||{})[it.mmdd])||{}).length;
     h+='<details'+(it.date===dv||nBad||nFx?' open':'')+' style="margin-top:4px"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#334155">📋 내역 '+it.rows.length+'줄 · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원'
-      +(nBad?' <span style="color:#b91c1c">· ⛔ '+nBad+'줄 확인</span>':'')+(nFx?' <span style="color:#b45309">· ✏️ '+nFx+'줄 고침</span>':'')+' — 상품코드 고치기</summary>'
+      +(nBad?' <span style="color:#b91c1c">· ⛔ '+nBad+'줄 확인</span>':'')+(nFx?' <span style="color:#b45309">· ✏️ '+nFx+'줄 고침</span>':'')+' — 상품코드·판매가 고치기</summary>'
       +_saipRowList("cc",it.rows,"300px",it.mmdd)+'</details>';
   }
   if(saleTodo&&!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&!active&&fresh)
@@ -22262,23 +22262,30 @@ function _saipCheckLine(k,date){
    버튼을 누르면 ① 등록 기록에 그 날짜가 있으면 **언제·누가 등록했는지 안내하고 멈춘다** ② 요청이 진행 중이면 멈춘다
    ③ 아니면 누른 사람 이름으로 요청을 남긴다 → 자동화 PC의 saip-watch.mjs가 가져가 playmd-hs-saip.mjs --by=이름으로 등록한다. */
 var saipLog=(function(){try{return JSON.parse(localStorage.getItem("saipLog")||"null")||{};}catch(e){return {};}})();
-/* 매출등록 미리보기에서 고친 상품코드(2026-10-22 영업2팀 "여기서 상품코드 수정할 수 있게") — 팀 공유 ws/saipFix {종류:{MMDD:{줄열쇠:{code,by,at}}}}.
+/* 매출등록 미리보기에서 고친 상품코드(2026-10-22 영업2팀 "여기서 상품코드 수정할 수 있게") — 팀 공유 ws/saipFix {종류:{MMDD:{줄열쇠:{code?,unit?(판매가),by,at}}}}.
    자동화(playmd-hs-saip.mjs)가 다음 미리보기·등록 때 시트 상품컬러코드 대신 쓴다 — 고친 코드도 상품코드리스트 대조를 다시 거친다(없는 코드면 멈춤).
    줄 열쇠 = 출고일자|쇼핑몰|상품명|수량|공급가|취소 — 같은 줄이 둘이면 같은 코드로 고쳐진다. 반품등록은 따로(ws/retFix) */
 var saipFix=(function(){try{return JSON.parse(localStorage.getItem("saipFix")||"null")||{};}catch(e){return {};}})();
-function _saipFixKey(r){return [r.ymd||"",r.shop||"",r.prod||"",r.qty||0,r.unit||0,r.cancel?1:0].join("|");}
+/* 판매가를 고친 뒤 다시 검사한 줄은 r.unit이 고친 값이라 원래 공급가(origUnit — playmd-hs-saip)로 열쇠를 만든다 */
+function _saipFixKey(r){return [r.ymd||"",r.shop||"",r.prod||"",r.qty||0,(r.origUnit!=null?r.origUnit:r.unit)||0,r.cancel?1:0].join("|");}
 function _saipFixEditing(){var a=document.activeElement;return !!(a&&a.dataset&&a.dataset.saipfix);}
 function _saipFixOf(kind,mmdd,r){return (((saipFix||{})[kind]||{})[mmdd]||{})[_saipFixKey(r)]||null;}
 function saipFixSet(el){
   var kind=el.dataset.kind,mmdd=el.dataset.mmdd,key=el.dataset.key,orig=String(el.dataset.orig||"").trim().toUpperCase();
-  var v=String(el.value||"").replace(/\s/g,"").toUpperCase();el.value=v;
+  /* data-field="unit" = 판매가(개당 공급가, 2026-10-22 영업2팀 "판매가도 수정할 수 있게") — 숫자만, 원래 값이면 지운다. 그 밖은 상품코드 */
+  var field=el.dataset.field==="unit"?"unit":"code";
+  var v=field==="unit"?String(el.value||"").replace(/[^\d]/g,""):String(el.value||"").replace(/\s/g,"").toUpperCase();
+  el.value=field==="unit"&&v?Number(v).toLocaleString():v;
   if(!saipFix||typeof saipFix!=="object")saipFix={};
   var K=saipFix[kind]=saipFix[kind]||{},D=K[mmdd]=K[mmdd]||{};
-  if(!v||v===orig)delete D[key];                                   /* 비우거나 원래 코드로 되돌리면 고친 값을 지운다 */
-  else D[key]={code:v,by:_saipMe(),at:new Date().toISOString()};
+  var cur=Object.assign({},D[key]||{});
+  if(!v||(field==="unit"?Number(v)===Number(orig):v===orig))delete cur[field];   /* 비우거나 원래 값으로 되돌리면 고친 값을 지운다 */
+  else cur[field]=field==="unit"?Number(v):v;
+  if(cur.code==null&&cur.unit==null)delete D[key];
+  else{cur.by=_saipMe();cur.at=new Date().toISOString();D[key]=cur;}
   if(!Object.keys(D).length)delete K[mmdd];
   wsSetItem("saipFix",JSON.stringify(saipFix));
-  el.style.background=D[key]?"#fef9c3":"#fffdf5";
+  el.style.background=D[key]&&D[key][field]!=null?"#fef9c3":"#fffdf5";
   var n=document.querySelectorAll('[data-saipfixnote="'+kind+mmdd+'"]');n.forEach(function(x){x.style.display=Object.keys(D).length?"":"none";});
   /* 모델명/색상·같은 줄(같은 열쇠) 칸도 바로 바꿔 보이게 — 다른 칸을 고치는 중이면 그 뒤에 */
   setTimeout(function(){if(!_saipFixEditing()&&typeof renderSaipAuto==="function")renderSaipAuto();},0);
@@ -22563,9 +22570,11 @@ function _saipRowList(kind,rows,maxH,mmdd){
   var h='<div style="max-height:'+(maxH||"300px")+';overflow:auto;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;line-height:1.5">';
   rows.forEach(function(r,ix){
     var fxr=canFix?_saipFixOf(kind,mmdd,r):null;                     /* 고친 코드가 있으면 모델명/색상도 그 코드로 */
-    var parts=['<b>'+_escX(_saipModelColor(fxr?Object.assign({},r,{code:fxr.code}):r))+'</b>',(r.qty||0)+'개'];
-    /* 금액 = 수량 × 공급가(원본 결제금액) — 예전엔 개당 공급가만 보여 3개 줄(141,600원)이 47,200원으로 나와 합계와 안 맞았다(2026-10-20 영업2팀 "금액이 다릅니다") */
-    if(r.unit||!/→/.test(r.store||""))parts.push(Number((r.unit||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1?' <span style="color:#5b6675;font-size:12px">(개당 '+Number(r.unit||0).toLocaleString()+')</span>':''));
+    var parts=['<b>'+_escX(_saipModelColor(fxr&&fxr.code?Object.assign({},r,{code:fxr.code}):r))+'</b>',(r.qty||0)+'개'];
+    /* 금액 = 수량 × 공급가(원본 결제금액) — 예전엔 개당 공급가만 보여 3개 줄(141,600원)이 47,200원으로 나와 합계와 안 맞았다(2026-10-20 영업2팀 "금액이 다릅니다").
+       고친 판매가가 있으면 그 값으로(다시 검사 전에도) */
+    var un=fxr&&fxr.unit!=null?fxr.unit:r.unit;
+    if(un||!/→/.test(r.store||""))parts.push(Number((un||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1?' <span style="color:#5b6675;font-size:12px">(개당 '+Number(un||0).toLocaleString()+')</span>':''));
     parts.push(_escX(_saipStoreNm(r.store)));
     h+='<div title="'+_escX((r.prod||"")+" · "+(r.code||""))+'" style="padding:3px 8px'+(ix?';border-top:1px solid #eef2f6':'')+';overflow-wrap:anywhere">'
       +parts.join(', ')+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+(r.free?' <span style="color:#5b6675;font-size:11px">무상</span>':'')
@@ -22576,18 +22585,26 @@ function _saipRowList(kind,rows,maxH,mmdd){
   h+='</div>';
   if(canFix){
     var anyFix=Object.keys((((saipFix||{})[kind]||{})[mmdd])||{}).length;
-    h+='<div data-saipfixnote="'+kind+mmdd+'" style="font-size:12px;color:#5b6675;margin-top:3px'+(anyFix?'':';display:none')+'">✏️ 고친 상품코드는 팀 공유로 저장돼 다음 미리보기·등록 때 씁니다 — [🔍 다시 확인]으로 맞는지 먼저 보세요</div>';
+    h+='<div data-saipfixnote="'+kind+mmdd+'" style="font-size:12px;color:#5b6675;margin-top:3px'+(anyFix?'':';display:none')+'">✏️ 고친 상품코드·판매가는 팀 공유로 저장돼 다음 미리보기·등록 때 씁니다 — [🔍 다시 확인]으로 맞는지 먼저 보세요</div>';
   }
   return h;
 }
 /* 줄마다 상품코드 칸 — 고친 코드가 있으면 노란 바탕(원래 시트 코드는 마우스를 올리면) */
 function _saipFixInput(kind,mmdd,r){
-  var fx=_saipFixOf(kind,mmdd,r),v=fx?fx.code:(r.code||"");
-  return '<div style="display:flex;align-items:center;gap:4px;margin-top:2px;font-size:12px;color:#334155">상품코드'
-    +'<input data-saipfix="1" data-kind="'+kind+'" data-mmdd="'+_escX(mmdd)+'" data-key="'+_escX(_saipFixKey(r))+'" data-orig="'+_escX(r.origCode||r.code||"")+'"'
-    +' value="'+_escX(v)+'" onchange="saipFixSet(this)" onkeydown="if(event.key===\'Enter\')this.blur()" spellcheck="false"'
-    +' title="상품컬러코드(자사코드)를 고치면 다음 미리보기·등록 때 이 코드로 넣습니다'+(r.origCode&&r.origCode!==r.code?' · 시트 원래 코드 '+_escX(r.origCode):'')+(fx?' · '+_escX(fx.by||"")+' 고침':'')+'"'
-    +' style="flex:1;min-width:0;max-width:170px;font-size:12px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;font-family:Consolas,monospace;background:'+(fx?'#fef9c3':'#fffdf5')+'">'
+  var fx=_saipFixOf(kind,mmdd,r),fc=fx&&fx.code,fu=fx&&fx.unit!=null,v=fc?fx.code:(r.code||"");
+  var ou=r.origUnit!=null?r.origUnit:(r.unit||0),uv=fu?fx.unit:(r.unit||0);
+  var common=' data-saipfix="1" data-kind="'+kind+'" data-mmdd="'+_escX(mmdd)+'" data-key="'+_escX(_saipFixKey(r))+'" onchange="saipFixSet(this)" onkeydown="if(event.key===\'Enter\')this.blur()" spellcheck="false"';
+  var box='font-size:12px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;font-family:Consolas,monospace;';
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:2px;font-size:12px;color:#334155">'
+    +'<span style="display:inline-flex;align-items:center;gap:4px;flex:1 1 150px;min-width:0">상품코드'
+    +'<input'+common+' data-orig="'+_escX(r.origCode||r.code||"")+'" value="'+_escX(v)+'"'
+    +' title="상품컬러코드(자사코드)를 고치면 다음 미리보기·등록 때 이 코드로 넣습니다'+(r.origCode&&r.origCode!==r.code?' · 시트 원래 코드 '+_escX(r.origCode):'')+(fc?' · '+_escX(fx.by||"")+' 고침':'')+'"'
+    +' style="'+box+'flex:1;min-width:0;max-width:170px;background:'+(fc?'#fef9c3':'#fffdf5')+'"></span>'
+    /* 판매가(개당 공급가, 2026-10-22 영업2팀 "판매가도 수정할 수 있게") — 결제금액 = 판매가 × 수량으로 등록 */
+    +'<span style="display:inline-flex;align-items:center;gap:4px">판매가'
+    +'<input'+common+' data-field="unit" inputmode="numeric" data-orig="'+ou+'" value="'+Number(uv).toLocaleString()+'"'
+    +' title="개당 판매가(공급가)를 고치면 다음 미리보기·등록 때 이 값 × 수량으로 넣습니다 · 시트 원래 '+Number(ou).toLocaleString()+'원'+(fu?' · '+_escX(fx.by||"")+' 고침':'')+'"'
+    +' style="'+box+'width:78px;text-align:right;background:'+(fu?'#fef9c3':'#fffdf5')+'">원</span>'
     +(fx?'<span style="color:#b45309;font-weight:700" title="'+_escX((fx.by||"")+" · "+_saipFmtAt(fx.at))+'">✏️</span>':'')+'</div>';
 }
 var SAIP_ITEM_TXT={
