@@ -16494,11 +16494,12 @@ var HS_COLS=[
   {key:"target",label:"목표수량",w:90,type:"num"},
   {key:"sold",label:"판매수량",w:90,type:"num"},
   {key:"eff",label:"효율",w:80,type:"calc"},
-  {key:"returnRate",label:"반품률",w:90}
+  {key:"returnRate",label:"반품률",w:90},
+  {key:"note",label:"비고",w:220,wrap:1}   /* 비고(2026-10-22 영업2팀 "반품률 옆에 비고칸") — 긴 글은 칸 안에서 줄바꿈 */
 ];
 function saveHomeshopping(){wsSetItem("homeshoppingDB",JSON.stringify(homeshoppingDB));}
 function hsAddRow(){
-  homeshoppingDB.push({img:"",name:"",stage:"",color:"",company:"",date:"",pgm:"",live:"",target:"",sold:"",returnRate:""});
+  homeshoppingDB.push({img:"",name:"",stage:"",color:"",company:"",date:"",pgm:"",live:"",target:"",sold:"",returnRate:"",note:""});
   saveHomeshopping();renderHomeshopping();
   var w=document.getElementById("hsTableWrap");if(w)w.scrollTop=w.scrollHeight;
 }
@@ -16702,6 +16703,7 @@ function renderHomeshopping(){
           +'</div></td>';
       }else{
         var align=(col.type==="num")?"text-align:right;":"";
+        if(col.wrap)align+="white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;max-width:"+(col.w+120)+"px;";   /* 비고 — 표는 nowrap이라 긴 글이 표를 늘리지 않게 */
         h+='<td contenteditable="true" onblur="hsEdit('+i+',\''+col.key+'\',this.textContent.trim())" style="border:1px solid #e1e6ee;padding:5px 8px;outline:none;color:#000;'+align+'">'+_escX(row[col.key]||"")+'</td>';
       }
     });
