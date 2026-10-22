@@ -37,7 +37,6 @@
 - [`docs/ecount.md`](docs/ecount.md) — 🧮 이카운트 탭: 매장 발주 요청 → 본사 승인 → 창고이동 엑셀·도매발주서
 - [`docs/floorplan.md`](docs/floorplan.md) — 🧊 3D 집기 탭: 집기 목록(그림·사이즈·수량) · 예상 팝업 자리 이미지 · 자동 배치 · 평면도/3D 끌어 옮기기 · 집기리스트 이미지
 - [`docs/coupang.md`](docs/coupang.md) — 🟠 쿠팡 발주 · 쉽먼트(서플라이어 허브 두 계정 · 단계 진행표 `ws/cpProgress` · 자동화에 필요한 자료)
-- [`docs/jvchat.md`](docs/jvchat.md) — 💬 하이 자비스: 오른쪽 아래 고정 채팅창 → 자동화 PC(`automation/jarvis-chat.mjs`)가 Claude API로 답함
 - [`docs/cowork.md`](docs/cowork.md) — **별도 페이지** `cowork.html`: 디자인·생산·웹디자인·영업2팀 코스트코 상품개발 협업(단계·일정·시안·코멘트)
 
 ## 🤖 자동화 탭
