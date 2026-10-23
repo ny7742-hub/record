@@ -13322,7 +13322,9 @@ function auRunNow(){
   return true;
 }
 function auPick(kind,input){
-  var files=input.files;input.value="";
+  /* 파일 목록을 **먼저 복사한 뒤** 칸을 비운다(2026-10-23) — input.files는 살아 있는 목록이라 value=""를 하면 같이 비워진다.
+     10/22 여러 파일 올리기로 바꾸며 복사 없이 비워, 그 뒤 홈 PlayMD 자료 업로드(자동 매시·수동 모두)가 아무 말 없이 안 됐다 */
+  var files=Array.prototype.slice.call(input.files||[]);input.value="";
   if(!files||!files.length)return;
   if(kind==="sales"&&files.length>1){salesIngestBulk(files);return;}
   _auIngest(kind,files[0]);
