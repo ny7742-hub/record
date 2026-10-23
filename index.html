@@ -17662,7 +17662,7 @@ function _msCalc(r){
   var tag=_msN(r.tag),price=_msN(r.price),cost=_msN(r.cost),rate=_msN(r.feeRate),logi=_msN(r.logi),etc=_msN(r.etc);
   /* 제안가가 비면 Tag가로 판다고 보고 계산한다(2026-10-23 영업2팀 "수수료 기재하면 수수료액 자동, 물류비·기타 빼고 상품이익·이익%·원가대비% 자동") —
      예전엔 제안가가 없으면 수수료액 0·이익 '–'였다. byTag면 제안가 칸에 'Tag가'가 흐리게 보인다 */
-  var byTag=!price&&!!tag;if(byTag)price=tag;
+  var byTag=!price&&!!tag&&!r.set;if(byTag)price=tag;      /* 세트는 Tag가 합계로 대신하지 않는다 — 세트 제안가를 넣어야 계산 */
   var fee=Math.round(price*rate/100);
   var profit=price-cost-fee-logi-etc;
   /* Tag가·제안가 둘 다 비면 이익·이익%·원가대비%는 '–'(noPrice) — 원가만큼 적자 −100%로 보여 오해를 샀다 */
@@ -18109,7 +18109,7 @@ function _msPaint(i){
     var neg=(k==="profit"||k==="pPct"||k==="cPct")&&c.has&&!c.noPrice&&c.profit<0;
     el.style.color=neg?"#dc2626":(k==="profit"||k==="pPct"||k==="cPct"?"#15803d":"#334155");
   });
-  var sm=document.getElementById("ms_"+i+"_setm");if(sm&&r.set)sm.innerHTML=_msSetMarginHtml(r);
+  var sp=document.getElementById("ms_"+i+"_setp");if(sp&&r.set&&!sp.contains(document.activeElement))sp.innerHTML=_msSetInner(r,i);
   /* 제안가가 비면 칸에 Tag가를 흐리게 — 그 값으로 계산 중이라는 표시 */
   var pe=document.getElementById("msi_"+i+"_price");if(pe){pe.placeholder=c.byTag?_msN(r.tag).toLocaleString():"";pe.title=c.byTag?"제안가가 비어 Tag가("+_msN(r.tag).toLocaleString()+"원)로 계산합니다 — 제안가나 할인율을 적으면 그 값으로":"";}
 }
@@ -18130,15 +18130,6 @@ function _msSyncDisc(i,k){
 /* ── 세트 상품(2026-10-23 영업2팀 "간단 마진계산에서 세트 상품도 마진계산") ──
    상품명 칸 옆 [단품/세트]. 세트는 r.items = [{name, cnt(개입수), tag, cost, code}] — 구성품명을 고르면 Tag가·원가를 상품데이터에서 채운다(직접 고친 값은 안 덮음).
    세트 Tag가 = Σ 개입수×Tag가(자동값 — 직접 고치면 그 값), 세트 원가 = Σ 개입수×원가(읽기 전용). 이익 계산은 단품과 같다(_msCalc). 컬러별 재고는 구성품마다 */
-function _msSetMarginHtml(r){
-  var c=_msCalc(r),cost=_msN(r.cost),w=function(n){return Math.round(n).toLocaleString();};
-  if(c.noPrice)return '📊 <b>세트 원가대비 마진율</b> — 제안가(또는 Tag가)를 적으면 계산합니다';
-  if(!cost)return '📊 <b>세트 원가대비 마진율</b> — 구성품 원가를 적으면 계산합니다';
-  var col=c.profit<0?'#dc2626':'#15803d';
-  return '📊 <b>세트 원가대비 마진율 <span style="font-size:16px;color:'+col+'">'+_msPct(c.cPct)+'</span></b>'
-    +' <span>= 상품이익 '+w(c.profit)+'원 ÷ 세트 원가 '+w(cost)+'원</span>'
-    +' <span style="margin-left:10px">· 상품이익률(제안가 대비) <b style="color:'+col+'">'+_msPct(c.pPct)+'</b></span>';
-}
 function _msSetText(r){return (r.items||[]).filter(function(it){return String(it.name||"").trim();}).map(function(it){return _msShortName(it.name)+" ×"+(_msN(it.cnt)||1);}).join(" + ")||"구성품 없음";}
 function _msSetSync(r){
   var tag=0,cost=0;
@@ -18178,31 +18169,61 @@ function msSetEdit(i,j,k,v){
   }
   _msSetSync(r);_msSyncDisc(i,"tag");saveMs();msRender();
 }
+/* 세트 칸(2026-10-23 영업2팀 "세트는 제안가 넣어주고, 제안가 기준으로 원가/수수료 확인") — 맨 위에 세트 제안가·수수료율을 바로 적고,
+   구성품마다 제안가를 Tag가 비율로 나눠(Tag가가 없으면 원가 비율) 그 몫의 수수료·원가율을 보인다. 맨 아래 제안가 − 원가 − 수수료 − 물류비 − 기타 = 상품이익.
+   세트는 Tag가로 대신 계산하지 않는다(_msCalc byTag 제외) — 제안가를 넣어야 이익이 나온다. 표에서 제안가를 고치면 _msPaint가 이 칸을 다시 그린다(이 칸 입력 중이면 건너뜀) */
 function _msSetRow(r,i){
+  return '<tr><td id="ms_'+i+'_setp" colspan="'+(MS_COLS.length+1)+'" style="border:1px solid #e1e6ee;border-top:none;padding:6px 8px;background:#faf5ff;font-size:12.5px">'+_msSetInner(r,i)+'</td></tr>';
+}
+function msSetTop(i,k,v){msChange(i,k,v);msRender();}
+function _msSetInner(r,i){
   var inS='border:1px solid #cbd5e1;border-radius:6px;padding:3px 6px;font-size:12.5px;box-sizing:border-box;background:#fff';
-  var w=function(n){return n?Math.round(n).toLocaleString():"";};
-  var h='<tr><td colspan="'+(MS_COLS.length+1)+'" style="border:1px solid #e1e6ee;border-top:none;padding:6px 8px;background:#faf5ff;font-size:12.5px">';
-  h+='<div style="font-weight:700;color:#6d28d9;margin-bottom:4px">🎁 세트 구성품 <span style="font-weight:600;color:#111827">— 세트 1개에 들어가는 상품·개입수 (Tag가·원가는 상품명을 고르면 자동, 직접 고쳐도 됩니다)</span></div>';
-  h+='<div style="display:grid;grid-template-columns:420px 70px 100px 100px 110px 110px 30px;width:max-content;gap:4px 6px;align-items:center">';
-  h+='<b style="color:#111827">구성품</b><b style="color:#111827;text-align:right">개입수</b><b style="color:#111827;text-align:right">Tag가</b><b style="color:#111827;text-align:right">원가</b><b style="color:#111827;text-align:right">Tag가 × 개입수</b><b style="color:#111827;text-align:right">원가 × 개입수</b><span></span>';
-  var st=0,sc=0;
-  (r.items||[]).forEach(function(it,j){
-    var n=_msN(it.cnt)||1,id="msset_"+i+"_"+j+"_";
-    st+=n*_msN(it.tag);sc+=n*_msN(it.cost);
+  var w=function(n){return n?Math.round(n).toLocaleString():"";},W=function(n){return Math.round(n||0).toLocaleString();};
+  var c=_msCalc(r),price=_msN(r.price),rate=_msN(r.feeRate),logi=_msN(r.logi),etc=_msN(r.etc);
+  var h='<div style="font-weight:700;color:#6d28d9;margin-bottom:6px">🎁 세트 구성품 <span style="font-weight:600;color:#111827">— 세트 1개에 들어가는 상품·개입수 (Tag가·원가는 상품명을 고르면 자동, 직접 고쳐도 됩니다)</span></div>';
+  /* 세트 제안가 · 수수료율 — 표의 제안가·수수료율 칸과 같은 값 */
+  h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:13px;color:#111827">'
+    +'<b>세트 제안가</b><input id="msset_'+i+'_price" inputmode="decimal" value="'+_escX(w(price))+'" placeholder="세트 판매가" onchange="msSetTop('+i+',\'price\',this.value)" style="'+inS+';width:110px;text-align:right;font-size:13.5px;font-weight:700'+(price?'':';border-color:#f59e0b;background:#fffbeb')+'">원'
+    +(price&&c.disc!=null?' <span>(Tag가 합계 '+W(_msN(r.tag))+'원 대비 할인 '+_msPct(c.disc)+')</span>':'')
+    +' <b style="margin-left:10px">수수료율</b><input id="msset_'+i+'_feeRate" inputmode="decimal" value="'+_escX(r.feeRate||"")+'" placeholder="%" onchange="msSetTop('+i+',\'feeRate\',this.value)" style="'+inS+';width:60px;text-align:right;font-size:13.5px;font-weight:700">%'
+    +(price?'':' <b style="color:#b45309">← 세트 제안가를 넣으면 원가·수수료·이익을 계산합니다</b>')+'</div>';
+  var items=r.items||[],totT=0,totC=0;
+  items.forEach(function(it){var n=_msN(it.cnt)||1;totT+=n*_msN(it.tag);totC+=n*_msN(it.cost);});
+  var cols='420px 64px 92px 92px 104px 104px'+(price?' 110px 96px 80px':'')+' 30px';
+  h+='<div style="display:grid;grid-template-columns:'+cols+';width:max-content;gap:4px 6px;align-items:center">';
+  var R=function(t,tt){return '<b style="color:#111827;text-align:right"'+(tt?' title="'+tt+'"':'')+'>'+t+'</b>';};
+  h+='<b style="color:#111827">구성품</b>'+R('개입수')+R('Tag가')+R('원가')+R('Tag가 × 개입수')+R('원가 × 개입수')
+    +(price?R('제안가 배분','세트 제안가를 구성품 Tag가(× 개입수) 비율로 나눈 몫 — Tag가가 없으면 원가 비율')+R('수수료','제안가 배분 × 수수료율')+R('원가율','원가 × 개입수 ÷ 제안가 배분'):'')+'<span></span>';
+  var base=totT||totC;
+  items.forEach(function(it,j){
+    var n=_msN(it.cnt)||1,id="msset_"+i+"_"+j+"_",tN=n*_msN(it.tag),cN=n*_msN(it.cost);
     var f=function(k,extra){return ' id="'+id+k+'" onchange="msSetEdit('+i+','+j+',\''+k+'\',this.value)"'+(extra||'');};
     h+='<input'+f("name",' list="cpProdList" placeholder="구성품 상품명" title="'+_escX(it.name||"")+'"')+' value="'+_escX(it.name||"")+'" style="'+inS+'">'
       +'<input'+f("cnt",' inputmode="decimal"')+' value="'+_escX(it.cnt||"1")+'" style="'+inS+';text-align:right">'
       +'<input'+f("tag",' inputmode="decimal"')+' value="'+_escX(w(_msN(it.tag)))+'" style="'+inS+';text-align:right">'
       +'<input'+f("cost",' inputmode="decimal"')+' value="'+_escX(w(_msN(it.cost)))+'" style="'+inS+';text-align:right">'
-      +'<span style="text-align:right;color:#111827">'+w(n*_msN(it.tag))+'</span><span style="text-align:right;color:#111827">'+w(n*_msN(it.cost))+'</span>'
-      +'<button onclick="msSetDel('+i+','+j+')" title="이 구성품 빼기" style="border:none;background:#fee2e2;color:#dc2626;border-radius:6px;padding:2px 6px;cursor:pointer;font-weight:700">✕</button>';
+      +'<span style="text-align:right;color:#111827">'+w(tN)+'</span><span style="text-align:right;color:#111827">'+w(cN)+'</span>';
+    if(price){
+      var sh=base?price*((totT?tN:cN)/base):0;
+      h+='<span style="text-align:right;color:#111827;font-weight:700">'+w(sh)+'</span><span style="text-align:right;color:#111827">'+w(sh*rate/100)+'</span>'
+        +'<span style="text-align:right;color:#111827">'+(sh?_msPct(cN/sh):'–')+'</span>';
+    }
+    h+='<button onclick="msSetDel('+i+','+j+')" title="이 구성품 빼기" style="border:none;background:#fee2e2;color:#dc2626;border-radius:6px;padding:2px 6px;cursor:pointer;font-weight:700">✕</button>';
   });
   h+='<button onclick="msSetAdd('+i+')" style="justify-self:start;border:1px dashed #7c3aed;background:#fff;color:#6d28d9;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer">＋ 구성품 추가</button>'
-    +'<span></span><span></span><b style="text-align:right;color:#111827">합계</b><b style="text-align:right;color:#111827">'+(w(st)||"0")+'</b><b style="text-align:right;color:#111827">'+(w(sc)||"0")+'</b><span></span>';
+    +'<span></span><span></span>'+R('합계')+R(W(totT))+R(W(totC))
+    +(price?R(W(price))+R(W(c.fee))+R(_msPct(totC/price)):'')+'<span></span>';
   h+='</div>';
-  /* 세트 원가대비 마진율(2026-10-23 영업2팀 "여기에 원가대비 마진율") — 표의 원가대비%와 같은 값(상품이익 ÷ 세트 원가). 제안가를 고치면 _msPaint가 바로 바꾼다 */
-  h+='<div id="ms_'+i+'_setm" style="margin-top:6px;font-size:13.5px;color:#111827">'+_msSetMarginHtml(r)+'</div>';
-  h+='</td></tr>';
+  /* 제안가 기준 확인 줄 */
+  if(price){
+    var col=c.profit<0?'#dc2626':'#15803d';
+    h+='<div style="margin-top:8px;font-size:13.5px;color:#111827;line-height:1.7">📊 <b>제안가 기준</b> — 제안가 <b>'+W(price)+'</b>'
+      +' − 원가 <b>'+W(totC)+'</b> <span>(원가율 '+_msPct(totC/price)+')</span>'
+      +' − 수수료 <b>'+W(c.fee)+'</b> <span>('+(rate||0)+'%)</span>'
+      +(logi?' − 물류비 <b>'+W(logi)+'</b>':'')+(etc?' − 기타 <b>'+W(etc)+'</b>':'')
+      +' = 상품이익 <b style="font-size:15px;color:'+col+'">'+W(c.profit)+'원</b>'
+      +' · 이익률 <b style="color:'+col+'">'+_msPct(c.pPct)+'</b> · <b>원가대비 마진율 <span style="font-size:15px;color:'+col+'">'+_msPct(c.cPct)+'</span></b></div>';
+  }
   return h;
 }
 function msInput(i,k,v){var r=msDB.rows[i];if(!r)return;r[k]=String(v).trim();_msSyncDisc(i,k);_msPaint(i);}
