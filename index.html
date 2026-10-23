@@ -17693,6 +17693,14 @@ function _msColorStock(code){
   return {list:list,total:list.reduce(function(a,x){return a+x.qty;},0),basis:nhOk?"주희물류 NH":"주희물류",date:(whStock&&(whStock.date||whStock.at))||"",has:!!Object.keys(M).length};
 }
 function _msStockRow(r,i){
+  if(r.set){
+    /* 세트 — 구성품마다 컬러별 재고(2026-10-23 영업2팀) */
+    var parts=(r.items||[]).filter(function(it){return String(it.name||"").trim();}).map(function(it){
+      var one=_msStockRow({name:it.name,code:it.code},i);
+      return one.replace(/^<tr><td[^>]*>/,"").replace(/<\/td><\/tr>$/,"").replace('📦 ','📦 <span style="color:#7c3aed">['+_escX(_msShortName(it.name))+' ×'+(_msN(it.cnt)||1)+']</span> ');
+    }).filter(Boolean);
+    return parts.length?'<tr><td colspan="'+(MS_COLS.length+1)+'" style="border:1px solid #e1e6ee;border-top:none;padding:4px 8px 6px;background:#f8fbfb;font-size:12.5px;line-height:1.7">'+parts.join('<div style="border-top:1px dashed #cfe0e5;margin:3px 0"></div>')+'</td></tr>':"";
+  }
   if(!String(r.name||"").trim())return "";
   var code=r.code;
   if(!code&&typeof _cpFindProduct==="function"){var p=_cpFindProduct(r.name);if(p&&!p.many)code=p.code;}
@@ -18061,16 +18069,22 @@ function msRender(){
         var v=r[col.k]==null?"":String(r[col.k]);
         if(col.k==="disc"&&!v){var cc=_msCalc(r);v=cc.disc==null?"":String(Math.round(cc.disc*10000)/100);}
         if(col.num&&v&&col.k!=="feeRate"&&col.k!=="disc"&&!/[+*/]/.test(v)&&!isNaN(_msN(v)))v=_msN(v).toLocaleString();
-        h+='<td style="border:1px solid #e1e6ee;padding:2px">'
-          +'<input id="msi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'+(col.k==="name"?' list="cpProdList" placeholder="상품명" title="'+_escX(v)+'"':col.k==="ch"?' list="msChList" placeholder="구분"':' inputmode="decimal"')
+        var lock=r.set&&col.k==="cost";                                  /* 세트 원가 = 구성품 원가 × 개입수 합(읽기 전용) */
+        h+='<td style="border:1px solid #e1e6ee;padding:2px'+(lock?';background:#f1f5f9':'')+'">'+(col.k==="name"?'<div style="display:flex;align-items:center;gap:4px">':'')
+          +'<input id="msi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'+(col.k==="name"?(r.set?' placeholder="세트 이름(예: 머플러+장갑 세트)"':' list="cpProdList" placeholder="상품명"')+' title="'+_escX(v)+'"':col.k==="ch"?' list="msChList" placeholder="구분"':' inputmode="decimal"')
           +(col.k==="disc"?' title="할인율을 적으면 제안가 = Tag가 × (1 − 할인율)로 계산합니다. 제안가를 적으면 할인율이 계산됩니다."':'')
+          +(lock?' readonly title="세트 원가 = 구성품 원가 × 개입수의 합 — 아래 구성품 줄에서 고칩니다"':'')
+          +(r.set&&col.k==="tag"?' title="세트 Tag가 — 구성품 Tag가 × 개입수의 합이 자동으로 들어갑니다(직접 고치면 그 값을 씁니다)"':'')
           +' oninput="msInput('+i+',\''+col.k+'\',this.value)" onchange="msChange('+i+',\''+col.k+'\',this.value)"'
-          +' style="width:100%;box-sizing:border-box;border:none;outline:none;padding:5px 6px;font-size:13px;background:transparent;'+(col.num?'text-align:right':'')+'"></td>';
+          +' style="width:100%;box-sizing:border-box;border:none;outline:none;padding:5px 6px;font-size:13px;background:transparent;'+(col.num?'text-align:right':'')+(lock?';color:#111827;font-weight:700':'')+'">'
+          +(col.k==="name"?'<button onclick="msToggleSet('+i+')" title="'+(r.set?'단품으로 되돌립니다':'여러 상품을 묶은 세트로 계산합니다 — 구성품·개입수를 적으면 Tag가·원가를 더해 줍니다')+'" style="flex:none;border:1px solid '+(r.set?'#7c3aed':'#cbd5e1')+';background:'+(r.set?'#7c3aed':'#fff')+';color:'+(r.set?'#fff':'#111827')+';border-radius:6px;padding:2px 7px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap">'+(r.set?'세트':'단품')+'</button></div>':'')
+          +'</td>';
       }else{
         h+='<td id="ms_'+i+'_'+col.k+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;background:#f1f5f9;font-weight:700;white-space:nowrap"></td>';
       }
     });
     h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="msDelRow('+i+')" title="삭제" style="border:none;background:#fee2e2;color:#dc2626;border-radius:6px;padding:3px 7px;cursor:pointer;font-weight:700">✕</button></td></tr>';
+    if(r.set)h+=_msSetRow(r,i);
     h+=_msStockRow(r,i);
   });
   h+='</tbody></table>';
@@ -18103,10 +18117,77 @@ function _msSyncDisc(i,k){
     var c=_msCalc(r);setIn("disc",c.disc==null?"":String(Math.round(c.disc*10000)/100));
   }
 }
+/* ── 세트 상품(2026-10-23 영업2팀 "간단 마진계산에서 세트 상품도 마진계산") ──
+   상품명 칸 옆 [단품/세트]. 세트는 r.items = [{name, cnt(개입수), tag, cost, code}] — 구성품명을 고르면 Tag가·원가를 상품데이터에서 채운다(직접 고친 값은 안 덮음).
+   세트 Tag가 = Σ 개입수×Tag가(자동값 — 직접 고치면 그 값), 세트 원가 = Σ 개입수×원가(읽기 전용). 이익 계산은 단품과 같다(_msCalc). 컬러별 재고는 구성품마다 */
+function _msSetText(r){return (r.items||[]).filter(function(it){return String(it.name||"").trim();}).map(function(it){return _msShortName(it.name)+" ×"+(_msN(it.cnt)||1);}).join(" + ")||"구성품 없음";}
+function _msSetSync(r){
+  var tag=0,cost=0;
+  (r.items||[]).forEach(function(it){var n=_msN(it.cnt)||1;tag+=n*_msN(it.tag);cost+=n*_msN(it.cost);});
+  _cpAutoSet(r,"tag",tag?String(Math.round(tag)):"");
+  r.cost=cost?String(Math.round(cost)):"";
+}
+function msToggleSet(i){
+  var r=msDB.rows[i];if(!r)return;
+  if(r.set){
+    if(!confirm("단품으로 되돌릴까요? 구성품 목록은 지워집니다."))return;
+    delete r.set;delete r.items;r.cost="";if(r.auto&&String(r.tag)===String(r.auto.tag||"")){r.tag="";delete r.auto.tag;}
+  }else{
+    r.set=true;
+    /* 지금 적힌 상품이 있으면 첫 구성품으로 옮긴다 */
+    r.items=String(r.name||"").trim()?[{name:r.name,cnt:"1",tag:r.tag||"",cost:r.cost||"",code:r.code||""}]:[{name:"",cnt:"1",tag:"",cost:""}];
+    if(r.items[0].name)r.name=_msShortName(r.name)+" 세트";
+    r.code="";if(r.auto)delete r.auto.tag;r.tag="";
+    _msSetSync(r);
+  }
+  _msSyncDisc(i,"tag");saveMs();msRender();
+}
+function msSetAdd(i){var r=msDB.rows[i];if(!r||!r.set)return;(r.items=r.items||[]).push({name:"",cnt:"1",tag:"",cost:""});saveMs();msRender();
+  var el=document.getElementById("msset_"+i+"_"+(r.items.length-1)+"_name");if(el)el.focus();}
+function msSetDel(i,j){var r=msDB.rows[i];if(!r||!r.items)return;r.items.splice(j,1);_msSetSync(r);_msSyncDisc(i,"tag");saveMs();msRender();}
+function msSetEdit(i,j,k,v){
+  var r=msDB.rows[i],it=r&&r.items&&r.items[j];if(!it)return;
+  it[k]=String(v).trim();
+  if(k==="name"){
+    var p=it.name&&typeof _cpFindProduct==="function"?_cpFindProduct(it.name):null;
+    it.code=(p&&!p.many&&p.code)||"";
+    if(p&&!p.many){
+      if(p.name)it.name=p.name;
+      if(p.tag)_cpAutoSet(it,"tag",String(_msN(p.tag)||""));
+      if(p.cost)_cpAutoSet(it,"cost",String(_msN(p.cost)||""));
+    }
+  }
+  _msSetSync(r);_msSyncDisc(i,"tag");saveMs();msRender();
+}
+function _msSetRow(r,i){
+  var inS='border:1px solid #cbd5e1;border-radius:6px;padding:3px 6px;font-size:12.5px;box-sizing:border-box;background:#fff';
+  var w=function(n){return n?Math.round(n).toLocaleString():"";};
+  var h='<tr><td colspan="'+(MS_COLS.length+1)+'" style="border:1px solid #e1e6ee;border-top:none;padding:6px 8px;background:#faf5ff;font-size:12.5px">';
+  h+='<div style="font-weight:700;color:#6d28d9;margin-bottom:4px">🎁 세트 구성품 <span style="font-weight:600;color:#111827">— 세트 1개에 들어가는 상품·개입수 (Tag가·원가는 상품명을 고르면 자동, 직접 고쳐도 됩니다)</span></div>';
+  h+='<div style="display:grid;grid-template-columns:420px 70px 100px 100px 110px 110px 30px;width:max-content;gap:4px 6px;align-items:center">';
+  h+='<b style="color:#111827">구성품</b><b style="color:#111827;text-align:right">개입수</b><b style="color:#111827;text-align:right">Tag가</b><b style="color:#111827;text-align:right">원가</b><b style="color:#111827;text-align:right">Tag가 × 개입수</b><b style="color:#111827;text-align:right">원가 × 개입수</b><span></span>';
+  var st=0,sc=0;
+  (r.items||[]).forEach(function(it,j){
+    var n=_msN(it.cnt)||1,id="msset_"+i+"_"+j+"_";
+    st+=n*_msN(it.tag);sc+=n*_msN(it.cost);
+    var f=function(k,extra){return ' id="'+id+k+'" onchange="msSetEdit('+i+','+j+',\''+k+'\',this.value)"'+(extra||'');};
+    h+='<input'+f("name",' list="cpProdList" placeholder="구성품 상품명" title="'+_escX(it.name||"")+'"')+' value="'+_escX(it.name||"")+'" style="'+inS+'">'
+      +'<input'+f("cnt",' inputmode="decimal"')+' value="'+_escX(it.cnt||"1")+'" style="'+inS+';text-align:right">'
+      +'<input'+f("tag",' inputmode="decimal"')+' value="'+_escX(w(_msN(it.tag)))+'" style="'+inS+';text-align:right">'
+      +'<input'+f("cost",' inputmode="decimal"')+' value="'+_escX(w(_msN(it.cost)))+'" style="'+inS+';text-align:right">'
+      +'<span style="text-align:right;color:#111827">'+w(n*_msN(it.tag))+'</span><span style="text-align:right;color:#111827">'+w(n*_msN(it.cost))+'</span>'
+      +'<button onclick="msSetDel('+i+','+j+')" title="이 구성품 빼기" style="border:none;background:#fee2e2;color:#dc2626;border-radius:6px;padding:2px 6px;cursor:pointer;font-weight:700">✕</button>';
+  });
+  h+='<button onclick="msSetAdd('+i+')" style="justify-self:start;border:1px dashed #7c3aed;background:#fff;color:#6d28d9;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer">＋ 구성품 추가</button>'
+    +'<span></span><span></span><b style="text-align:right;color:#111827">합계</b><b style="text-align:right;color:#111827">'+(w(st)||"0")+'</b><b style="text-align:right;color:#111827">'+(w(sc)||"0")+'</b><span></span>';
+  h+='</div></td></tr>';
+  return h;
+}
 function msInput(i,k,v){var r=msDB.rows[i];if(!r)return;r[k]=String(v).trim();_msSyncDisc(i,k);_msPaint(i);}
 function msChange(i,k,v){
   var r=msDB.rows[i];if(!r)return;
   r[k]=String(v).trim();
+  if(k==="name"&&r.set){saveMs();return;}                                /* 세트 이름은 자유 — 상품데이터를 찾지 않는다 */
   if(k==="name"&&r.name&&typeof _cpFindProduct==="function"){
     var p=_cpFindProduct(r.name);
     r.code=(p&&!p.many&&p.code)||"";                 /* 컬러별 재고에 쓴다 */
@@ -18135,6 +18216,7 @@ function msBuildReport(){
     var ch=String(r.ch||"").trim();
     L.push("");
     L.push("*"+(i+1)+". "+(ch?"["+ch+"] ":"")+_msShortName(r.name)+"*");
+    if(r.set)L.push("• 세트 구성: "+_msSetText(r));
     if(tag||price)L.push("• 가격: Tag가 "+(tag?w(tag):"-")+" → 제안가 "+(price?w(price):"-")+(c.disc!=null?" (할인 "+_msPct(c.disc)+")":""));
     var cs=["원가 "+(cost?w(cost):"-")];
     if(rate||c.fee)cs.push("수수료 "+(rate?rate+"% ":"")+w(c.fee));
@@ -18143,15 +18225,18 @@ function msBuildReport(){
     L.push("• 비용: "+cs.join(" · "));
     if(!price)L.push("• 상품이익: 제안가 입력 전(계산 안 함)");    /* 제안가가 비면 원가만큼 '적자'로 보여 오해를 산다 */
     else if(c.has)L.push("• 상품이익: *"+w(c.profit)+"원* (이익률 "+_msPct(c.pPct)+" · 원가대비 "+_msPct(c.cPct)+")"+(c.profit<0?" ※ 적자":""));
-    var code=r.code;
-    if(!code&&typeof _cpFindProduct==="function"){var p=_cpFindProduct(r.name);if(p&&!p.many)code=p.code;}
-    var S=_msColorStock(code);
-    if(S&&S.has){
-      stockDate=S.date||stockDate;
-      var on=S.list.filter(function(x){return x.qty>0;}),off=S.list.filter(function(x){return x.qty<=0;});
-      L.push("• 재고(주희물류 NH): *"+w(S.total)+"개*"+(on.length?" — "+on.map(function(x){return x.name+" "+w(x.qty);}).join(" · "):""));
-      if(off.length)L.push("   재고 없음: "+off.map(function(x){return x.name;}).join(", "));
-    }
+    /* 세트면 구성품마다 재고 */
+    (r.set?(r.items||[]).filter(function(it){return String(it.name||"").trim();}):[r]).forEach(function(x0){
+      var code=x0.code;
+      if(!code&&typeof _cpFindProduct==="function"){var p=_cpFindProduct(x0.name);if(p&&!p.many)code=p.code;}
+      var S=_msColorStock(code);
+      if(S&&S.has){
+        stockDate=S.date||stockDate;
+        var on=S.list.filter(function(x){return x.qty>0;}),off=S.list.filter(function(x){return x.qty<=0;});
+        L.push("• 재고(주희물류 NH)"+(r.set?" "+_msShortName(x0.name):"")+": *"+w(S.total)+"개*"+(on.length?" — "+on.map(function(x){return x.name+" "+w(x.qty);}).join(" · "):""));
+        if(off.length)L.push("   재고 없음: "+off.map(function(x){return x.name;}).join(", "));
+      }
+    });
   });
   L.push("");
   L.push("※ 금액은 적은 그대로 계산(VAT 조정 없음) · 상품이익 = 제안가 − 원가 − 수수료 − 물류비 − 기타"+(stockDate?" · 재고 "+stockDate+" 기준":""));
@@ -18183,7 +18268,7 @@ function msExport(){
   var aoa=[MS_COLS.map(function(c){return c.lab;})];
   msDB.rows.forEach(function(r){
     var c=_msCalc(r);
-    aoa.push([r.ch||"",r.name||"",_msN(r.tag)||"",_msN(r.price)||"",c.disc==null?"":Math.round(c.disc*10000)/100+"%",_msN(r.cost)||"",
+    aoa.push([r.ch||"",(r.name||"")+(r.set?" (세트: "+_msSetText(r)+")":""),_msN(r.tag)||"",_msN(r.price)||"",c.disc==null?"":Math.round(c.disc*10000)/100+"%",_msN(r.cost)||"",
       r.feeRate?_msN(r.feeRate)+"%":"",c.has?c.fee:"",_msN(r.logi)||"",_msN(r.etc)||"",c.has?c.profit:"",
       c.pPct==null?"":Math.round(c.pPct*10000)/100+"%",c.cPct==null?"":Math.round(c.cPct*10000)/100+"%"]);
   });
