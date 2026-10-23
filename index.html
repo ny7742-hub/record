@@ -17270,14 +17270,45 @@ function hsPreEditQty(i,key,label){
   r[key]=_hsPreQtyParse(v);
   saveHsPre();renderHsPre();
 }
+/* remind = 방송일 몇 **영업일 전**에 슬랙(🔒#영업1-2팀-실무방, 이유진 대리 참조)으로 알릴지(2026-10-23 영업2팀).
+   보내는 건 자동화 PC `automation/hs-pre-notify.mjs`(saip-watch, 평일 9시부터) — 아직 체크 안 된 칸만, 한 번 보낸 건 ws/hsPreNotify에 남겨 다시 안 보낸다.
+   이 표의 날짜 계산(_hsPreBizBefore)과 그 파일의 계산은 같아야 한다. 'lowprice' 열쇠는 그대로 두고 이름만 '체크리스트 작성'(예전 '최저가 요청') */
 var HS_PRE_TASKS=[
   {key:"sample",label:"방송샘플요청",dateLabel:"요청일자"},
-  {key:"marketing",label:"마케팅 요청",dateLabel:"요청일자"},
-  {key:"lowprice",label:"최저가 요청",dateLabel:"요청일자"},
+  {key:"marketing",label:"마케팅 요청",dateLabel:"요청일자",remind:[5]},
+  {key:"lowprice",label:"체크리스트 작성",dateLabel:"작성일자",remind:[5]},
   {key:"review",label:"후기 작성",dateLabel:"구매일"},
-  {key:"salesShare",label:"영업팀 일정 공유",dateLabel:"요청일자"},
-  {key:"juhee",label:"물류 일정 공유",dateLabel:"요청일자"}
+  {key:"salesShare",label:"영업팀 일정 공유",dateLabel:"요청일자",remind:[10]},
+  {key:"juhee",label:"물류 일정 공유",dateLabel:"요청일자",remind:[5,3]}
 ];
+/* 일정체크 줄의 방송 = 방송관리 표에서 상품명이 같은 줄(2026-10-23 영업2팀 "상품명에 홈쇼핑사, 방송일") —
+   줄에 고른 방송(row.air = "홈쇼핑사|YYYY-MM-DD")이 있으면 그것, 없으면 방송일이 있는 것 중 오늘 이후 가장 가까운 방송(없으면 가장 최근).
+   방송일이 하나도 없으면 홈쇼핑사만. 돌려주는 것 {co, date, list:[방송일 있는 후보]} 또는 null */
+function _hsPreAir(row){
+  var nm=String(row&&row.name||"").trim();if(!nm||typeof homeshoppingDB==="undefined")return null;
+  var all=homeshoppingDB.filter(function(r){return String(r.name||"").trim()===nm;});
+  if(!all.length)return null;
+  var list=all.filter(function(r){return /^\d{4}-\d{2}-\d{2}$/.test(String(r.date||""));}).map(function(r){return {co:String(r.company||"").trim(),date:r.date};})
+    .sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;});
+  var m=/^(.*)\|(\d{4}-\d{2}-\d{2})$/.exec(String(row.air||""));
+  if(m)return {co:m[1],date:m[2],list:list,picked:true};
+  var t=_hsPreToday(),up=list.filter(function(x){return x.date>=t;});
+  var pick=up[0]||list[list.length-1];
+  if(pick)return {co:pick.co,date:pick.date,list:list};
+  return {co:all.map(function(r){return String(r.company||"").trim();}).filter(Boolean).join("·"),date:"",list:list};
+}
+function _hsPreIsBiz(d){
+  if(d.getDay()===0||d.getDay()===6)return false;
+  var y=String(d.getFullYear()),md=String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  return !((typeof KR_HOLIDAYS!=="undefined"&&KR_HOLIDAYS[y])||[]).includes(md);
+}
+/* 방송일 n영업일 전(주말·공휴일 KR_HOLIDAYS 빼고) — YYYY-MM-DD */
+function _hsPreBizBefore(ymd,n){
+  var d=new Date(ymd+"T00:00:00"),k=0;
+  while(k<n){d.setDate(d.getDate()-1);if(_hsPreIsBiz(d))k++;}
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function _hsPreMDW(ymd){var d=new Date(ymd+"T00:00:00");return (d.getMonth()+1)+"/"+d.getDate()+"("+"일월화수목금토".charAt(d.getDay())+")";}
 function hsPreEdit(i,key,val){
   if(!hsPreDB[i])return;
   hsPreDB[i][key]=val;
@@ -17379,7 +17410,18 @@ function renderHsPre(){
     if(row.closed)return;
     h+='<div class="hsPreRow" ondragover="hsPreDragOver('+i+',event)" ondragleave="hsPreDragLeave(event)" ondrop="hsPreDrop('+i+',event)" ondragend="hsPreDragEnd()" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-bottom:1px solid #e1e6ee;flex-wrap:wrap">';
     h+='<div draggable="true" ondragstart="hsPreDragStart('+i+',event)" title="드래그하여 순서 변경" style="display:flex;align-items:center;justify-content:center;width:22px;height:37px;color:#5b6675;font-size:13px;cursor:grab;user-select:none">↕</div>';
-    h+='<button onclick="hsPreRenameRow('+i+')" title="클릭하여 상품명 수정" style="flex:1.1;min-width:110px;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px 12px;border-radius:10px;border:1.5px dashed #94a3b8;color:#1b6e82;background:#f1f5f9;font-size:13px;font-weight:700;cursor:pointer">'+(row.name?_esc(row.name):'<span style="color:#5b6675;font-weight:600">상품명 없음</span>')+'</button>';
+    /* 상품명 아래 홈쇼핑사 · 방송일(방송관리 표에서) — 방송이 여럿이면 고르는 칸(2026-10-23 영업2팀) */
+    var air=_hsPreAir(row);
+    var airTxt=!row.name?"":!air?'<span style="color:#b45309">방송관리에 없음</span>'
+      :_escX(air.co||"홈쇼핑사 없음")+' · '+(air.date?_hsPreMDW(air.date)+' 방송':'<span style="color:#b45309">방송일 없음</span>');
+    h+='<div style="flex:1.1;min-width:120px;display:flex;flex-direction:column;gap:4px">';
+    h+='<button onclick="hsPreRenameRow('+i+')" title="클릭하여 상품명 수정 — 홈쇼핑사·방송일은 방송관리 표에서 옵니다" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6px 12px;border-radius:10px;border:1.5px dashed #94a3b8;color:#1b6e82;background:#f1f5f9;font-size:13px;font-weight:700;cursor:pointer;line-height:1.35">'+(row.name?_esc(row.name):'<span style="color:#5b6675;font-weight:600">상품명 없음</span>')
+      +(airTxt?'<span style="font-size:11.5px;font-weight:700;color:#334155">'+airTxt+'</span>':'')+'</button>';
+    if(air&&air.list.length>1)h+='<select onchange="hsPreEdit('+i+',\'air\',this.value);renderHsPre()" title="방송이 여럿입니다 — 이 일정이 어느 방송인지 고르세요(슬랙 알림 날짜도 이 방송일 기준)" style="border:1px solid #cbd5e1;border-radius:8px;padding:3px 4px;font-size:11.5px;color:#1f2937;background:#fff">'
+      +(air.picked?'':'<option value="">자동 · '+_escX(air.co)+' '+_hsPreMDW(air.date)+'</option>')
+      +air.list.map(function(x){var v=x.co+"|"+x.date;return '<option value="'+_escX(v)+'"'+(air.picked&&row.air===v?' selected':'')+'>'+_escX(x.co)+' '+_hsPreMDW(x.date)+'</option>';}).join("")
+      +(air.picked?'<option value="">자동(가까운 방송)</option>':'')+'</select>';
+    h+='</div>';
     h+='<button onclick="hsPreEditDateTime('+i+')" style="flex:1.3;min-width:150px;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px 14px;border-radius:10px;border:none;color:#fff;font-size:13px;font-weight:700;line-height:1.35;cursor:pointer;background:#1e3a5f">'+_hsPreDateTimeLabel(row)+'</button>';
     /* 사전미팅 바로 뒤 — 상품발주일자 · 납기일정(날짜만) */
     HS_PRE_DATES.forEach(function(f){
@@ -17423,6 +17465,13 @@ HS_PRE_TASKS.forEach(function(t){
       if(on){
         h+='<input type="date" value="'+_escX(row[dateKey]||"")+'" onchange="hsPreEdit('+i+',\''+dateKey+'\',this.value)" title="'+t.dateLabel+'" style="border:1px solid #cbd5e1;border-radius:8px;padding:5px 6px;font-size:12px;text-align:center;color:#1f2937;background:#fff">'
           +'<div style="font-size:10px;color:#5b6675;text-align:center">'+t.dateLabel+'</div>';
+      }else if(t.remind&&air&&air.date&&air.date>=_hsPreToday()){
+        /* 아직 안 한 칸 — 슬랙 알림 날짜(방송 n영업일 전). 지났으면 주황 */
+        var td=_hsPreToday();
+        h+='<div style="font-size:10.5px;text-align:center;line-height:1.5">'+t.remind.map(function(n){
+          var d=_hsPreBizBefore(air.date,n);
+          return '<div title="방송('+_hsPreMDW(air.date)+') '+n+'영업일 전 — 아직 체크 안 했으면 이날 슬랙 영업1-2팀-실무방에 이유진 대리 참조로 알림" style="color:'+(d<=td?'#b45309;font-weight:700':'#5b6675')+'">🔔 슬랙 '+_hsPreMDW(d)+' (D-'+n+')</div>';
+        }).join("")+'</div>';
       }
       h+='</div>';
     });
