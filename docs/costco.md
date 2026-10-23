@@ -215,7 +215,8 @@
   `WH_MIN_ORDER`(보충 불가 기준, 기본 10) 이하 주황, 0 이하 빨강. 열 순서: 색상 · 주희물류 · 코스트코 · DSS · 단종.
   **그 옆 `DSS 재고` 열**(2026-10-13 영업2팀, `_ccDssCell` · sticky `cc-sticky-6` / `--ccL6`): DSS **작업 > 재고 업데이트의 DELTA QTY**(= 수량 − 발송완료 − ORDERED(미발송 주문)).
   ORDERED는 Stock API 응답에 없어 **화면 표 글자를 그대로 읽는다** — 자동화 PC `automation/dss-stock.mjs`(saip-watch가 30분마다 7~21시, busy면 건너뜀)가
-  두 DSS 창(9333 DSS26 · 9334 DSS31)에서 `dropship/StockUpdate`를 **새 탭으로 열어 읽고 닫는다**(저장·업로드 안 누름, 송장·발주 lock 중엔 건너뜀) → `ws/ccDssStock`
+  두 DSS 창(9333 DSS26 · 9334 DSS31)에서 `dropship/StockUpdate`를 **새 탭으로 열어 읽고 닫는다**(저장·업로드 안 누름, 송장·발주 lock 중엔 건너뜀) → `ws/ccDssStock`.
+  **새 탭은 뒤쪽 탭(CDP `Target.createTarget` background)으로 연다**(2026-10-23 영업2팀 "자꾸 DSS 새창이 생기고 로그인 하는데") — 예전 `ctx.newPage()`는 탭이 앞으로 나와 30분마다 DSS SSO 로그인 화면이 번쩍였다
   `{at, accounts:{'ckr.…':{at, rows:{'696151-DG':{q,s,o,d,n}}}}}`(못 읽은 아이디는 지난 값 유지). 수동: `node dss-stock.mjs [--dry]`.
   맞춤: 코스트코 코드 앞 6자리 + DSS 설명 끝 ` - 색이름`(정확 → 핵심 → 부분 일치는 후보 하나일 때만, 세팔로 '그레이' = DSS '그레이블루'),
   안 되면 SKU 색코드(`_ccPdfColor`)를 창고 칼라코드와. 헤더에 읽은 시각(1시간 넘으면 빨강), 칸에 마우스 → 아이디·SKU·수량·발송완료·미발송·DELTA.
