@@ -17662,8 +17662,9 @@ function _msCalc(r){
   var tag=_msN(r.tag),price=_msN(r.price),cost=_msN(r.cost),rate=_msN(r.feeRate),logi=_msN(r.logi),etc=_msN(r.etc);
   var fee=Math.round(price*rate/100);
   var profit=price-cost-fee-logi-etc;
+  /* 제안가가 비면 이익·이익%·원가대비%는 '–'(noPrice) — 원가만큼 적자 −100%로 보여 오해를 샀다(2026-10-23 영업2팀 캡처) */
   return {disc:(tag&&price)?(1-price/tag):null,fee:fee,profit:profit,
-    pPct:price?profit/price:null,cPct:cost?profit/cost:null,has:!!(price||cost)};   /* 원가대비% = 상품이익÷원가(영업2팀 엑셀: 4,383÷13,397=32.72%) */
+    pPct:price?profit/price:null,cPct:(cost&&price)?profit/cost:null,has:!!(price||cost),noPrice:!price};   /* 원가대비% = 상품이익÷원가(영업2팀 엑셀: 4,383÷13,397=32.72%) */
 }
 function _msPct(v){return v==null?"–":(Math.round(v*10000)/100).toFixed(2)+"%";}   /* 엑셀과 같이 소수 둘째 자리 */
 /* 표 칸 순서 — 엑셀과 같다. t: in(입력)·calc(계산) */
@@ -18052,6 +18053,7 @@ function _hpsJasa(code,cc){
 function _msCellText(k,c){
   if(!c.has&&k!=="disc")return "";
   if(k==="disc")return c.disc==null?"":_msPct(c.disc);
+  if(c.noPrice&&(k==="profit"||k==="pPct"||k==="cPct"))return "–";
   if(k==="fee"||k==="profit")return Number(c[k]).toLocaleString();
   return _msPct(c[k]);
 }
@@ -18101,9 +18103,10 @@ function _msPaint(i){
   ["fee","profit","pPct","cPct"].forEach(function(k){
     var el=document.getElementById("ms_"+i+"_"+k);if(!el)return;
     el.textContent=_msCellText(k,c);
-    var neg=(k==="profit"||k==="pPct"||k==="cPct")&&c.has&&c.profit<0;
+    var neg=(k==="profit"||k==="pPct"||k==="cPct")&&c.has&&!c.noPrice&&c.profit<0;
     el.style.color=neg?"#dc2626":(k==="profit"||k==="pPct"||k==="cPct"?"#15803d":"#334155");
   });
+  var sm=document.getElementById("ms_"+i+"_setm");if(sm&&r.set)sm.innerHTML=_msSetMarginHtml(r);
 }
 /* 할인율 ↔ 제안가 — 할인율을 적으면 제안가 = Tag가×(1−할인율)(엑셀: 공구가 = B−B×D), 제안가를 적으면 할인율이 따라온다.
    r.disc는 '할인율을 직접 적었다'는 표시이기도 해서, 그 뒤 Tag가를 고치면 제안가를 다시 계산한다. */
@@ -18122,6 +18125,15 @@ function _msSyncDisc(i,k){
 /* ── 세트 상품(2026-10-23 영업2팀 "간단 마진계산에서 세트 상품도 마진계산") ──
    상품명 칸 옆 [단품/세트]. 세트는 r.items = [{name, cnt(개입수), tag, cost, code}] — 구성품명을 고르면 Tag가·원가를 상품데이터에서 채운다(직접 고친 값은 안 덮음).
    세트 Tag가 = Σ 개입수×Tag가(자동값 — 직접 고치면 그 값), 세트 원가 = Σ 개입수×원가(읽기 전용). 이익 계산은 단품과 같다(_msCalc). 컬러별 재고는 구성품마다 */
+function _msSetMarginHtml(r){
+  var c=_msCalc(r),cost=_msN(r.cost),w=function(n){return Math.round(n).toLocaleString();};
+  if(!_msN(r.price))return '📊 <b>세트 원가대비 마진율</b> — 제안가를 적으면 계산합니다';
+  if(!cost)return '📊 <b>세트 원가대비 마진율</b> — 구성품 원가를 적으면 계산합니다';
+  var col=c.profit<0?'#dc2626':'#15803d';
+  return '📊 <b>세트 원가대비 마진율 <span style="font-size:16px;color:'+col+'">'+_msPct(c.cPct)+'</span></b>'
+    +' <span>= 상품이익 '+w(c.profit)+'원 ÷ 세트 원가 '+w(cost)+'원</span>'
+    +' <span style="margin-left:10px">· 상품이익률(제안가 대비) <b style="color:'+col+'">'+_msPct(c.pPct)+'</b></span>';
+}
 function _msSetText(r){return (r.items||[]).filter(function(it){return String(it.name||"").trim();}).map(function(it){return _msShortName(it.name)+" ×"+(_msN(it.cnt)||1);}).join(" + ")||"구성품 없음";}
 function _msSetSync(r){
   var tag=0,cost=0;
@@ -18182,7 +18194,10 @@ function _msSetRow(r,i){
   });
   h+='<button onclick="msSetAdd('+i+')" style="justify-self:start;border:1px dashed #7c3aed;background:#fff;color:#6d28d9;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;cursor:pointer">＋ 구성품 추가</button>'
     +'<span></span><span></span><b style="text-align:right;color:#111827">합계</b><b style="text-align:right;color:#111827">'+(w(st)||"0")+'</b><b style="text-align:right;color:#111827">'+(w(sc)||"0")+'</b><span></span>';
-  h+='</div></td></tr>';
+  h+='</div>';
+  /* 세트 원가대비 마진율(2026-10-23 영업2팀 "여기에 원가대비 마진율") — 표의 원가대비%와 같은 값(상품이익 ÷ 세트 원가). 제안가를 고치면 _msPaint가 바로 바꾼다 */
+  h+='<div id="ms_'+i+'_setm" style="margin-top:6px;font-size:13.5px;color:#111827">'+_msSetMarginHtml(r)+'</div>';
+  h+='</td></tr>';
   return h;
 }
 function msInput(i,k,v){var r=msDB.rows[i];if(!r)return;r[k]=String(v).trim();_msSyncDisc(i,k);_msPaint(i);}
@@ -18271,7 +18286,7 @@ function msExport(){
   msDB.rows.forEach(function(r){
     var c=_msCalc(r);
     aoa.push([r.ch||"",(r.name||"")+(r.set?" (세트: "+_msSetText(r)+")":""),_msN(r.tag)||"",_msN(r.price)||"",c.disc==null?"":Math.round(c.disc*10000)/100+"%",_msN(r.cost)||"",
-      r.feeRate?_msN(r.feeRate)+"%":"",c.has?c.fee:"",_msN(r.logi)||"",_msN(r.etc)||"",c.has?c.profit:"",
+      r.feeRate?_msN(r.feeRate)+"%":"",c.has?c.fee:"",_msN(r.logi)||"",_msN(r.etc)||"",c.has&&!c.noPrice?c.profit:"",
       c.pPct==null?"":Math.round(c.pPct*10000)/100+"%",c.cPct==null?"":Math.round(c.cPct*10000)/100+"%"]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
