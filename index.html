@@ -601,6 +601,19 @@ label{font-size:14px!important}
   #ordTableWrap td{padding:2px 4px !important}
   #ordTableWrap select,#ordTableWrap input,#ordTableWrap td[contenteditable]{font-size:11px !important}
 }
+/* ── ⛶ 크게 보기(2026-10-23 영업2팀 "판매가 수정하려는데 화면이 작다") — bigToggle(key)가 [data-big=key] 칸을 화면 가득 띄운다 ── */
+.big-btn{font-size:12px;font-weight:800;padding:3px 9px;border-radius:8px;cursor:pointer;border:1px dashed #1b6e82;background:#fff;color:#1b6e82;white-space:nowrap}
+.big-btn:hover{background:#e6f4f6}
+.big-title{display:none}
+.big-on{position:fixed !important;top:3vh !important;left:max(2vw,calc(50vw - 640px)) !important;right:max(2vw,calc(50vw - 640px)) !important;bottom:3vh !important;
+  z-index:10040 !important;background:#fff !important;overflow:auto !important;border-radius:14px !important;box-shadow:0 16px 48px rgba(0,0,0,.35) !important;
+  padding:16px 20px !important;margin:0 !important;width:auto !important;max-width:none !important;max-height:none !important;grid-column:auto !important;display:block !important}
+.big-on>*{zoom:1.2}
+.big-on .big-title{display:inline}
+.big-on [style*="max-height"]{max-height:none !important}
+.big-on .big-btn{font-size:14px;padding:5px 14px;background:#1b6e82;color:#fff;border-style:solid}
+#bigBackdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:10039;display:none}
+@media (max-width:700px){.big-on{top:1vh !important;left:1vw !important;right:1vw !important;bottom:1vh !important;padding:10px 12px !important}.big-on>*{zoom:1.1}}
 /* ── 모바일 보정 (2026-09 영업2팀) ── */
 @media (max-width:700px){
   /* 백화점 카드: 매출 현황 표가 카드(약 270px)보다 넓어 '합계'가 잘렸다 → 카드 폭에 맞춰 줄인다 */
@@ -8579,15 +8592,16 @@ function renderAutoPage(){
   }
   /* 사입출고등록 4개 */
   var sp=document.getElementById("autoSaip");
-  if(sp&&typeof _saipCard==="function"){
+  /* 상품코드·판매가를 고치는 중이면 다시 그리지 않는다(입력칸이 새로 그려져 쓰던 글자가 날아간다) */
+  if(sp&&typeof _saipCard==="function"&&!(_saipFixEditing()&&sp.contains(document.activeElement))){
     sp.innerHTML=["hs","ds","cc","mv","so","xc"].map(function(k){
 
       var K=SAIP_KINDS[k],el=_saipDateEl(k),dv=el&&el.value?el.value:"";
-      return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">'
+      return '<div data-big="ap-saip-'+k+'" style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><b style="font-size:14px">'+K.icon+' '+_saipBase(k)+'</b>'
         +(dv?'<span class="ap-sub">'+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+'</span>':'')
         +_apBtn("saipAuto"+k.charAt(0).toUpperCase()+k.slice(1),"saipAutoGo('"+k+"')","등록")
-        +'<button class="ap-btn sub" onclick="apOpen(\'ccorder\',\'saipAuto'+k.charAt(0).toUpperCase()+k.slice(1)+'\')" title="사입출고등록 탭의 이 칸을 엽니다">↗ 열기</button></div>'
+        +'<button class="ap-btn sub" onclick="apOpen(\'ccorder\',\'saipAuto'+k.charAt(0).toUpperCase()+k.slice(1)+'\')" title="사입출고등록 탭의 이 칸을 엽니다">↗ 열기</button>'+_bigBtn("ap-saip-"+k)+'</div>'
         +_saipCard(k,{noReg:true})+_apSrcLink(k,dv)+'</div>';
     }).join("");
   }
@@ -8596,11 +8610,11 @@ function renderAutoPage(){
   if(rt&&typeof _retCard==="function"){
     rt.innerHTML=["hr","cr"].map(function(k){
       var K=RET_KINDS[k],note=document.getElementById("retNote_"+k);
-      return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">'
+      return '<div data-big="ap-ret-'+k+'" style="border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px">'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px"><b style="font-size:14px">'+_escX(K.label)+'</b>'
         +_apBtn("retAuto"+k.charAt(0).toUpperCase()+k.slice(1),"retAutoGo('"+k+"')","등록")
         +'<button class="ap-btn sub" onclick="retPreviewGo(\''+k+'\')">🔍 미리보기</button>'
-        +'<button class="ap-btn sub" onclick="apOpen(\'hsreturn\',\'retAuto'+k.charAt(0).toUpperCase()+k.slice(1)+'\')" title="반품등록 탭의 이 칸을 엽니다">↗ 열기</button></div>'
+        +'<button class="ap-btn sub" onclick="apOpen(\'hsreturn\',\'retAuto'+k.charAt(0).toUpperCase()+k.slice(1)+'\')" title="반품등록 탭의 이 칸을 엽니다">↗ 열기</button>'+_bigBtn("ap-ret-"+k)+'</div>'
         +(note&&note.innerHTML?'<div class="ap-sub" style="margin-bottom:4px">'+note.innerHTML+'</div>':'')
         +_retCard(k)+'</div>';
     }).join("");
@@ -8647,6 +8661,55 @@ function apOpen(tab,id){
     setTimeout(function(){h.style.outline=o;h.style.outlineOffset=oo;},2200);
   },80);
 }
+/* ⛶ 크게 보기(2026-10-23 영업2팀 "코스트코 매출등록 옆에 크게 보기 · 모든 수정 가능한 메뉴는 크게 볼 수 있게").
+   칸에 data-big="열쇠"를 달고 _bigBtn(열쇠)를 두면, 누를 때 그 칸에 .big-on을 붙여 화면 가득(글자 1.2배, 안쪽 높이 제한 없음) 띄운다.
+   칸을 옮기지 않으니 입력·버튼은 그대로 동작한다. 칸이 다시 그려져(innerHTML) 새 요소가 되면 지켜보다가(MutationObserver) 다시 붙인다.
+   닫기: 같은 버튼 · 바깥 회색 · Esc · 다른 탭으로 옮기면 */
+var _bigKey=null,_bigObs=null,_bigTop=0;
+document.addEventListener("scroll",function(e){var t=e.target;if(t&&t.classList&&t.classList.contains("big-on"))_bigTop=t.scrollTop;},true);   /* 다시 그려져도 보던 자리로 */
+function _bigBtn(key){
+  var on=_bigKey===key;
+  return '<button type="button" class="big-btn" onclick="bigToggle(\''+key+'\')" title="'+(on?'원래 크기로':'이 칸을 화면 가득 크게 봅니다(수정하기 편하게)')+'">'+(on?'✕ 닫기':'⛶ 크게 보기')+'</button>';
+}
+/* 제목 없는 카드(사입출고·반품 탭) — 위에 ⛶ 단추 줄을 얹는다. 제목은 크게 볼 때만 */
+function _bigWrap(key,title,html){
+  return '<div data-big="'+key+'"><div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><b class="big-title" style="font-size:15px">'+_escX(title)+'</b><span style="margin-left:auto">'+_bigBtn(key)+'</span></div>'+html+'</div>';
+}
+function bigToggle(key){_bigKey=_bigKey===key?null:key;_bigTop=0;_bigApply();}
+function _bigEl(){
+  if(!_bigKey)return null;
+  var L=document.querySelectorAll('[data-big="'+_bigKey+'"]');
+  for(var i=0;i<L.length;i++){var pg=L[i].closest('[id^="page-"]');if(!pg||pg.style.display!=="none")return L[i];}
+  return null;
+}
+function _bigApply(){
+  var bd=document.getElementById("bigBackdrop");
+  if(!bd){bd=document.createElement("div");bd.id="bigBackdrop";bd.onclick=function(){bigToggle(_bigKey);};document.body.appendChild(bd);}
+  var el=_bigEl();
+  document.querySelectorAll(".big-on").forEach(function(x){if(x!==el)x.classList.remove("big-on");});
+  if(_bigKey&&!el)_bigKey=null;                                         /* 칸이 없거나 숨은 탭이면 닫는다 */
+  document.querySelectorAll(".big-btn").forEach(function(b){
+    var k=(b.getAttribute("onclick")||"").match(/bigToggle\('([^']+)'/);if(!k)return;
+    var on=_bigKey===k[1];b.textContent=on?"✕ 닫기":"⛶ 크게 보기";
+  });
+  if(!_bigKey){bd.style.display="none";document.body.style.overflow="";if(_bigObs){_bigObs.disconnect();_bigObs=null;}return;}
+  if(!el.classList.contains("big-on")){el.classList.add("big-on");if(_bigTop)el.scrollTop=_bigTop;}
+  bd.style.display="block";document.body.style.overflow="hidden";
+  if(!_bigObs){
+    var t=0;
+    _bigObs=new MutationObserver(function(){if(t)return;t=requestAnimationFrame(function(){t=0;var e=_bigEl();if(!e||!e.classList.contains("big-on"))_bigApply();});});
+    _bigObs.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["style"]});
+  }
+}
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&_bigKey){bigToggle(_bigKey);}});
+/* 자동화 탭 카드(.ap-card)마다 머리줄 끝에 ⛶ 크게 보기 — HTML에 있는 칸이라 처음 한 번 단다 */
+function _bigInitApCards(){
+  document.querySelectorAll("#page-auto .ap-card").forEach(function(c,i){
+    if(c.dataset.big)return;c.dataset.big="ap-card-"+i;
+    var h=c.querySelector(".ap-h");if(h)h.insertAdjacentHTML("beforeend",_bigBtn(c.dataset.big));
+  });
+}
+document.addEventListener("DOMContentLoaded",_bigInitApCards);
 /* ── 🟠 쿠팡 발주 · 쉽먼트(2026-10-15 영업2팀 — 「쿠팡_발주_쉽먼트_프로세스」 문서) ──
    지금은 **단계 진행표**: 오늘 할 일을 ①~④ 배너(코스트코 발주와 같은 .cc-steps)로 보이고, 세부 칸을 누르면 팀 공유 ws/cpProgress[오늘][칸]={at,by}로 체크된다.
    자동(PO 받기 · 쿠팡 발주서 가공 · 발주 확정 업로드 · 쉽먼트 등록)은 PO 발주서 원본·쿠팡 발주서 양식·물류센터 주소표를 받은 뒤 붙인다. */
@@ -21300,7 +21363,7 @@ function renderRetAuto(){
     if(MV)note.innerHTML+='<br><b style="color:#6d28d9">불량 창고간이동 대기 '+MV+'건</b> (반품은 등록됨 — 누르면 창고간이동만 합니다)';
     if(LF)note.innerHTML+='<br><b style="color:#6d28d9">시트 정리 대기 '+LF+'건</b> (반품은 등록됨 — 누르면 온라인(완료)로 옮깁니다)';
   });
-  box.innerHTML=_retCard("hr")+_retCard("cr")+_retOnCard()+'<div></div>';
+  box.innerHTML=_bigWrap("ret-hr",RET_KINDS.hr.label,_retCard("hr"))+_bigWrap("ret-cr",RET_KINDS.cr.label,_retCard("cr"))+_retOnCard()+'<div></div>';
   if(typeof _saipProgTick==="function")_saipProgTick();   /* 온라인(준비 중) · 미출고 반영 칸 자리 맞춤 */
 }
 /* ── 코스트코 발주 탭 — 온라인 주문 내역을 사입출고양식으로 변환. 개인정보(수령인/연락처/주소 등)는 읽지도 저장하지도 않음.
@@ -22990,7 +23053,8 @@ function renderSaipAuto(){
   var wLine='<div style="grid-column:1/-1;font-size:12px;font-weight:700;color:'+(wOk?'#047857':'#b91c1c')+'">'
     +(wOk?'🟢 자동화 PC 켜짐'+(W.pc?' ('+_escX(W.pc)+')':'')+(W.busy?' · 지금 등록 중 '+_escX(W.busy):' · 요청을 기다리는 중')
          :'🔴 자동화 PC 신호 없음'+(W&&W.at?' (마지막 '+_escX(_saipFmtAt(W.at))+')':'')+' — 요청은 남길 수 있고, 자동화 PC가 켜지면 처리됩니다')+'</div>';
-  box.innerHTML=wLine+_saipCard("hs")+_saipCard("ds")+_saipCard("cc")+_saipCard("mv")+_saipCard("so")+_saipCard("xc");
+  if(_saipFixEditing()&&box.contains(document.activeElement)){_saipProgTick();return;}   /* 고치는 중이면 다시 그리지 않는다 */
+  box.innerHTML=wLine+["hs","ds","cc","mv","so","xc"].map(function(k){return _bigWrap("saip-"+k,SAIP_KINDS[k].icon+" "+_saipBase(k),_saipCard(k));}).join("");
   _saipProgTick();
 }
 /* 코스트코 버튼 아래 두 줄 — 📒 플레이엠디 매출등록 · 🚚 DSS 송장 입력을 **따로** 완료 표시(2026-10-06 영업2팀).
