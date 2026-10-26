@@ -22523,13 +22523,17 @@ function _saipCheck(k,date){
 /* 카드 맨 위 한 줄 — 검수했는지 · 결과가 무엇인지 */
 function _saipCheckLine(k,date){
   if(!date)return "";
-  if(_saipLogOf(k,date))return "";                                   /* 이미 등록 끝난 날짜는 검수 줄을 안 띄운다 */
+  var dmd=(+date.slice(5,7))+'/'+(+date.slice(8,10));
+  var doneLine=function(why){return '<div style="color:#047857;font-weight:700">✅ '+dmd+' 완료'+(why?' <span style="color:#5b6675;font-weight:600">— '+why+'</span>':'')+'</div>';};
+  /* 등록이 끝난 날짜 — 예전엔 줄을 안 띄웠는데(등록 기록) · '이미 있습니다 — 등록하지 마세요'(플레이엠디에 있음)로 경고처럼 보였다 → '✅ 날짜 완료'(2026-10-26 영업2팀) */
+  if(_saipLogOf(k,date))return doneLine("등록할 건 없음");
   var C=_saipCheck(k,date);
   /* 검수는 했는데 그 날짜 파일·회신 메일이 없었다 — '검수 안 함'이 아니라 '파일 없음'(2026-10-15) */
   var S0=_saipStatusOf(k),nf=!C&&S0&&S0.mode==="preview"&&(S0.items||[]).some(function(x){return x&&x.date===date&&x.status==="nofile";});
   if(nf)return '<div style="color:#5b6675">📭 '+(+date.slice(5,7))+'/'+(+date.slice(8,10))+' '+(k==="cc"?"회신 메일":"파일")+' 없음 — 등록할 것 없음 <span>· '+_escX(_saipFmtAt(S0.at))+' 확인</span></div>';
   if(!C)return '<div style="color:#5b6675">🔍 아직 중복 검수를 안 했습니다 — 등록 버튼을 누르면 먼저 플레이엠디에 이미 있는지 검사하고 미리보기를 보여 줍니다</div>';
   var when=' <span style="color:#5b6675">· '+_escX(_saipFmtAt(C.at))+'</span>';
+  if(C.s==="dup"&&_saipItemDone(k,_saipItemOf(k,date)))return doneLine("플레이엠디에 이미 있어 등록할 건 없음");
   if(C.s==="dup")return '<div style="color:#b45309;font-weight:700">🔍 중복 검수: 플레이엠디에 <b>이미 있습니다</b> — 등록하지 마세요'+when+'</div>';
   if(C.s==="err")return '<div style="color:#b91c1c;font-weight:700">🔍 중복 검수: '+_escX(C.txt)+when+'</div>';
   return '<div style="color:#047857;font-weight:700">🔍 중복 검수: 겹치는 것 없음 — 등록해도 됩니다 <span style="color:#334155;font-weight:600">('+(k==="cc"?'':C.rows+'줄 · ')+C.qty+'개 · '+Number(C.amt||0).toLocaleString()+'원)</span>'+when+'</div>';
@@ -23252,12 +23256,12 @@ function _saipCard(kind,opt){
   if(S.note)h+='<div style="color:#b45309;font-weight:700">ℹ️ '+_escX(_saipShortNote(S.note))+'</div>';
   var fresh=S.at&&Date.now()-new Date(S.at).getTime()<2*3600*1000;   /* 미리보기는 2시간 안의 것만 '이대로 등록'을 띄운다 */
   /* 일주일 중복 확인(S.dates)이면 날짜마다 접어 두고 고른 날짜만 펼친다. 파일 없는 날은 한 줄로 모은다(2026-10-14) */
-  var multi=(S.items||[]).length>1,noFile=[];
+  var multi=(S.items||[]).length>1,noFile=[],doneDays=[];
   if(multi)h+='<div style="margin-top:4px;font-size:12.5px;color:#5b6675">🔍 최근 '+(S.items||[]).length+'일 중복 확인 · '+_escX(_saipFmtAt(S.at))+(kind==="cc"?'':' — 날짜를 누르면 펼칩니다')+'</div>';
   (S.items||[]).forEach(function(it){
-    if(it.status==="saved")return;                                    /* 저장 완료는 위 '등록됨' 줄로 충분하다 */
-    if(it.date&&_saipLogOf(kind,it.date))return;                       /* 등록 기록이 있는 날짜(수기 등록 확인분 포함)는 지난 검사 결과를 안 띄운다(2026-10-20 영업2팀) */
-    if(_saipItemDone(kind,it))return;                                   /* 플레이엠디에 이미 있는 날짜(등록 완료)도 안 띄운다(2026-10-26 영업2팀) */
+    /* 등록이 끝난 날짜(저장 완료 · 등록 기록 · 플레이엠디에 이미 있음)는 내용 없이 아래 '✅ 완료: 날짜' 한 줄로 모은다(2026-10-26 영업2팀 "등록건이 없으면 해당일자 완료로") */
+    var dmd=it.mmdd?(+it.mmdd.slice(0,2))+'/'+(+it.mmdd.slice(2,4)):"";
+    if(it.status==="saved"||(it.date&&_saipLogOf(kind,it.date))||_saipItemDone(kind,it)){if(dmd&&doneDays.indexOf(dmd)<0)doneDays.push(dmd);return;}
     var imd=it.mmdd?(+it.mmdd.slice(0,2))+'/'+(+it.mmdd.slice(2,4)):"";
     if(multi&&it.status==="nofile"){noFile.push(imd);return;}
     if(kind==="cc"&&S.mode==="preview"){h+=_ccPrevLine(it,dv,opt,active,fresh);return;}   /* 코스트코는 날짜마다 한 줄(줄 목록 없음) */
@@ -23290,6 +23294,7 @@ function _saipCard(kind,opt){
     if(iMode==="preview"&&it.status!=="nofile")h+=_saipDateBtns(kind,it,active,iFresh);
     h+=multi?'</details>':'</div>';
   });
+  if(doneDays.length)h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0;color:#047857;font-size:13px;font-weight:700">✅ 완료: '+doneDays.join(", ")+' <span style="color:#5b6675;font-weight:600">— 등록할 건 없음</span></div>';
   if(noFile.length)h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0;color:#5b6675;font-size:13px">📭 '+(kind==="cc"?"회신 메일":"파일")+' 없음: '+noFile.join(", ")+'</div>';
   if(kind==="cc")h+=_ccDssLine();
   return h+'</div>';
