@@ -22437,6 +22437,17 @@ function _ccPrevLine(it,dv,opt,active,fresh){
   return h+'</div>';
 }
 /* 코스트코 카드 맨 아래 — DSS 송장 입력 결과(2026-10-01 영업2팀). 아이디(ckr.…)마다 올린 주문 수, 남은 주문, 오류 */
+/* 등록이 끝난 날짜 — 플레이엠디에 이미 다 있음(status already) · 미리보기에서 이미 있음(창고간이동은 일부만 옮겨진 것도 already라 status만).
+   코스트코는 DSS 송장도 넣을 게 없고 오류가 없을 때만(_ccPrevLine '등록할 것 없음 — 매출 이미 있음') */
+function _saipItemDone(kind,it){
+  if(!it)return false;
+  if(it.status==="already")return true;
+  if(kind==="mv"||it.status!=="preview"||!it.already)return false;
+  if(kind!=="cc")return true;
+  var D=it.dss;if(!D)return true;
+  if((D.errors||[]).length)return false;
+  return !(D.accounts||[]).some(function(a){return !a.same&&(a.orders||0)>0;});
+}
 function _ccDssLine(){
   var D=ccDssStatus;if(!D||!D.at)return "";
   /* DSS 미리보기 결과는 띄우지 않는다 — 날짜별 중복 확인 줄(DSS26·DSS31 건수)로 충분하다(2026-10-14 영업2팀 "DSS송장 10/13 미리보기 전체 내용 필요없습니다").
@@ -22452,6 +22463,7 @@ function _ccDssLine(){
     return t;
   }).join(' · ');
   var ok=D.ok&&!(D.errors||[]).length;
+  if(ok&&!(D.accounts||[]).some(function(a){return a.still>0;}))return "";   /* 다 들어간 송장 입력은 안 띄운다(2026-10-26 "등록이 완료된 건은 안보이게") */
   var h='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'
     +'<span style="font-weight:700;color:'+(ok?(pv?'#1d4ed8':'#047857'):'#b91c1c')+'">'+(ok?(pv?'🔍':'✅'):'❗')+' DSS 송장 '+md+(pv?' 미리보기':'')+'</span>'
     +' <span style="color:#5b6675">· '+_escX(_saipFmtAt(D.at))+' · '+_escX(_saipWho(D.by))+'</span>';
@@ -23169,9 +23181,7 @@ function _saipCard(kind,opt){
   /* 고른 날짜의 등록 기록 — 언제·누가 */
   var dEl=_saipDateEl(kind),dv=dEl&&dEl.value;
   var L=dv?_saipLogOf(kind,dv):null;
-  if(L)h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:3px"><div style="color:#047857;font-weight:700">✅ '+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+' 등록됨 · '+_escX(_saipFmtAt(L.at))+' · '+_escX(_saipWho(L.by))+'</div>'
-    +(L.qty!=null?'<div style="font-weight:600;color:#334155">'+L.qty+'개 · '+Number(L.amt||0).toLocaleString()+'원</div>':'')+'</div>';
-  else if(dv&&(kind==="hs"||kind==="ds")&&dv<=SAIP_BASELINE)h+='<div style="color:#047857;font-weight:700">✅ '+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+' — 기준일('+SAIP_BASELINE+') 이전, 직접 등록한 날짜</div>';
+  /* 등록이 끝난 건은 안 띄운다(2026-10-26 영업2팀 "등록이 완료된 건은 안보이게") — 고른 날짜의 '등록됨' 줄 · 기준일 이전(직접 등록) 안내 · 이미 있는 날짜 · 끝난 DSS 송장 */
   h+=_saipCheckLine(kind,dv);
   /* 요청 상태 */
   var active=_saipReqActive(R);
@@ -23202,6 +23212,7 @@ function _saipCard(kind,opt){
   (S.items||[]).forEach(function(it){
     if(it.status==="saved")return;                                    /* 저장 완료는 위 '등록됨' 줄로 충분하다 */
     if(it.date&&_saipLogOf(kind,it.date))return;                       /* 등록 기록이 있는 날짜(수기 등록 확인분 포함)는 지난 검사 결과를 안 띄운다(2026-10-20 영업2팀) */
+    if(_saipItemDone(kind,it))return;                                   /* 플레이엠디에 이미 있는 날짜(등록 완료)도 안 띄운다(2026-10-26 영업2팀) */
     var imd=it.mmdd?(+it.mmdd.slice(0,2))+'/'+(+it.mmdd.slice(2,4)):"";
     if(multi&&it.status==="nofile"){noFile.push(imd);return;}
     if(kind==="cc"&&S.mode==="preview"){h+=_ccPrevLine(it,dv,opt,active,fresh);return;}   /* 코스트코는 날짜마다 한 줄(줄 목록 없음) */
