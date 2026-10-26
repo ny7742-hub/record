@@ -22407,6 +22407,12 @@ function _ccDssNm(who){
 }
 /* 코스트코 중복 확인 — 날짜마다 한 줄(2026-10-14 영업2팀 "13줄·17줄 내용은 필요없습니다 — 10/13 DSS26 0건 · DSS31 0건 등록할 것 없음 /
    10/14 DSS26 n건 · DSS31 n건 등록건 있음"). 매출(PlayMD 중복 조회)과 DSS 송장(아이디별 넣을 건수, it.dss — saip-watch runPreviewDates)을 합쳐 본다 */
+/* 날짜·내역 접기/펼치기 — 사람이 누른 상태를 기억해 다시 그려도(고친 값 저장·팀 공유 갱신·10초 진행 표시) 그대로 둔다.
+   예전엔 그릴 때마다 '고른 날짜만 펼침'으로 돌아가 10/23을 펼쳐 고치려 하면 다시 접혔다(2026-10-26 영업2팀 "버튼은 누르기 전까지 변경되지 않도록").
+   열쇠 = 종류|날짜(사입출고 날짜 줄) · ccrows|날짜(코스트코 내역). 누른 적 없으면 기본값(고른 날짜 등) */
+var _saipOpen={};
+function _saipOpenAttr(key,def){var o=_saipOpen[key];return (o==null?def:o)?' open':'';}
+function _saipOpenClick(el,key){_saipOpen[key]=!el.parentNode.open;}
 function _ccPrevLine(it,dv,opt,active,fresh){
   var imd=it.mmdd?(+it.mmdd.slice(0,2))+'/'+(+it.mmdd.slice(2,4)):"";
   var D=it.dss,acc=D?(D.accounts||[]).filter(function(a){return !a.same;}):[];
@@ -22431,7 +22437,8 @@ function _ccPrevLine(it,dv,opt,active,fresh){
   if(it.rows&&it.rows.length&&!(opt&&opt.noRows)){
     var nBad=it.rows.filter(function(r){return r.chk==="conflict"||r.chk==="missing";}).length;
     var nFx=Object.keys((((saipFix||{}).cc||{})[it.mmdd])||{}).length;
-    h+='<details'+(it.date===dv||nBad||nFx?' open':'')+' style="margin-top:4px"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#334155">📋 내역 '+it.rows.length+'줄 · '+(it.qty||0)+'개 · '+Number(_saipItemAmt("cc",it)).toLocaleString()+'원'
+    var ok0='ccrows|'+it.date;
+    h+='<details'+_saipOpenAttr(ok0,it.date===dv||nBad||nFx)+' style="margin-top:4px"><summary onclick="_saipOpenClick(this,\''+ok0+'\')" style="cursor:pointer;font-size:12.5px;font-weight:700;color:#334155">📋 내역 '+it.rows.length+'줄 · '+(it.qty||0)+'개 · '+Number(_saipItemAmt("cc",it)).toLocaleString()+'원'
       +(nBad?' <span style="color:#b91c1c">· ⛔ '+nBad+'줄 확인</span>':'')+(nFx?' <span style="color:#b45309">· ✏️ '+nFx+'줄 고침</span>':'')+' — 상품코드·판매가 고치기</summary>'
       +_saipRowList("cc",it.rows,"300px",it.mmdd)+'</details>';
   }
@@ -23254,7 +23261,8 @@ function _saipCard(kind,opt){
     var head='<b>'+imd+'</b> <span style="color:'+t[2]+';font-weight:700">'+t[0]+' '+t[1]+'</span>';
     if(it.rows&&!soDone)head+=' <span style="color:#334155">· '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(_saipItemAmt(kind,it)).toLocaleString()+'원</span>';
     if(multi&&it.already&&!soDone)head+=' <span style="color:#b45309;font-weight:800">· 이미 있음</span>';
-    if(multi)h+='<details'+(it.date===dv?' open':'')+' style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0"><summary style="cursor:pointer;list-style-position:inside">'+head+'</summary>';
+    var ok1=kind+'|'+it.date;
+    if(multi)h+='<details'+_saipOpenAttr(ok1,it.date===dv)+' style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0"><summary onclick="_saipOpenClick(this,\''+ok1+'\')" style="cursor:pointer;list-style-position:inside">'+head+'</summary>';
     else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+head;
     if(it.skipped&&it.skipped.length)h+='<div style="color:#5b6675">⏭ 발송후취소 중 Cafe24 '+it.skipped.length+'줄은 뺐습니다(매장코드 미정)</div>';
     if(kind==="mv"&&it.badRows&&it.badRows.length)h+='<div style="color:#b91c1c;font-weight:700">'+it.badRows.length+'줄이 멈췄습니다 — 아래 빨간 줄의 창고코드·상품코드·수량을 고친 뒤 [🔍 이 날짜 다시 확인]</div>';
