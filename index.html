@@ -22411,7 +22411,7 @@ function _ccPrevLine(it,dv,opt,active,fresh){
     :todo?'<span style="color:#7c3aed;font-weight:800">등록할 건 있음</span>'
     :'<span style="color:#047857;font-weight:800">등록할 것 없음</span>';
   var why=[];
-  if(it.already)why.push('매출 이미 있음');else if(saleTodo)why.push('매출 '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원');
+  if(it.already)why.push('매출 이미 있음');else if(saleTodo)why.push('매출 '+(it.qty||0)+'개 · '+Number(_saipItemAmt("cc",it)).toLocaleString()+'원');
   if(D&&!dssN&&!(D.errors||[]).length)why.push(D.notInDss?'송장 이미 입력':'넣을 송장 없음');
   var h='<div style="margin-top:4px;padding:4px 8px;border-radius:6px;background:'+(it.date===dv?'#f5f3ff':'#f8fafc')+'">'
     +'<div style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline"><b>'+imd+'</b><span>'+dssTxt+'</span><span>— '+res+'</span></div>';
@@ -22423,7 +22423,7 @@ function _ccPrevLine(it,dv,opt,active,fresh){
   if(it.rows&&it.rows.length&&!(opt&&opt.noRows)){
     var nBad=it.rows.filter(function(r){return r.chk==="conflict"||r.chk==="missing";}).length;
     var nFx=Object.keys((((saipFix||{}).cc||{})[it.mmdd])||{}).length;
-    h+='<details'+(it.date===dv||nBad||nFx?' open':'')+' style="margin-top:4px"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#334155">📋 내역 '+it.rows.length+'줄 · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원'
+    h+='<details'+(it.date===dv||nBad||nFx?' open':'')+' style="margin-top:4px"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#334155">📋 내역 '+it.rows.length+'줄 · '+(it.qty||0)+'개 · '+Number(_saipItemAmt("cc",it)).toLocaleString()+'원'
       +(nBad?' <span style="color:#b91c1c">· ⛔ '+nBad+'줄 확인</span>':'')+(nFx?' <span style="color:#b45309">· ✏️ '+nFx+'줄 고침</span>':'')+' — 상품코드·판매가 고치기</summary>'
       +_saipRowList("cc",it.rows,"300px",it.mmdd)+'</details>';
   }
@@ -22484,7 +22484,7 @@ function _saipCheck(k,date){
   if(!it||it.status==="nofile"||(it.mode||S.mode)!=="preview")return null;   /* 날짜 하나만 다시 돌린 결과는 그 날짜에 at·mode가 붙는다(saip-watch mergeStatus) */
   if(Date.now()-new Date(it.at||S.at).getTime()>12*3600*1000)return null;
   if(it.already)return {s:"dup",at:S.at,txt:it.already};
-  if(it.status==="preview")return {s:"ok",at:S.at,qty:it.qty||0,amt:it.amt||0,rows:(it.rows||[]).length};
+  if(it.status==="preview")return {s:"ok",at:S.at,qty:it.qty||0,amt:_saipItemAmt(k,it),rows:(it.rows||[]).length};
   return {s:"err",at:S.at,txt:it.error||(it.bad||[]).join(" ")||"확인이 필요합니다"};
 }
 /* 카드 맨 위 한 줄 — 검수했는지 · 결과가 무엇인지 */
@@ -22514,7 +22514,19 @@ var saipLog=(function(){try{return JSON.parse(localStorage.getItem("saipLog")||"
    줄 열쇠 = 출고일자|쇼핑몰|상품명|수량|공급가|취소 — 같은 줄이 둘이면 같은 코드로 고쳐진다. 반품등록은 따로(ws/retFix) */
 var saipFix=(function(){try{return JSON.parse(localStorage.getItem("saipFix")||"null")||{};}catch(e){return {};}})();
 /* 판매가를 고친 뒤 다시 검사한 줄은 r.unit이 고친 값이라 원래 공급가(origUnit — playmd-hs-saip)로 열쇠를 만든다 */
-var CC_PM_RATE=0.7;   /* 코스트코 PlayMD 매출등록가 = 판매가 × 0.7(2026-10-26 영업2팀, automation/playmd-hs-saip.mjs CC_RATE와 같게) */
+var CC_PM_RATE=0.7;
+/* 줄의 등록 단가 — 고친 판매가(ws/saipFix)를 바로 반영. 코스트코는 판매가(고친 값 › 자동 판매가 r.auto(지금 판매가·행사가) › r.sale) × 0.7.
+   sale = 코스트코 판매가(다른 종류는 null) */
+function _saipUnitOf(kind,mmdd,r){
+  var fx=mmdd?_saipFixOf(kind,mmdd,r):null,fu=fx&&fx.unit!=null;
+  if(kind==="cc"&&r.sale!=null&&!r.cancel){var sale=fu?Number(fx.unit):(r.auto!=null?r.auto:r.sale);return {un:Math.round(sale*CC_PM_RATE),sale:sale,fixed:fu};}
+  return {un:fu?Number(fx.unit):(r.unit||0),sale:null,fixed:fu};
+}
+/* 날짜 합계 금액 — 고친 판매가까지(2026-10-26 영업2팀 "수량에 맞게 계산되게" — 고치면 '내역 n줄 · n개 · 금액'도 바로) */
+function _saipItemAmt(kind,it){
+  if(!it||!it.rows||!it.rows.length||!/^(hs|ds|cc|xc)$/.test(kind))return Number(it&&it.amt)||0;   /* 매출등록 4종만(매장출고 so 줄엔 단가가 없다) */
+  return it.rows.reduce(function(a,r){return a+(r.qty||0)*_saipUnitOf(kind,it.mmdd,r).un;},0);
+}   /* 코스트코 PlayMD 매출등록가 = 판매가 × 0.7(2026-10-26 영업2팀, automation/playmd-hs-saip.mjs CC_RATE와 같게) */
 function _saipFixKey(r){return [r.ymd||"",r.shop||"",r.prod||"",r.qty||0,(r.origUnit!=null?r.origUnit:r.unit)||0,r.cancel?1:0].join("|");}
 function _saipFixEditing(){var a=document.activeElement;return !!(a&&a.dataset&&a.dataset.saipfix);}
 function _saipFixOf(kind,mmdd,r){return (((saipFix||{})[kind]||{})[mmdd]||{})[_saipFixKey(r)]||null;}
@@ -22780,7 +22792,7 @@ function _saipCfShow(kind,date,o){
       +(it.bad&&it.bad.length?'<div style="color:#b91c1c">'+it.bad.map(_escX).join("<br>")+'</div>':'');
     if(kind==="mv"&&it.badRows&&it.badRows.length)h+='<div style="color:#b91c1c;font-weight:700">'+it.badRows.length+'줄이 멈췄습니다 — 사입출고등록 탭 카드에서 창고코드·상품코드·수량을 고친 뒤 다시 검사</div>';
     if(it.rows&&it.rows.length){
-      h+='<div style="margin-top:8px;font-weight:700;color:#334155">미리보기 · '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</div>';
+      h+='<div style="margin-top:8px;font-weight:700;color:#334155">미리보기 · '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(_saipItemAmt(kind,it)).toLocaleString()+'원</div>';
       h+=_saipRowList(kind,it.rows,"50vh",it.mmdd);
     }
     if(kind==="mv"&&it.offRows&&it.offRows.length)h+='<div style="margin-top:4px;color:#b45309;font-weight:700">체크를 뺀 '+it.offRows.length+'줄은 넣지 않습니다 — 나중에 체크하고 다시 등록할 수 있습니다</div>';
@@ -22821,11 +22833,9 @@ function _saipRowList(kind,rows,maxH,mmdd){
     var parts=['<b>'+_escX(_saipModelColor(fxr&&fxr.code?Object.assign({},r,{code:fxr.code}):r))+'</b>',(r.qty||0)+'개'];
     /* 금액 = 수량 × 공급가(원본 결제금액) — 예전엔 개당 공급가만 보여 3개 줄(141,600원)이 47,200원으로 나와 합계와 안 맞았다(2026-10-20 영업2팀 "금액이 다릅니다").
        고친 판매가가 있으면 그 값으로(다시 검사 전에도) */
-    var un=fxr&&fxr.unit!=null?fxr.unit:r.unit;
-    /* 코스트코는 판매가(r.sale) × 0.7로 등록(2026-10-26 영업2팀) — 금액은 등록가, 괄호에 판매가. 행사기간이면 r.sale이 행사가(r.promo) */
-    var sale=r.sale!=null?(fxr&&fxr.unit!=null?fxr.unit:r.sale):null;
-    if(sale!=null)un=Math.round(sale*CC_PM_RATE);
-    if(un||!/→/.test(r.store||""))parts.push(Number((un||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1||sale!=null?' <span style="color:#5b6675;font-size:12px">('+((r.qty||0)>1?'개당 '+Number(un||0).toLocaleString():'')+(sale!=null?((r.qty||0)>1?' · ':'')+(r.promo&&!(fxr&&fxr.unit!=null)?'<b style="color:#be123c">행사가</b> ':'판매가 ')+Number(sale).toLocaleString()+' × '+CC_PM_RATE:'')+')</span>':''));
+    /* 코스트코는 판매가 × 0.7로 등록(2026-10-26 영업2팀) — 금액은 등록가, 괄호에 판매가. 행사기간이면 자동 판매가가 행사가(r.promo) */
+    var U=_saipUnitOf(kind,canFix?mmdd:"",r),un=U.un,sale=U.sale;
+    if(un||!/→/.test(r.store||""))parts.push(Number((un||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1||sale!=null?' <span style="color:#5b6675;font-size:12px">('+((r.qty||0)>1?'개당 '+Number(un||0).toLocaleString():'')+(sale!=null?((r.qty||0)>1?' · ':'')+(r.promo&&!U.fixed?'<b style="color:#be123c">행사가</b> ':'판매가 ')+Number(sale).toLocaleString()+' × '+CC_PM_RATE:'')+')</span>':''));
     parts.push(_escX(_saipStoreNm(r.store)));
     h+='<div title="'+_escX((r.prod||"")+" · "+(r.code||""))+'" style="padding:3px 8px'+(ix?';border-top:1px solid #eef2f6':'')+';overflow-wrap:anywhere">'
       +parts.join(', ')+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+(r.free?' <span style="color:#5b6675;font-size:11px">무상</span>':'')
@@ -22843,7 +22853,8 @@ function _saipRowList(kind,rows,maxH,mmdd){
 /* 줄마다 상품코드 칸 — 고친 코드가 있으면 노란 바탕(원래 시트 코드는 마우스를 올리면) */
 function _saipFixInput(kind,mmdd,r){
   var fx=_saipFixOf(kind,mmdd,r),fc=fx&&fx.code,fu=fx&&fx.unit!=null,v=fc?fx.code:(r.code||"");
-  var ou=r.origUnit!=null?r.origUnit:(r.unit||0),uv=fu?fx.unit:(r.sale!=null?r.sale:(r.unit||0));   /* 코스트코 칸은 판매가(등록은 × 0.7) */
+  var ou=r.origUnit!=null?r.origUnit:(r.unit||0),uv=fu?fx.unit:(r.sale!=null?(r.auto!=null?r.auto:r.sale):(r.unit||0));   /* 코스트코 칸은 판매가(등록은 × 0.7) */
+  if(r.auto!=null)ou=r.auto;   /* 코스트코 — 자동 판매가(지금 판매가·행사가)와 같게 되돌리면 고친 값을 지운다 */
   var common=' data-saipfix="1" data-kind="'+kind+'" data-mmdd="'+_escX(mmdd)+'" data-key="'+_escX(_saipFixKey(r))+'" onchange="saipFixSet(this)" onkeydown="if(event.key===\'Enter\')this.blur()" spellcheck="false"';
   var box='font-size:12px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;font-family:Consolas,monospace;';
   return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:2px;font-size:12px;color:#334155">'
@@ -23139,7 +23150,7 @@ function _saipCard(kind,opt){
     var soDone=kind==="so"&&it.status==="already";                     /* 매장출고: 이미 있으면 '등록완료'로만(2026-10-15 영업2팀) */
     if(soDone)t=["✅","플레이엠디 등록완료","#047857"];
     var head='<b>'+imd+'</b> <span style="color:'+t[2]+';font-weight:700">'+t[0]+' '+t[1]+'</span>';
-    if(it.rows&&!soDone)head+=' <span style="color:#334155">· '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(it.amt||0).toLocaleString()+'원</span>';
+    if(it.rows&&!soDone)head+=' <span style="color:#334155">· '+it.rows.length+'줄'+(it.cancelRows?' (발송후취소 '+it.cancelRows+'줄 · 0원)':'')+' · '+(it.qty||0)+'개 · '+Number(_saipItemAmt(kind,it)).toLocaleString()+'원</span>';
     if(multi&&it.already&&!soDone)head+=' <span style="color:#b45309;font-weight:800">· 이미 있음</span>';
     if(multi)h+='<details'+(it.date===dv?' open':'')+' style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0"><summary style="cursor:pointer;list-style-position:inside">'+head+'</summary>';
     else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+head;
