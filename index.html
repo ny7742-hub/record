@@ -21361,7 +21361,7 @@ function _retLastRun(k){
 function _retMd(ymd){return ymd?(+ymd.slice(4,6))+"/"+(+ymd.slice(6,8)):"";}
 function retPreviewGo(kind){
   var K=RET_KINDS[kind],cur=(saipReq||{})[kind];
-  if(_saipReqActive(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+  if(_saipReqBusy(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
   var P=_retPendingOf(kind);
   if(P&&!P.length&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n"+(kind==="hr"?"(반품리스트 홈쇼핑 탭에 해체일이 적힌 건 중 아직 등록 안 한 것 — 처리보류는 뺌)":"(반품리스트에 처리완료 + 입고일·처리일·해체일이 모두 적힌 건 중 아직 등록 안 한 것)"));return;}
   _retRequest(kind,{mode:"preview"});
@@ -21369,7 +21369,7 @@ function retPreviewGo(kind){
 function retAutoGo(kind,opt){
   opt=opt||{};
   var K=RET_KINDS[kind],cur=(saipReq||{})[kind];
-  if(_saipReqActive(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+  if(_saipReqBusy(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
   var P=_retPendingOf(kind);
   if(P&&!P.length&&!opt.expect&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n"+(kind==="hr"?"(반품리스트 홈쇼핑 탭에 해체일이 적힌 건 중 아직 등록 안 한 것 — 처리보류는 뺌)":"(반품리스트에 처리완료 + 입고일·처리일·해체일이 모두 적힌 건 중 아직 등록 안 한 것)"));return;}
   var msg=K.label+(P?" "+P.length+"건":"")+"을 자동화 PC가 플레이엠디 [EX]사입매장출고반품등록(작업구분 사입반품 · 시트명 사입반품양식)에 저장합니다.\n"
@@ -22622,6 +22622,9 @@ function _saipReqActive(r){
   if(!r||!(r.state==="요청"||r.state==="처리중"))return false;
   return Date.now()-new Date(r.at).getTime()<45*60*1000;      /* 45분 넘은 요청은 멈춘 것으로 본다 */
 }
+/* 버튼을 막을 요청인가 — 자동 중복 검수(auto 미리보기)는 사람이 덮어써도 된다(2026-10-26 영업2팀 "자동화탭 작업시간이 너무 오래").
+   자동화 PC가 날짜 사이에서 자동 검수를 멈추고 사람 요청을 먼저 돌린다(saip-watch runPreviewDates) */
+function _saipReqBusy(r){return _saipReqActive(r)&&!(r.auto&&r.mode==="preview");}
 var SAIP_KINDS={hs:{label:"홈쇼핑",icon:"🛍"},ds:{label:"백화점몰",icon:"🏬"},cc:{label:"코스트코",icon:"🛒"},mv:{label:"창고간이동",icon:"🏭"},so:{label:"매장출고",icon:"🏪"},xc:{label:"발송후취소",icon:"↩"}};
 /* 매출이 아닌 등록(발송후취소·창고간이동·매장출고)은 단추·카드 이름이 '… 등록' */
 function _saipBase(k){return SAIP_KINDS[k].label+(k==="xc"||k==="mv"||k==="so"?" 등록":" 매출등록");}
@@ -22679,7 +22682,7 @@ function saipPreviewGo(kind){
     return;
   }
   var cur=(saipReq||{})[kind];
-  if(_saipReqActive(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+  if(_saipReqBusy(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
   if(dates.indexOf(v)<0){v=dates[dates.length-1];mmdd=v.slice(5,7)+v.slice(8,10);}   /* 고른 날짜가 이미 등록됨 — 나머지 날짜만 */
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,dates:dates,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview"};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
@@ -22705,7 +22708,7 @@ function saipAutoGo(kind,opt){
      (로그인 풀림 등) '송장 입력만' 다시 요청할 수 있게 한다(mode:'dss' — 자동화 PC가 매출등록은 건너뛴다) */
   if(L&&kind==="cc"&&!(ccDssStatus&&ccDssStatus.mmdd===mmdd&&ccDssStatus.mode==="save"&&ccDssStatus.ok)){
     var cur0=(saipReq||{}).cc;
-    if(_saipReqActive(cur0)){alert("코스트코 작업이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+    if(_saipReqBusy(cur0)){alert("코스트코 작업이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
     if(!confirm("코스트코 "+md+" 매출은 이미 등록되었습니다("+_saipFmtAt(L.at)+" · "+(L.by||"?")+").\n\n"
       +"DSS 송장 입력은 아직 끝나지 않았습니다. 송장 입력만 다시 할까요?\n\n"
       +"같은 날짜 회신 메일의 운송장번호를 두 DSS 아이디(자동화 창)에 넣고 [발송완료 진행]까지 합니다. 되돌리기 어렵습니다."))return;
@@ -22728,7 +22731,7 @@ function saipAutoGo(kind,opt){
   }
   /* ② 같은 종류 요청이 아직 진행 중 */
   var cur=(saipReq||{})[kind];
-  if(_saipReqActive(cur)){
+  if(_saipReqBusy(cur)){
     alert(K.label+" 등록이 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+".\n\n"+(+cur.mmdd.slice(0,2))+"/"+(+cur.mmdd.slice(2,4))+" · 요청자 "+(cur.by||"?")+" · "+_saipFmtAt(cur.at)
       +"\n\n끝나면 결과가 카드에 나옵니다. 끝난 뒤 다시 눌러 주세요.");
     return;
@@ -22774,7 +22777,7 @@ function _saipItemOf(k,date){
 function saipConfirmGo(kind){
   var el=_saipDateEl(kind),v=el&&el.value;
   if(!v){alert("등록 날짜를 골라 주세요.");return;}
-  if(_saipLogOf(kind,v)||((kind==="hs"||kind==="ds")&&v<=SAIP_BASELINE)||_saipReqActive((saipReq||{})[kind])){
+  if(_saipLogOf(kind,v)||((kind==="hs"||kind==="ds")&&v<=SAIP_BASELINE)||_saipReqBusy((saipReq||{})[kind])){
     var w0=_saipCfWait[kind];
     if(w0&&w0.date===v&&(saipReq||{})[kind]&&saipReq[kind].id===w0.id){_saipCfShow(kind,v,{wait:true});return;}   /* 내가 건 검사가 도는 중 — 진행 창만 다시 */
     return saipAutoGo(kind,{direct:true});
@@ -22810,7 +22813,7 @@ function saipCfSave(kind,date){
 function saipCfRecheck(kind,date){
   saipCfClose();
   var el=_saipDateEl(kind);if(el){el.value=date;_saipTouched[kind]=true;}
-  if(_saipLogOf(kind,date)||_saipReqActive((saipReq||{})[kind]))return saipAutoGo(kind,{direct:true});
+  if(_saipLogOf(kind,date)||_saipReqBusy((saipReq||{})[kind]))return saipAutoGo(kind,{direct:true});
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:date.slice(5,7)+date.slice(8,10),date:date,dates:[date],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   saipReq[kind]=R;wsSetItem("saipReq",JSON.stringify(saipReq));
@@ -23191,7 +23194,7 @@ function saipPreviewDate(kind,date){
   var K=SAIP_KINDS[kind],md=(+date.slice(5,7))+"/"+(+date.slice(8,10));
   if(_saipLogOf(kind,date)){alert(K.label+" "+md+"는 이미 등록되었습니다.");return;}
   var cur=(saipReq||{})[kind];
-  if(_saipReqActive(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+  if(_saipReqBusy(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:date.slice(5,7)+date.slice(8,10),date:date,dates:[date],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   saipReq[kind]=R;wsSetItem("saipReq",JSON.stringify(saipReq));renderSaipAuto();
