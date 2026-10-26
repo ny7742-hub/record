@@ -8542,6 +8542,12 @@ function wsAutoGo(mode){
 /* 진행 막대 — 자동화 PC가 3초마다 올리는 마지막 줄(saipReq.wsu.progress)로 단계를 채운다(지나간 단계는 기억) */
 var WS_STAGES=[["판매일보 나누기",/하루·채널/],["세일즈 매니지먼트 열기",/로그인:/],["미등록 확인",/올리기 전:/],["올리는 중",/올린 뒤:|올릴 것 없음/],["마무리",/올린 뒤:/]];
 var _wsProgMax={};
+/* 진행 막대 가운데 숫자 — 지금 몇 %(끝난 단계 ÷ 전체, 2026-10-26 영업2팀 "100%가 완료이면 지금 몇 퍼센트를 숫자로").
+   요청만 된 동안 0%, 마지막 단계를 도는 중엔 99%(100%는 끝났을 때 — 끝나면 막대가 사라진다). 막대 그림 폭은 예전처럼 최소 6% */
+function _progPct(wait,n,total){
+  var p=wait||!total?0:Math.min(99,Math.round(n/total*100));
+  return '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0f172a;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff;pointer-events:none">'+p+'%</span>';
+}
 function _wsProgBar(R){
   if(!_saipReqActive(R))return "";
   var list=R.mode==="check"?WS_STAGES.slice(0,3):WS_STAGES;
@@ -8555,7 +8561,7 @@ function _wsProgBar(R){
   var file=(String(R.progress||"").match(/(\d{6}_[^ ]+(?: [^ ]+)?\.xlsx)/)||[])[1];
   var lab=wait?"요청됨 — "+(_saipWatchOk()?"자동화 PC가 곧 시작합니다":"자동화 PC 신호 없음"):(n>=total?"마무리 중":n+"/"+total+" · "+cur+" 중"+(file&&n===3?" ("+file+")":""));
   return '<div style="margin:4px 0">'
-    +'<div style="height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
+    +'<div style="position:relative;height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div>'+_progPct(wait,n,total)+'</div>'
     +'<div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;font-weight:700;color:#155e75;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600;white-space:nowrap">'+el+' 지남 · '+(R.mode==="check"?"확인 보통 30초":"올리기 보통 1~5분")+'</span></div>'
     +(R.state==="처리중"&&R.progress?'<div style="color:#475569;font-size:12.5px">▸ '+_escX(R.progress)+'</div>':'')+'</div>';
 }
@@ -16712,7 +16718,7 @@ function _ocProgBar(R,what){
   var pct=wait?3:Math.max(6,Math.round(n/total*100)),el=sec>=60?Math.floor(sec/60)+"분 "+(sec%60)+"초":sec+"초";
   var lab=wait?"요청됨 — "+(_saipWatchOk()?"자동화 PC가 곧 시작합니다":"자동화 PC 신호 없음 — 켜지면 처리됩니다"):(n+"/"+total+" · "+cur+" 중");
   return '<div style="margin:4px 0 4px">'
-    +'<div style="height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#7c3aed 0 10px,#9f67f5 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
+    +'<div style="position:relative;height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#7c3aed 0 10px,#9f67f5 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div>'+_progPct(wait,n,total)+'</div>'
     +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#5b21b6;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600">'+el+' 지남 · '+D.typ+'</span></div></div>';
 }
 var _ocProgTimer=null;
@@ -22374,7 +22380,7 @@ function _ccProgBar(R,S){
   var lab=g.wait?"요청됨 — "+(_saipWatchOk()?"자동화 PC가 곧 시작합니다":"자동화 PC 신호 없음 — 켜지면 처리됩니다"):(g.n+"/"+g.total+" · "+g.cur+" 중");
   return '<div style="margin:5px 0 3px">'
     +'<div style="position:relative;height:16px;border-radius:9px;background:#e2e8f0;overflow:hidden">'
-    +'<div style="height:100%;width:'+pct+'%;border-radius:9px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
+    +'<div style="height:100%;width:'+pct+'%;border-radius:9px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div>'+_progPct(g.wait,g.n,g.total)+'</div>'
     +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#154f5e;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600">'+el+' 지남 · 보통 3~6분</span></div></div>';
 }
 var _ccProgTimer=null;
@@ -23005,7 +23011,7 @@ function _saipProgBar(kind,R){
   var pct=wait?3:Math.max(6,Math.min(100,Math.round(n/total*100))),el=sec>=60?Math.floor(sec/60)+"분 "+(sec%60)+"초":sec+"초";
   var lab=wait?"요청됨 — "+(_saipWatchOk()?"자동화 PC가 곧 시작합니다":"자동화 PC 신호 없음"):(n>=total?"마무리 중":n+"/"+total+" · "+cur+" 중");
   return '<div style="margin:3px 0 4px">'
-    +'<div style="height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div></div>'
+    +'<div style="position:relative;height:14px;border-radius:8px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;border-radius:8px;background:repeating-linear-gradient(45deg,#1b6e82 0 10px,#2a8ca3 10px 20px);background-size:28px 28px;animation:ccProgMove 1s linear infinite;transition:width .6s"></div>'+_progPct(wait,n,total)+'</div>'
     +'<div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;font-weight:700;color:#155e75;margin-top:2px"><span>⏳ '+_escX(lab)+'</span><span style="color:#5b6675;font-weight:600;white-space:nowrap">'+el+' 지남 · '+(pv?"미리보기 · ":"")+((pv&&SAIP_TYP_PV[kind])||SAIP_TYP[kind]||"")+'</span></div></div>';
 }
 var _saipProgTimer=null;
