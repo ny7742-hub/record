@@ -22822,10 +22822,10 @@ function _saipRowList(kind,rows,maxH,mmdd){
     /* 금액 = 수량 × 공급가(원본 결제금액) — 예전엔 개당 공급가만 보여 3개 줄(141,600원)이 47,200원으로 나와 합계와 안 맞았다(2026-10-20 영업2팀 "금액이 다릅니다").
        고친 판매가가 있으면 그 값으로(다시 검사 전에도) */
     var un=fxr&&fxr.unit!=null?fxr.unit:r.unit;
-    /* 코스트코는 판매가(r.sale) × 0.7로 등록(2026-10-26 영업2팀) — 금액은 등록가, 괄호에 판매가 */
+    /* 코스트코는 판매가(r.sale) × 0.7로 등록(2026-10-26 영업2팀) — 금액은 등록가, 괄호에 판매가. 행사기간이면 r.sale이 행사가(r.promo) */
     var sale=r.sale!=null?(fxr&&fxr.unit!=null?fxr.unit:r.sale):null;
     if(sale!=null)un=Math.round(sale*CC_PM_RATE);
-    if(un||!/→/.test(r.store||""))parts.push(Number((un||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1||sale!=null?' <span style="color:#5b6675;font-size:12px">('+((r.qty||0)>1?'개당 '+Number(un||0).toLocaleString():'')+(sale!=null?((r.qty||0)>1?' · ':'')+'판매가 '+Number(sale).toLocaleString()+' × '+CC_PM_RATE:'')+')</span>':''));
+    if(un||!/→/.test(r.store||""))parts.push(Number((un||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1||sale!=null?' <span style="color:#5b6675;font-size:12px">('+((r.qty||0)>1?'개당 '+Number(un||0).toLocaleString():'')+(sale!=null?((r.qty||0)>1?' · ':'')+(r.promo&&!(fxr&&fxr.unit!=null)?'<b style="color:#be123c">행사가</b> ':'판매가 ')+Number(sale).toLocaleString()+' × '+CC_PM_RATE:'')+')</span>':''));
     parts.push(_escX(_saipStoreNm(r.store)));
     h+='<div title="'+_escX((r.prod||"")+" · "+(r.code||""))+'" style="padding:3px 8px'+(ix?';border-top:1px solid #eef2f6':'')+';overflow-wrap:anywhere">'
       +parts.join(', ')+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+(r.free?' <span style="color:#5b6675;font-size:11px">무상</span>':'')
