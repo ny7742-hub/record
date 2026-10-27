@@ -28707,7 +28707,7 @@ var DEF={
 var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
 var KEY_CUR="jvFloorCur",KEY_SAVED="jvFloorPlans",KEY_USE="jvFloorUse",KEY_CUS="jvFloorCustom",KEY_PHOTO="jvFloorPhoto",KEY_OPT="jvFloorOpt",SNAP=50;
 var CAT={};
-var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true},blocks:[],wallOn:false,wallH:2400};
+var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true},blocks:[],wallOn:false,wallSides:"LBR",wallH:2400};
 var sc=1,ox=30,oy=30,drag=null;
 var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false,drag:null};
 var R3={scene:null,cam:null,ren:null,root:null,EDGE:null,photoTex:null};
@@ -28774,7 +28774,7 @@ function loadUse(){
 }
 function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));localStorage.setItem(KEY_CUS,JSON.stringify(ST.cus));}catch(e){}share("use");share("cus");}
 function saveOpt(){try{localStorage.setItem(KEY_OPT,JSON.stringify({autoOn:ST.autoOn,photoFloor:ST.photoFloor,op:ST.photoOp}));}catch(e){}}
-function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallH:ST.wallH}));}catch(e){}
+function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH}));}catch(e){}
   SH.pendingCur=null;share("cur");}   /* 끄는 사이 들어온 남의 배치는 버리고 내 것을 올린다(마지막에 쓴 사람이 이긴다) */
 function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
 
@@ -28800,16 +28800,16 @@ function changed(){persist();renderPalette();renderSel();renderSum();draw2d();re
    ST.blocks [{n, x0,z0,x1,z1}] — 집기를 놓을 수 없는 칸. 자동 진열·빈 자리 찾기가 피하고, 걸린 집기는 빨강.
    ST.wallOn이면 벽을 그린다: 왼쪽 · 뒤 · 오른쪽(앞 z=D는 통로라 없음) 테두리에서 막힌 칸이 붙은 구간을 빼고, 막힌 칸의 안쪽(드러난) 변을 더한다.
    벽 길이 목록은 시트지 길이와 맞춰 보는 용도. 공간 모양은 현재 배치(cur)·저장 배치에 같이 실려 팀과 공유된다. */
-function shapeFrom(o){ST.blocks=Array.isArray(o&&o.blocks)?o.blocks.map(function(b){var r={n:b.n||"막힌 칸",x0:+b.x0,z0:+b.z0,x1:+b.x1,z1:+b.z1};if(b.o)r.o=1;return r;}):[];ST.wallOn=!!(o&&o.wallOn);ST.wallH=(o&&+o.wallH)||2400;}
+function shapeFrom(o){ST.blocks=Array.isArray(o&&o.blocks)?o.blocks.map(function(b){var r={n:b.n||"막힌 칸",x0:+b.x0,z0:+b.z0,x1:+b.x1,z1:+b.z1};if(b.o)r.o=1;return r;}):[];ST.wallOn=!!(o&&o.wallOn);ST.wallSides=typeof (o&&o.wallSides)==="string"?o.wallSides:"LBR";ST.wallH=(o&&+o.wallH)||2400;}
 function hitBlock(a){for(var i=0;i<ST.blocks.length;i++){var b=ST.blocks[i];if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1)return true;}return false;}
 /* [lo,hi] 구간에서 빼기 목록을 뺀 나머지 구간들 */
 function subRange(lo,hi,cuts){var segs=[[lo,hi]];cuts.forEach(function(c){var nx=[];segs.forEach(function(sg){if(c[1]<=sg[0]||c[0]>=sg[1]){nx.push(sg);return;}if(c[0]>sg[0])nx.push([sg[0],c[0]]);if(c[1]<sg[1])nx.push([c[1],sg[1]]);});segs=nx;});return segs.filter(function(sg){return sg[1]-sg[0]>1;});}
 function walls(){
   if(!ST.wallOn)return [];
-  var W=ST.W,D=ST.D,B=ST.blocks,out=[],E=1;
-  subRange(0,D,B.filter(function(b){return b.x0<=E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"왼쪽 벽",x0:0,z0:r[0],x1:0,z1:r[1]});});
-  subRange(0,W,B.filter(function(b){return b.z0<=E;}).map(function(b){return [b.x0,b.x1];})).forEach(function(r){out.push({n:"뒤 벽",x0:r[0],z0:0,x1:r[1],z1:0});});
-  subRange(0,D,B.filter(function(b){return b.x1>=W-E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"오른쪽 벽",x0:W,z0:r[0],x1:W,z1:r[1]});});
+  var W=ST.W,D=ST.D,B=ST.blocks,out=[],E=1,S=ST.wallSides==null?"LBR":ST.wallSides;   /* 벽 고르기(2026-10-27 영업2팀 "1면 2면 3면") — L 왼쪽 · B 뒤 · R 오른쪽 */
+  if(S.indexOf("L")>=0)subRange(0,D,B.filter(function(b){return b.x0<=E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"왼쪽 벽",x0:0,z0:r[0],x1:0,z1:r[1]});});
+  if(S.indexOf("B")>=0)subRange(0,W,B.filter(function(b){return b.z0<=E;}).map(function(b){return [b.x0,b.x1];})).forEach(function(r){out.push({n:"뒤 벽",x0:r[0],z0:0,x1:r[1],z1:0});});
+  if(S.indexOf("R")>=0)subRange(0,D,B.filter(function(b){return b.x1>=W-E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"오른쪽 벽",x0:W,z0:r[0],x1:W,z1:r[1]});});
   blockEdges().forEach(function(e){out.push(e);});   /* 막힌 칸의 드러난 변(맞닿은 칸끼리는 벽 없음) */
   out.forEach(function(w){w.len=Math.round(Math.hypot(w.x1-w.x0,w.z1-w.z0));});
   return out;
@@ -28823,12 +28823,18 @@ window.fpBlockAdd=function(){
   msg("'"+n+"' "+w+"×"+d+" mm를 막힌 칸으로 넣었습니다.");autoIfOn();
 };
 window.fpBlockDel=function(i){ST.blocks.splice(i,1);autoIfOn();};
-window.fpWall=function(on){ST.wallOn=!!on;changed();};
+window.fpWall=function(on){ST.wallOn=!!on;if(on&&!ST.wallSides)ST.wallSides="LBR";changed();};
+/* 벽 한 면씩 켜고 끄기(2026-10-27 영업2팀 "벽 그리기 1면 2면 3면 선택") — 하나도 안 남으면 벽 끔. 벽이 꺼져 있을 때 누르면 그 면만 */
+window.fpWallSide=function(sd,on){
+  var S=ST.wallOn?(ST.wallSides==null?"LBR":ST.wallSides):"";
+  S="LBR".split("").filter(function(c){return c===sd?on:S.indexOf(c)>=0;}).join("");
+  ST.wallSides=S;ST.wallOn=S.length>0;changed();
+};
 window.fpWallH=function(v){var n=clampMm(v,500,6000);if(n==null){renderShape();return;}ST.wallH=n;changed();};
 /* 실측 도면(2026-10-15 영업2팀) 한 번에 — 7,200×8,400 · 뒤 오른쪽 창고 2,100×2,700 · 벽(앞 통로) */
 window.fpShapeDrawing=function(){
   ST.W=7200;ST.D=8400;$("fpW").value=7200;$("fpD").value=8400;T3.rad=Math.max(ST.W,ST.D)/1000*1.5+2;
-  ST.blocks=[{n:"창고",x0:5100,z0:0,x1:7200,z1:2700}];ST.wallOn=true;
+  ST.blocks=[{n:"창고",x0:5100,z0:0,x1:7200,z1:2700}];ST.wallOn=true;ST.wallSides="LBR";
   msg("실측 도면 공간(7,200 × 8,400, 뒤 오른쪽 창고 2,100 × 2,700, 벽 · 앞 통로)을 넣었습니다.");
   window.fpAuto(true);
 };
@@ -28839,7 +28845,8 @@ function renderShape(){
     +'<b style="color:#154f5e">공간 모양</b>'
     +'<span>막힌 칸 <input id="fpBkN" value="창고" style="'+inp+';width:56px"> <select id="fpBkP" style="'+inp+'"><option value="BR">뒤 오른쪽</option><option value="BL">뒤 왼쪽</option><option value="FR">앞 오른쪽</option><option value="FL">앞 왼쪽</option></select>'
     +' <input id="fpBkW" type="number" min="100" step="100" value="2100" style="'+inp+';width:64px">×<input id="fpBkD" type="number" min="100" step="100" value="2700" style="'+inp+';width:64px"> mm <button onclick="fpBlockAdd()" style="'+bt+'">추가</button></span>'
-    +'<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" '+(ST.wallOn?'checked':'')+' onchange="fpWall(this.checked)" style="margin:0">벽 그리기(앞은 통로)</label>'
+    +'<span style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;flex-wrap:wrap">벽 그리기'+[["L","왼쪽"],["B","뒤"],["R","오른쪽"]].map(function(x){var on=ST.wallOn&&(ST.wallSides==null?"LBR":ST.wallSides).indexOf(x[0])>=0;
+      return '<label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" '+(on?'checked':'')+' onchange="fpWallSide(\''+x[0]+'\',this.checked)" style="margin:0">'+x[1]+'</label>';}).join('')+'<span style="color:#5b6675">(앞은 통로)</span></span>'
     +'<span>벽 높이 <input type="number" min="500" step="100" value="'+ST.wallH+'" onchange="fpWallH(this.value)" style="'+inp+';width:60px"></span>'
     +'<button onclick="fpShapeDrawing()" style="'+bt+';border-color:#99f6e4;background:#f0fdfa;color:#0f766e" title="7,200×8,400 · 뒤 오른쪽 창고 2,100×2,700 · 벽">📐 실측 도면(7,200×8,400 · 창고)</button>'
     +'<button onclick="fpShpOpen()" style="'+bt+';border-color:#99f6e4;background:#f0fdfa;color:#0f766e" title="공간 모양을 그린 그림을 올리면 직사각형이 아닌 공간도 평면도에 반영합니다">🖼 공간 그림으로 모양 잡기</button></div>';
@@ -29386,7 +29393,7 @@ window.fpSize=function(){
 window.fpSave=function(){
   var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다)","");
   if(!name)return;name=name.trim();if(!name)return;
-  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallH:ST.wallH,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
+  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){msg("저장하지 못했습니다(브라우저 저장공간).",true);return;}
   share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
 };
@@ -29738,7 +29745,7 @@ window.fpAdd=function(t,at){
   changed();
 };
 window.fpRot=function(step){var it=findItem(ST.sel);if(!it)return;it.r=((it.r+(step||90))%360+360)%360;changed();};
-window.fpSetRot=function(v){var it=findItem(ST.sel),n=parseFloat(v);if(!it||isNaN(n))return;it.r=((Math.round(n/45)*45)%360+360)%360;changed();};
+window.fpSetRot=function(v){var it=findItem(ST.sel),n=parseFloat(v);if(!it||isNaN(n))return;it.r=((Math.round(n)%360)+360)%360;changed();};   /* 각도는 1° 단위로 직접(2026-10-27 영업2팀 "원하는 숫자를 넣으면") — 예전엔 45° 단위로 맞췄다 */
 window.fpFlip=function(){var it=findItem(ST.sel);if(!it)return;it.f=!it.f;changed();};
 /* 복사(2026-10-15 영업2팀 "평면도에서 집기를 선택해서 복사") — 선택한 집기와 같은 종류·방향으로 바로 옆(오른쪽 → 아래 → 왼쪽 → 위) 빈자리에, 없으면 빈 자리.
    복제 버튼 · Ctrl+D · Ctrl+C 뒤 Ctrl+V(여러 번 붙여 넣기). 보유를 넘으면 놓되 알린다 */
@@ -29809,7 +29816,8 @@ function renderSel(){
    +'<button onclick="fpRot(90)" title="R" style="'+bt+'">↻ 90°</button>'
    +'<button onclick="fpRot(45)" title="Shift+R" style="'+bt+'">↻ 45°</button>'
    +'<button onclick="fpRot(-45)" style="'+bt+'">↺ 45°</button>'
-   +'<select onchange="fpSetRot(this.value)" title="방향" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">'+[0,45,90,135,180,225,270,315].map(function(a){return '<option value="'+a+'"'+(a===it.r?' selected':'')+'>'+a+'°</option>';}).join('')+'</select>'
+   +'<span style="display:inline-flex;align-items:center;gap:2px;font-size:12.5px;color:#334155" title="각도를 숫자로 넣고 Enter(0~359°, 목록에서 45° 단위도 고를 수 있음)">각도 <input type="number" min="0" max="359" step="1" list="fpRotList" value="'+(Math.round(it.r*10)/10)+'" onchange="fpSetRot(this.value)" style="width:64px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">°</span>'
+   +'<datalist id="fpRotList">'+[0,45,90,135,180,225,270,315].map(function(a){return '<option value="'+a+'">';}).join('')+'</datalist>'
    +(c.k==="shelf"?'<button onclick="fpFlip()" style="'+bt+'">↔ 좌우반전</button>':'')
    +'<button onclick="fpDup()" title="옆 빈자리에 같은 집기 하나 더 (Ctrl+D · Ctrl+C → Ctrl+V)" style="'+bt+'">📋 복사</button>'
    +'<button onclick="fpDel()" style="'+bt+';color:#9a3412">삭제</button>'
@@ -30579,7 +30587,7 @@ function canShare(){
 }
 function meName(){try{if(_authMe&&_authMe.name)return String(_authMe.name);if(_authUser&&_authUser.email)return String(_authUser.email).split("@")[0];}catch(e){}return "";}
 var SRC={
-  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallH:ST.wallH});},
+  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH});},
   use:function(){return JSON.stringify(ST.use);},
   cus:function(){return JSON.stringify(ST.cus);},
   plans:function(){try{return localStorage.getItem(KEY_SAVED)||"{}";}catch(e){return "{}";}},
@@ -30764,7 +30772,7 @@ var DEF={
 var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
 var KEY_CUR="jvFloorCur2",KEY_SAVED="jvFloorPlans2",KEY_USE="jvFloorUse2",KEY_CUS="jvFloorCustom2",KEY_PHOTO="jvFloorPhoto2",KEY_OPT="jvFloorOpt2",SNAP=50;
 var CAT={};
-var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true},blocks:[],wallOn:false,wallH:2400};
+var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true},blocks:[],wallOn:false,wallSides:"LBR",wallH:2400};
 var sc=1,ox=30,oy=30,drag=null;
 var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false,drag:null};
 var R3={scene:null,cam:null,ren:null,root:null,EDGE:null,photoTex:null};
@@ -30831,7 +30839,7 @@ function loadUse(){
 }
 function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));localStorage.setItem(KEY_CUS,JSON.stringify(ST.cus));}catch(e){}share("use");share("cus");}
 function saveOpt(){try{localStorage.setItem(KEY_OPT,JSON.stringify({autoOn:ST.autoOn,photoFloor:ST.photoFloor,op:ST.photoOp}));}catch(e){}}
-function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallH:ST.wallH}));}catch(e){}
+function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH}));}catch(e){}
   SH.pendingCur=null;share("cur");}   /* 끄는 사이 들어온 남의 배치는 버리고 내 것을 올린다(마지막에 쓴 사람이 이긴다) */
 function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
 
@@ -30857,16 +30865,16 @@ function changed(){persist();renderPalette();renderSel();renderSum();draw2d();re
    ST.blocks [{n, x0,z0,x1,z1}] — 집기를 놓을 수 없는 칸. 자동 진열·빈 자리 찾기가 피하고, 걸린 집기는 빨강.
    ST.wallOn이면 벽을 그린다: 왼쪽 · 뒤 · 오른쪽(앞 z=D는 통로라 없음) 테두리에서 막힌 칸이 붙은 구간을 빼고, 막힌 칸의 안쪽(드러난) 변을 더한다.
    벽 길이 목록은 시트지 길이와 맞춰 보는 용도. 공간 모양은 현재 배치(cur)·저장 배치에 같이 실려 팀과 공유된다. */
-function shapeFrom(o){ST.blocks=Array.isArray(o&&o.blocks)?o.blocks.map(function(b){var r={n:b.n||"막힌 칸",x0:+b.x0,z0:+b.z0,x1:+b.x1,z1:+b.z1};if(b.o)r.o=1;return r;}):[];ST.wallOn=!!(o&&o.wallOn);ST.wallH=(o&&+o.wallH)||2400;}
+function shapeFrom(o){ST.blocks=Array.isArray(o&&o.blocks)?o.blocks.map(function(b){var r={n:b.n||"막힌 칸",x0:+b.x0,z0:+b.z0,x1:+b.x1,z1:+b.z1};if(b.o)r.o=1;return r;}):[];ST.wallOn=!!(o&&o.wallOn);ST.wallSides=typeof (o&&o.wallSides)==="string"?o.wallSides:"LBR";ST.wallH=(o&&+o.wallH)||2400;}
 function hitBlock(a){for(var i=0;i<ST.blocks.length;i++){var b=ST.blocks[i];if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1)return true;}return false;}
 /* [lo,hi] 구간에서 빼기 목록을 뺀 나머지 구간들 */
 function subRange(lo,hi,cuts){var segs=[[lo,hi]];cuts.forEach(function(c){var nx=[];segs.forEach(function(sg){if(c[1]<=sg[0]||c[0]>=sg[1]){nx.push(sg);return;}if(c[0]>sg[0])nx.push([sg[0],c[0]]);if(c[1]<sg[1])nx.push([c[1],sg[1]]);});segs=nx;});return segs.filter(function(sg){return sg[1]-sg[0]>1;});}
 function walls(){
   if(!ST.wallOn)return [];
-  var W=ST.W,D=ST.D,B=ST.blocks,out=[],E=1;
-  subRange(0,D,B.filter(function(b){return b.x0<=E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"왼쪽 벽",x0:0,z0:r[0],x1:0,z1:r[1]});});
-  subRange(0,W,B.filter(function(b){return b.z0<=E;}).map(function(b){return [b.x0,b.x1];})).forEach(function(r){out.push({n:"뒤 벽",x0:r[0],z0:0,x1:r[1],z1:0});});
-  subRange(0,D,B.filter(function(b){return b.x1>=W-E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"오른쪽 벽",x0:W,z0:r[0],x1:W,z1:r[1]});});
+  var W=ST.W,D=ST.D,B=ST.blocks,out=[],E=1,S=ST.wallSides==null?"LBR":ST.wallSides;   /* 벽 고르기(2026-10-27 영업2팀 "1면 2면 3면") — L 왼쪽 · B 뒤 · R 오른쪽 */
+  if(S.indexOf("L")>=0)subRange(0,D,B.filter(function(b){return b.x0<=E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"왼쪽 벽",x0:0,z0:r[0],x1:0,z1:r[1]});});
+  if(S.indexOf("B")>=0)subRange(0,W,B.filter(function(b){return b.z0<=E;}).map(function(b){return [b.x0,b.x1];})).forEach(function(r){out.push({n:"뒤 벽",x0:r[0],z0:0,x1:r[1],z1:0});});
+  if(S.indexOf("R")>=0)subRange(0,D,B.filter(function(b){return b.x1>=W-E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"오른쪽 벽",x0:W,z0:r[0],x1:W,z1:r[1]});});
   blockEdges().forEach(function(e){out.push(e);});   /* 막힌 칸의 드러난 변(맞닿은 칸끼리는 벽 없음) */
   out.forEach(function(w){w.len=Math.round(Math.hypot(w.x1-w.x0,w.z1-w.z0));});
   return out;
@@ -30880,12 +30888,18 @@ window.fp2BlockAdd=function(){
   msg("'"+n+"' "+w+"×"+d+" mm를 막힌 칸으로 넣었습니다.");autoIfOn();
 };
 window.fp2BlockDel=function(i){ST.blocks.splice(i,1);autoIfOn();};
-window.fp2Wall=function(on){ST.wallOn=!!on;changed();};
+window.fp2Wall=function(on){ST.wallOn=!!on;if(on&&!ST.wallSides)ST.wallSides="LBR";changed();};
+/* 벽 한 면씩 켜고 끄기(2026-10-27 영업2팀 "벽 그리기 1면 2면 3면 선택") — 하나도 안 남으면 벽 끔. 벽이 꺼져 있을 때 누르면 그 면만 */
+window.fp2WallSide=function(sd,on){
+  var S=ST.wallOn?(ST.wallSides==null?"LBR":ST.wallSides):"";
+  S="LBR".split("").filter(function(c){return c===sd?on:S.indexOf(c)>=0;}).join("");
+  ST.wallSides=S;ST.wallOn=S.length>0;changed();
+};
 window.fp2WallH=function(v){var n=clampMm(v,500,6000);if(n==null){renderShape();return;}ST.wallH=n;changed();};
 /* 실측 도면(2026-10-15 영업2팀) 한 번에 — 7,200×8,400 · 뒤 오른쪽 창고 2,100×2,700 · 벽(앞 통로) */
 window.fp2ShapeDrawing=function(){
   ST.W=7200;ST.D=8400;$("fp2W").value=7200;$("fp2D").value=8400;T3.rad=Math.max(ST.W,ST.D)/1000*1.5+2;
-  ST.blocks=[{n:"창고",x0:5100,z0:0,x1:7200,z1:2700}];ST.wallOn=true;
+  ST.blocks=[{n:"창고",x0:5100,z0:0,x1:7200,z1:2700}];ST.wallOn=true;ST.wallSides="LBR";
   msg("실측 도면 공간(7,200 × 8,400, 뒤 오른쪽 창고 2,100 × 2,700, 벽 · 앞 통로)을 넣었습니다.");
   window.fp2Auto(true);
 };
@@ -30896,7 +30910,8 @@ function renderShape(){
     +'<b style="color:#154f5e">공간 모양</b>'
     +'<span>막힌 칸 <input id="fp2BkN" value="창고" style="'+inp+';width:56px"> <select id="fp2BkP" style="'+inp+'"><option value="BR">뒤 오른쪽</option><option value="BL">뒤 왼쪽</option><option value="FR">앞 오른쪽</option><option value="FL">앞 왼쪽</option></select>'
     +' <input id="fp2BkW" type="number" min="100" step="100" value="2100" style="'+inp+';width:64px">×<input id="fp2BkD" type="number" min="100" step="100" value="2700" style="'+inp+';width:64px"> mm <button onclick="fp2BlockAdd()" style="'+bt+'">추가</button></span>'
-    +'<label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" '+(ST.wallOn?'checked':'')+' onchange="fp2Wall(this.checked)" style="margin:0">벽 그리기(앞은 통로)</label>'
+    +'<span style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap;flex-wrap:wrap">벽 그리기'+[["L","왼쪽"],["B","뒤"],["R","오른쪽"]].map(function(x){var on=ST.wallOn&&(ST.wallSides==null?"LBR":ST.wallSides).indexOf(x[0])>=0;
+      return '<label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap"><input type="checkbox" '+(on?'checked':'')+' onchange="fp2WallSide(\''+x[0]+'\',this.checked)" style="margin:0">'+x[1]+'</label>';}).join('')+'<span style="color:#5b6675">(앞은 통로)</span></span>'
     +'<span>벽 높이 <input type="number" min="500" step="100" value="'+ST.wallH+'" onchange="fp2WallH(this.value)" style="'+inp+';width:60px"></span>'
     +'<button onclick="fp2ShapeDrawing()" style="'+bt+';border-color:#99f6e4;background:#f0fdfa;color:#0f766e" title="7,200×8,400 · 뒤 오른쪽 창고 2,100×2,700 · 벽">📐 실측 도면(7,200×8,400 · 창고)</button>'
     +'<button onclick="fp2ShpOpen()" style="'+bt+';border-color:#99f6e4;background:#f0fdfa;color:#0f766e" title="공간 모양을 그린 그림을 올리면 직사각형이 아닌 공간도 평면도에 반영합니다">🖼 공간 그림으로 모양 잡기</button></div>';
@@ -31443,7 +31458,7 @@ window.fp2Size=function(){
 window.fp2Save=function(){
   var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다)","");
   if(!name)return;name=name.trim();if(!name)return;
-  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallH:ST.wallH,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
+  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){msg("저장하지 못했습니다(브라우저 저장공간).",true);return;}
   share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
 };
@@ -31795,7 +31810,7 @@ window.fp2Add=function(t,at){
   changed();
 };
 window.fp2Rot=function(step){var it=findItem(ST.sel);if(!it)return;it.r=((it.r+(step||90))%360+360)%360;changed();};
-window.fp2SetRot=function(v){var it=findItem(ST.sel),n=parseFloat(v);if(!it||isNaN(n))return;it.r=((Math.round(n/45)*45)%360+360)%360;changed();};
+window.fp2SetRot=function(v){var it=findItem(ST.sel),n=parseFloat(v);if(!it||isNaN(n))return;it.r=((Math.round(n)%360)+360)%360;changed();};   /* 각도는 1° 단위로 직접(2026-10-27 영업2팀 "원하는 숫자를 넣으면") — 예전엔 45° 단위로 맞췄다 */
 window.fp2Flip=function(){var it=findItem(ST.sel);if(!it)return;it.f=!it.f;changed();};
 /* 복사(2026-10-15 영업2팀 "평면도에서 집기를 선택해서 복사") — 선택한 집기와 같은 종류·방향으로 바로 옆(오른쪽 → 아래 → 왼쪽 → 위) 빈자리에, 없으면 빈 자리.
    복제 버튼 · Ctrl+D · Ctrl+C 뒤 Ctrl+V(여러 번 붙여 넣기). 보유를 넘으면 놓되 알린다 */
@@ -31866,7 +31881,8 @@ function renderSel(){
    +'<button onclick="fp2Rot(90)" title="R" style="'+bt+'">↻ 90°</button>'
    +'<button onclick="fp2Rot(45)" title="Shift+R" style="'+bt+'">↻ 45°</button>'
    +'<button onclick="fp2Rot(-45)" style="'+bt+'">↺ 45°</button>'
-   +'<select onchange="fp2SetRot(this.value)" title="방향" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">'+[0,45,90,135,180,225,270,315].map(function(a){return '<option value="'+a+'"'+(a===it.r?' selected':'')+'>'+a+'°</option>';}).join('')+'</select>'
+   +'<span style="display:inline-flex;align-items:center;gap:2px;font-size:12.5px;color:#334155" title="각도를 숫자로 넣고 Enter(0~359°, 목록에서 45° 단위도 고를 수 있음)">각도 <input type="number" min="0" max="359" step="1" list="fp2RotList" value="'+(Math.round(it.r*10)/10)+'" onchange="fp2SetRot(this.value)" style="width:64px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">°</span>'
+   +'<datalist id="fp2RotList">'+[0,45,90,135,180,225,270,315].map(function(a){return '<option value="'+a+'">';}).join('')+'</datalist>'
    +(c.k==="shelf"?'<button onclick="fp2Flip()" style="'+bt+'">↔ 좌우반전</button>':'')
    +'<button onclick="fp2Dup()" title="옆 빈자리에 같은 집기 하나 더 (Ctrl+D · Ctrl+C → Ctrl+V)" style="'+bt+'">📋 복사</button>'
    +'<button onclick="fp2Del()" style="'+bt+';color:#9a3412">삭제</button>'
@@ -32636,7 +32652,7 @@ function canShare(){
 }
 function meName(){try{if(_authMe&&_authMe.name)return String(_authMe.name);if(_authUser&&_authUser.email)return String(_authUser.email).split("@")[0];}catch(e){}return "";}
 var SRC={
-  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallH:ST.wallH});},
+  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH});},
   use:function(){return JSON.stringify(ST.use);},
   cus:function(){return JSON.stringify(ST.cus);},
   plans:function(){try{return localStorage.getItem(KEY_SAVED)||"{}";}catch(e){return "{}";}},
