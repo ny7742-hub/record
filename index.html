@@ -8535,7 +8535,7 @@ function wsAutoGo(mode){
   if(mode==="upload"&&!confirm("세일즈 매니지먼트에 판매일보를 지금 올립니다.\n\n오늘 받은 PlayMD 판매일보에서 백화점·홈쇼핑·코코 온라인·코코 직매입을 하루 단위 파일(예: 261008_백화점)로 나눠,\n세일즈 매니지먼트에 미등록이거나 일부만 들어간 날만 올립니다(어제까지). 이미 있는 거래는 세일즈 매니지먼트가 건너뜁니다.\n\n진행할까요?"))return;
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:mode};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq.wsu=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet("wsu",R);
   renderWsAuto();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 합니다.");
 }
@@ -12170,7 +12170,7 @@ function dsPmsGo(){
   if(!confirm("["+mk+"] PlayMD 매장판매일보를 지금 받아 PLAY MD 칸을 채웁니다.\n\n기간 "+_dsYmd(first)+" ~ "+_dsYmd(to)+" · 매장구분 전체\n자동화 PC가 받아 자비스에 올립니다(2~4분).\n\n빈 칸은 바로 채우고, 이미 적힌 값과 다른 칸은 받은 뒤 따로 여쭙니다."))return;
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",ym:mk,from:_dsYmd(first),to:_dsYmd(to)};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq.pms=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet("pms",R);
   _dsPmsMine=R.id;dsPmsRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 받습니다.");
 }
@@ -14979,7 +14979,7 @@ function unshipFetchMail(){
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:me,at:new Date().toISOString(),state:"요청"};
   _unshipMailWant=R.at;
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq.wf=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet("wf",R);
   /* 3분 안에 안 오면 버튼 복구 */
   setTimeout(function(){
     if(!_unshipMailWant)return;
@@ -15248,7 +15248,7 @@ function unshipRegister(){
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:me,at:new Date().toISOString(),state:"요청",wh:wh,ymd:ymd,rows:rows,mode:"save"};
   _usSaipWant=R.at;
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq.us=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet("us",R);
   setTimeout(function(){
     if(!_usSaipWant)return;
     _usSaipWant="";
@@ -16665,7 +16665,7 @@ function ocAutoPull(){
   if(orderConvRows.length&&!confirm("지금 표("+orderConvRows.length+"줄)를 PlayMD에서 새로 받은 주문배분현황으로 바꿉니다. 진행할까요?"))return;
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"pull"};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq.wp=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet("wp",R);
   try{localStorage.setItem("ocSrcWant",R.at);}catch(e){}
   ocAutoRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 처리됩니다.");
@@ -16704,7 +16704,7 @@ function ocAutoMail(){
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send",
     fileName:_wholesaleFileName(),b64:b64,lines:orderConvRows.length,stores:sl};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq.wm=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet("wm",R);
   ocAutoRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 보냅니다.");
 }
@@ -21391,8 +21391,7 @@ function retAutoGo(kind,opt){
 function _retRequest(kind,o){
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:o.mode,expect:o.expect||""};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq[kind]=R;
-  wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet(kind,R);
   renderRetAuto();
   if(!_saipWatchOk())alert((o.mode==="preview"?"미리보기":"등록")+" 요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다(꺼져 있거나 요청 받기 프로그램이 안 돌고 있음).\n자동화 PC를 켜면 이어서 처리됩니다.");
 }
@@ -22265,7 +22264,7 @@ function ccAutoGo(mode){
       +"\n\n하이웍스 임시보관함에 같은 제목 초안이 있으면, 보낸 뒤 그 초안은 지워 주세요(먼저 초안을 보냈으면 자동화가 알아채고 다시 보내지 않습니다).\n\n보낼까요?"))return;
     var Rs={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:today.slice(5,7)+today.slice(8,10),date:today,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send"};
     if(!saipReq||typeof saipReq!=="object")saipReq={};
-    saipReq.co=Rs;wsSetItem("saipReq",JSON.stringify(saipReq));ccAutoRender();
+    _saipReqSet("co",Rs);ccAutoRender();
     if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 보냅니다.");
     return;
   }
@@ -22280,7 +22279,7 @@ function ccAutoGo(mode){
   if(!confirm(msg))return;
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:today.slice(5,7)+today.slice(8,10),date:today,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:mode};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq.co=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet("co",R);
   ccAutoRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다(꺼져 있거나 요청 받기 프로그램이 안 돌고 있음). 켜지면 이어서 처리됩니다.");
 }
@@ -22613,6 +22612,23 @@ function saipFixSet(el){
   setTimeout(function(){if(!_saipFixEditing()&&typeof renderSaipAuto==="function")renderSaipAuto();},0);
 }
 var saipReq=(function(){try{return JSON.parse(localStorage.getItem("saipReq")||"null")||{};}catch(e){return {};}})();
+/* 요청 남기기 — 내 칸(kind)만 바꾼다(2026-10-28 영업2팀 "늦어지는 이유는?"). 예전엔 이 화면이 들고 있던 saipReq를 통째로 써서,
+   1~2초 늦은 복사본이면 자동화 PC가 막 적은 다른 칸의 '끝'을 '처리중'으로 되돌렸다(10/28 08:32 코스트코 발주를 누른 순간 도매 불러오기가 3/5에서 멈춤).
+   그래서 서버의 지금 값을 읽어 그 칸만 고치는 transaction으로 쓴다(자동화 PC는 ETag로 다시 읽어 쓰므로 서로 안 덮는다) */
+function _saipReqSet(kind,R){
+  if(!saipReq||typeof saipReq!=="object")saipReq={};
+  saipReq[kind]=R;
+  try{localStorage.setItem("saipReq",JSON.stringify(saipReq));}catch(e){}
+  if(WS_LOCAL_ONLY)return;
+  if(_authState!=="member"&&_authState!=="open")return;
+  try{
+    fbDB.ref("ws/saipReq").transaction(function(cur){
+      var o={};
+      if(typeof cur==="string"){try{o=JSON.parse(cur)||{};}catch(e){o={};}}else if(cur&&typeof cur==="object")o=cur;
+      o[kind]=R;return JSON.stringify(o);
+    },function(err){if(err)console.warn("saipReq 요청 저장 오류",err);},false);
+  }catch(e){console.warn("saipReq 요청 저장 오류",e);}
+}
 var saipWatch=(function(){try{return JSON.parse(localStorage.getItem("saipWatch")||"null");}catch(e){return null;}})();
 var SAIP_BASELINE="2026-09-23";                 /* 홈쇼핑·백화점몰은 이 날짜까지 사람이 직접 등록했다(자동화 기준일) */
 function _saipMe(){
@@ -22693,8 +22709,7 @@ function saipPreviewGo(kind){
   if(dates.indexOf(v)<0){v=dates[dates.length-1];mmdd=v.slice(5,7)+v.slice(8,10);}   /* 고른 날짜가 이미 등록됨 — 나머지 날짜만 */
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,dates:dates,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview"};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq[kind]=R;
-  wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet(kind,R);
   renderSaipAuto();
   if(!_saipWatchOk())alert("미리보기 요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다 — 자동화 PC가 켜지면 처리됩니다.");
 }
@@ -22721,7 +22736,7 @@ function saipAutoGo(kind,opt){
       +"같은 날짜 회신 메일의 운송장번호를 두 DSS 아이디(자동화 창)에 넣고 [발송완료 진행]까지 합니다. 되돌리기 어렵습니다."))return;
     var R0={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"dss"};
     if(!saipReq||typeof saipReq!=="object")saipReq={};
-    saipReq.cc=R0;wsSetItem("saipReq",JSON.stringify(saipReq));renderSaipAuto();
+    _saipReqSet("cc",R0);renderSaipAuto();
     return;
   }
   if(L){
@@ -22766,8 +22781,7 @@ function saipAutoGo(kind,opt){
   if(!opt.confirmed&&!confirm(msg))return;
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"save",expect:opt.expect||"",merge:!!opt.merge};   /* merge — 날짜 칸의 [등록]: 결과를 카드의 그 날짜에만 끼운다 */
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq[kind]=R;
-  wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet(kind,R);
   renderSaipAuto();
   if(!_saipWatchOk())alert("등록 요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다(꺼져 있거나 요청 받기 프로그램이 안 돌고 있음).\n자동화 PC를 켜면 이어서 처리됩니다.");
 }
@@ -22794,7 +22808,7 @@ function saipConfirmGo(kind){
   if(it&&it.mode==="preview"&&it.at&&!fixed&&Date.now()-new Date(it.at).getTime()<SAIP_CF_FRESH){_saipCfShow(kind,v);return;}
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:v.slice(5,7)+v.slice(8,10),date:v,dates:[v],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq[kind]=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet(kind,R);
   _saipCfWait[kind]={id:R.id,date:v,at:Date.now()};
   renderSaipAuto();
   _saipCfShow(kind,v,{wait:true});
@@ -22823,7 +22837,7 @@ function saipCfRecheck(kind,date){
   if(_saipLogOf(kind,date)||_saipReqBusy((saipReq||{})[kind]))return saipAutoGo(kind,{direct:true});
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:date.slice(5,7)+date.slice(8,10),date:date,dates:[date],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq[kind]=R;wsSetItem("saipReq",JSON.stringify(saipReq));
+  _saipReqSet(kind,R);
   _saipCfWait[kind]={id:R.id,date:date,at:Date.now()};
   renderSaipAuto();_saipCfShow(kind,date,{wait:true});
 }
@@ -23204,7 +23218,7 @@ function saipPreviewDate(kind,date){
   if(_saipReqBusy(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:date.slice(5,7)+date.slice(8,10),date:date,dates:[date],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
-  saipReq[kind]=R;wsSetItem("saipReq",JSON.stringify(saipReq));renderSaipAuto();
+  _saipReqSet(kind,R);renderSaipAuto();
   if(!_saipWatchOk())alert("확인 요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다 — 자동화 PC가 켜지면 처리됩니다.");
 }
 /* 날짜 칸 아래 버튼 — [✅ M/D 등록](그 날짜 하나만 저장) · [🔍 M/D 다시 확인] */

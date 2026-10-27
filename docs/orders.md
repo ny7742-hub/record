@@ -50,7 +50,8 @@
   버튼은 더 이상 `playmdhs:`로 그 PC를 열지 않는다. ① 팀 공유 **등록 기록 `ws/saipLog`**(`{hs:{'2026-09-28':{at,by,pc,rows,qty,amt,slips,sure,verify,note}},ds,cc,xc}`)에
   그 날짜가 있으면 **"이미 등록되었습니다 — 등록 시각·등록자·수량·금액·전표"** 안내창을 띄우고 멈춘다(홈쇼핑·백화점몰은 기준일 `SAIP_BASELINE` 2026-09-23 이전도).
   ② 같은 종류 요청이 진행 중이면(`_saipReqActive`, 45분) 멈춘다. ③ 아니면 누른 사람(`_saipMe`: 회원 이름) 이름으로 **요청 `ws/saipReq`**
-  (`{hs:{id,mmdd,date,by,at,state:'요청'}}`)을 남긴다. 자동화 PC의 **`automation/saip-watch.mjs`**(작업 스케줄러 `PlayMD-Saip-Watch`, 로그인 시 `saip-watch.vbs`로 창 없이)가
+  (`{hs:{id,mmdd,date,by,at,state:'요청'}}`)을 남긴다 — **자기 칸만 `_saipReqSet(kind,R)`(Firebase transaction)으로**(2026-10-28: 예전엔 화면의 saipReq를 통째로 써서
+  늦은 복사본이 자동화 PC가 막 적은 다른 칸의 '끝'을 '처리중'으로 되돌렸다 — 08:32 코스트코 발주를 누른 순간 도매 불러오기 카드가 3/5에서 멈춤). saipReq에 쓸 땐 꼭 이 함수로. 자동화 PC의 **`automation/saip-watch.mjs`**(작업 스케줄러 `PlayMD-Saip-Watch`, 로그인 시 `saip-watch.vbs`로 창 없이)가
   5초마다(밤 15초) 요청을 보고 ETag로 '처리중'으로 가져가 `playmd-hs-saip.mjs --save --kind --date --by=이름`을 돌린 뒤 '끝'/'실패'로 적고,
   1분마다 **신호 `ws/saipWatch`**(`{at,pc,busy}`)를 남긴다 → 카드 맨 위 `🟢 자동화 PC 켜짐` / `🔴 신호 없음`(2분).
   **두 줄 동시**(2026-10-15 영업2팀): 발주 줄(`co` 코스트코 발주 · `wp` 도매 불러오기 · `wm` 도매 메일)과 등록 줄(매출등록 6 · 반품 2 · `wsu`)이
