@@ -28941,6 +28941,7 @@ function shpLoad(im){
   var bg2=bc.getContext("2d");bg2.fillStyle="#fff";bg2.fillRect(0,0,bc.width,bc.height);bg2.drawImage(im,0,0,bc.width,bc.height);SHP.big=bc;
   SHP.edges=[];SHP.ocr="";
   if(!SHP.W)SHP.W=ST.W;
+  SHP.auto=true;   /* 붙여넣기 · 올리기는 숫자를 읽으면 바로 평면도에(2026-10-27 영업2팀 "붙여넣기 하면 평면도가 되도록") */
   shpDetect();shpRefreshPoly();renderShp();shpOcr();
 }
 /* 깎기(ero) = (2r+1)칸 네모 안이 모두 1, 불리기 = 하나라도 1 — 가로·세로로 나눠 누적합으로 */
@@ -29142,6 +29143,8 @@ function shpOcr(){
       if(bi>=0&&bd<lim&&(!got[bi]||got[bi].d>bd))got[bi]={v:nm.v,d:bd};});
     Object.keys(got).forEach(function(i){var e=SHP.edges[i];if(e&&e.src!=="man"){e.val=got[i].v;e.src="ocr";}});
     SHP.ocr=Object.keys(got).length?"ok":"none";SHP.ocrN=nums.length;renderShp();
+    if(SHP.auto){SHP.auto=false;var R=SHP.poly?shpSolve():null;   /* 숫자가 있고 서로 맞으면 바로 적용 — 아니면 칸에서 고친 뒤 [평면도에 적용] */
+      if(R&&R.any&&R.gap<=R.W*0.02&&R.W>=1000&&R.D>=1000&&R.W<=30000&&R.D<=30000){window.fpApplyShp();var me=$("fpMsg");if(me)me.textContent="📋 붙여넣은 그림으로 평면도를 만들었습니다 — "+me.textContent+" (숫자를 고치면 [평면도에 적용]을 다시)";}}
   }).catch(function(e){if(tok!==SHP.tok)return;SHP.ocr="err";SHP.ocrErr=String(e&&e.message||e);renderShp();});
 }
 function shpRefreshPoly(){
@@ -29230,6 +29233,7 @@ window.fpShpThr=function(v){SHP.thr=Math.max(5,Math.min(150,parseInt(v,10)||40))
 window.fpShpVal=function(i,v){var e=SHP.edges[i];if(!e)return;var n=Math.round(Number(v));e.val=n>0?n:null;e.src=n>0?"man":"";renderShp();};
 window.fpShpMode2=function(i,m){var e=SHP.edges[i];if(!e)return;e.mode=m==="h"?"h":"v";renderShp();};
 window.fpShpW=function(v){var n=clampMm(v,1000,30000);if(n!=null)SHP.W=n;renderShp();};
+window.fpApplyShp=function(){return window.fpShpApply();};
 window.fpShpApply=function(){
   var R=SHP.poly?shpSolve():null;if(!R){msg("공간 모양과 변 길이를 먼저 정해 주세요.",true);return;}
   if(R.W<1000||R.D<1000||R.W>30000||R.D>30000){msg("공간 크기가 "+R.W+" × "+R.D+" mm로 나왔습니다 — 변 길이를 확인해 주세요(1,000~30,000).",true);return;}
@@ -31227,6 +31231,7 @@ function shpLoad(im){
   var bg2=bc.getContext("2d");bg2.fillStyle="#fff";bg2.fillRect(0,0,bc.width,bc.height);bg2.drawImage(im,0,0,bc.width,bc.height);SHP.big=bc;
   SHP.edges=[];SHP.ocr="";
   if(!SHP.W)SHP.W=ST.W;
+  SHP.auto=true;   /* 붙여넣기 · 올리기는 숫자를 읽으면 바로 평면도에(2026-10-27 영업2팀 "붙여넣기 하면 평면도가 되도록") */
   shpDetect();shpRefreshPoly();renderShp();shpOcr();
 }
 /* 깎기(ero) = (2r+1)칸 네모 안이 모두 1, 불리기 = 하나라도 1 — 가로·세로로 나눠 누적합으로 */
@@ -31428,6 +31433,8 @@ function shpOcr(){
       if(bi>=0&&bd<lim&&(!got[bi]||got[bi].d>bd))got[bi]={v:nm.v,d:bd};});
     Object.keys(got).forEach(function(i){var e=SHP.edges[i];if(e&&e.src!=="man"){e.val=got[i].v;e.src="ocr";}});
     SHP.ocr=Object.keys(got).length?"ok":"none";SHP.ocrN=nums.length;renderShp();
+    if(SHP.auto){SHP.auto=false;var R=SHP.poly?shpSolve():null;   /* 숫자가 있고 서로 맞으면 바로 적용 — 아니면 칸에서 고친 뒤 [평면도에 적용] */
+      if(R&&R.any&&R.gap<=R.W*0.02&&R.W>=1000&&R.D>=1000&&R.W<=30000&&R.D<=30000){window.fp2ApplyShp();var me=$("fp2Msg");if(me)me.textContent="📋 붙여넣은 그림으로 평면도를 만들었습니다 — "+me.textContent+" (숫자를 고치면 [평면도에 적용]을 다시)";}}
   }).catch(function(e){if(tok!==SHP.tok)return;SHP.ocr="err";SHP.ocrErr=String(e&&e.message||e);renderShp();});
 }
 function shpRefreshPoly(){
@@ -31516,6 +31523,7 @@ window.fp2ShpThr=function(v){SHP.thr=Math.max(5,Math.min(150,parseInt(v,10)||40)
 window.fp2ShpVal=function(i,v){var e=SHP.edges[i];if(!e)return;var n=Math.round(Number(v));e.val=n>0?n:null;e.src=n>0?"man":"";renderShp();};
 window.fp2ShpMode2=function(i,m){var e=SHP.edges[i];if(!e)return;e.mode=m==="h"?"h":"v";renderShp();};
 window.fp2ShpW=function(v){var n=clampMm(v,1000,30000);if(n!=null)SHP.W=n;renderShp();};
+window.fp2ApplyShp=function(){return window.fp2ShpApply();};
 window.fp2ShpApply=function(){
   var R=SHP.poly?shpSolve():null;if(!R){msg("공간 모양과 변 길이를 먼저 정해 주세요.",true);return;}
   if(R.W<1000||R.D<1000||R.W>30000||R.D>30000){msg("공간 크기가 "+R.W+" × "+R.D+" mm로 나왔습니다 — 변 길이를 확인해 주세요(1,000~30,000).",true);return;}
