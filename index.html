@@ -9001,6 +9001,13 @@ function renderPortalLogin(){
       +((st==="out"||st==="none"||st==="nowin"||(st==="?"&&x.want))?go:'')
       +'</div>';
   }).join("");
+  /* DSS 두 창 나란히(2026-10-26 영업2팀 "26번·31번이 한쪽으로 중복 로그인 — 동시에 로그인할 수 있게") — portalopen:dssboth →
+     왼쪽 1번 창 DSS26 · 오른쪽 2번 창 DSS31. 창마다 아래 띠(파랑 DSS26 · 보라 DSS31)·제목 앞 [DSS26 · 1번 창]·아이디를 넣어 두어(automation/dss-login-guard.mjs)
+     비밀번호만 넣으면 된다. 둘 중 하나라도 로그인이 아니면 보인다 */
+  var dssNeed=ck!=="wait"&&!stale&&["dss1","dss2"].some(function(k){return (S[k]||{}).state!=="in";});
+  if(portal&&dssNeed)box.innerHTML+='<div style="flex-basis:100%;border:1px dashed #7c3aed;background:#faf5ff;border-radius:8px;padding:6px 10px;font-size:12.5px;color:#334155">'
+    +'<a href="portalopen:dssboth" onclick="setTimeout(renderPortalLogin,500)" style="display:inline-block;font-size:13px;font-weight:800;color:#fff;background:#7c3aed;border-radius:6px;padding:4px 12px;text-decoration:none">🔑 DSS 두 창 나란히 열기</a>'
+    +' <span>왼쪽 <b style="color:#1d4ed8">1번 창 DSS26</b> · 오른쪽 <b style="color:#7c3aed">2번 창 DSS31</b> — 창마다 아이디를 넣어 두고 아래 띠로 어느 창인지 보여 줍니다. <b>비밀번호만</b> 넣으세요</span></div>';
   _apCopy("plSites","autoPlSites");_apCopy("plAge","autoPlAge");
 }
 function plCopyId(b,id){

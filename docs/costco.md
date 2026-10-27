@@ -168,6 +168,13 @@
   **DSS 아이디가 둘**(ckr.5834226 · ckr.5834231)이고 주문이 아이디별로 나뉜다 — 첫 자동화 창(9333)과 **두 번째 창**(9334,
   프로필 `edi-chrome-profile-2`, `portal-window.mjs` slot 2)의 DSS를 차례로 돈다. 화면 위 `ckr.…`를 읽어 기록하고 두 창이 같은 아이디면 한 번만 한다.
   두 번째 창은 자비스 **🤖 자동화 탭 🔑 로그인 상태 칸의 DSS31(2번 창) `로그인하러 가기`**(`portalopen:dss2`)로 열어 `ckr.5834231`로 로그인한다(바로가기 [코스트코 DSS 2] 칩은 2026-10-21에 뺐다 — 창마다 아이디 확인은 `docs/sales.md` 로그인 상태).
+  **두 창 헷갈림 막기**(2026-10-26 영업2팀 "26번·31번이 한쪽으로 중복 로그인 — 동시에 로그인할 수 있게"): 두 창의 DSS 로그인 화면이 똑같고 제목도 같아(`Accedi a Costcokr`)
+  사람이 31을 1번 창에 넣었고(10/26 13:04 두 창 모두 ckr.5834231), `portal-open.vbs`가 제목으로 창을 부를 때(AppActivate) 엉뚱한 창이 앞에 오기도 했다.
+  → `automation/dss-login-guard.mjs`(portal-open이 dss·dss2·dssboth를 열 때 창마다 따로 띄움, 최대 10분): 창 아래 띠(1번 파랑 `DSS26 · 1번 창` · 2번 보라 `DSS31 · 2번 창`) ·
+  제목 앞 `[DSS26 · 1번 창]` · 로그인 화면(`#username`)에 그 창 아이디를 넣고 크롬이 다른 아이디로 자동완성한 비밀번호는 지움(**비밀번호는 넣지 않는다**, 커서는 비밀번호 칸) ·
+  로그인 뒤 다른 아이디면 빨간 띠. 그 창 아이디로 로그인된 걸 8초 보여 주고 끝(초록 띠는 걷음). 띠 글자의 아이디는 `ckr.` 뒤에 `​`를 끼워 portal-status·발주·송장이 화면에서 읽는 `ckr.숫자`에 걸리지 않게 했다.
+  **`portalopen:dssboth`** = 두 창 나란히(그 모니터 왼쪽 반 1번 · 오른쪽 반 2번, `tile`) — 자비스 로그인 상태 칸에 둘 중 하나라도 로그인이 아니면 `🔑 DSS 두 창 나란히 열기`.
+  `logs/portal-open-title.txt`는 한 줄에 창 하나 · UTF-16(BOM) — VBS가 한글 제목을 깨뜨리지 않게(예전 UTF-8을 시스템 기본으로 읽었다). 백업 `_backup-portal-open-1026-dssguard.mjs`·`_backup-portal-open-1026.vbs`.
   한 창 안에 따로 공간(CDP `createBrowserContext`)을 만드는 방법은 Playwright가 그 공간의 탭을 다루지 못해 쓰지 않았다.
   로그인 유지(`portal-keepalive.mjs`)는 두 창을 다 본다.
 
