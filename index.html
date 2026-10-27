@@ -30342,6 +30342,11 @@ function buildItem(it,bad){
     for(var sz=-d/2+ft+sg+sw/2;sz<d/2-ft-sw/2+1e-6;sz+=sw+sg)mk(g,mL-pw-ft,sw,sw,x0+ft+(mL-pw-ft)/2,h-sw/2,sz,MT);   /* 윗면 살대(좌우로) */
     mk(g,0.012,h-sw,d,xm-pw/2,(h-sw)/2,0,MT);                                    /* 칸막이 판 */
     for(var vz=-d/2+sw/2;vz<d/2-sw/2+1e-6;vz+=sw+0.025)mk(g,pw,h,sw,xm-pw/2,h/2,vz,MT);   /* 칸막이 세로 살대 */
+  }else if(c.k==="ntbl"){
+    /* 테이블집기(2026-10-27 영업2팀 사진) — 흰 ㄷ자: 두꺼운 상판 + 양옆 판(깊이 전체), 앞뒤는 트임 */
+    var nt=Math.min(0.045,w*0.06);
+    mk(g,w,nt,d,0,h-nt/2,0,0xf7f8f8);                                              /* 상판 */
+    [-1,1].forEach(function(a){mk(g,nt,h-nt,d,a*(w/2-nt/2),(h-nt)/2,0,0xf7f8f8);});   /* 양옆 판 */
   }else if(c.k==="ecart"){
     /* 행사매대(2026-10-27 영업2팀 사진, 1200×830×570) — 바퀴(60) 위 흰 상자(높이 약 62%), 앞면은 흰 테두리 안 판에 검은 WS 로고 + WHITE SANDS(700집기 lg 2처럼),
        그 위로 네 모서리 흰 기둥 · 맨 위 흰 테두리, 둘레는 가는 철망을 세모(지그재그)로. 안은 비어 있다(모자를 담는 통) */
@@ -30490,11 +30495,6 @@ function rebuild3d(){
       sh.left=-ext;sh.right=ext;sh.top=ext;sh.bottom=-ext;sh.near=0.5;sh.far=30;sh.updateProjectionMatrix();}
     var WHm=(ST.wallH||2400)/1000;
     ST.blocks.forEach(function(b){var bw2=(b.x1-b.x0)/1000,bd2=(b.z1-b.z0)/1000;
-  }else if(c.k==="ntbl"){
-    /* 테이블집기(2026-10-27 영업2팀 사진) — 흰 ㄷ자: 두꺼운 상판 + 양옆 판(깊이 전체), 앞뒤는 트임 */
-    var nt=Math.min(0.045,w*0.06);
-    mk(g,w,nt,d,0,h-nt/2,0,0xf7f8f8);                                              /* 상판 */
-    [-1,1].forEach(function(a){mk(g,nt,h-nt,d,a*(w/2-nt/2),(h-nt)/2,0,0xf7f8f8);});   /* 양옆 판 */
       if(b.o){var cvr=new THREE.Mesh(new THREE.BoxGeometry(bw2,0.004,bd2),new THREE.MeshLambertMaterial({color:0xdfe3e8}));cvr.position.set((b.x0+b.x1)/2000-w/2,0.006,(b.z0+b.z1)/2000-d/2);root.add(cvr);return;}   /* 공간 밖 = 바닥 덮개 */
       mk(root,bw2,WHm,bd2,(b.x0+b.x1)/2000-w/2,WHm/2,(b.z0+b.z1)/2000-d/2,0xf3d2bf);});
     walls().forEach(function(wl){var lx=(wl.x1-wl.x0)/1000,lz=(wl.z1-wl.z0)/1000,T=0.06;
@@ -30834,6 +30834,10 @@ var DEF={
   /* 청주 아크릴 집기(2026-10-27 영업2팀 사진 6장 · 1800×700×800) — 민트 세로 골 받침 + 한쪽으로 길게 나온 흰 상판 + 받침 위 청록 아크릴 상자. off = 처음엔 체크 안 함 */
   /* 행사매대(2026-10-27 영업2팀 사진 · 1200×830×570 = 가로×높이×깊이) — 바퀴 위 흰 상자 + 앞면 WS 로고·WHITE SANDS + 위쪽 세모 철망 둘레 + 흰 테두리. off = 처음엔 체크 안 함 */
   evtCart:{n:"행사매대",s:"행사매대",w:1200,d:570,h:830,c:"#F2F2F0",k:"ecart",inv:1,disp:1,est:false,off:1},
+  /* 테이블집기(2026-10-27 영업2팀 사진 — 흰 ㄷ자 네스팅 테이블: 상판 + 양옆 판, 앞뒤 트임). 900 = 900×600×700 1개 · 700 = 700×400×500 2개.
+     700은 900 아래로 들어간다(tuckOk). off = 처음엔 체크 안 함 */
+  tbl900:{n:"900테이블집기",s:"900테이블",w:900,d:600,h:700,c:"#F4F5F4",k:"ntbl",inv:1,disp:1,est:false,off:1},
+  tbl700:{n:"700테이블집기",s:"700테이블",w:700,d:400,h:500,c:"#F4F5F4",k:"ntbl",inv:2,disp:2,est:false,off:1},
   acrTbl:{n:"청주 아크릴 집기",s:"청주아크릴",w:1800,d:700,h:800,c:"#F4F6F5",k:"atbl",inv:1,disp:1,est:false,off:1},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
@@ -30992,10 +30996,6 @@ function renderShape(){
     +'<span>벽 높이 <input type="number" min="500" step="100" value="'+ST.wallH+'" onchange="fp2WallH(this.value)" style="'+inp+';width:60px"></span>'
     +'<button onclick="fp2ShapeDrawing()" style="'+bt+';border-color:#99f6e4;background:#f0fdfa;color:#0f766e" title="7,200×8,400 · 뒤 오른쪽 창고 2,100×2,700 · 벽">📐 실측 도면(7,200×8,400 · 창고)</button>'
     +'<button onclick="fp2ShpOpen()" style="'+bt+';border-color:#99f6e4;background:#f0fdfa;color:#0f766e" title="공간 모양을 그린 그림을 올리면 직사각형이 아닌 공간도 평면도에 반영합니다">🖼 공간 그림으로 모양 잡기</button></div>';
-  /* 테이블집기(2026-10-27 영업2팀 사진 — 흰 ㄷ자 네스팅 테이블: 상판 + 양옆 판, 앞뒤 트임). 900 = 900×600×700 1개 · 700 = 700×400×500 2개.
-     700은 900 아래로 들어간다(tuckOk). off = 처음엔 체크 안 함 */
-  tbl900:{n:"900테이블집기",s:"900테이블",w:900,d:600,h:700,c:"#F4F5F4",k:"ntbl",inv:1,disp:1,est:false,off:1},
-  tbl700:{n:"700테이블집기",s:"700테이블",w:700,d:400,h:500,c:"#F4F5F4",k:"ntbl",inv:2,disp:2,est:false,off:1},
   if(ST.blocks.length)h+='<div style="font-size:12px;color:#334155;margin-top:4px">'+ST.blocks.map(function(b,i){if(b.o)return "";return '▦ '+esc(b.n)+' '+(b.x1-b.x0)+'×'+(b.z1-b.z0)+' <button onclick="fp2BlockDel('+i+')" title="막힌 칸 지우기" style="border:0;background:none;color:#b91c1c;cursor:pointer;font-size:12px">✕</button>';}).filter(String).concat(nOut?['▦ 공간 밖(그림) '+nOut+'칸 <button onclick="fp2ShpClear()" title="그림으로 만든 공간 밖 칸을 모두 지우기(직사각형 공간으로)" style="border:0;background:none;color:#b91c1c;cursor:pointer;font-size:12px">✕</button>']:[]).join(' · ')+'</div>';
   if(ws.length)h+='<div style="font-size:12px;color:#334155;margin-top:4px">벽 길이(시트지 확인용): '+ws.map(function(w){return esc(w.n)+' <b>'+w.len.toLocaleString()+'</b>';}).join(' · ')+'</div>';
   el.innerHTML=h;
@@ -32473,6 +32473,11 @@ function buildItem(it,bad){
     for(var sz=-d/2+ft+sg+sw/2;sz<d/2-ft-sw/2+1e-6;sz+=sw+sg)mk(g,mL-pw-ft,sw,sw,x0+ft+(mL-pw-ft)/2,h-sw/2,sz,MT);   /* 윗면 살대(좌우로) */
     mk(g,0.012,h-sw,d,xm-pw/2,(h-sw)/2,0,MT);                                    /* 칸막이 판 */
     for(var vz=-d/2+sw/2;vz<d/2-sw/2+1e-6;vz+=sw+0.025)mk(g,pw,h,sw,xm-pw/2,h/2,vz,MT);   /* 칸막이 세로 살대 */
+  }else if(c.k==="ntbl"){
+    /* 테이블집기(2026-10-27 영업2팀 사진) — 흰 ㄷ자: 두꺼운 상판 + 양옆 판(깊이 전체), 앞뒤는 트임 */
+    var nt=Math.min(0.045,w*0.06);
+    mk(g,w,nt,d,0,h-nt/2,0,0xf7f8f8);                                              /* 상판 */
+    [-1,1].forEach(function(a){mk(g,nt,h-nt,d,a*(w/2-nt/2),(h-nt)/2,0,0xf7f8f8);});   /* 양옆 판 */
   }else if(c.k==="ecart"){
     /* 행사매대(2026-10-27 영업2팀 사진, 1200×830×570) — 바퀴(60) 위 흰 상자(높이 약 62%), 앞면은 흰 테두리 안 판에 검은 WS 로고 + WHITE SANDS(700집기 lg 2처럼),
        그 위로 네 모서리 흰 기둥 · 맨 위 흰 테두리, 둘레는 가는 철망을 세모(지그재그)로. 안은 비어 있다(모자를 담는 통) */
@@ -32776,11 +32781,6 @@ function resize3d(){
 var SH={on:false,started:false,last:{},timers:{},pendingCur:null,meta:null};
 function canShare(){
   try{return typeof fbDB!=="undefined"&&!!fbDB&&!(typeof WS_LOCAL_ONLY!=="undefined"&&WS_LOCAL_ONLY)&&(_authState==="member"||_authState==="open");}catch(e){return false;}
-  }else if(c.k==="ntbl"){
-    /* 테이블집기(2026-10-27 영업2팀 사진) — 흰 ㄷ자: 두꺼운 상판 + 양옆 판(깊이 전체), 앞뒤는 트임 */
-    var nt=Math.min(0.045,w*0.06);
-    mk(g,w,nt,d,0,h-nt/2,0,0xf7f8f8);                                              /* 상판 */
-    [-1,1].forEach(function(a){mk(g,nt,h-nt,d,a*(w/2-nt/2),(h-nt)/2,0,0xf7f8f8);});   /* 양옆 판 */
 }
 function meName(){try{if(_authMe&&_authMe.name)return String(_authMe.name);if(_authUser&&_authUser.email)return String(_authUser.email).split("@")[0];}catch(e){}return "";}
 var SRC={
