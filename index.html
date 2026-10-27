@@ -28700,6 +28700,8 @@ var DEF={
   cjCubeM:{n:"청주 큐브 (민트)",s:"큐브(민트)",w:500,d:500,h:500,c:"#8FDCCC",k:"cube",col:0x8fdccc,inv:1,disp:1,est:false},
   cjCounter:{n:"청주 카운터",s:"청주카운터",w:1000,d:600,h:1000,c:"#A6E3D8",k:"ccounter",inv:1,disp:1,est:false},
   cj3Acr:{n:"청주 3단 아크릴 집기",s:"3단아크릴",w:3370,d:1000,h:800,c:"#8FDCCC",k:"acr3",inv:1,disp:1,est:false},
+  /* 청주 아크릴 집기(2026-10-27 영업2팀 사진 6장 · 1800×700×800) — 민트 세로 골 받침 + 한쪽으로 길게 나온 흰 상판 + 받침 위 청록 아크릴 상자. off = 처음엔 체크 안 함 */
+  acrTbl:{n:"청주 아크릴 집기",s:"청주아크릴",w:1800,d:700,h:800,c:"#F4F6F5",k:"atbl",inv:1,disp:1,est:false,off:1},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
   /* 원형 집기 높이별(2026-10-27 영업2팀 "높이 300 2개, 500 1개, 750 3개") — 예전 '원형 집기'(750, 4개)는 열쇠 그대로 750으로 */
@@ -29325,14 +29327,14 @@ window.fpAuto=function(quiet){
   }
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
-  var pri=["counter","cjCounter","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
+  var pri=["counter","cjCounter","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr","acrTbl"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
   var tuck=enabled("cjTable")&&dispOf("cjTable")>0?["cjCubeW","cjCubeM"].filter(function(t){return enabled(t)&&dispOf(t)>0;}):[];
   var TW=function(t){return CAT[t].w+(t==="cjTable"&&tuck.indexOf("cjCubeM")>=0?100:0);};   /* 민트 큐브가 테이블 오른쪽 끝에서 100 나온다 */
   pri.forEach(function(t){if(tuck.indexOf(t)>=0)return;if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
   want.forEach(function(t){if(rowW+TW(t)<=avail){keep.push(t);rowW+=TW(t);}else{drop[t]=(drop[t]||0)+1;if(t==="cjTable")tuck.forEach(function(k){drop[k]=(drop[k]||0)+1;});}});
-  var ord=["curveL","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
+  var ord=["curveL","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr","acrTbl"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
   var midZ=backEdge+900+midD/2;
@@ -29655,6 +29657,7 @@ function draw2d(){
     g.strokeStyle=bad?"#dc2626":"#334155";g.lineWidth=bad?2:1;g.stroke();
     if(c.k==="curve"){g.strokeStyle="#94a3b8";g.lineWidth=1;g.beginPath();var sx=(curveRight(it)?1:-1)*(w/2-w*0.55);g.moveTo(sx,-d/2);g.lineTo(sx,d/2);g.stroke();}
     if(c.k==="ctbl"){g.fillStyle="#8fdccc";g.fillRect(-w/2,-d/2,w*0.4,d);g.strokeStyle="#334155";g.lineWidth=1;g.strokeRect(-w/2,-d/2,w,d);}   /* 청주 테이블 — 왼쪽 40% 민트 살대 */
+    if(c.k==="atbl"){var sg2=it.f?-1:1;g.fillStyle="rgba(14,124,134,.45)";g.fillRect(sg2>0?-w/2+w*0.06:w/2-w*0.06-w*0.5,-d/2+d*0.06,w*0.5,d*0.8);g.strokeStyle="#0e7c86";g.lineWidth=1;g.strokeRect(sg2>0?-w/2+w*0.06:w/2-w*0.06-w*0.5,-d/2+d*0.06,w*0.5,d*0.8);}   /* 청주 아크릴 집기 — 아크릴 상자 자리(청록), 좌우반전 따름 */
     if(!isRound(c)&&c.k!=="acr3"){var fx=c.k==="oval3"?Math.max(0,w/2-d/2):w/2-2;g.strokeStyle="#154f5e";g.lineWidth=4;g.beginPath();g.moveTo(-fx,d/2-2);g.lineTo(fx,d/2-2);g.stroke();}
     if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;shape2d(g,c,w+6,d+6,curveRight(it),it);g.stroke();}
     g.restore();
@@ -29824,7 +29827,7 @@ function renderSel(){
    +'<button onclick="fpRot(-45)" style="'+bt+'">↺ 45°</button>'
    +'<span style="display:inline-flex;align-items:center;gap:2px;font-size:12.5px;color:#334155" title="각도를 숫자로 넣고 Enter(0~359°, 목록에서 45° 단위도 고를 수 있음)">각도 <input type="number" min="0" max="359" step="1" list="fpRotList" value="'+(Math.round(it.r*10)/10)+'" onchange="fpSetRot(this.value)" style="width:64px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">°</span>'
    +'<datalist id="fpRotList">'+[0,45,90,135,180,225,270,315].map(function(a){return '<option value="'+a+'">';}).join('')+'</datalist>'
-   +(c.k==="shelf"?'<button onclick="fpFlip()" style="'+bt+'">↔ 좌우반전</button>':'')
+   +(c.k==="shelf"||c.k==="atbl"?'<button onclick="fpFlip()" style="'+bt+'">↔ 좌우반전</button>':'')
    +'<button onclick="fpDup()" title="옆 빈자리에 같은 집기 하나 더 (Ctrl+D · Ctrl+C → Ctrl+V)" style="'+bt+'">📋 복사</button>'
    +'<button onclick="fpDel()" style="'+bt+';color:#9a3412">삭제</button>'
    +'<span style="font-size:12px;color:#5b6675;margin-left:6px">중심 X</span><input type="number" step="50" value="'+it.x+'" onchange="fpSetPos(\'x\',this.value)" style="'+inp+'">'
@@ -30330,6 +30333,23 @@ function buildItem(it,bad){
     for(var sz=-d/2+ft+sg+sw/2;sz<d/2-ft-sw/2+1e-6;sz+=sw+sg)mk(g,mL-pw-ft,sw,sw,x0+ft+(mL-pw-ft)/2,h-sw/2,sz,MT);   /* 윗면 살대(좌우로) */
     mk(g,0.012,h-sw,d,xm-pw/2,(h-sw)/2,0,MT);                                    /* 칸막이 판 */
     for(var vz=-d/2+sw/2;vz<d/2-sw/2+1e-6;vz+=sw+0.025)mk(g,pw,h,sw,xm-pw/2,h/2,vz,MT);   /* 칸막이 세로 살대 */
+  }else if(c.k==="atbl"){
+    /* 청주 아크릴 집기(2026-10-27 영업2팀 사진 6장, 1800×700×800 — 높이 800은 흰 상판 윗면, 아크릴 상자는 그 위로 약 130):
+       민트 세로 골 받침(길이 55% · 깊이 76%, 한쪽 끝에서 6% 들어와 있음) · 두꺼운 흰 상판(약 120)이 반대쪽으로 길게 나옴 ·
+       받침 위 상판에 청록 반투명 아크릴 상자(길이 50% · 깊이 80%) + 바닥에 밝게 빛나는 테두리. it.f = 좌우반전(받침·상자가 오른쪽으로) */
+    var sg=it.f?-1:1,tt=Math.min(0.12,h*0.16),bL=w*0.55,bD=d*0.76,bH=h-tt,bx=sg*(-w/2+w*0.06+bL/2),MT=0x9fe3d6,RB=0x86d6c6;
+    mk(g,bL,bH,bD,bx,bH/2,0,MT);                                                   /* 받침 */
+    var rg=new THREE.CylinderGeometry(0.011,0.011,bH-0.02,8),rm=new THREE.MeshLambertMaterial({color:RB});
+    for(var rx=-bL/2+0.02;rx<=bL/2-0.02+1e-6;rx+=0.032)[-1,1].forEach(function(b){var r=new THREE.Mesh(rg,rm);r.position.set(bx+rx,bH/2,b*(bD/2+0.002));g.add(r);});   /* 앞뒤 세로 골 */
+    for(var rz=-bD/2+0.02;rz<=bD/2-0.02+1e-6;rz+=0.032)[-1,1].forEach(function(b){var r=new THREE.Mesh(rg,rm);r.position.set(bx+b*(bL/2+0.002),bH/2,rz);g.add(r);});   /* 옆 세로 골 */
+    mk(g,w,tt,d,0,h-tt/2,0,0xf7f8f8);                                             /* 흰 상판 */
+    var aL=w*0.5,aD=d*0.8,aH=Math.min(0.13,h*0.17),ax=sg*(-w/2+w*0.06+aL/2),az=-d*0.04;
+    var am=new THREE.MeshLambertMaterial({color:0x0a6870,transparent:true,opacity:0.5,depthWrite:false});
+    var ab=new THREE.Mesh(new THREE.BoxGeometry(aL,aH,aD),am);ab.position.set(ax,h+aH/2,az);ab.add(new THREE.LineSegments(new THREE.EdgesGeometry(ab.geometry),edgeMat()));g.add(ab);   /* 아크릴 상자 */
+    var gl=new THREE.MeshBasicMaterial({color:0x7ff3ea});
+    [[aL-0.06,0.012,0,(aD-0.06)/2],[aL-0.06,0.012,0,-(aD-0.06)/2],[0.012,aD-0.06,(aL-0.06)/2,0],[0.012,aD-0.06,-(aL-0.06)/2,0]].forEach(function(q){
+      var m=new THREE.Mesh(new THREE.BoxGeometry(q[0],0.006,q[1]),gl);m.position.set(ax+q[2],h+0.004,az+q[3]);g.add(m);});   /* 바닥 빛 테두리 */
+    var ip=new THREE.Mesh(new THREE.BoxGeometry(aL-0.1,0.004,aD-0.1),new THREE.MeshLambertMaterial({color:0x3fc9c0}));ip.position.set(ax,h+0.003,az);g.add(ip);   /* 안쪽 바닥(청록) */
   }else if(c.k==="oval3"){
     /* 청주 라운드집기(2026-10-21 영업2팀 사진, 1200×400×900) — 양끝이 반원인 민트 받침통(높이 33%) 위에
        흰 테두리 3겹(받침 위 · 가운데 · 맨 위)마다 유리 선반, 직선과 반원이 만나는 자리에 흰 기둥 4개 */
@@ -30771,6 +30791,8 @@ var DEF={
   cjCubeM:{n:"청주 큐브 (민트)",s:"큐브(민트)",w:500,d:500,h:500,c:"#8FDCCC",k:"cube",col:0x8fdccc,inv:1,disp:1,est:false},
   cjCounter:{n:"청주 카운터",s:"청주카운터",w:1000,d:600,h:1000,c:"#A6E3D8",k:"ccounter",inv:1,disp:1,est:false},
   cj3Acr:{n:"청주 3단 아크릴 집기",s:"3단아크릴",w:3370,d:1000,h:800,c:"#8FDCCC",k:"acr3",inv:1,disp:1,est:false},
+  /* 청주 아크릴 집기(2026-10-27 영업2팀 사진 6장 · 1800×700×800) — 민트 세로 골 받침 + 한쪽으로 길게 나온 흰 상판 + 받침 위 청록 아크릴 상자. off = 처음엔 체크 안 함 */
+  acrTbl:{n:"청주 아크릴 집기",s:"청주아크릴",w:1800,d:700,h:800,c:"#F4F6F5",k:"atbl",inv:1,disp:1,est:false,off:1},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
   /* 원형 집기 높이별(2026-10-27 영업2팀 "높이 300 2개, 500 1개, 750 3개") — 예전 '원형 집기'(750, 4개)는 열쇠 그대로 750으로 */
@@ -31396,14 +31418,14 @@ window.fp2Auto=function(quiet){
   }
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
-  var pri=["counter","cjCounter","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
+  var pri=["counter","cjCounter","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr","acrTbl"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
   var tuck=enabled("cjTable")&&dispOf("cjTable")>0?["cjCubeW","cjCubeM"].filter(function(t){return enabled(t)&&dispOf(t)>0;}):[];
   var TW=function(t){return CAT[t].w+(t==="cjTable"&&tuck.indexOf("cjCubeM")>=0?100:0);};   /* 민트 큐브가 테이블 오른쪽 끝에서 100 나온다 */
   pri.forEach(function(t){if(tuck.indexOf(t)>=0)return;if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
   want.forEach(function(t){if(rowW+TW(t)<=avail){keep.push(t);rowW+=TW(t);}else{drop[t]=(drop[t]||0)+1;if(t==="cjTable")tuck.forEach(function(k){drop[k]=(drop[k]||0)+1;});}});
-  var ord=["curveL","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
+  var ord=["curveL","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr","acrTbl"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
   var midZ=backEdge+900+midD/2;
@@ -31726,6 +31748,7 @@ function draw2d(){
     g.strokeStyle=bad?"#dc2626":"#334155";g.lineWidth=bad?2:1;g.stroke();
     if(c.k==="curve"){g.strokeStyle="#94a3b8";g.lineWidth=1;g.beginPath();var sx=(curveRight(it)?1:-1)*(w/2-w*0.55);g.moveTo(sx,-d/2);g.lineTo(sx,d/2);g.stroke();}
     if(c.k==="ctbl"){g.fillStyle="#8fdccc";g.fillRect(-w/2,-d/2,w*0.4,d);g.strokeStyle="#334155";g.lineWidth=1;g.strokeRect(-w/2,-d/2,w,d);}   /* 청주 테이블 — 왼쪽 40% 민트 살대 */
+    if(c.k==="atbl"){var sg2=it.f?-1:1;g.fillStyle="rgba(14,124,134,.45)";g.fillRect(sg2>0?-w/2+w*0.06:w/2-w*0.06-w*0.5,-d/2+d*0.06,w*0.5,d*0.8);g.strokeStyle="#0e7c86";g.lineWidth=1;g.strokeRect(sg2>0?-w/2+w*0.06:w/2-w*0.06-w*0.5,-d/2+d*0.06,w*0.5,d*0.8);}   /* 청주 아크릴 집기 — 아크릴 상자 자리(청록), 좌우반전 따름 */
     if(!isRound(c)&&c.k!=="acr3"){var fx=c.k==="oval3"?Math.max(0,w/2-d/2):w/2-2;g.strokeStyle="#154f5e";g.lineWidth=4;g.beginPath();g.moveTo(-fx,d/2-2);g.lineTo(fx,d/2-2);g.stroke();}
     if(it.id===ST.sel){g.strokeStyle="#007EEC";g.lineWidth=3;shape2d(g,c,w+6,d+6,curveRight(it),it);g.stroke();}
     g.restore();
@@ -31895,7 +31918,7 @@ function renderSel(){
    +'<button onclick="fp2Rot(-45)" style="'+bt+'">↺ 45°</button>'
    +'<span style="display:inline-flex;align-items:center;gap:2px;font-size:12.5px;color:#334155" title="각도를 숫자로 넣고 Enter(0~359°, 목록에서 45° 단위도 고를 수 있음)">각도 <input type="number" min="0" max="359" step="1" list="fp2RotList" value="'+(Math.round(it.r*10)/10)+'" onchange="fp2SetRot(this.value)" style="width:64px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px">°</span>'
    +'<datalist id="fp2RotList">'+[0,45,90,135,180,225,270,315].map(function(a){return '<option value="'+a+'">';}).join('')+'</datalist>'
-   +(c.k==="shelf"?'<button onclick="fp2Flip()" style="'+bt+'">↔ 좌우반전</button>':'')
+   +(c.k==="shelf"||c.k==="atbl"?'<button onclick="fp2Flip()" style="'+bt+'">↔ 좌우반전</button>':'')
    +'<button onclick="fp2Dup()" title="옆 빈자리에 같은 집기 하나 더 (Ctrl+D · Ctrl+C → Ctrl+V)" style="'+bt+'">📋 복사</button>'
    +'<button onclick="fp2Del()" style="'+bt+';color:#9a3412">삭제</button>'
    +'<span style="font-size:12px;color:#5b6675;margin-left:6px">중심 X</span><input type="number" step="50" value="'+it.x+'" onchange="fp2SetPos(\'x\',this.value)" style="'+inp+'">'
@@ -32401,6 +32424,23 @@ function buildItem(it,bad){
     for(var sz=-d/2+ft+sg+sw/2;sz<d/2-ft-sw/2+1e-6;sz+=sw+sg)mk(g,mL-pw-ft,sw,sw,x0+ft+(mL-pw-ft)/2,h-sw/2,sz,MT);   /* 윗면 살대(좌우로) */
     mk(g,0.012,h-sw,d,xm-pw/2,(h-sw)/2,0,MT);                                    /* 칸막이 판 */
     for(var vz=-d/2+sw/2;vz<d/2-sw/2+1e-6;vz+=sw+0.025)mk(g,pw,h,sw,xm-pw/2,h/2,vz,MT);   /* 칸막이 세로 살대 */
+  }else if(c.k==="atbl"){
+    /* 청주 아크릴 집기(2026-10-27 영업2팀 사진 6장, 1800×700×800 — 높이 800은 흰 상판 윗면, 아크릴 상자는 그 위로 약 130):
+       민트 세로 골 받침(길이 55% · 깊이 76%, 한쪽 끝에서 6% 들어와 있음) · 두꺼운 흰 상판(약 120)이 반대쪽으로 길게 나옴 ·
+       받침 위 상판에 청록 반투명 아크릴 상자(길이 50% · 깊이 80%) + 바닥에 밝게 빛나는 테두리. it.f = 좌우반전(받침·상자가 오른쪽으로) */
+    var sg=it.f?-1:1,tt=Math.min(0.12,h*0.16),bL=w*0.55,bD=d*0.76,bH=h-tt,bx=sg*(-w/2+w*0.06+bL/2),MT=0x9fe3d6,RB=0x86d6c6;
+    mk(g,bL,bH,bD,bx,bH/2,0,MT);                                                   /* 받침 */
+    var rg=new THREE.CylinderGeometry(0.011,0.011,bH-0.02,8),rm=new THREE.MeshLambertMaterial({color:RB});
+    for(var rx=-bL/2+0.02;rx<=bL/2-0.02+1e-6;rx+=0.032)[-1,1].forEach(function(b){var r=new THREE.Mesh(rg,rm);r.position.set(bx+rx,bH/2,b*(bD/2+0.002));g.add(r);});   /* 앞뒤 세로 골 */
+    for(var rz=-bD/2+0.02;rz<=bD/2-0.02+1e-6;rz+=0.032)[-1,1].forEach(function(b){var r=new THREE.Mesh(rg,rm);r.position.set(bx+b*(bL/2+0.002),bH/2,rz);g.add(r);});   /* 옆 세로 골 */
+    mk(g,w,tt,d,0,h-tt/2,0,0xf7f8f8);                                             /* 흰 상판 */
+    var aL=w*0.5,aD=d*0.8,aH=Math.min(0.13,h*0.17),ax=sg*(-w/2+w*0.06+aL/2),az=-d*0.04;
+    var am=new THREE.MeshLambertMaterial({color:0x0a6870,transparent:true,opacity:0.5,depthWrite:false});
+    var ab=new THREE.Mesh(new THREE.BoxGeometry(aL,aH,aD),am);ab.position.set(ax,h+aH/2,az);ab.add(new THREE.LineSegments(new THREE.EdgesGeometry(ab.geometry),edgeMat()));g.add(ab);   /* 아크릴 상자 */
+    var gl=new THREE.MeshBasicMaterial({color:0x7ff3ea});
+    [[aL-0.06,0.012,0,(aD-0.06)/2],[aL-0.06,0.012,0,-(aD-0.06)/2],[0.012,aD-0.06,(aL-0.06)/2,0],[0.012,aD-0.06,-(aL-0.06)/2,0]].forEach(function(q){
+      var m=new THREE.Mesh(new THREE.BoxGeometry(q[0],0.006,q[1]),gl);m.position.set(ax+q[2],h+0.004,az+q[3]);g.add(m);});   /* 바닥 빛 테두리 */
+    var ip=new THREE.Mesh(new THREE.BoxGeometry(aL-0.1,0.004,aD-0.1),new THREE.MeshLambertMaterial({color:0x3fc9c0}));ip.position.set(ax,h+0.003,az);g.add(ip);   /* 안쪽 바닥(청록) */
   }else if(c.k==="oval3"){
     /* 청주 라운드집기(2026-10-21 영업2팀 사진, 1200×400×900) — 양끝이 반원인 민트 받침통(높이 33%) 위에
        흰 테두리 3겹(받침 위 · 가운데 · 맨 위)마다 유리 선반, 직선과 반원이 만나는 자리에 흰 기둥 4개 */
