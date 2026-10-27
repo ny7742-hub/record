@@ -29238,7 +29238,10 @@ window.fpShpApply=function(){
   var R=SHP.poly?shpSolve():null;if(!R){msg("공간 모양과 변 길이를 먼저 정해 주세요.",true);return;}
   if(R.W<1000||R.D<1000||R.W>30000||R.D>30000){msg("공간 크기가 "+R.W+" × "+R.D+" mm로 나왔습니다 — 변 길이를 확인해 주세요(1,000~30,000).",true);return;}
   var W=R.W,D=R.D,C=shpPolyCells(R.pts,W,D);
-  var keep=ST.blocks.filter(function(b){return !b.o&&b.x0<W&&b.z0<D;}).map(function(b){return {n:b.n,x0:b.x0,z0:b.z0,x1:Math.min(b.x1,W),z1:Math.min(b.z1,D)};});
+  /* 예전 막힌 칸(창고 등)은 새 공간 안에 걸친 것만 남긴다 — 실측 도면 창고(5100~7200)가 새 사다리꼴(가로 5400) 오른쪽 끝에 잘려 남아 3D에서 벽처럼 섰다(2026-10-27 영업2팀 "우측에 벽이 있습니다") */
+  var keep=ST.blocks.filter(function(b){if(b.o||b.x0>=W||b.z0>=D)return false;var x1=Math.min(b.x1,W),z1=Math.min(b.z1,D),inN=0;
+      for(var a2=0;a2<3;a2++)for(var b2=0;b2<3;b2++)if(shpInPoly(R.pts,b.x0+(x1-b.x0)*(a2+0.5)/3,b.z0+(z1-b.z0)*(b2+0.5)/3))inN++;return inN>=5;})
+    .map(function(b){return {n:b.n,x0:b.x0,z0:b.z0,x1:Math.min(b.x1,W),z1:Math.min(b.z1,D)};});
   ST.W=W;ST.D=D;$("fpW").value=W;$("fpD").value=D;T3.rad=Math.max(W,D)/1000*1.5+2;
   ST.poly=R.pts;ST.blocks=keep.concat(C.blocks);
   var sl=SHP.edges.map(function(e,i){return e.kind==="s"?R.len[i].toLocaleString():null;}).filter(Boolean);
@@ -31528,7 +31531,10 @@ window.fp2ShpApply=function(){
   var R=SHP.poly?shpSolve():null;if(!R){msg("공간 모양과 변 길이를 먼저 정해 주세요.",true);return;}
   if(R.W<1000||R.D<1000||R.W>30000||R.D>30000){msg("공간 크기가 "+R.W+" × "+R.D+" mm로 나왔습니다 — 변 길이를 확인해 주세요(1,000~30,000).",true);return;}
   var W=R.W,D=R.D,C=shpPolyCells(R.pts,W,D);
-  var keep=ST.blocks.filter(function(b){return !b.o&&b.x0<W&&b.z0<D;}).map(function(b){return {n:b.n,x0:b.x0,z0:b.z0,x1:Math.min(b.x1,W),z1:Math.min(b.z1,D)};});
+  /* 예전 막힌 칸(창고 등)은 새 공간 안에 걸친 것만 남긴다 — 실측 도면 창고(5100~7200)가 새 사다리꼴(가로 5400) 오른쪽 끝에 잘려 남아 3D에서 벽처럼 섰다(2026-10-27 영업2팀 "우측에 벽이 있습니다") */
+  var keep=ST.blocks.filter(function(b){if(b.o||b.x0>=W||b.z0>=D)return false;var x1=Math.min(b.x1,W),z1=Math.min(b.z1,D),inN=0;
+      for(var a2=0;a2<3;a2++)for(var b2=0;b2<3;b2++)if(shpInPoly(R.pts,b.x0+(x1-b.x0)*(a2+0.5)/3,b.z0+(z1-b.z0)*(b2+0.5)/3))inN++;return inN>=5;})
+    .map(function(b){return {n:b.n,x0:b.x0,z0:b.z0,x1:Math.min(b.x1,W),z1:Math.min(b.z1,D)};});
   ST.W=W;ST.D=D;$("fp2W").value=W;$("fp2D").value=D;T3.rad=Math.max(W,D)/1000*1.5+2;
   ST.poly=R.pts;ST.blocks=keep.concat(C.blocks);
   var sl=SHP.edges.map(function(e,i){return e.kind==="s"?R.len[i].toLocaleString():null;}).filter(Boolean);
