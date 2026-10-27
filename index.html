@@ -28702,7 +28702,10 @@ var DEF={
   cj3Acr:{n:"청주 3단 아크릴 집기",s:"3단아크릴",w:3370,d:1000,h:800,c:"#8FDCCC",k:"acr3",inv:1,disp:1,est:false},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
-  pedestal:{n:"원형 집기",s:"원형집기",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,disp:4,est:true}
+  /* 원형 집기 높이별(2026-10-27 영업2팀 "높이 300 2개, 500 1개, 750 3개") — 예전 '원형 집기'(750, 4개)는 열쇠 그대로 750으로 */
+  pedestal:{n:"원형 집기 (750)",s:"원형750",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:3,disp:3,est:true},
+  ped500:{n:"원형 집기 (500)",s:"원형500",w:550,d:550,h:500,c:"#E6E1F2",k:"ped",inv:1,disp:1,est:true},
+  ped300:{n:"원형 집기 (300)",s:"원형300",w:550,d:550,h:300,c:"#E6E1F2",k:"ped",inv:2,disp:2,est:true}
 };
 var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
 var KEY_CUR="jvFloorCur",KEY_SAVED="jvFloorPlans",KEY_USE="jvFloorUse",KEY_CUS="jvFloorCustom",KEY_PHOTO="jvFloorPhoto",KEY_OPT="jvFloorOpt",SNAP=50;
@@ -28767,7 +28770,8 @@ function loadUse(){
   var u={};
   Object.keys(DEF).forEach(function(k){u[k]={on:!DEF[k].off,qty:DEF[k].inv};});
   ST.cus.forEach(function(c){u[c.k]={on:true,qty:1};});
-  if(saved)Object.keys(u).forEach(function(k){var s=saved[k];if(!s)return;u[k].on=!!s.on;u[k].qty=Math.max(0,Math.min(99,parseInt(s.qty,10)||0));["w","d","h","bw","bd","bh","ly","mix","n","del"].forEach(function(a){if(s[a])u[k][a]=s[a];});});
+  if(saved)Object.keys(u).forEach(function(k){var s=saved[k];if(!s)return;u[k].on=!!s.on;u[k].qty=Math.max(0,Math.min(99,parseInt(s.qty,10)||0));["w","d","h","bw","bd","bh","ly","mix","n","del","m1027"].forEach(function(a){if(s[a])u[k][a]=s[a];});});
+  if(u.pedestal&&!u.pedestal.m1027){if(u.pedestal.qty===4)u.pedestal.qty=3;u.pedestal.m1027=1;}   /* 원형 집기 750 보유 4 → 3(2026-10-27, 한 번만) */
   ST.use=u;
   try{var o=JSON.parse(localStorage.getItem(KEY_OPT)||"null");if(o){ST.autoOn=o.autoOn!==false;ST.photoFloor=o.photoFloor!==false;if(o.op!=null)ST.photoOp=o.op;}}catch(e){}
   buildCat();
@@ -29308,7 +29312,9 @@ window.fpAuto=function(quiet){
   var backEdge=n?MARG-100+sd:MARG;
   /* 앞 모서리 곡면 진열대 · 앞 가운데 원형 집기 */
   var hasL=enabled("curveL")&&dispOf("curveL")>0,hasR=enabled("curveR")&&dispOf("curveR")>0,cv=(hasL?1:0)+(hasR?1:0),cw=Math.max(CAT.curveL.w,CAT.curveR.w),cd=Math.max(CAT.curveL.d,CAT.curveR.d),frontZ=D-MARG-cd/2;
-  var pedN=enabled("pedestal")?dispOf("pedestal"):0,pw=CAT.pedestal.w;
+  /* 원형 집기 750 · 500 · 300을 한 줄로(키 큰 것부터) — 같은 자리 규칙으로 놓는다(2026-10-27) */
+  var pedList=[];["pedestal","ped500","ped300"].forEach(function(t){if(CAT[t]&&enabled(t))for(var pi=0;pi<dispOf(t);pi++)pedList.push(t);});
+  var pedN=pedList.length,pw=Math.max.apply(null,["pedestal","ped500","ped300"].map(function(t){return CAT[t]?CAT[t].w:0;}));
   var midNeed=backEdge+900+800+600+cd+MARG;
   var frontRow=cv>0&&D>=midNeed;
   if(cv>0&&!frontRow)warn.push("세로가 짧아 곡면 진열대를 가운데 줄 양끝에 놓았습니다");
@@ -29352,14 +29358,14 @@ window.fpAuto=function(quiet){
     for(i=0;i<spots.length&&placed<pedN;i++){
       var x=cx+spots[i][0]*pw,z=pz+spots[i][1]*pw;
       if(x-pw/2<cl+100||x+pw/2>cr-100||z+pw/2>D-MARG/2||z-pw/2<midZ+midD/2+300)continue;
-      out.push({t:"pedestal",x:snap(x),z:snap(z)});placed++;
+      out.push({t:pedList[placed],x:snap(x),z:snap(z)});placed++;
     }
     /* 앞 가운데에 다 못 놓으면 빈 자리(앞쪽부터)를 찾아 놓는다 */
     for(var zz=D-MARG-pw/2;placed<pedN&&zz>=backEdge+pw/2;zz-=100){
       for(var xx=W-MARG-pw/2;placed<pedN&&xx>=MARG+pw/2;xx-=100){
         var a={x0:xx-pw/2-150,x1:xx+pw/2+150,z0:zz-pw/2-150,z1:zz+pw/2+150},free=true;
         for(var q=0;q<out.length;q++){var o=out[q],c=CAT[o.t],b={x0:o.x-c.w/2,x1:o.x+c.w/2,z0:o.z-c.d/2,z1:o.z+c.d/2};if(a.x0<b.x1&&a.x1>b.x0&&a.z0<b.z1&&a.z1>b.z0){free=false;break;}}
-        if(free&&!(zz-pw/2<midZ+midD/2+600&&zz+pw/2>midZ-midD/2-600&&xx>(W-rowW)/2-600&&xx<(W+rowW)/2+600)){out.push({t:"pedestal",x:snap(xx),z:snap(zz)});placed++;}
+        if(free&&!(zz-pw/2<midZ+midD/2+600&&zz+pw/2>midZ-midD/2-600&&xx>(W-rowW)/2-600&&xx<(W+rowW)/2+600)){out.push({t:pedList[placed],x:snap(xx),z:snap(zz)});placed++;}
       }
     }
     if(placed<pedN)warn.push("자리가 없어 원형 집기 "+(pedN-placed)+"개를 뺐습니다");
@@ -30767,7 +30773,10 @@ var DEF={
   cj3Acr:{n:"청주 3단 아크릴 집기",s:"3단아크릴",w:3370,d:1000,h:800,c:"#8FDCCC",k:"acr3",inv:1,disp:1,est:false},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
-  pedestal:{n:"원형 집기",s:"원형집기",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:4,disp:4,est:true}
+  /* 원형 집기 높이별(2026-10-27 영업2팀 "높이 300 2개, 500 1개, 750 3개") — 예전 '원형 집기'(750, 4개)는 열쇠 그대로 750으로 */
+  pedestal:{n:"원형 집기 (750)",s:"원형750",w:550,d:550,h:750,c:"#E6E1F2",k:"ped",inv:3,disp:3,est:true},
+  ped500:{n:"원형 집기 (500)",s:"원형500",w:550,d:550,h:500,c:"#E6E1F2",k:"ped",inv:1,disp:1,est:true},
+  ped300:{n:"원형 집기 (300)",s:"원형300",w:550,d:550,h:300,c:"#E6E1F2",k:"ped",inv:2,disp:2,est:true}
 };
 var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
 var KEY_CUR="jvFloorCur2",KEY_SAVED="jvFloorPlans2",KEY_USE="jvFloorUse2",KEY_CUS="jvFloorCustom2",KEY_PHOTO="jvFloorPhoto2",KEY_OPT="jvFloorOpt2",SNAP=50;
@@ -30832,7 +30841,8 @@ function loadUse(){
   var u={};
   Object.keys(DEF).forEach(function(k){u[k]={on:!DEF[k].off,qty:DEF[k].inv};});
   ST.cus.forEach(function(c){u[c.k]={on:true,qty:1};});
-  if(saved)Object.keys(u).forEach(function(k){var s=saved[k];if(!s)return;u[k].on=!!s.on;u[k].qty=Math.max(0,Math.min(99,parseInt(s.qty,10)||0));["w","d","h","bw","bd","bh","ly","mix","n","del"].forEach(function(a){if(s[a])u[k][a]=s[a];});});
+  if(saved)Object.keys(u).forEach(function(k){var s=saved[k];if(!s)return;u[k].on=!!s.on;u[k].qty=Math.max(0,Math.min(99,parseInt(s.qty,10)||0));["w","d","h","bw","bd","bh","ly","mix","n","del","m1027"].forEach(function(a){if(s[a])u[k][a]=s[a];});});
+  if(u.pedestal&&!u.pedestal.m1027){if(u.pedestal.qty===4)u.pedestal.qty=3;u.pedestal.m1027=1;}   /* 원형 집기 750 보유 4 → 3(2026-10-27, 한 번만) */
   ST.use=u;
   try{var o=JSON.parse(localStorage.getItem(KEY_OPT)||"null");if(o){ST.autoOn=o.autoOn!==false;ST.photoFloor=o.photoFloor!==false;if(o.op!=null)ST.photoOp=o.op;}}catch(e){}
   buildCat();
@@ -31373,7 +31383,9 @@ window.fp2Auto=function(quiet){
   var backEdge=n?MARG-100+sd:MARG;
   /* 앞 모서리 곡면 진열대 · 앞 가운데 원형 집기 */
   var hasL=enabled("curveL")&&dispOf("curveL")>0,hasR=enabled("curveR")&&dispOf("curveR")>0,cv=(hasL?1:0)+(hasR?1:0),cw=Math.max(CAT.curveL.w,CAT.curveR.w),cd=Math.max(CAT.curveL.d,CAT.curveR.d),frontZ=D-MARG-cd/2;
-  var pedN=enabled("pedestal")?dispOf("pedestal"):0,pw=CAT.pedestal.w;
+  /* 원형 집기 750 · 500 · 300을 한 줄로(키 큰 것부터) — 같은 자리 규칙으로 놓는다(2026-10-27) */
+  var pedList=[];["pedestal","ped500","ped300"].forEach(function(t){if(CAT[t]&&enabled(t))for(var pi=0;pi<dispOf(t);pi++)pedList.push(t);});
+  var pedN=pedList.length,pw=Math.max.apply(null,["pedestal","ped500","ped300"].map(function(t){return CAT[t]?CAT[t].w:0;}));
   var midNeed=backEdge+900+800+600+cd+MARG;
   var frontRow=cv>0&&D>=midNeed;
   if(cv>0&&!frontRow)warn.push("세로가 짧아 곡면 진열대를 가운데 줄 양끝에 놓았습니다");
@@ -31417,14 +31429,14 @@ window.fp2Auto=function(quiet){
     for(i=0;i<spots.length&&placed<pedN;i++){
       var x=cx+spots[i][0]*pw,z=pz+spots[i][1]*pw;
       if(x-pw/2<cl+100||x+pw/2>cr-100||z+pw/2>D-MARG/2||z-pw/2<midZ+midD/2+300)continue;
-      out.push({t:"pedestal",x:snap(x),z:snap(z)});placed++;
+      out.push({t:pedList[placed],x:snap(x),z:snap(z)});placed++;
     }
     /* 앞 가운데에 다 못 놓으면 빈 자리(앞쪽부터)를 찾아 놓는다 */
     for(var zz=D-MARG-pw/2;placed<pedN&&zz>=backEdge+pw/2;zz-=100){
       for(var xx=W-MARG-pw/2;placed<pedN&&xx>=MARG+pw/2;xx-=100){
         var a={x0:xx-pw/2-150,x1:xx+pw/2+150,z0:zz-pw/2-150,z1:zz+pw/2+150},free=true;
         for(var q=0;q<out.length;q++){var o=out[q],c=CAT[o.t],b={x0:o.x-c.w/2,x1:o.x+c.w/2,z0:o.z-c.d/2,z1:o.z+c.d/2};if(a.x0<b.x1&&a.x1>b.x0&&a.z0<b.z1&&a.z1>b.z0){free=false;break;}}
-        if(free&&!(zz-pw/2<midZ+midD/2+600&&zz+pw/2>midZ-midD/2-600&&xx>(W-rowW)/2-600&&xx<(W+rowW)/2+600)){out.push({t:"pedestal",x:snap(xx),z:snap(zz)});placed++;}
+        if(free&&!(zz-pw/2<midZ+midD/2+600&&zz+pw/2>midZ-midD/2-600&&xx>(W-rowW)/2-600&&xx<(W+rowW)/2+600)){out.push({t:pedList[placed],x:snap(xx),z:snap(zz)});placed++;}
       }
     }
     if(placed<pedN)warn.push("자리가 없어 원형 집기 "+(pedN-placed)+"개를 뺐습니다");
