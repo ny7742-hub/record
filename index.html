@@ -28718,7 +28718,7 @@ var DEF={
 var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
 var KEY_CUR="jvFloorCur",KEY_SAVED="jvFloorPlans",KEY_USE="jvFloorUse",KEY_CUS="jvFloorCustom",KEY_PHOTO="jvFloorPhoto",KEY_OPT="jvFloorOpt",SNAP=50;
 var CAT={};
-var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true},blocks:[],wallOn:false,wallSides:"LBR",wallH:2400};
+var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true},blocks:[],wallOn:false,wallSides:"LBR",wallH:2400,poly:null};
 var sc=1,ox=30,oy=30,drag=null;
 var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false,drag:null};
 var R3={scene:null,cam:null,ren:null,root:null,EDGE:null,photoTex:null};
@@ -28789,7 +28789,7 @@ function loadUse(){
 }
 function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));localStorage.setItem(KEY_CUS,JSON.stringify(ST.cus));}catch(e){}share("use");share("cus");}
 function saveOpt(){try{localStorage.setItem(KEY_OPT,JSON.stringify({autoOn:ST.autoOn,photoFloor:ST.photoFloor,op:ST.photoOp}));}catch(e){}}
-function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH}));}catch(e){}
+function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly}));}catch(e){}
   SH.pendingCur=null;share("cur");}   /* 끄는 사이 들어온 남의 배치는 버리고 내 것을 올린다(마지막에 쓴 사람이 이긴다) */
 function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
 
@@ -28815,13 +28815,27 @@ function changed(){persist();renderPalette();renderSel();renderSum();draw2d();re
    ST.blocks [{n, x0,z0,x1,z1}] — 집기를 놓을 수 없는 칸. 자동 진열·빈 자리 찾기가 피하고, 걸린 집기는 빨강.
    ST.wallOn이면 벽을 그린다: 왼쪽 · 뒤 · 오른쪽(앞 z=D는 통로라 없음) 테두리에서 막힌 칸이 붙은 구간을 빼고, 막힌 칸의 안쪽(드러난) 변을 더한다.
    벽 길이 목록은 시트지 길이와 맞춰 보는 용도. 공간 모양은 현재 배치(cur)·저장 배치에 같이 실려 팀과 공유된다. */
-function shapeFrom(o){ST.blocks=Array.isArray(o&&o.blocks)?o.blocks.map(function(b){var r={n:b.n||"막힌 칸",x0:+b.x0,z0:+b.z0,x1:+b.x1,z1:+b.z1};if(b.o)r.o=1;return r;}):[];ST.wallOn=!!(o&&o.wallOn);ST.wallSides=typeof (o&&o.wallSides)==="string"?o.wallSides:"LBR";ST.wallH=(o&&+o.wallH)||2400;}
+function shapeFrom(o){ST.blocks=Array.isArray(o&&o.blocks)?o.blocks.map(function(b){var r={n:b.n||"막힌 칸",x0:+b.x0,z0:+b.z0,x1:+b.x1,z1:+b.z1};if(b.o)r.o=1;return r;}):[];ST.wallOn=!!(o&&o.wallOn);ST.wallSides=typeof (o&&o.wallSides)==="string"?o.wallSides:"LBR";ST.wallH=(o&&+o.wallH)||2400;ST.poly=Array.isArray(o&&o.poly)&&o.poly.length>=3?o.poly.map(function(p){return [+p[0],+p[1]];}):null;}
 function hitBlock(a){for(var i=0;i<ST.blocks.length;i++){var b=ST.blocks[i];if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1)return true;}return false;}
 /* [lo,hi] 구간에서 빼기 목록을 뺀 나머지 구간들 */
 function subRange(lo,hi,cuts){var segs=[[lo,hi]];cuts.forEach(function(c){var nx=[];segs.forEach(function(sg){if(c[1]<=sg[0]||c[0]>=sg[1]){nx.push(sg);return;}if(c[0]>sg[0])nx.push([sg[0],c[0]]);if(c[1]<sg[1])nx.push([c[1],sg[1]]);});segs=nx;});return segs.filter(function(sg){return sg[1]-sg[0]>1;});}
 function walls(){
   if(!ST.wallOn)return [];
   var W=ST.W,D=ST.D,B=ST.blocks,out=[],E=1,S=ST.wallSides==null?"LBR":ST.wallSides;   /* 벽 고르기(2026-10-27 영업2팀 "1면 2면 3면") — L 왼쪽 · B 뒤 · R 오른쪽 */
+  if(ST.poly&&ST.poly.length>=3){
+    /* 공간 그림 꼭짓점(ST.poly, 2026-10-27)이 있으면 그 변이 벽 — 앞(통로, 두 끝이 세로 끝 z=D)은 빼고 사선도 그대로.
+       면 고르기: 누운 변 = 뒤(B), 나머지는 가운데보다 왼쪽이면 왼쪽(L) · 오른쪽이면 오른쪽(R) */
+    var P=ST.poly;
+    P.forEach(function(p,i){var q=P[(i+1)%P.length];
+      if(p[1]>=D-E&&q[1]>=D-E)return;
+      var hz=Math.abs(q[1]-p[1])<=Math.abs(q[0]-p[0])*0.15,sd=hz?"B":((p[0]+q[0])/2<W/2?"L":"R");
+      if(S.indexOf(sd)<0)return;
+      var sl=!hz&&Math.abs(q[0]-p[0])>E;
+      out.push({n:hz?(Math.max(p[1],q[1])<=E?"뒤 벽":"꺾인 벽(가로)"):(sd==="L"?"왼쪽":"오른쪽")+(sl?" 사선 벽":" 벽"),x0:p[0],z0:p[1],x1:q[0],z1:q[1]});});
+    blockEdges().filter(function(e){return !/^꺾인 벽/.test(e.n);}).forEach(function(e){out.push(e);});   /* 창고 등 막힌 칸 벽만(공간 밖 칸 벽은 위 꼭짓점 벽으로) */
+    out.forEach(function(w){w.len=Math.round(Math.hypot(w.x1-w.x0,w.z1-w.z0));});
+    return out;
+  }
   if(S.indexOf("L")>=0)subRange(0,D,B.filter(function(b){return b.x0<=E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"왼쪽 벽",x0:0,z0:r[0],x1:0,z1:r[1]});});
   if(S.indexOf("B")>=0)subRange(0,W,B.filter(function(b){return b.z0<=E;}).map(function(b){return [b.x0,b.x1];})).forEach(function(r){out.push({n:"뒤 벽",x0:r[0],z0:0,x1:r[1],z1:0});});
   if(S.indexOf("R")>=0)subRange(0,D,B.filter(function(b){return b.x1>=W-E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"오른쪽 벽",x0:W,z0:r[0],x1:W,z1:r[1]});});
@@ -28906,7 +28920,7 @@ window.fpRedo=function(){
    공간을 감싼 네모 = 가로 × 세로 mm(가로는 넣고 세로는 그림 비율로, 고칠 수 있음) → 네모 안을 칸(100mm, 막힌 칸이 40개를 넘으면 200·300·500)으로 나눠
    절반 넘게 공간이 아닌 칸을 줄마다 이어 붙인 네모로 '공간 밖' 막힌 칸(o:1)을 만든다. 자동 진열 · 겹침 · 빈 자리 · 벽은 막힌 칸 규칙을 그대로 쓴다.
    공간 밖 칸은 평면도에서 회색(경계는 진한 선), 3D에서 바닥 덮개로 그린다(벽 높이 상자가 아님). 다른 막힌 칸(창고 등)은 남긴다. 그림은 저장하지 않는다 */
-var SHP={src:null,cw:0,ch:0,px:null,mask:null,ov:null,pts:[],trace:false,W:0,D:0,Dman:false,thr:40,gray:false,err:""};
+var SHP={src:null,big:null,cw:0,ch:0,px:null,mask:null,ov:null,pts:[],trace:false,W:0,thr:40,gray:false,err:"",poly:null,edges:[],ocr:""};
 function shpOpen(){var el=$("fpShp");return !!el&&el.style.display!=="none";}
 window.fpShpOpen=function(){var el=$("fpShp");if(!el)return;el.style.display=shpOpen()?"none":"block";renderShp();};
 window.fpShpPick=function(inp){var f=inp.files&&inp.files[0];inp.value="";if(f)shpFile(f);};
@@ -28921,9 +28935,13 @@ function shpLoad(im){
   var k=Math.min(1,480/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.max(8,Math.round(im.naturalWidth*k)),h=Math.max(8,Math.round(im.naturalHeight*k));
   var c=document.createElement("canvas");c.width=w;c.height=h;var g=c.getContext("2d");
   g.fillStyle="#fff";g.fillRect(0,0,w,h);g.drawImage(im,0,0,w,h);   /* 투명 바탕은 흰색으로 */
-  SHP.src=c;SHP.cw=w;SHP.ch=h;SHP.px=g.getImageData(0,0,w,h).data;SHP.pts=[];SHP.trace=false;SHP.Dman=false;
+  SHP.src=c;SHP.cw=w;SHP.ch=h;SHP.px=g.getImageData(0,0,w,h).data;SHP.pts=[];SHP.trace=false;
+  /* 글자(치수) 읽기용 큰 그림 — 긴 변 1600까지 */
+  var kb=Math.min(1,1600/Math.max(im.naturalWidth,im.naturalHeight)),bc=document.createElement("canvas");bc.width=Math.max(8,Math.round(im.naturalWidth*kb));bc.height=Math.max(8,Math.round(im.naturalHeight*kb));
+  var bg2=bc.getContext("2d");bg2.fillStyle="#fff";bg2.fillRect(0,0,bc.width,bc.height);bg2.drawImage(im,0,0,bc.width,bc.height);SHP.big=bc;
+  SHP.edges=[];SHP.ocr="";
   if(!SHP.W)SHP.W=ST.W;
-  shpDetect();shpAutoD();renderShp();
+  shpDetect();shpRefreshPoly();renderShp();shpOcr();
 }
 /* 깎기(ero) = (2r+1)칸 네모 안이 모두 1, 불리기 = 하나라도 1 — 가로·세로로 나눠 누적합으로 */
 function shpMorph(m,w,h,r,ero){
@@ -28994,51 +29012,151 @@ function shpBox(){
   for(var y=0;y<h;y++)for(var x=0;x<w;x++)if(m[y*w+x]){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
   return x1<0?null:{x0:x0,y0:y0,w:x1-x0+1,h:y1-y0+1};
 }
-function shpAutoD(){if(SHP.Dman)return;var bb=shpBox();if(bb&&SHP.W)SHP.D=Math.max(1000,Math.min(30000,Math.round(SHP.W*bb.h/bb.w/100)*100));}
-/* 공간을 감싼 네모를 칸으로 나눠 공간 밖 칸을 막힌 칸 네모로 — 줄마다 이어진 칸을 한 줄로, 위아래 줄이 같으면 한 네모로 */
-function shpResult(){
-  var bb=shpBox();if(!bb||!(SHP.W>=1000)||!(SHP.D>=1000))return null;
-  var w=SHP.cw,h=SHP.ch,m=SHP.mask,W=SHP.W,D=SHP.D,S=new Float64Array((w+1)*(h+1)),x,y,best=null;
-  for(y=0;y<h;y++){var rs=0;for(x=0;x<w;x++){rs+=m[y*w+x];S[(y+1)*(w+1)+x+1]=S[y*(w+1)+x+1]+rs;}}
-  function frac(ax,ay,bx,by){
-    var X0=Math.max(0,Math.min(w-1,Math.floor(ax))),Y0=Math.max(0,Math.min(h-1,Math.floor(ay))),X1=Math.max(X0+1,Math.min(w,Math.ceil(bx))),Y1=Math.max(Y0+1,Math.min(h,Math.ceil(by)));
-    return (S[Y1*(w+1)+X1]-S[Y0*(w+1)+X1]-S[Y1*(w+1)+X0]+S[Y0*(w+1)+X0])/((X1-X0)*(Y1-Y0));
+/* ── 꼭짓점 · 치수로 공간 만들기(2026-10-27 영업2팀 "이미지를 붙여넣으면 평면도가 만들어지게 — 사다리꼴 위 3800 · 아래 5400 · 왼쪽 2800은 직선거리, 사선 길이는 계산") ──
+   잡힌 모양(청록)의 테두리를 따라가 꼭짓점만 남긴다(shpTrace — 무어 이웃 추적 + RDP). ✏ 꼭짓점 찍기면 찍은 점 그대로.
+   변마다 길이 칸: 가로 변 = 가로 길이 · 세로 변 = 세로 길이 · 사선 변 = 직선거리(가파르면 세로, 누웠으면 가로 — 칸에서 바꿀 수 있음).
+   그림 속 숫자는 글자 읽기(tesseract.js, 처음 한 번 받아 옴)로 가장 가까운 변에 넣는다(고칠 수 있음).
+   그림은 비율이 안 맞을 수 있어(위 458px : 아래 762px인데 3800 : 5400) 길이는 숫자로만 정하고, 모르는 성분(사선의 가로 등)은
+   도형이 닫히도록 그림 속 비율대로 나눈다(shpSolve). → mm 꼭짓점 ST.poly · 가로 × 세로 · 공간 밖 막힌 칸(o) · 사선 벽(walls) */
+function shpTrace(){
+  var m=SHP.mask,w=SHP.cw,h=SHP.ch;if(!m)return null;
+  var fg=function(x,y){return x>=0&&y>=0&&x<w&&y<h&&m[y*w+x]===1;};
+  var sx=-1,sy=-1,x,y;
+  for(y=0;y<h&&sx<0;y++)for(x=0;x<w;x++)if(m[y*w+x]){sx=x;sy=y;break;}
+  if(sx<0)return null;
+  var D8=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];   /* 화면 기준 시계방향 */
+  var pts=[[sx,sy]],cx=sx,cy=sy,bd=4,guard=w*h*4;
+  while(guard-->0){
+    var found=false;
+    for(var k=1;k<=8;k++){var nd=(bd+k)%8,nx=cx+D8[nd][0],ny=cy+D8[nd][1];
+      if(fg(nx,ny)){var pd=(nd+7)%8,bx=cx+D8[pd][0],by=cy+D8[pd][1];cx=nx;cy=ny;
+        for(var j=0;j<8;j++)if(cx+D8[j][0]===bx&&cy+D8[j][1]===by){bd=j;break;}
+        found=true;break;}}
+    if(!found)break;
+    if(cx===sx&&cy===sy&&pts.length>2)break;
+    pts.push([cx,cy]);
   }
+  if(pts.length<3)return null;
+  var eps=Math.max(2.5,Math.max(w,h)*0.012);
+  var rdp=function(P){if(P.length<3)return P;var a=P[0],b=P[P.length-1],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,mi=0,md=0;
+    for(var i=1;i<P.length-1;i++){var d=Math.abs(dy*P[i][0]-dx*P[i][1]+b[0]*a[1]-b[1]*a[0])/L;if(d>md){md=d;mi=i;}}
+    if(md<=eps)return [a,b];var l=rdp(P.slice(0,mi+1)),r=rdp(P.slice(mi));return l.slice(0,-1).concat(r);};
+  var far=0,fd=0;pts.forEach(function(p,i){var d=Math.hypot(p[0]-sx,p[1]-sy);if(d>fd){fd=d;far=i;}});
+  var A=rdp(pts.slice(0,far+1)),B=rdp(pts.slice(far).concat([pts[0]]));
+  var P=A.slice(0,-1).concat(B.slice(0,-1));
+  /* 가까운 점 · 거의 일직선인 점 정리 */
+  for(var it=0;it<3;it++){P=P.filter(function(p,i){var q=P[(i+P.length-1)%P.length],r=P[(i+1)%P.length];
+      if(Math.hypot(p[0]-q[0],p[1]-q[1])<eps)return false;
+      var a1=Math.atan2(p[1]-q[1],p[0]-q[0]),a2=Math.atan2(r[1]-p[1],r[0]-p[0]),da=Math.abs(((a2-a1)*180/Math.PI+540)%360-180);return da>8;});}
+  return P.length>=3?P:null;
+}
+/* 꼭짓점을 맨 위-왼쪽부터 시계방향으로, 변 목록을 만든다(이미 넣은 길이는 같은 자리 변이면 남김) */
+function shpSetPoly(P){
+  if(!P||P.length<3){SHP.poly=null;SHP.edges=[];return;}
+  var ar=0;P.forEach(function(p,i){var q=P[(i+1)%P.length];ar+=p[0]*q[1]-q[0]*p[1];});if(ar<0)P=P.slice().reverse();   /* 화면(y 아래)에서 시계방향 */
+  var s=0;P.forEach(function(p,i){if(p[1]<P[s][1]-2||(Math.abs(p[1]-P[s][1])<=2&&p[0]<P[s][0]))s=i;});P=P.slice(s).concat(P.slice(0,s));
+  var old=SHP.edges||[];
+  var xs=P.map(function(p){return p[0];}),ys=P.map(function(p){return p[1];}),mx=(Math.min.apply(null,xs)+Math.max.apply(null,xs))/2,my=(Math.min.apply(null,ys)+Math.max.apply(null,ys))/2;
+  SHP.poly=P;
+  SHP.edges=P.map(function(p,i){var q=P[(i+1)%P.length],pdx=q[0]-p[0],pdy=q[1]-p[1],ang=Math.atan2(Math.abs(pdy),Math.abs(pdx))*180/Math.PI;
+    var kind=ang<8?"h":ang>82?"v":"s",cx2=(p[0]+q[0])/2,cy2=(p[1]+q[1])/2;
+    var nm=kind==="h"?(cy2<my?"위":"아래"):kind==="v"?(cx2<mx?"왼쪽":"오른쪽"):(cx2<mx?"왼쪽":"오른쪽")+" 사선";
+    var e={a:p,b:q,pdx:pdx,pdy:pdy,kind:kind,nm:nm,mode:kind==="s"?(Math.abs(pdy)>=Math.abs(pdx)?"v":"h"):"",val:null,src:""};
+    old.forEach(function(o){if(o.val&&Math.hypot(o.a[0]-p[0],o.a[1]-p[1])<8&&Math.hypot(o.b[0]-q[0],o.b[1]-q[1])<8){e.val=o.val;e.src=o.src;if(o.mode&&kind==="s")e.mode=o.mode;}});
+    return e;});
+}
+/* 길이 → mm 꼭짓점 — 아는 성분은 그대로, 모르는 성분은 닫히도록 그림 비율로 */
+function shpSolve(){
+  var E=SHP.edges||[],n=E.length;if(n<3)return null;
+  var dx=[],dy=[],kx=[],ky=[],anyVal=false;
+  E.forEach(function(e,i){var sx=e.pdx<0?-1:1,sy=e.pdy<0?-1:1,v=Number(e.val)||0;if(v)anyVal=true;
+    if(e.kind==="h"){dy[i]=0;ky[i]=1;if(v){dx[i]=sx*v;kx[i]=1;}}
+    else if(e.kind==="v"){dx[i]=0;kx[i]=1;if(v){dy[i]=sy*v;ky[i]=1;}}
+    else if(v){if(e.mode==="v"){dy[i]=sy*v;ky[i]=1;}else{dx[i]=sx*v;kx[i]=1;}}});
+  var med=function(a){a=a.slice().sort(function(p,q){return p-q;});return a.length?a[a.length>>1]:0;};
+  var scale=function(arr,known,key){var r=[];E.forEach(function(e,i){var p=Math.abs(e[key]);if(known[i]&&arr[i]&&p>2)r.push(Math.abs(arr[i])/p);});return med(r);};
+  var fill=function(arr,known,key,kAlt){var sK=0,sU=0,cnt=0;E.forEach(function(e,i){if(known[i])sK+=arr[i];else{sU+=e[key];cnt++;}});
+    if(!cnt)return true;var k=Math.abs(sU)>1e-6?-sK/sU:NaN;
+    if(!(k>0)||!isFinite(k))k=scale(arr,known,key)||kAlt;if(!(k>0))return false;
+    E.forEach(function(e,i){if(!known[i])arr[i]=e[key]*k;});return true;};
+  var bw=Math.max.apply(null,SHP.poly.map(function(p){return p[0];}))-Math.min.apply(null,SHP.poly.map(function(p){return p[0];}));
+  var kAltX=scale(dx,kx,"pdx")||scale(dy,ky,"pdy")||(SHP.W>0&&bw>0?SHP.W/bw:0);
+  var kAltY=scale(dy,ky,"pdy")||kAltX;
+  if(!fill(dx,kx,"pdx",kAltX)||!fill(dy,ky,"pdy",kAltY))return null;
+  var P=[[0,0]];for(var i=0;i<n-1;i++)P.push([P[i][0]+dx[i],P[i][1]+dy[i]]);
+  var cx0=dx.reduce(function(a,b){return a+b;},0),cy0=dy.reduce(function(a,b){return a+b;},0);
+  var x0=Math.min.apply(null,P.map(function(p){return p[0];})),y0=Math.min.apply(null,P.map(function(p){return p[1];}));
+  P=P.map(function(p){return [Math.round(p[0]-x0),Math.round(p[1]-y0)];});
+  var W=Math.max.apply(null,P.map(function(p){return p[0];})),D=Math.max.apply(null,P.map(function(p){return p[1];}));
+  var L=P.map(function(p,i){var q=P[(i+1)%n];return Math.round(Math.hypot(q[0]-p[0],q[1]-p[1]));});
+  var area=0;P.forEach(function(p,i){var q=P[(i+1)%n];area+=p[0]*q[1]-q[0]*p[1];});
+  return {pts:P,W:W,D:D,len:L,area:Math.abs(area)/2,gap:Math.round(Math.hypot(cx0,cy0)),any:anyVal};
+}
+function shpInPoly(P,x,z){var c=false;for(var i=0,j=P.length-1;i<P.length;j=i++){var a=P[i],b=P[j];if(((a[1]>z)!==(b[1]>z))&&(x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0]))c=!c;}return c;}
+/* mm 꼭짓점 → 공간 밖 막힌 칸(칸 안 9점 중 절반 넘게 밖이면 막음, 줄마다 이어 붙이고 위아래 같으면 한 네모 — 40개 넘으면 칸을 키움) */
+function shpPolyCells(P,W,D){
+  var best=null;
   [100,200,300,500].some(function(gs){
-    var nx=Math.ceil(W/gs),nz=Math.ceil(D/gs),rects=[],open={},area=0;
+    var nx=Math.ceil(W/gs),nz=Math.ceil(D/gs),rects=[],open={};
     for(var j=0;j<nz;j++){
       var z0=j*gs,z1=Math.min(D,z0+gs),runs=[],c0=-1,nOpen={};
       for(var i=0;i<=nx;i++){
         var oc=false;
-        if(i<nx){var x0=i*gs,x1=Math.min(W,x0+gs);oc=frac(bb.x0+x0/W*bb.w,bb.y0+z0/D*bb.h,bb.x0+x1/W*bb.w,bb.y0+z1/D*bb.h)<0.5;if(!oc)area+=(x1-x0)*(z1-z0);}
+        if(i<nx){var x0=i*gs,x1=Math.min(W,x0+gs),outN=0;
+          for(var a=0;a<3;a++)for(var b=0;b<3;b++)if(!shpInPoly(P,x0+(x1-x0)*(a+0.5)/3,z0+(z1-z0)*(b+0.5)/3))outN++;
+          oc=outN>=5;}
         if(oc&&c0<0)c0=i;
         if(!oc&&c0>=0){runs.push([c0,i]);c0=-1;}
       }
-      runs.forEach(function(r){var k=r[0]+"-"+r[1],b=open[k];
-        if(b)b.z1=z1;else{b={n:"공간 밖",o:1,x0:r[0]*gs,z0:z0,x1:Math.min(W,r[1]*gs),z1:z1};rects.push(b);}
-        nOpen[k]=b;});
+      runs.forEach(function(r){var k=r[0]+"-"+r[1],bk=open[k];
+        if(bk)bk.z1=z1;else{bk={n:"공간 밖",o:1,x0:r[0]*gs,z0:z0,x1:Math.min(W,r[1]*gs),z1:z1};rects.push(bk);}
+        nOpen[k]=bk;});
       open=nOpen;
     }
-    best={g:gs,blocks:rects,area:area};
-    return rects.length<=40;
+    best={g:gs,blocks:rects};return rects.length<=40;
   });
-  return best&&best.area>0?best:null;
+  return best;
 }
-function shpInfo(R){
-  if(SHP.trace&&SHP.pts.length<3)return "그림 위 공간 모서리를 차례로 누르세요(3곳 이상, 처음 점 근처를 누르면 닫힘).";
-  if(!R)return "공간을 감싼 네모의 가로 · 세로(mm)를 넣어 주세요.";
-  return "잡힌 공간 넓이 "+(R.area/1e6).toFixed(1)+"㎡ · 공간 밖 막힌 칸 "+R.blocks.length+"개("+R.g+"mm 칸) — 회색이 막히는 곳입니다.";
+/* 그림 속 숫자 읽기 — tesseract.js(jsdelivr)를 처음에 한 번 받아 쓴다. 숫자(100 이상)를 가장 가까운 변에 넣는다(사람이 고친 칸은 그대로) */
+var _shpOcrWorker=null,_shpOcrLoading=null;
+function shpOcrLib(){
+  if(window.Tesseract)return Promise.resolve();
+  if(_shpOcrLoading)return _shpOcrLoading;
+  _shpOcrLoading=new Promise(function(ok,no){var s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";s.onload=ok;s.onerror=function(){_shpOcrLoading=null;no(new Error("글자 읽기 프로그램을 받지 못했습니다"));};document.head.appendChild(s);});
+  return _shpOcrLoading;
+}
+function shpOcr(){
+  if(!SHP.big||!SHP.edges||!SHP.edges.length)return;
+  var tok=SHP.tok=(SHP.tok||0)+1;SHP.ocr="read";renderShp();
+  shpOcrLib().then(function(){
+    if(_shpOcrWorker)return _shpOcrWorker;
+    return (_shpOcrWorker=Tesseract.createWorker("eng").then(function(wk){return wk.setParameters({tessedit_char_whitelist:"0123456789,.mM ",tessedit_pageseg_mode:"11"}).then(function(){return wk;});}));
+  }).then(function(wk){return wk.recognize(SHP.big);}).then(function(r){
+    if(tok!==SHP.tok)return;
+    var k=SHP.cw/SHP.big.width,nums=[];
+    ((r&&r.data&&r.data.words)||[]).forEach(function(wd){var v=parseInt(String(wd.text||"").replace(/[^0-9]/g,""),10);
+      if(v>=100&&v<=50000)nums.push({v:v,x:(wd.bbox.x0+wd.bbox.x1)/2*k,y:(wd.bbox.y0+wd.bbox.y1)/2*k});});
+    var lim=Math.max(SHP.cw,SHP.ch)*0.35,got={};
+    nums.forEach(function(nm){var bi=-1,bd=1e9;SHP.edges.forEach(function(e,i){var ax=e.a[0],ay=e.a[1],dx=e.b[0]-ax,dy=e.b[1]-ay,L2=dx*dx+dy*dy||1,t=Math.max(0,Math.min(1,((nm.x-ax)*dx+(nm.y-ay)*dy)/L2));
+        var d=Math.hypot(nm.x-(ax+t*dx),nm.y-(ay+t*dy));if(d<bd){bd=d;bi=i;}});
+      if(bi>=0&&bd<lim&&(!got[bi]||got[bi].d>bd))got[bi]={v:nm.v,d:bd};});
+    Object.keys(got).forEach(function(i){var e=SHP.edges[i];if(e&&e.src!=="man"){e.val=got[i].v;e.src="ocr";}});
+    SHP.ocr=Object.keys(got).length?"ok":"none";SHP.ocrN=nums.length;renderShp();
+  }).catch(function(e){if(tok!==SHP.tok)return;SHP.ocr="err";SHP.ocrErr=String(e&&e.message||e);renderShp();});
+}
+function shpRefreshPoly(){
+  shpSetPoly(SHP.trace?(SHP.pts.length>=3?SHP.pts.map(function(p){return p.slice();}):null):shpTrace());
 }
 function renderShp(){
   var el=$("fpShp");if(!el)return;if(!shpOpen()){el.innerHTML="";return;}
   var bt='padding:4px 10px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer',
       on=';border-color:#0f766e;color:#0f766e;background:#ccfbf1',go=';background:#0f766e;color:#fff;border-color:#0f766e',
-      inp='padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;width:72px';
+      inp='padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;width:76px';
   var h='<div style="border:1px solid #99f6e4;background:#f0fdfa;border-radius:8px;padding:10px 12px">'
     +'<div style="display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;font-size:12px;color:#334155">'
     +'<b style="color:#0f766e">🖼 공간 그림 → 공간 모양</b>'
     +'<label style="'+bt+go+'">그림 올리기<input type="file" accept="image/*" onchange="fpShpPick(this)" style="display:none"></label>'
-    +'<span style="color:#5b6675">또는 Ctrl+V로 붙여넣기</span>';
+    +'<span style="color:#5b6675">또는 이 탭 어디서나 Ctrl+V로 붙여넣기</span>';
   if(SHP.src){
     h+='<button onclick="fpShpMode(false)" style="'+bt+(SHP.trace?'':on)+'">🔍 자동으로 찾기</button>'
       +'<button onclick="fpShpMode(true)" style="'+bt+(SHP.trace?on:'')+'">✏ 꼭짓점 찍기</button>';
@@ -29047,31 +29165,49 @@ function renderShp(){
       +'<label title="빨강 · 파랑처럼 색 있는 선(치수선 등)은 바탕으로 보고 검정 · 회색 선만 공간 테두리로 봅니다" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" '+(SHP.gray?'checked':'')+' onchange="fpShpGray(this.checked)" style="margin:0">색 있는 선(치수선) 빼기</label>';
   }
   h+='<span style="flex:1"></span><button onclick="fpShpOpen()" style="'+bt+'">닫기</button></div>'
-    +'<div style="font-size:12px;color:#5b6675;margin:6px 0;line-height:1.5">공간 모양을 선이나 색으로 그린 그림(도면 캡처 · 그림판 · PPT)을 올리면 바탕과 다른 선·색으로 둘러싸인 가장 큰 덩어리를 공간으로 잡습니다(치수선 · 글씨처럼 가는 것은 뺌).'
-    +' 청록이 잡힌 공간입니다 — 치수선이 테두리에 붙어 닫히면 그 띠까지 잡히니 <b>색 있는 선(치수선) 빼기</b>를 켜 보세요. 그래도 안 되면 <b>✏ 꼭짓점 찍기</b>로 그림 위 공간 모서리를 차례로 누르세요. 공간을 감싼 네모의 가로 · 세로(mm)를 넣고 <b>평면도에 적용</b>을 누르면 공간 밖은 막힌 칸(회색)이 됩니다.</div>';
+    +'<div style="font-size:12px;color:#5b6675;margin:6px 0;line-height:1.5">공간 모양을 그린 그림(도면 캡처 · 그림판 · PPT, 치수 숫자를 같이 적어도 됨)을 붙여넣으면 모양(청록)과 꼭짓점을 찾고, 그림 속 숫자를 읽어 변마다 넣습니다.'
+    +' <b>사선 변의 숫자는 직선거리</b>(가파른 사선 = 세로, 누운 사선 = 가로)로 보고 사선 길이는 계산합니다. 숫자는 고칠 수 있고, 꼭짓점이 틀리면 <b>✏ 꼭짓점 찍기</b>로 직접 찍으세요.</div>';
+  var R=null;
   if(SHP.src){
-    var R=shpResult();
-    h+='<div style="display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;font-size:12px;color:#334155;margin-bottom:6px">공간을 감싼 네모 가로 <input id="fpShpW" type="number" min="1000" max="30000" step="100" value="'+(SHP.W||"")+'" onchange="fpShpDim()" style="'+inp+'"> × 세로 <input id="fpShpD" type="number" min="1000" max="30000" step="100" value="'+(SHP.D||"")+'" onchange="fpShpDim(1)" style="'+inp+'"> mm'
-      +(SHP.Dman?' <button onclick="fpShpDim(-1)" style="'+bt+'">세로 = 그림 비율</button>':' <span style="color:#5b6675">(세로는 그림 비율로 자동 — 고쳐도 됩니다)</span>')
-      +' <button onclick="fpShpApply()" '+(R?'':'disabled ')+'style="'+bt+go+(R?'':';opacity:.45;cursor:default')+'">평면도에 적용</button></div>'
-      +'<div style="font-size:12px;margin-bottom:6px;color:'+(SHP.err?'#9a3412':'#0f766e')+'">'+esc(SHP.err||shpInfo(R))+'</div>'
-      +'<canvas id="fpShpCv" style="max-width:100%;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:'+(SHP.trace?'crosshair':'default')+'"></canvas>';
+    R=SHP.poly?shpSolve():null;
+    var ocrTxt=SHP.ocr==="read"?'🔎 그림 속 숫자 읽는 중…':SHP.ocr==="ok"?'🔎 그림 속 숫자를 읽어 넣었습니다(확인해 주세요)':SHP.ocr==="none"?'🔎 그림에서 치수 숫자를 못 찾았습니다 — 칸에 넣어 주세요':SHP.ocr==="err"?'🔎 숫자 읽기 실패('+esc(SHP.ocrErr||"")+') — 칸에 넣어 주세요':'';
+    if(SHP.poly){
+      h+='<div style="font-size:12px;color:#334155;margin-bottom:4px"><b>변 길이(mm)</b> '+(ocrTxt?'<span style="color:#0f766e">'+ocrTxt+'</span>':'')+'</div>'
+        +'<div style="display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:#334155;margin-bottom:6px">'
+        +SHP.edges.map(function(e,i){
+          var lab=e.kind==="h"?"가로":e.kind==="v"?"세로":'<select onchange="fpShpMode2('+i+',this.value)" style="padding:2px 3px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px"><option value="v"'+(e.mode==="v"?" selected":"")+'>세로 직선거리</option><option value="h"'+(e.mode==="h"?" selected":"")+'>가로 직선거리</option></select>';
+          return '<span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><b style="color:#dc2626">'+(i+1)+'</b> '+esc(e.nm)+' '+lab
+            +' <input type="number" min="0" step="10" value="'+(e.val||"")+'" placeholder="모름" onchange="fpShpVal('+i+',this.value)" style="'+inp+(e.src==="ocr"?';background:#ecfeff;border-color:#67e8f9':'')+'">'
+            +(R&&(e.kind==="s"||!e.val)?' <span style="color:#5b6675">→ '+R.len[i].toLocaleString()+'</span>':'')+'</span>';}).join('')
+        +'</div>';
+      if(R&&!R.any)h+='<div style="font-size:12px;color:#334155;margin-bottom:6px">숫자가 하나도 없으면 그림 비율대로 — 가로 전체 <input id="fpShpW" type="number" min="1000" max="30000" step="100" value="'+(SHP.W||"")+'" onchange="fpShpW(this.value)" style="'+inp+'"> mm</div>';
+      h+='<div style="display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;font-size:12px;margin-bottom:6px;color:'+(R?'#0f766e':'#9a3412')+'">'
+        +(R?'→ 공간 가로 <b>'+R.W.toLocaleString()+'</b> × 세로 <b>'+R.D.toLocaleString()+'</b> mm · 넓이 '+(R.area/1e6).toFixed(1)+'㎡'
+            +(SHP.edges.some(function(e){return e.kind==="s";})?' · 사선 '+SHP.edges.map(function(e,i){return e.kind==="s"?(i+1)+'번 '+R.len[i].toLocaleString():null;}).filter(Boolean).join(' · '):'')
+            +(R.gap>R.W*0.02?' <span style="color:#9a3412">(숫자끼리 안 맞아 '+R.gap.toLocaleString()+'mm 어긋남 — 숫자를 확인해 주세요)</span>':'')
+          :'변 길이를 넣으면 평면도 크기가 나옵니다')
+        +' <button onclick="fpShpApply()" '+(R?'':'disabled ')+'style="'+bt+go+(R?'':';opacity:.45;cursor:default')+'">평면도에 적용</button></div>';
+    }else h+='<div style="font-size:12px;margin-bottom:6px;color:#9a3412">'+esc(SHP.err||(SHP.trace?"그림 위 공간 모서리를 차례로 누르세요(3곳 이상).":"꼭짓점을 찾지 못했습니다 — ✏ 꼭짓점 찍기로 찍어 주세요."))+'</div>';
+    h+='<canvas id="fpShpCv" style="max-width:100%;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:'+(SHP.trace?'crosshair':'default')+'"></canvas>';
   }
   el.innerHTML=h+'</div>';
   var cv=$("fpShpCv");if(cv){cv.width=SHP.cw;cv.height=SHP.ch;cv.onclick=shpClick;drawShp(R);}
 }
 function drawShp(R){
   var cv=$("fpShpCv");if(!cv||!SHP.src)return;
-  var g=cv.getContext("2d"),bb=shpBox();
+  var g=cv.getContext("2d");
   g.clearRect(0,0,cv.width,cv.height);g.drawImage(SHP.src,0,0);if(SHP.ov)g.drawImage(SHP.ov,0,0);
-  if(bb){
-    if(R){g.fillStyle="rgba(100,116,139,.45)";R.blocks.forEach(function(b){g.fillRect(bb.x0+b.x0/SHP.W*bb.w,bb.y0+b.z0/SHP.D*bb.h,(b.x1-b.x0)/SHP.W*bb.w,(b.z1-b.z0)/SHP.D*bb.h);});}
-    g.setLineDash([5,4]);g.strokeStyle="#0f766e";g.lineWidth=1.5;g.strokeRect(bb.x0+0.5,bb.y0+0.5,bb.w-1,bb.h-1);g.setLineDash([]);
-  }
-  if(SHP.trace&&SHP.pts.length){
+  var P=SHP.poly;
+  if(P){
+    g.strokeStyle="#dc2626";g.lineWidth=2;g.beginPath();P.forEach(function(p,i){if(i)g.lineTo(p[0],p[1]);else g.moveTo(p[0],p[1]);});g.closePath();g.stroke();
+    P.forEach(function(p){g.fillStyle="#dc2626";g.beginPath();g.arc(p[0],p[1],3.5,0,Math.PI*2);g.fill();});
+    var cx=0,cy=0;P.forEach(function(p){cx+=p[0];cy+=p[1];});cx/=P.length;cy/=P.length;
+    SHP.edges.forEach(function(e,i){var mx=(e.a[0]+e.b[0])/2,my=(e.a[1]+e.b[1])/2,vx=cx-mx,vy=cy-my,L=Math.hypot(vx,vy)||1,x=mx+vx/L*14,y=my+vy/L*14;
+      g.fillStyle="#fff";g.beginPath();g.arc(x,y,8,0,Math.PI*2);g.fill();g.strokeStyle="#dc2626";g.lineWidth=1.5;g.stroke();
+      g.fillStyle="#dc2626";g.font="700 11px sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(String(i+1),x,y+0.5);});
+  }else if(SHP.trace&&SHP.pts.length){
     g.strokeStyle="#dc2626";g.lineWidth=2;g.beginPath();
-    SHP.pts.forEach(function(p,i){if(i)g.lineTo(p[0],p[1]);else g.moveTo(p[0],p[1]);});
-    if(SHP.pts.length>2)g.closePath();g.stroke();
+    SHP.pts.forEach(function(p,i){if(i)g.lineTo(p[0],p[1]);else g.moveTo(p[0],p[1]);});g.stroke();
     SHP.pts.forEach(function(p,i){g.fillStyle=i?"#dc2626":"#7f1d1d";g.beginPath();g.arc(p[0],p[1],i?3.5:5,0,Math.PI*2);g.fill();});
   }
 }
@@ -29081,38 +29217,43 @@ function shpClick(e){
   if(P.length>=3&&Math.hypot(x-P[0][0],y-P[0][1])<9)return;   /* 처음 점 근처 = 닫힘(이미 닫혀 보인다) */
   if(p){if(Math.abs(x-p[0])<6)x=p[0];if(Math.abs(y-p[1])<6)y=p[1];}   /* 가로 · 세로 줄은 맞춰 준다 */
   if(P.length>=2){var f=P[0];if(Math.abs(x-f[0])<6)x=f[0];if(Math.abs(y-f[1])<6)y=f[1];}
-  P.push([Math.round(x),Math.round(y)]);shpPolyMask();shpAutoD();renderShp();
+  P.push([Math.round(x),Math.round(y)]);shpPolyMask();shpRefreshPoly();renderShp();
 }
 window.fpShpMode=function(t){
   SHP.trace=!!t;
   if(SHP.trace){SHP.pts=[];SHP.mask=null;SHP.err="";shpOverlay();}else shpDetect();
-  shpAutoD();renderShp();
+  shpRefreshPoly();renderShp();if(!SHP.trace)shpOcr();
 };
-window.fpShpPt=function(n){if(n<0)SHP.pts.pop();else SHP.pts=[];shpPolyMask();shpAutoD();renderShp();};
-window.fpShpGray=function(on){SHP.gray=!!on;shpDetect();shpAutoD();renderShp();};
-window.fpShpThr=function(v){SHP.thr=Math.max(5,Math.min(150,parseInt(v,10)||40));shpDetect();shpAutoD();renderShp();};
-window.fpShpDim=function(f){
-  var w=clampMm($("fpShpW")&&$("fpShpW").value,1000,30000);if(w!=null)SHP.W=Math.round(w/100)*100;
-  if(f===1){var d=clampMm($("fpShpD").value,1000,30000);if(d!=null){SHP.D=Math.round(d/100)*100;SHP.Dman=true;}}
-  if(f===-1)SHP.Dman=false;
-  shpAutoD();renderShp();
-};
+window.fpShpPt=function(n){if(n<0)SHP.pts.pop();else SHP.pts=[];shpPolyMask();shpRefreshPoly();renderShp();if(SHP.pts.length>=3)shpOcr();};
+window.fpShpGray=function(on){SHP.gray=!!on;shpDetect();shpRefreshPoly();renderShp();shpOcr();};
+window.fpShpThr=function(v){SHP.thr=Math.max(5,Math.min(150,parseInt(v,10)||40));shpDetect();shpRefreshPoly();renderShp();shpOcr();};
+window.fpShpVal=function(i,v){var e=SHP.edges[i];if(!e)return;var n=Math.round(Number(v));e.val=n>0?n:null;e.src=n>0?"man":"";renderShp();};
+window.fpShpMode2=function(i,m){var e=SHP.edges[i];if(!e)return;e.mode=m==="h"?"h":"v";renderShp();};
+window.fpShpW=function(v){var n=clampMm(v,1000,30000);if(n!=null)SHP.W=n;renderShp();};
 window.fpShpApply=function(){
-  var R=shpResult();if(!R){msg("공간 모양과 가로 · 세로를 먼저 정해 주세요.",true);return;}
-  var W=SHP.W,D=SHP.D;
+  var R=SHP.poly?shpSolve():null;if(!R){msg("공간 모양과 변 길이를 먼저 정해 주세요.",true);return;}
+  if(R.W<1000||R.D<1000||R.W>30000||R.D>30000){msg("공간 크기가 "+R.W+" × "+R.D+" mm로 나왔습니다 — 변 길이를 확인해 주세요(1,000~30,000).",true);return;}
+  var W=R.W,D=R.D,C=shpPolyCells(R.pts,W,D);
   var keep=ST.blocks.filter(function(b){return !b.o&&b.x0<W&&b.z0<D;}).map(function(b){return {n:b.n,x0:b.x0,z0:b.z0,x1:Math.min(b.x1,W),z1:Math.min(b.z1,D)};});
   ST.W=W;ST.D=D;$("fpW").value=W;$("fpD").value=D;T3.rad=Math.max(W,D)/1000*1.5+2;
-  ST.blocks=keep.concat(R.blocks);
-  var t="공간 그림대로 "+W.toLocaleString()+" × "+D.toLocaleString()+" mm 안에서 공간 밖 "+R.blocks.length+"칸을 막았습니다(공간 넓이 "+(R.area/1e6).toFixed(1)+"㎡). 마음에 안 들면 ↶ 되돌리기.";
+  ST.poly=R.pts;ST.blocks=keep.concat(C.blocks);
+  var sl=SHP.edges.map(function(e,i){return e.kind==="s"?R.len[i].toLocaleString():null;}).filter(Boolean);
+  var t="공간 그림대로 "+W.toLocaleString()+" × "+D.toLocaleString()+" mm 공간을 만들었습니다(넓이 "+(R.area/1e6).toFixed(1)+"㎡"+(sl.length?" · 사선 "+sl.join(" · ")+" mm":"")+"). 마음에 안 들면 ↶ 되돌리기.";
   if(ST.autoOn){window.fpAuto(true);var e=$("fpMsg"),am=e?e.textContent:"";msg(t+" · "+am,e&&e.style.color==="rgb(154, 52, 18)");}
   else{changed();msg(t);}
 };
-window.fpShpClear=function(){ST.blocks=ST.blocks.filter(function(b){return !b.o;});msg("그림으로 만든 공간 밖 칸을 지웠습니다(직사각형 공간).");autoIfOn();};
+window.fpShpClear=function(){ST.blocks=ST.blocks.filter(function(b){return !b.o;});ST.poly=null;msg("그림으로 만든 공간 모양을 지웠습니다(직사각형 공간).");autoIfOn();};
+/* 붙여넣기 — 이 탭이 열려 있고 입력칸이 아니면 어디서나(2026-10-27 영업2팀 "복사해서 붙여넣기로 넣으면") — 공간 그림 칸을 열고 바로 읽는다 */
 document.addEventListener("paste",function(e){
-  if(!pageOn()||!shpOpen())return;
+  if(!pageOn())return;
+  var t=e.target&&e.target.tagName;if(!shpOpen()&&(t==="INPUT"||t==="TEXTAREA"||(e.target&&e.target.isContentEditable)))return;
   var its=(e.clipboardData&&e.clipboardData.items)||[],f=null;
   for(var i=0;i<its.length;i++)if(/^image\//.test(its[i].type)){f=its[i].getAsFile();break;}
-  if(f){e.preventDefault();shpFile(f);}
+  if(!f)return;
+  e.preventDefault();
+  var el=$("fpShp");if(el&&!shpOpen())el.style.display="block";
+  shpFile(f);
+  if(el)el.scrollIntoView({block:"nearest"});
 });
 /* 막힌 칸의 드러난 변 — 옆 막힌 칸과 맞닿은 부분 · 공간 테두리 위 변은 뺀다(공간 그림으로 만든 칸은 여러 개가 붙어 있다). 한 줄로 이어지면 하나로.
    onlyOut = 공간 그림으로 만든 칸(o)만 — 평면도에서 실제 공간 테두리로 그린다 */
@@ -29403,6 +29544,7 @@ window.fpAuto=function(quiet){
 window.fpSize=function(){
   var w=parseInt($("fpW").value,10),d=parseInt($("fpD").value,10);
   if(!(w>=1000))w=1000;if(!(d>=1000))d=1000;if(w>30000)w=30000;if(d>30000)d=30000;
+  if(ST.poly&&(w!==ST.W||d!==ST.D)){ST.poly=null;ST.blocks=ST.blocks.filter(function(b){return !b.o;});}   /* 크기를 손으로 바꾸면 그림 공간 모양은 뺀다(안 맞으므로) */
   ST.W=w;ST.D=d;$("fpW").value=w;$("fpD").value=d;
   T3.rad=Math.max(w,d)/1000*1.5+2;
   autoIfOn();
@@ -29410,7 +29552,7 @@ window.fpSize=function(){
 window.fpSave=function(){
   var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다)","");
   if(!name)return;name=name.trim();if(!name)return;
-  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
+  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){msg("저장하지 못했습니다(브라우저 저장공간).",true);return;}
   share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
 };
@@ -29643,7 +29785,7 @@ function draw2d(){
   g.fillText("앞(통로) ▼",ox+ST.W*sc/2,oy+ST.D*sc+14);
   ST.blocks.forEach(function(b){
     var x=ox+b.x0*sc,y=oy+b.z0*sc,w=(b.x1-b.x0)*sc,d=(b.z1-b.z0)*sc;
-    if(b.o){var e0=b.x0<=1?3:0,e1=b.x1>=ST.W-1?3:0,f0=b.z0<=1?3:0,f1=b.z1>=ST.D-1?3:0;g.fillStyle="#e9ebee";g.fillRect(x-e0,y-f0,w+e0+e1,d+f0+f1);return;}   /* 공간 그림의 공간 밖 — 회색(바깥 테두리 선도 덮는다) */
+    if(b.o){if(ST.poly)return;var e0=b.x0<=1?3:0,e1=b.x1>=ST.W-1?3:0,f0=b.z0<=1?3:0,f1=b.z1>=ST.D-1?3:0;g.fillStyle="#e9ebee";g.fillRect(x-e0,y-f0,w+e0+e1,d+f0+f1);return;}   /* 공간 그림의 공간 밖 — 회색(바깥 테두리 선도 덮는다) */
     g.fillStyle="#fde4d4";g.fillRect(x,y,w,d);
     g.save();g.beginPath();g.rect(x,y,w,d);g.clip();g.strokeStyle="rgba(194,120,80,.35)";g.lineWidth=1;g.beginPath();
     for(var t=-d;t<w;t+=10){g.moveTo(x+t,y);g.lineTo(x+t+d,y+d);}g.stroke();g.restore();
@@ -29651,8 +29793,14 @@ function draw2d(){
     g.fillStyle="#9a3412";g.font="700 12px sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(b.n,x+w/2,y+d/2-7);
     g.font="11px sans-serif";g.fillText((b.x1-b.x0)+"×"+(b.z1-b.z0),x+w/2,y+d/2+8);
   });
+  if(ST.poly&&ST.poly.length>=3){   /* 공간 그림 꼭짓점 — 밖은 회색(바깥 테두리도 덮음), 공간 테두리(사선 포함)는 진한 선 */
+    var pth=function(){ST.poly.forEach(function(p,i){if(i)g.lineTo(ox+p[0]*sc,oy+p[1]*sc);else g.moveTo(ox+p[0]*sc,oy+p[1]*sc);});g.closePath();};
+    g.beginPath();g.rect(ox-3,oy-3,ST.W*sc+6,ST.D*sc+6);pth();g.fillStyle="#e9ebee";g.fill("evenodd");
+    g.strokeStyle="#334155";g.lineWidth=2;g.beginPath();pth();g.stroke();
+  }else{
   g.strokeStyle="#334155";g.lineWidth=2;g.beginPath();   /* 공간 그림으로 잡은 실제 공간 테두리 */
   blockEdges(true).forEach(function(e){g.moveTo(ox+e.x0*sc,oy+e.z0*sc);g.lineTo(ox+e.x1*sc,oy+e.z1*sc);});g.stroke();
+  }
   g.strokeStyle="#1f2937";g.lineWidth=5;g.lineCap="square";
   walls().forEach(function(w){g.beginPath();g.moveTo(ox+w.x0*sc,oy+w.z0*sc);g.lineTo(ox+w.x1*sc,oy+w.z1*sc);g.stroke();});
   g.lineCap="butt";
@@ -30495,9 +30643,16 @@ function rebuild3d(){
       sh.left=-ext;sh.right=ext;sh.top=ext;sh.bottom=-ext;sh.near=0.5;sh.far=30;sh.updateProjectionMatrix();}
     var WHm=(ST.wallH||2400)/1000;
     ST.blocks.forEach(function(b){var bw2=(b.x1-b.x0)/1000,bd2=(b.z1-b.z0)/1000;
-      if(b.o){var cvr=new THREE.Mesh(new THREE.BoxGeometry(bw2,0.004,bd2),new THREE.MeshLambertMaterial({color:0xdfe3e8}));cvr.position.set((b.x0+b.x1)/2000-w/2,0.006,(b.z0+b.z1)/2000-d/2);root.add(cvr);return;}   /* 공간 밖 = 바닥 덮개 */
+      if(b.o){if(ST.poly)return;var cvr=new THREE.Mesh(new THREE.BoxGeometry(bw2,0.004,bd2),new THREE.MeshLambertMaterial({color:0xdfe3e8}));cvr.position.set((b.x0+b.x1)/2000-w/2,0.006,(b.z0+b.z1)/2000-d/2);root.add(cvr);return;}   /* 공간 밖 = 바닥 덮개 */
       mk(root,bw2,WHm,bd2,(b.x0+b.x1)/2000-w/2,WHm/2,(b.z0+b.z1)/2000-d/2,0xf3d2bf);});
+    if(ST.poly&&ST.poly.length>=3){   /* 공간 밖 바닥 덮개 — 네모에서 공간 꼭짓점 모양을 뺀 판(2026-10-27) */
+      var tw=function(x,z){return [x/1000-w/2,-(z/1000-d/2)];},c0=tw(0,0),c1=tw(ST.W,ST.D),osh=new THREE.Shape(),hole=new THREE.Path();
+      osh.moveTo(c0[0],c0[1]);osh.lineTo(c1[0],c0[1]);osh.lineTo(c1[0],c1[1]);osh.lineTo(c0[0],c1[1]);osh.lineTo(c0[0],c0[1]);
+      ST.poly.forEach(function(p,i){var t=tw(p[0],p[1]);if(i)hole.lineTo(t[0],t[1]);else hole.moveTo(t[0],t[1]);});hole.closePath();osh.holes.push(hole);
+      var og=new THREE.ShapeGeometry(osh);og.rotateX(-Math.PI/2);var om=new THREE.Mesh(og,new THREE.MeshLambertMaterial({color:0xdfe3e8,side:THREE.DoubleSide}));om.position.y=0.006;root.add(om);
+    }
     walls().forEach(function(wl){var lx=(wl.x1-wl.x0)/1000,lz=(wl.z1-wl.z0)/1000,T=0.06;
+      if(Math.abs(lx)>0.001&&Math.abs(lz)>0.001){var sw=mk(root,Math.hypot(lx,lz),WHm,T,(wl.x0+wl.x1)/2000-w/2,WHm/2,(wl.z0+wl.z1)/2000-d/2,0xeceae4);sw.rotation.y=-Math.atan2(lz,lx);return;}   /* 사선 벽 */
       mk(root,Math.abs(lx)||T,WHm,Math.abs(lz)||T,(wl.x0+wl.x1)/2000-w/2,WHm/2,(wl.z0+wl.z1)/2000-d/2,0xeceae4);});
     R3.root=root;R3.scene.add(root);
     render3d();
@@ -30653,7 +30808,7 @@ function canShare(){
 }
 function meName(){try{if(_authMe&&_authMe.name)return String(_authMe.name);if(_authUser&&_authUser.email)return String(_authUser.email).split("@")[0];}catch(e){}return "";}
 var SRC={
-  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH});},
+  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly});},
   use:function(){return JSON.stringify(ST.use);},
   cus:function(){return JSON.stringify(ST.cus);},
   plans:function(){try{return localStorage.getItem(KEY_SAVED)||"{}";}catch(e){return "{}";}},
@@ -30849,7 +31004,7 @@ var DEF={
 var CUS_COLORS=["#F4C0D1","#C7E3D4","#F2D7A6","#CFD8F0","#E2CFE8","#D9E6B8"];
 var KEY_CUR="jvFloorCur2",KEY_SAVED="jvFloorPlans2",KEY_USE="jvFloorUse2",KEY_CUS="jvFloorCustom2",KEY_PHOTO="jvFloorPhoto2",KEY_OPT="jvFloorOpt2",SNAP=50;
 var CAT={};
-var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true},blocks:[],wallOn:false,wallSides:"LBR",wallH:2400};
+var ST={W:4200,D:3500,items:[],sel:null,next:1,use:{},cus:[],photo:null,photoOp:0.5,photoFloor:false,autoOn:true,cal:{sp:[],nx:0,nz:0,tw:600,td:600,ov:true},blocks:[],wallOn:false,wallSides:"LBR",wallH:2400,poly:null};
 var sc=1,ox=30,oy=30,drag=null;
 var T3={ready:false,loading:false,th:0.7,ph:1.0,rad:8,pts:{},pd:0,sched:false,drag:null};
 var R3={scene:null,cam:null,ren:null,root:null,EDGE:null,photoTex:null};
@@ -30920,7 +31075,7 @@ function loadUse(){
 }
 function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));localStorage.setItem(KEY_CUS,JSON.stringify(ST.cus));}catch(e){}share("use");share("cus");}
 function saveOpt(){try{localStorage.setItem(KEY_OPT,JSON.stringify({autoOn:ST.autoOn,photoFloor:ST.photoFloor,op:ST.photoOp}));}catch(e){}}
-function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH}));}catch(e){}
+function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly}));}catch(e){}
   SH.pendingCur=null;share("cur");}   /* 끄는 사이 들어온 남의 배치는 버리고 내 것을 올린다(마지막에 쓴 사람이 이긴다) */
 function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
 
@@ -30946,13 +31101,27 @@ function changed(){persist();renderPalette();renderSel();renderSum();draw2d();re
    ST.blocks [{n, x0,z0,x1,z1}] — 집기를 놓을 수 없는 칸. 자동 진열·빈 자리 찾기가 피하고, 걸린 집기는 빨강.
    ST.wallOn이면 벽을 그린다: 왼쪽 · 뒤 · 오른쪽(앞 z=D는 통로라 없음) 테두리에서 막힌 칸이 붙은 구간을 빼고, 막힌 칸의 안쪽(드러난) 변을 더한다.
    벽 길이 목록은 시트지 길이와 맞춰 보는 용도. 공간 모양은 현재 배치(cur)·저장 배치에 같이 실려 팀과 공유된다. */
-function shapeFrom(o){ST.blocks=Array.isArray(o&&o.blocks)?o.blocks.map(function(b){var r={n:b.n||"막힌 칸",x0:+b.x0,z0:+b.z0,x1:+b.x1,z1:+b.z1};if(b.o)r.o=1;return r;}):[];ST.wallOn=!!(o&&o.wallOn);ST.wallSides=typeof (o&&o.wallSides)==="string"?o.wallSides:"LBR";ST.wallH=(o&&+o.wallH)||2400;}
+function shapeFrom(o){ST.blocks=Array.isArray(o&&o.blocks)?o.blocks.map(function(b){var r={n:b.n||"막힌 칸",x0:+b.x0,z0:+b.z0,x1:+b.x1,z1:+b.z1};if(b.o)r.o=1;return r;}):[];ST.wallOn=!!(o&&o.wallOn);ST.wallSides=typeof (o&&o.wallSides)==="string"?o.wallSides:"LBR";ST.wallH=(o&&+o.wallH)||2400;ST.poly=Array.isArray(o&&o.poly)&&o.poly.length>=3?o.poly.map(function(p){return [+p[0],+p[1]];}):null;}
 function hitBlock(a){for(var i=0;i<ST.blocks.length;i++){var b=ST.blocks[i];if(a.x0<b.x1-1&&a.x1>b.x0+1&&a.z0<b.z1-1&&a.z1>b.z0+1)return true;}return false;}
 /* [lo,hi] 구간에서 빼기 목록을 뺀 나머지 구간들 */
 function subRange(lo,hi,cuts){var segs=[[lo,hi]];cuts.forEach(function(c){var nx=[];segs.forEach(function(sg){if(c[1]<=sg[0]||c[0]>=sg[1]){nx.push(sg);return;}if(c[0]>sg[0])nx.push([sg[0],c[0]]);if(c[1]<sg[1])nx.push([c[1],sg[1]]);});segs=nx;});return segs.filter(function(sg){return sg[1]-sg[0]>1;});}
 function walls(){
   if(!ST.wallOn)return [];
   var W=ST.W,D=ST.D,B=ST.blocks,out=[],E=1,S=ST.wallSides==null?"LBR":ST.wallSides;   /* 벽 고르기(2026-10-27 영업2팀 "1면 2면 3면") — L 왼쪽 · B 뒤 · R 오른쪽 */
+  if(ST.poly&&ST.poly.length>=3){
+    /* 공간 그림 꼭짓점(ST.poly, 2026-10-27)이 있으면 그 변이 벽 — 앞(통로, 두 끝이 세로 끝 z=D)은 빼고 사선도 그대로.
+       면 고르기: 누운 변 = 뒤(B), 나머지는 가운데보다 왼쪽이면 왼쪽(L) · 오른쪽이면 오른쪽(R) */
+    var P=ST.poly;
+    P.forEach(function(p,i){var q=P[(i+1)%P.length];
+      if(p[1]>=D-E&&q[1]>=D-E)return;
+      var hz=Math.abs(q[1]-p[1])<=Math.abs(q[0]-p[0])*0.15,sd=hz?"B":((p[0]+q[0])/2<W/2?"L":"R");
+      if(S.indexOf(sd)<0)return;
+      var sl=!hz&&Math.abs(q[0]-p[0])>E;
+      out.push({n:hz?(Math.max(p[1],q[1])<=E?"뒤 벽":"꺾인 벽(가로)"):(sd==="L"?"왼쪽":"오른쪽")+(sl?" 사선 벽":" 벽"),x0:p[0],z0:p[1],x1:q[0],z1:q[1]});});
+    blockEdges().filter(function(e){return !/^꺾인 벽/.test(e.n);}).forEach(function(e){out.push(e);});   /* 창고 등 막힌 칸 벽만(공간 밖 칸 벽은 위 꼭짓점 벽으로) */
+    out.forEach(function(w){w.len=Math.round(Math.hypot(w.x1-w.x0,w.z1-w.z0));});
+    return out;
+  }
   if(S.indexOf("L")>=0)subRange(0,D,B.filter(function(b){return b.x0<=E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"왼쪽 벽",x0:0,z0:r[0],x1:0,z1:r[1]});});
   if(S.indexOf("B")>=0)subRange(0,W,B.filter(function(b){return b.z0<=E;}).map(function(b){return [b.x0,b.x1];})).forEach(function(r){out.push({n:"뒤 벽",x0:r[0],z0:0,x1:r[1],z1:0});});
   if(S.indexOf("R")>=0)subRange(0,D,B.filter(function(b){return b.x1>=W-E;}).map(function(b){return [b.z0,b.z1];})).forEach(function(r){out.push({n:"오른쪽 벽",x0:W,z0:r[0],x1:W,z1:r[1]});});
@@ -31037,7 +31206,7 @@ window.fp2Redo=function(){
    공간을 감싼 네모 = 가로 × 세로 mm(가로는 넣고 세로는 그림 비율로, 고칠 수 있음) → 네모 안을 칸(100mm, 막힌 칸이 40개를 넘으면 200·300·500)으로 나눠
    절반 넘게 공간이 아닌 칸을 줄마다 이어 붙인 네모로 '공간 밖' 막힌 칸(o:1)을 만든다. 자동 진열 · 겹침 · 빈 자리 · 벽은 막힌 칸 규칙을 그대로 쓴다.
    공간 밖 칸은 평면도에서 회색(경계는 진한 선), 3D에서 바닥 덮개로 그린다(벽 높이 상자가 아님). 다른 막힌 칸(창고 등)은 남긴다. 그림은 저장하지 않는다 */
-var SHP={src:null,cw:0,ch:0,px:null,mask:null,ov:null,pts:[],trace:false,W:0,D:0,Dman:false,thr:40,gray:false,err:""};
+var SHP={src:null,big:null,cw:0,ch:0,px:null,mask:null,ov:null,pts:[],trace:false,W:0,thr:40,gray:false,err:"",poly:null,edges:[],ocr:""};
 function shpOpen(){var el=$("fp2Shp");return !!el&&el.style.display!=="none";}
 window.fp2ShpOpen=function(){var el=$("fp2Shp");if(!el)return;el.style.display=shpOpen()?"none":"block";renderShp();};
 window.fp2ShpPick=function(inp){var f=inp.files&&inp.files[0];inp.value="";if(f)shpFile(f);};
@@ -31052,9 +31221,13 @@ function shpLoad(im){
   var k=Math.min(1,480/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.max(8,Math.round(im.naturalWidth*k)),h=Math.max(8,Math.round(im.naturalHeight*k));
   var c=document.createElement("canvas");c.width=w;c.height=h;var g=c.getContext("2d");
   g.fillStyle="#fff";g.fillRect(0,0,w,h);g.drawImage(im,0,0,w,h);   /* 투명 바탕은 흰색으로 */
-  SHP.src=c;SHP.cw=w;SHP.ch=h;SHP.px=g.getImageData(0,0,w,h).data;SHP.pts=[];SHP.trace=false;SHP.Dman=false;
+  SHP.src=c;SHP.cw=w;SHP.ch=h;SHP.px=g.getImageData(0,0,w,h).data;SHP.pts=[];SHP.trace=false;
+  /* 글자(치수) 읽기용 큰 그림 — 긴 변 1600까지 */
+  var kb=Math.min(1,1600/Math.max(im.naturalWidth,im.naturalHeight)),bc=document.createElement("canvas");bc.width=Math.max(8,Math.round(im.naturalWidth*kb));bc.height=Math.max(8,Math.round(im.naturalHeight*kb));
+  var bg2=bc.getContext("2d");bg2.fillStyle="#fff";bg2.fillRect(0,0,bc.width,bc.height);bg2.drawImage(im,0,0,bc.width,bc.height);SHP.big=bc;
+  SHP.edges=[];SHP.ocr="";
   if(!SHP.W)SHP.W=ST.W;
-  shpDetect();shpAutoD();renderShp();
+  shpDetect();shpRefreshPoly();renderShp();shpOcr();
 }
 /* 깎기(ero) = (2r+1)칸 네모 안이 모두 1, 불리기 = 하나라도 1 — 가로·세로로 나눠 누적합으로 */
 function shpMorph(m,w,h,r,ero){
@@ -31125,51 +31298,151 @@ function shpBox(){
   for(var y=0;y<h;y++)for(var x=0;x<w;x++)if(m[y*w+x]){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
   return x1<0?null:{x0:x0,y0:y0,w:x1-x0+1,h:y1-y0+1};
 }
-function shpAutoD(){if(SHP.Dman)return;var bb=shpBox();if(bb&&SHP.W)SHP.D=Math.max(1000,Math.min(30000,Math.round(SHP.W*bb.h/bb.w/100)*100));}
-/* 공간을 감싼 네모를 칸으로 나눠 공간 밖 칸을 막힌 칸 네모로 — 줄마다 이어진 칸을 한 줄로, 위아래 줄이 같으면 한 네모로 */
-function shpResult(){
-  var bb=shpBox();if(!bb||!(SHP.W>=1000)||!(SHP.D>=1000))return null;
-  var w=SHP.cw,h=SHP.ch,m=SHP.mask,W=SHP.W,D=SHP.D,S=new Float64Array((w+1)*(h+1)),x,y,best=null;
-  for(y=0;y<h;y++){var rs=0;for(x=0;x<w;x++){rs+=m[y*w+x];S[(y+1)*(w+1)+x+1]=S[y*(w+1)+x+1]+rs;}}
-  function frac(ax,ay,bx,by){
-    var X0=Math.max(0,Math.min(w-1,Math.floor(ax))),Y0=Math.max(0,Math.min(h-1,Math.floor(ay))),X1=Math.max(X0+1,Math.min(w,Math.ceil(bx))),Y1=Math.max(Y0+1,Math.min(h,Math.ceil(by)));
-    return (S[Y1*(w+1)+X1]-S[Y0*(w+1)+X1]-S[Y1*(w+1)+X0]+S[Y0*(w+1)+X0])/((X1-X0)*(Y1-Y0));
+/* ── 꼭짓점 · 치수로 공간 만들기(2026-10-27 영업2팀 "이미지를 붙여넣으면 평면도가 만들어지게 — 사다리꼴 위 3800 · 아래 5400 · 왼쪽 2800은 직선거리, 사선 길이는 계산") ──
+   잡힌 모양(청록)의 테두리를 따라가 꼭짓점만 남긴다(shpTrace — 무어 이웃 추적 + RDP). ✏ 꼭짓점 찍기면 찍은 점 그대로.
+   변마다 길이 칸: 가로 변 = 가로 길이 · 세로 변 = 세로 길이 · 사선 변 = 직선거리(가파르면 세로, 누웠으면 가로 — 칸에서 바꿀 수 있음).
+   그림 속 숫자는 글자 읽기(tesseract.js, 처음 한 번 받아 옴)로 가장 가까운 변에 넣는다(고칠 수 있음).
+   그림은 비율이 안 맞을 수 있어(위 458px : 아래 762px인데 3800 : 5400) 길이는 숫자로만 정하고, 모르는 성분(사선의 가로 등)은
+   도형이 닫히도록 그림 속 비율대로 나눈다(shpSolve). → mm 꼭짓점 ST.poly · 가로 × 세로 · 공간 밖 막힌 칸(o) · 사선 벽(walls) */
+function shpTrace(){
+  var m=SHP.mask,w=SHP.cw,h=SHP.ch;if(!m)return null;
+  var fg=function(x,y){return x>=0&&y>=0&&x<w&&y<h&&m[y*w+x]===1;};
+  var sx=-1,sy=-1,x,y;
+  for(y=0;y<h&&sx<0;y++)for(x=0;x<w;x++)if(m[y*w+x]){sx=x;sy=y;break;}
+  if(sx<0)return null;
+  var D8=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];   /* 화면 기준 시계방향 */
+  var pts=[[sx,sy]],cx=sx,cy=sy,bd=4,guard=w*h*4;
+  while(guard-->0){
+    var found=false;
+    for(var k=1;k<=8;k++){var nd=(bd+k)%8,nx=cx+D8[nd][0],ny=cy+D8[nd][1];
+      if(fg(nx,ny)){var pd=(nd+7)%8,bx=cx+D8[pd][0],by=cy+D8[pd][1];cx=nx;cy=ny;
+        for(var j=0;j<8;j++)if(cx+D8[j][0]===bx&&cy+D8[j][1]===by){bd=j;break;}
+        found=true;break;}}
+    if(!found)break;
+    if(cx===sx&&cy===sy&&pts.length>2)break;
+    pts.push([cx,cy]);
   }
+  if(pts.length<3)return null;
+  var eps=Math.max(2.5,Math.max(w,h)*0.012);
+  var rdp=function(P){if(P.length<3)return P;var a=P[0],b=P[P.length-1],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,mi=0,md=0;
+    for(var i=1;i<P.length-1;i++){var d=Math.abs(dy*P[i][0]-dx*P[i][1]+b[0]*a[1]-b[1]*a[0])/L;if(d>md){md=d;mi=i;}}
+    if(md<=eps)return [a,b];var l=rdp(P.slice(0,mi+1)),r=rdp(P.slice(mi));return l.slice(0,-1).concat(r);};
+  var far=0,fd=0;pts.forEach(function(p,i){var d=Math.hypot(p[0]-sx,p[1]-sy);if(d>fd){fd=d;far=i;}});
+  var A=rdp(pts.slice(0,far+1)),B=rdp(pts.slice(far).concat([pts[0]]));
+  var P=A.slice(0,-1).concat(B.slice(0,-1));
+  /* 가까운 점 · 거의 일직선인 점 정리 */
+  for(var it=0;it<3;it++){P=P.filter(function(p,i){var q=P[(i+P.length-1)%P.length],r=P[(i+1)%P.length];
+      if(Math.hypot(p[0]-q[0],p[1]-q[1])<eps)return false;
+      var a1=Math.atan2(p[1]-q[1],p[0]-q[0]),a2=Math.atan2(r[1]-p[1],r[0]-p[0]),da=Math.abs(((a2-a1)*180/Math.PI+540)%360-180);return da>8;});}
+  return P.length>=3?P:null;
+}
+/* 꼭짓점을 맨 위-왼쪽부터 시계방향으로, 변 목록을 만든다(이미 넣은 길이는 같은 자리 변이면 남김) */
+function shpSetPoly(P){
+  if(!P||P.length<3){SHP.poly=null;SHP.edges=[];return;}
+  var ar=0;P.forEach(function(p,i){var q=P[(i+1)%P.length];ar+=p[0]*q[1]-q[0]*p[1];});if(ar<0)P=P.slice().reverse();   /* 화면(y 아래)에서 시계방향 */
+  var s=0;P.forEach(function(p,i){if(p[1]<P[s][1]-2||(Math.abs(p[1]-P[s][1])<=2&&p[0]<P[s][0]))s=i;});P=P.slice(s).concat(P.slice(0,s));
+  var old=SHP.edges||[];
+  var xs=P.map(function(p){return p[0];}),ys=P.map(function(p){return p[1];}),mx=(Math.min.apply(null,xs)+Math.max.apply(null,xs))/2,my=(Math.min.apply(null,ys)+Math.max.apply(null,ys))/2;
+  SHP.poly=P;
+  SHP.edges=P.map(function(p,i){var q=P[(i+1)%P.length],pdx=q[0]-p[0],pdy=q[1]-p[1],ang=Math.atan2(Math.abs(pdy),Math.abs(pdx))*180/Math.PI;
+    var kind=ang<8?"h":ang>82?"v":"s",cx2=(p[0]+q[0])/2,cy2=(p[1]+q[1])/2;
+    var nm=kind==="h"?(cy2<my?"위":"아래"):kind==="v"?(cx2<mx?"왼쪽":"오른쪽"):(cx2<mx?"왼쪽":"오른쪽")+" 사선";
+    var e={a:p,b:q,pdx:pdx,pdy:pdy,kind:kind,nm:nm,mode:kind==="s"?(Math.abs(pdy)>=Math.abs(pdx)?"v":"h"):"",val:null,src:""};
+    old.forEach(function(o){if(o.val&&Math.hypot(o.a[0]-p[0],o.a[1]-p[1])<8&&Math.hypot(o.b[0]-q[0],o.b[1]-q[1])<8){e.val=o.val;e.src=o.src;if(o.mode&&kind==="s")e.mode=o.mode;}});
+    return e;});
+}
+/* 길이 → mm 꼭짓점 — 아는 성분은 그대로, 모르는 성분은 닫히도록 그림 비율로 */
+function shpSolve(){
+  var E=SHP.edges||[],n=E.length;if(n<3)return null;
+  var dx=[],dy=[],kx=[],ky=[],anyVal=false;
+  E.forEach(function(e,i){var sx=e.pdx<0?-1:1,sy=e.pdy<0?-1:1,v=Number(e.val)||0;if(v)anyVal=true;
+    if(e.kind==="h"){dy[i]=0;ky[i]=1;if(v){dx[i]=sx*v;kx[i]=1;}}
+    else if(e.kind==="v"){dx[i]=0;kx[i]=1;if(v){dy[i]=sy*v;ky[i]=1;}}
+    else if(v){if(e.mode==="v"){dy[i]=sy*v;ky[i]=1;}else{dx[i]=sx*v;kx[i]=1;}}});
+  var med=function(a){a=a.slice().sort(function(p,q){return p-q;});return a.length?a[a.length>>1]:0;};
+  var scale=function(arr,known,key){var r=[];E.forEach(function(e,i){var p=Math.abs(e[key]);if(known[i]&&arr[i]&&p>2)r.push(Math.abs(arr[i])/p);});return med(r);};
+  var fill=function(arr,known,key,kAlt){var sK=0,sU=0,cnt=0;E.forEach(function(e,i){if(known[i])sK+=arr[i];else{sU+=e[key];cnt++;}});
+    if(!cnt)return true;var k=Math.abs(sU)>1e-6?-sK/sU:NaN;
+    if(!(k>0)||!isFinite(k))k=scale(arr,known,key)||kAlt;if(!(k>0))return false;
+    E.forEach(function(e,i){if(!known[i])arr[i]=e[key]*k;});return true;};
+  var bw=Math.max.apply(null,SHP.poly.map(function(p){return p[0];}))-Math.min.apply(null,SHP.poly.map(function(p){return p[0];}));
+  var kAltX=scale(dx,kx,"pdx")||scale(dy,ky,"pdy")||(SHP.W>0&&bw>0?SHP.W/bw:0);
+  var kAltY=scale(dy,ky,"pdy")||kAltX;
+  if(!fill(dx,kx,"pdx",kAltX)||!fill(dy,ky,"pdy",kAltY))return null;
+  var P=[[0,0]];for(var i=0;i<n-1;i++)P.push([P[i][0]+dx[i],P[i][1]+dy[i]]);
+  var cx0=dx.reduce(function(a,b){return a+b;},0),cy0=dy.reduce(function(a,b){return a+b;},0);
+  var x0=Math.min.apply(null,P.map(function(p){return p[0];})),y0=Math.min.apply(null,P.map(function(p){return p[1];}));
+  P=P.map(function(p){return [Math.round(p[0]-x0),Math.round(p[1]-y0)];});
+  var W=Math.max.apply(null,P.map(function(p){return p[0];})),D=Math.max.apply(null,P.map(function(p){return p[1];}));
+  var L=P.map(function(p,i){var q=P[(i+1)%n];return Math.round(Math.hypot(q[0]-p[0],q[1]-p[1]));});
+  var area=0;P.forEach(function(p,i){var q=P[(i+1)%n];area+=p[0]*q[1]-q[0]*p[1];});
+  return {pts:P,W:W,D:D,len:L,area:Math.abs(area)/2,gap:Math.round(Math.hypot(cx0,cy0)),any:anyVal};
+}
+function shpInPoly(P,x,z){var c=false;for(var i=0,j=P.length-1;i<P.length;j=i++){var a=P[i],b=P[j];if(((a[1]>z)!==(b[1]>z))&&(x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0]))c=!c;}return c;}
+/* mm 꼭짓점 → 공간 밖 막힌 칸(칸 안 9점 중 절반 넘게 밖이면 막음, 줄마다 이어 붙이고 위아래 같으면 한 네모 — 40개 넘으면 칸을 키움) */
+function shpPolyCells(P,W,D){
+  var best=null;
   [100,200,300,500].some(function(gs){
-    var nx=Math.ceil(W/gs),nz=Math.ceil(D/gs),rects=[],open={},area=0;
+    var nx=Math.ceil(W/gs),nz=Math.ceil(D/gs),rects=[],open={};
     for(var j=0;j<nz;j++){
       var z0=j*gs,z1=Math.min(D,z0+gs),runs=[],c0=-1,nOpen={};
       for(var i=0;i<=nx;i++){
         var oc=false;
-        if(i<nx){var x0=i*gs,x1=Math.min(W,x0+gs);oc=frac(bb.x0+x0/W*bb.w,bb.y0+z0/D*bb.h,bb.x0+x1/W*bb.w,bb.y0+z1/D*bb.h)<0.5;if(!oc)area+=(x1-x0)*(z1-z0);}
+        if(i<nx){var x0=i*gs,x1=Math.min(W,x0+gs),outN=0;
+          for(var a=0;a<3;a++)for(var b=0;b<3;b++)if(!shpInPoly(P,x0+(x1-x0)*(a+0.5)/3,z0+(z1-z0)*(b+0.5)/3))outN++;
+          oc=outN>=5;}
         if(oc&&c0<0)c0=i;
         if(!oc&&c0>=0){runs.push([c0,i]);c0=-1;}
       }
-      runs.forEach(function(r){var k=r[0]+"-"+r[1],b=open[k];
-        if(b)b.z1=z1;else{b={n:"공간 밖",o:1,x0:r[0]*gs,z0:z0,x1:Math.min(W,r[1]*gs),z1:z1};rects.push(b);}
-        nOpen[k]=b;});
+      runs.forEach(function(r){var k=r[0]+"-"+r[1],bk=open[k];
+        if(bk)bk.z1=z1;else{bk={n:"공간 밖",o:1,x0:r[0]*gs,z0:z0,x1:Math.min(W,r[1]*gs),z1:z1};rects.push(bk);}
+        nOpen[k]=bk;});
       open=nOpen;
     }
-    best={g:gs,blocks:rects,area:area};
-    return rects.length<=40;
+    best={g:gs,blocks:rects};return rects.length<=40;
   });
-  return best&&best.area>0?best:null;
+  return best;
 }
-function shpInfo(R){
-  if(SHP.trace&&SHP.pts.length<3)return "그림 위 공간 모서리를 차례로 누르세요(3곳 이상, 처음 점 근처를 누르면 닫힘).";
-  if(!R)return "공간을 감싼 네모의 가로 · 세로(mm)를 넣어 주세요.";
-  return "잡힌 공간 넓이 "+(R.area/1e6).toFixed(1)+"㎡ · 공간 밖 막힌 칸 "+R.blocks.length+"개("+R.g+"mm 칸) — 회색이 막히는 곳입니다.";
+/* 그림 속 숫자 읽기 — tesseract.js(jsdelivr)를 처음에 한 번 받아 쓴다. 숫자(100 이상)를 가장 가까운 변에 넣는다(사람이 고친 칸은 그대로) */
+var _shpOcrWorker=null,_shpOcrLoading=null;
+function shpOcrLib(){
+  if(window.Tesseract)return Promise.resolve();
+  if(_shpOcrLoading)return _shpOcrLoading;
+  _shpOcrLoading=new Promise(function(ok,no){var s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";s.onload=ok;s.onerror=function(){_shpOcrLoading=null;no(new Error("글자 읽기 프로그램을 받지 못했습니다"));};document.head.appendChild(s);});
+  return _shpOcrLoading;
+}
+function shpOcr(){
+  if(!SHP.big||!SHP.edges||!SHP.edges.length)return;
+  var tok=SHP.tok=(SHP.tok||0)+1;SHP.ocr="read";renderShp();
+  shpOcrLib().then(function(){
+    if(_shpOcrWorker)return _shpOcrWorker;
+    return (_shpOcrWorker=Tesseract.createWorker("eng").then(function(wk){return wk.setParameters({tessedit_char_whitelist:"0123456789,.mM ",tessedit_pageseg_mode:"11"}).then(function(){return wk;});}));
+  }).then(function(wk){return wk.recognize(SHP.big);}).then(function(r){
+    if(tok!==SHP.tok)return;
+    var k=SHP.cw/SHP.big.width,nums=[];
+    ((r&&r.data&&r.data.words)||[]).forEach(function(wd){var v=parseInt(String(wd.text||"").replace(/[^0-9]/g,""),10);
+      if(v>=100&&v<=50000)nums.push({v:v,x:(wd.bbox.x0+wd.bbox.x1)/2*k,y:(wd.bbox.y0+wd.bbox.y1)/2*k});});
+    var lim=Math.max(SHP.cw,SHP.ch)*0.35,got={};
+    nums.forEach(function(nm){var bi=-1,bd=1e9;SHP.edges.forEach(function(e,i){var ax=e.a[0],ay=e.a[1],dx=e.b[0]-ax,dy=e.b[1]-ay,L2=dx*dx+dy*dy||1,t=Math.max(0,Math.min(1,((nm.x-ax)*dx+(nm.y-ay)*dy)/L2));
+        var d=Math.hypot(nm.x-(ax+t*dx),nm.y-(ay+t*dy));if(d<bd){bd=d;bi=i;}});
+      if(bi>=0&&bd<lim&&(!got[bi]||got[bi].d>bd))got[bi]={v:nm.v,d:bd};});
+    Object.keys(got).forEach(function(i){var e=SHP.edges[i];if(e&&e.src!=="man"){e.val=got[i].v;e.src="ocr";}});
+    SHP.ocr=Object.keys(got).length?"ok":"none";SHP.ocrN=nums.length;renderShp();
+  }).catch(function(e){if(tok!==SHP.tok)return;SHP.ocr="err";SHP.ocrErr=String(e&&e.message||e);renderShp();});
+}
+function shpRefreshPoly(){
+  shpSetPoly(SHP.trace?(SHP.pts.length>=3?SHP.pts.map(function(p){return p.slice();}):null):shpTrace());
 }
 function renderShp(){
   var el=$("fp2Shp");if(!el)return;if(!shpOpen()){el.innerHTML="";return;}
   var bt='padding:4px 10px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer',
       on=';border-color:#0f766e;color:#0f766e;background:#ccfbf1',go=';background:#0f766e;color:#fff;border-color:#0f766e',
-      inp='padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;width:72px';
+      inp='padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;width:76px';
   var h='<div style="border:1px solid #99f6e4;background:#f0fdfa;border-radius:8px;padding:10px 12px">'
     +'<div style="display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;font-size:12px;color:#334155">'
     +'<b style="color:#0f766e">🖼 공간 그림 → 공간 모양</b>'
     +'<label style="'+bt+go+'">그림 올리기<input type="file" accept="image/*" onchange="fp2ShpPick(this)" style="display:none"></label>'
-    +'<span style="color:#5b6675">또는 Ctrl+V로 붙여넣기</span>';
+    +'<span style="color:#5b6675">또는 이 탭 어디서나 Ctrl+V로 붙여넣기</span>';
   if(SHP.src){
     h+='<button onclick="fp2ShpMode(false)" style="'+bt+(SHP.trace?'':on)+'">🔍 자동으로 찾기</button>'
       +'<button onclick="fp2ShpMode(true)" style="'+bt+(SHP.trace?on:'')+'">✏ 꼭짓점 찍기</button>';
@@ -31178,31 +31451,49 @@ function renderShp(){
       +'<label title="빨강 · 파랑처럼 색 있는 선(치수선 등)은 바탕으로 보고 검정 · 회색 선만 공간 테두리로 봅니다" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" '+(SHP.gray?'checked':'')+' onchange="fp2ShpGray(this.checked)" style="margin:0">색 있는 선(치수선) 빼기</label>';
   }
   h+='<span style="flex:1"></span><button onclick="fp2ShpOpen()" style="'+bt+'">닫기</button></div>'
-    +'<div style="font-size:12px;color:#5b6675;margin:6px 0;line-height:1.5">공간 모양을 선이나 색으로 그린 그림(도면 캡처 · 그림판 · PPT)을 올리면 바탕과 다른 선·색으로 둘러싸인 가장 큰 덩어리를 공간으로 잡습니다(치수선 · 글씨처럼 가는 것은 뺌).'
-    +' 청록이 잡힌 공간입니다 — 치수선이 테두리에 붙어 닫히면 그 띠까지 잡히니 <b>색 있는 선(치수선) 빼기</b>를 켜 보세요. 그래도 안 되면 <b>✏ 꼭짓점 찍기</b>로 그림 위 공간 모서리를 차례로 누르세요. 공간을 감싼 네모의 가로 · 세로(mm)를 넣고 <b>평면도에 적용</b>을 누르면 공간 밖은 막힌 칸(회색)이 됩니다.</div>';
+    +'<div style="font-size:12px;color:#5b6675;margin:6px 0;line-height:1.5">공간 모양을 그린 그림(도면 캡처 · 그림판 · PPT, 치수 숫자를 같이 적어도 됨)을 붙여넣으면 모양(청록)과 꼭짓점을 찾고, 그림 속 숫자를 읽어 변마다 넣습니다.'
+    +' <b>사선 변의 숫자는 직선거리</b>(가파른 사선 = 세로, 누운 사선 = 가로)로 보고 사선 길이는 계산합니다. 숫자는 고칠 수 있고, 꼭짓점이 틀리면 <b>✏ 꼭짓점 찍기</b>로 직접 찍으세요.</div>';
+  var R=null;
   if(SHP.src){
-    var R=shpResult();
-    h+='<div style="display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;font-size:12px;color:#334155;margin-bottom:6px">공간을 감싼 네모 가로 <input id="fp2ShpW" type="number" min="1000" max="30000" step="100" value="'+(SHP.W||"")+'" onchange="fp2ShpDim()" style="'+inp+'"> × 세로 <input id="fp2ShpD" type="number" min="1000" max="30000" step="100" value="'+(SHP.D||"")+'" onchange="fp2ShpDim(1)" style="'+inp+'"> mm'
-      +(SHP.Dman?' <button onclick="fp2ShpDim(-1)" style="'+bt+'">세로 = 그림 비율</button>':' <span style="color:#5b6675">(세로는 그림 비율로 자동 — 고쳐도 됩니다)</span>')
-      +' <button onclick="fp2ShpApply()" '+(R?'':'disabled ')+'style="'+bt+go+(R?'':';opacity:.45;cursor:default')+'">평면도에 적용</button></div>'
-      +'<div style="font-size:12px;margin-bottom:6px;color:'+(SHP.err?'#9a3412':'#0f766e')+'">'+esc(SHP.err||shpInfo(R))+'</div>'
-      +'<canvas id="fp2ShpCv" style="max-width:100%;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:'+(SHP.trace?'crosshair':'default')+'"></canvas>';
+    R=SHP.poly?shpSolve():null;
+    var ocrTxt=SHP.ocr==="read"?'🔎 그림 속 숫자 읽는 중…':SHP.ocr==="ok"?'🔎 그림 속 숫자를 읽어 넣었습니다(확인해 주세요)':SHP.ocr==="none"?'🔎 그림에서 치수 숫자를 못 찾았습니다 — 칸에 넣어 주세요':SHP.ocr==="err"?'🔎 숫자 읽기 실패('+esc(SHP.ocrErr||"")+') — 칸에 넣어 주세요':'';
+    if(SHP.poly){
+      h+='<div style="font-size:12px;color:#334155;margin-bottom:4px"><b>변 길이(mm)</b> '+(ocrTxt?'<span style="color:#0f766e">'+ocrTxt+'</span>':'')+'</div>'
+        +'<div style="display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:#334155;margin-bottom:6px">'
+        +SHP.edges.map(function(e,i){
+          var lab=e.kind==="h"?"가로":e.kind==="v"?"세로":'<select onchange="fp2ShpMode2('+i+',this.value)" style="padding:2px 3px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px"><option value="v"'+(e.mode==="v"?" selected":"")+'>세로 직선거리</option><option value="h"'+(e.mode==="h"?" selected":"")+'>가로 직선거리</option></select>';
+          return '<span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><b style="color:#dc2626">'+(i+1)+'</b> '+esc(e.nm)+' '+lab
+            +' <input type="number" min="0" step="10" value="'+(e.val||"")+'" placeholder="모름" onchange="fp2ShpVal('+i+',this.value)" style="'+inp+(e.src==="ocr"?';background:#ecfeff;border-color:#67e8f9':'')+'">'
+            +(R&&(e.kind==="s"||!e.val)?' <span style="color:#5b6675">→ '+R.len[i].toLocaleString()+'</span>':'')+'</span>';}).join('')
+        +'</div>';
+      if(R&&!R.any)h+='<div style="font-size:12px;color:#334155;margin-bottom:6px">숫자가 하나도 없으면 그림 비율대로 — 가로 전체 <input id="fp2ShpW" type="number" min="1000" max="30000" step="100" value="'+(SHP.W||"")+'" onchange="fp2ShpW(this.value)" style="'+inp+'"> mm</div>';
+      h+='<div style="display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;font-size:12px;margin-bottom:6px;color:'+(R?'#0f766e':'#9a3412')+'">'
+        +(R?'→ 공간 가로 <b>'+R.W.toLocaleString()+'</b> × 세로 <b>'+R.D.toLocaleString()+'</b> mm · 넓이 '+(R.area/1e6).toFixed(1)+'㎡'
+            +(SHP.edges.some(function(e){return e.kind==="s";})?' · 사선 '+SHP.edges.map(function(e,i){return e.kind==="s"?(i+1)+'번 '+R.len[i].toLocaleString():null;}).filter(Boolean).join(' · '):'')
+            +(R.gap>R.W*0.02?' <span style="color:#9a3412">(숫자끼리 안 맞아 '+R.gap.toLocaleString()+'mm 어긋남 — 숫자를 확인해 주세요)</span>':'')
+          :'변 길이를 넣으면 평면도 크기가 나옵니다')
+        +' <button onclick="fp2ShpApply()" '+(R?'':'disabled ')+'style="'+bt+go+(R?'':';opacity:.45;cursor:default')+'">평면도에 적용</button></div>';
+    }else h+='<div style="font-size:12px;margin-bottom:6px;color:#9a3412">'+esc(SHP.err||(SHP.trace?"그림 위 공간 모서리를 차례로 누르세요(3곳 이상).":"꼭짓점을 찾지 못했습니다 — ✏ 꼭짓점 찍기로 찍어 주세요."))+'</div>';
+    h+='<canvas id="fp2ShpCv" style="max-width:100%;border:1px solid #e2e8f0;border-radius:6px;background:#fff;cursor:'+(SHP.trace?'crosshair':'default')+'"></canvas>';
   }
   el.innerHTML=h+'</div>';
   var cv=$("fp2ShpCv");if(cv){cv.width=SHP.cw;cv.height=SHP.ch;cv.onclick=shpClick;drawShp(R);}
 }
 function drawShp(R){
   var cv=$("fp2ShpCv");if(!cv||!SHP.src)return;
-  var g=cv.getContext("2d"),bb=shpBox();
+  var g=cv.getContext("2d");
   g.clearRect(0,0,cv.width,cv.height);g.drawImage(SHP.src,0,0);if(SHP.ov)g.drawImage(SHP.ov,0,0);
-  if(bb){
-    if(R){g.fillStyle="rgba(100,116,139,.45)";R.blocks.forEach(function(b){g.fillRect(bb.x0+b.x0/SHP.W*bb.w,bb.y0+b.z0/SHP.D*bb.h,(b.x1-b.x0)/SHP.W*bb.w,(b.z1-b.z0)/SHP.D*bb.h);});}
-    g.setLineDash([5,4]);g.strokeStyle="#0f766e";g.lineWidth=1.5;g.strokeRect(bb.x0+0.5,bb.y0+0.5,bb.w-1,bb.h-1);g.setLineDash([]);
-  }
-  if(SHP.trace&&SHP.pts.length){
+  var P=SHP.poly;
+  if(P){
+    g.strokeStyle="#dc2626";g.lineWidth=2;g.beginPath();P.forEach(function(p,i){if(i)g.lineTo(p[0],p[1]);else g.moveTo(p[0],p[1]);});g.closePath();g.stroke();
+    P.forEach(function(p){g.fillStyle="#dc2626";g.beginPath();g.arc(p[0],p[1],3.5,0,Math.PI*2);g.fill();});
+    var cx=0,cy=0;P.forEach(function(p){cx+=p[0];cy+=p[1];});cx/=P.length;cy/=P.length;
+    SHP.edges.forEach(function(e,i){var mx=(e.a[0]+e.b[0])/2,my=(e.a[1]+e.b[1])/2,vx=cx-mx,vy=cy-my,L=Math.hypot(vx,vy)||1,x=mx+vx/L*14,y=my+vy/L*14;
+      g.fillStyle="#fff";g.beginPath();g.arc(x,y,8,0,Math.PI*2);g.fill();g.strokeStyle="#dc2626";g.lineWidth=1.5;g.stroke();
+      g.fillStyle="#dc2626";g.font="700 11px sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(String(i+1),x,y+0.5);});
+  }else if(SHP.trace&&SHP.pts.length){
     g.strokeStyle="#dc2626";g.lineWidth=2;g.beginPath();
-    SHP.pts.forEach(function(p,i){if(i)g.lineTo(p[0],p[1]);else g.moveTo(p[0],p[1]);});
-    if(SHP.pts.length>2)g.closePath();g.stroke();
+    SHP.pts.forEach(function(p,i){if(i)g.lineTo(p[0],p[1]);else g.moveTo(p[0],p[1]);});g.stroke();
     SHP.pts.forEach(function(p,i){g.fillStyle=i?"#dc2626":"#7f1d1d";g.beginPath();g.arc(p[0],p[1],i?3.5:5,0,Math.PI*2);g.fill();});
   }
 }
@@ -31212,38 +31503,43 @@ function shpClick(e){
   if(P.length>=3&&Math.hypot(x-P[0][0],y-P[0][1])<9)return;   /* 처음 점 근처 = 닫힘(이미 닫혀 보인다) */
   if(p){if(Math.abs(x-p[0])<6)x=p[0];if(Math.abs(y-p[1])<6)y=p[1];}   /* 가로 · 세로 줄은 맞춰 준다 */
   if(P.length>=2){var f=P[0];if(Math.abs(x-f[0])<6)x=f[0];if(Math.abs(y-f[1])<6)y=f[1];}
-  P.push([Math.round(x),Math.round(y)]);shpPolyMask();shpAutoD();renderShp();
+  P.push([Math.round(x),Math.round(y)]);shpPolyMask();shpRefreshPoly();renderShp();
 }
 window.fp2ShpMode=function(t){
   SHP.trace=!!t;
   if(SHP.trace){SHP.pts=[];SHP.mask=null;SHP.err="";shpOverlay();}else shpDetect();
-  shpAutoD();renderShp();
+  shpRefreshPoly();renderShp();if(!SHP.trace)shpOcr();
 };
-window.fp2ShpPt=function(n){if(n<0)SHP.pts.pop();else SHP.pts=[];shpPolyMask();shpAutoD();renderShp();};
-window.fp2ShpGray=function(on){SHP.gray=!!on;shpDetect();shpAutoD();renderShp();};
-window.fp2ShpThr=function(v){SHP.thr=Math.max(5,Math.min(150,parseInt(v,10)||40));shpDetect();shpAutoD();renderShp();};
-window.fp2ShpDim=function(f){
-  var w=clampMm($("fp2ShpW")&&$("fp2ShpW").value,1000,30000);if(w!=null)SHP.W=Math.round(w/100)*100;
-  if(f===1){var d=clampMm($("fp2ShpD").value,1000,30000);if(d!=null){SHP.D=Math.round(d/100)*100;SHP.Dman=true;}}
-  if(f===-1)SHP.Dman=false;
-  shpAutoD();renderShp();
-};
+window.fp2ShpPt=function(n){if(n<0)SHP.pts.pop();else SHP.pts=[];shpPolyMask();shpRefreshPoly();renderShp();if(SHP.pts.length>=3)shpOcr();};
+window.fp2ShpGray=function(on){SHP.gray=!!on;shpDetect();shpRefreshPoly();renderShp();shpOcr();};
+window.fp2ShpThr=function(v){SHP.thr=Math.max(5,Math.min(150,parseInt(v,10)||40));shpDetect();shpRefreshPoly();renderShp();shpOcr();};
+window.fp2ShpVal=function(i,v){var e=SHP.edges[i];if(!e)return;var n=Math.round(Number(v));e.val=n>0?n:null;e.src=n>0?"man":"";renderShp();};
+window.fp2ShpMode2=function(i,m){var e=SHP.edges[i];if(!e)return;e.mode=m==="h"?"h":"v";renderShp();};
+window.fp2ShpW=function(v){var n=clampMm(v,1000,30000);if(n!=null)SHP.W=n;renderShp();};
 window.fp2ShpApply=function(){
-  var R=shpResult();if(!R){msg("공간 모양과 가로 · 세로를 먼저 정해 주세요.",true);return;}
-  var W=SHP.W,D=SHP.D;
+  var R=SHP.poly?shpSolve():null;if(!R){msg("공간 모양과 변 길이를 먼저 정해 주세요.",true);return;}
+  if(R.W<1000||R.D<1000||R.W>30000||R.D>30000){msg("공간 크기가 "+R.W+" × "+R.D+" mm로 나왔습니다 — 변 길이를 확인해 주세요(1,000~30,000).",true);return;}
+  var W=R.W,D=R.D,C=shpPolyCells(R.pts,W,D);
   var keep=ST.blocks.filter(function(b){return !b.o&&b.x0<W&&b.z0<D;}).map(function(b){return {n:b.n,x0:b.x0,z0:b.z0,x1:Math.min(b.x1,W),z1:Math.min(b.z1,D)};});
   ST.W=W;ST.D=D;$("fp2W").value=W;$("fp2D").value=D;T3.rad=Math.max(W,D)/1000*1.5+2;
-  ST.blocks=keep.concat(R.blocks);
-  var t="공간 그림대로 "+W.toLocaleString()+" × "+D.toLocaleString()+" mm 안에서 공간 밖 "+R.blocks.length+"칸을 막았습니다(공간 넓이 "+(R.area/1e6).toFixed(1)+"㎡). 마음에 안 들면 ↶ 되돌리기.";
+  ST.poly=R.pts;ST.blocks=keep.concat(C.blocks);
+  var sl=SHP.edges.map(function(e,i){return e.kind==="s"?R.len[i].toLocaleString():null;}).filter(Boolean);
+  var t="공간 그림대로 "+W.toLocaleString()+" × "+D.toLocaleString()+" mm 공간을 만들었습니다(넓이 "+(R.area/1e6).toFixed(1)+"㎡"+(sl.length?" · 사선 "+sl.join(" · ")+" mm":"")+"). 마음에 안 들면 ↶ 되돌리기.";
   if(ST.autoOn){window.fp2Auto(true);var e=$("fp2Msg"),am=e?e.textContent:"";msg(t+" · "+am,e&&e.style.color==="rgb(154, 52, 18)");}
   else{changed();msg(t);}
 };
-window.fp2ShpClear=function(){ST.blocks=ST.blocks.filter(function(b){return !b.o;});msg("그림으로 만든 공간 밖 칸을 지웠습니다(직사각형 공간).");autoIfOn();};
+window.fp2ShpClear=function(){ST.blocks=ST.blocks.filter(function(b){return !b.o;});ST.poly=null;msg("그림으로 만든 공간 모양을 지웠습니다(직사각형 공간).");autoIfOn();};
+/* 붙여넣기 — 이 탭이 열려 있고 입력칸이 아니면 어디서나(2026-10-27 영업2팀 "복사해서 붙여넣기로 넣으면") — 공간 그림 칸을 열고 바로 읽는다 */
 document.addEventListener("paste",function(e){
-  if(!pageOn()||!shpOpen())return;
+  if(!pageOn())return;
+  var t=e.target&&e.target.tagName;if(!shpOpen()&&(t==="INPUT"||t==="TEXTAREA"||(e.target&&e.target.isContentEditable)))return;
   var its=(e.clipboardData&&e.clipboardData.items)||[],f=null;
   for(var i=0;i<its.length;i++)if(/^image\//.test(its[i].type)){f=its[i].getAsFile();break;}
-  if(f){e.preventDefault();shpFile(f);}
+  if(!f)return;
+  e.preventDefault();
+  var el=$("fp2Shp");if(el&&!shpOpen())el.style.display="block";
+  shpFile(f);
+  if(el)el.scrollIntoView({block:"nearest"});
 });
 /* 막힌 칸의 드러난 변 — 옆 막힌 칸과 맞닿은 부분 · 공간 테두리 위 변은 뺀다(공간 그림으로 만든 칸은 여러 개가 붙어 있다). 한 줄로 이어지면 하나로.
    onlyOut = 공간 그림으로 만든 칸(o)만 — 평면도에서 실제 공간 테두리로 그린다 */
@@ -31534,6 +31830,7 @@ window.fp2Auto=function(quiet){
 window.fp2Size=function(){
   var w=parseInt($("fp2W").value,10),d=parseInt($("fp2D").value,10);
   if(!(w>=1000))w=1000;if(!(d>=1000))d=1000;if(w>30000)w=30000;if(d>30000)d=30000;
+  if(ST.poly&&(w!==ST.W||d!==ST.D)){ST.poly=null;ST.blocks=ST.blocks.filter(function(b){return !b.o;});}   /* 크기를 손으로 바꾸면 그림 공간 모양은 뺀다(안 맞으므로) */
   ST.W=w;ST.D=d;$("fp2W").value=w;$("fp2D").value=d;
   T3.rad=Math.max(w,d)/1000*1.5+2;
   autoIfOn();
@@ -31541,7 +31838,7 @@ window.fp2Size=function(){
 window.fp2Save=function(){
   var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다)","");
   if(!name)return;name=name.trim();if(!name)return;
-  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
+  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){msg("저장하지 못했습니다(브라우저 저장공간).",true);return;}
   share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
 };
@@ -31774,7 +32071,7 @@ function draw2d(){
   g.fillText("앞(통로) ▼",ox+ST.W*sc/2,oy+ST.D*sc+14);
   ST.blocks.forEach(function(b){
     var x=ox+b.x0*sc,y=oy+b.z0*sc,w=(b.x1-b.x0)*sc,d=(b.z1-b.z0)*sc;
-    if(b.o){var e0=b.x0<=1?3:0,e1=b.x1>=ST.W-1?3:0,f0=b.z0<=1?3:0,f1=b.z1>=ST.D-1?3:0;g.fillStyle="#e9ebee";g.fillRect(x-e0,y-f0,w+e0+e1,d+f0+f1);return;}   /* 공간 그림의 공간 밖 — 회색(바깥 테두리 선도 덮는다) */
+    if(b.o){if(ST.poly)return;var e0=b.x0<=1?3:0,e1=b.x1>=ST.W-1?3:0,f0=b.z0<=1?3:0,f1=b.z1>=ST.D-1?3:0;g.fillStyle="#e9ebee";g.fillRect(x-e0,y-f0,w+e0+e1,d+f0+f1);return;}   /* 공간 그림의 공간 밖 — 회색(바깥 테두리 선도 덮는다) */
     g.fillStyle="#fde4d4";g.fillRect(x,y,w,d);
     g.save();g.beginPath();g.rect(x,y,w,d);g.clip();g.strokeStyle="rgba(194,120,80,.35)";g.lineWidth=1;g.beginPath();
     for(var t=-d;t<w;t+=10){g.moveTo(x+t,y);g.lineTo(x+t+d,y+d);}g.stroke();g.restore();
@@ -31782,8 +32079,14 @@ function draw2d(){
     g.fillStyle="#9a3412";g.font="700 12px sans-serif";g.textAlign="center";g.textBaseline="middle";g.fillText(b.n,x+w/2,y+d/2-7);
     g.font="11px sans-serif";g.fillText((b.x1-b.x0)+"×"+(b.z1-b.z0),x+w/2,y+d/2+8);
   });
+  if(ST.poly&&ST.poly.length>=3){   /* 공간 그림 꼭짓점 — 밖은 회색(바깥 테두리도 덮음), 공간 테두리(사선 포함)는 진한 선 */
+    var pth=function(){ST.poly.forEach(function(p,i){if(i)g.lineTo(ox+p[0]*sc,oy+p[1]*sc);else g.moveTo(ox+p[0]*sc,oy+p[1]*sc);});g.closePath();};
+    g.beginPath();g.rect(ox-3,oy-3,ST.W*sc+6,ST.D*sc+6);pth();g.fillStyle="#e9ebee";g.fill("evenodd");
+    g.strokeStyle="#334155";g.lineWidth=2;g.beginPath();pth();g.stroke();
+  }else{
   g.strokeStyle="#334155";g.lineWidth=2;g.beginPath();   /* 공간 그림으로 잡은 실제 공간 테두리 */
   blockEdges(true).forEach(function(e){g.moveTo(ox+e.x0*sc,oy+e.z0*sc);g.lineTo(ox+e.x1*sc,oy+e.z1*sc);});g.stroke();
+  }
   g.strokeStyle="#1f2937";g.lineWidth=5;g.lineCap="square";
   walls().forEach(function(w){g.beginPath();g.moveTo(ox+w.x0*sc,oy+w.z0*sc);g.lineTo(ox+w.x1*sc,oy+w.z1*sc);g.stroke();});
   g.lineCap="butt";
@@ -32626,9 +32929,16 @@ function rebuild3d(){
       sh.left=-ext;sh.right=ext;sh.top=ext;sh.bottom=-ext;sh.near=0.5;sh.far=30;sh.updateProjectionMatrix();}
     var WHm=(ST.wallH||2400)/1000;
     ST.blocks.forEach(function(b){var bw2=(b.x1-b.x0)/1000,bd2=(b.z1-b.z0)/1000;
-      if(b.o){var cvr=new THREE.Mesh(new THREE.BoxGeometry(bw2,0.004,bd2),new THREE.MeshLambertMaterial({color:0xdfe3e8}));cvr.position.set((b.x0+b.x1)/2000-w/2,0.006,(b.z0+b.z1)/2000-d/2);root.add(cvr);return;}   /* 공간 밖 = 바닥 덮개 */
+      if(b.o){if(ST.poly)return;var cvr=new THREE.Mesh(new THREE.BoxGeometry(bw2,0.004,bd2),new THREE.MeshLambertMaterial({color:0xdfe3e8}));cvr.position.set((b.x0+b.x1)/2000-w/2,0.006,(b.z0+b.z1)/2000-d/2);root.add(cvr);return;}   /* 공간 밖 = 바닥 덮개 */
       mk(root,bw2,WHm,bd2,(b.x0+b.x1)/2000-w/2,WHm/2,(b.z0+b.z1)/2000-d/2,0xf3d2bf);});
+    if(ST.poly&&ST.poly.length>=3){   /* 공간 밖 바닥 덮개 — 네모에서 공간 꼭짓점 모양을 뺀 판(2026-10-27) */
+      var tw=function(x,z){return [x/1000-w/2,-(z/1000-d/2)];},c0=tw(0,0),c1=tw(ST.W,ST.D),osh=new THREE.Shape(),hole=new THREE.Path();
+      osh.moveTo(c0[0],c0[1]);osh.lineTo(c1[0],c0[1]);osh.lineTo(c1[0],c1[1]);osh.lineTo(c0[0],c1[1]);osh.lineTo(c0[0],c0[1]);
+      ST.poly.forEach(function(p,i){var t=tw(p[0],p[1]);if(i)hole.lineTo(t[0],t[1]);else hole.moveTo(t[0],t[1]);});hole.closePath();osh.holes.push(hole);
+      var og=new THREE.ShapeGeometry(osh);og.rotateX(-Math.PI/2);var om=new THREE.Mesh(og,new THREE.MeshLambertMaterial({color:0xdfe3e8,side:THREE.DoubleSide}));om.position.y=0.006;root.add(om);
+    }
     walls().forEach(function(wl){var lx=(wl.x1-wl.x0)/1000,lz=(wl.z1-wl.z0)/1000,T=0.06;
+      if(Math.abs(lx)>0.001&&Math.abs(lz)>0.001){var sw=mk(root,Math.hypot(lx,lz),WHm,T,(wl.x0+wl.x1)/2000-w/2,WHm/2,(wl.z0+wl.z1)/2000-d/2,0xeceae4);sw.rotation.y=-Math.atan2(lz,lx);return;}   /* 사선 벽 */
       mk(root,Math.abs(lx)||T,WHm,Math.abs(lz)||T,(wl.x0+wl.x1)/2000-w/2,WHm/2,(wl.z0+wl.z1)/2000-d/2,0xeceae4);});
     R3.root=root;R3.scene.add(root);
     render3d();
@@ -32784,7 +33094,7 @@ function canShare(){
 }
 function meName(){try{if(_authMe&&_authMe.name)return String(_authMe.name);if(_authUser&&_authUser.email)return String(_authUser.email).split("@")[0];}catch(e){}return "";}
 var SRC={
-  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH});},
+  cur:function(){return JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly});},
   use:function(){return JSON.stringify(ST.use);},
   cus:function(){return JSON.stringify(ST.cus);},
   plans:function(){try{return localStorage.getItem(KEY_SAVED)||"{}";}catch(e){return "{}";}},
