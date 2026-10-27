@@ -28701,6 +28701,8 @@ var DEF={
   cjCounter:{n:"청주 카운터",s:"청주카운터",w:1000,d:600,h:1000,c:"#A6E3D8",k:"ccounter",inv:1,disp:1,est:false},
   cj3Acr:{n:"청주 3단 아크릴 집기",s:"3단아크릴",w:3370,d:1000,h:800,c:"#8FDCCC",k:"acr3",inv:1,disp:1,est:false},
   /* 청주 아크릴 집기(2026-10-27 영업2팀 사진 6장 · 1800×700×800) — 민트 세로 골 받침 + 한쪽으로 길게 나온 흰 상판 + 받침 위 청록 아크릴 상자. off = 처음엔 체크 안 함 */
+  /* 행사매대(2026-10-27 영업2팀 사진 · 1200×830×570 = 가로×높이×깊이) — 바퀴 위 흰 상자 + 앞면 WS 로고·WHITE SANDS + 위쪽 세모 철망 둘레 + 흰 테두리. off = 처음엔 체크 안 함 */
+  evtCart:{n:"행사매대",s:"행사매대",w:1200,d:570,h:830,c:"#F2F2F0",k:"ecart",inv:1,disp:1,est:false,off:1},
   acrTbl:{n:"청주 아크릴 집기",s:"청주아크릴",w:1800,d:700,h:800,c:"#F4F6F5",k:"atbl",inv:1,disp:1,est:false,off:1},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
@@ -29327,14 +29329,14 @@ window.fpAuto=function(quiet){
   }
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
-  var pri=["counter","cjCounter","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr","acrTbl"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
+  var pri=["counter","cjCounter","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr","acrTbl","evtCart"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
   var tuck=enabled("cjTable")&&dispOf("cjTable")>0?["cjCubeW","cjCubeM"].filter(function(t){return enabled(t)&&dispOf(t)>0;}):[];
   var TW=function(t){return CAT[t].w+(t==="cjTable"&&tuck.indexOf("cjCubeM")>=0?100:0);};   /* 민트 큐브가 테이블 오른쪽 끝에서 100 나온다 */
   pri.forEach(function(t){if(tuck.indexOf(t)>=0)return;if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
   want.forEach(function(t){if(rowW+TW(t)<=avail){keep.push(t);rowW+=TW(t);}else{drop[t]=(drop[t]||0)+1;if(t==="cjTable")tuck.forEach(function(k){drop[k]=(drop[k]||0)+1;});}});
-  var ord=["curveL","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr","acrTbl"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
+  var ord=["curveL","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr","acrTbl","evtCart"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
   var midZ=backEdge+900+midD/2;
@@ -30333,6 +30335,32 @@ function buildItem(it,bad){
     for(var sz=-d/2+ft+sg+sw/2;sz<d/2-ft-sw/2+1e-6;sz+=sw+sg)mk(g,mL-pw-ft,sw,sw,x0+ft+(mL-pw-ft)/2,h-sw/2,sz,MT);   /* 윗면 살대(좌우로) */
     mk(g,0.012,h-sw,d,xm-pw/2,(h-sw)/2,0,MT);                                    /* 칸막이 판 */
     for(var vz=-d/2+sw/2;vz<d/2-sw/2+1e-6;vz+=sw+0.025)mk(g,pw,h,sw,xm-pw/2,h/2,vz,MT);   /* 칸막이 세로 살대 */
+  }else if(c.k==="ecart"){
+    /* 행사매대(2026-10-27 영업2팀 사진, 1200×830×570) — 바퀴(60) 위 흰 상자(높이 약 62%), 앞면은 흰 테두리 안 판에 검은 WS 로고 + WHITE SANDS(700집기 lg 2처럼),
+       그 위로 네 모서리 흰 기둥 · 맨 위 흰 테두리, 둘레는 가는 철망을 세모(지그재그)로. 안은 비어 있다(모자를 담는 통) */
+    var cw=0.06,bt=cw+(h-cw)*0.62,WH2=0xf6f6f3,tb=0.035;
+    mk(g,w,bt-cw,d,0,cw+(bt-cw)/2,0,WH2);                                           /* 상자 */
+    var fr=0.05,pw=w-fr*2,ph=bt-cw-fr*2,pc=document.createElement("canvas");pc.width=640;pc.height=Math.max(64,Math.round(640*ph/pw));
+    var px=pc.getContext("2d"),W2=pc.width,H2=pc.height;px.fillStyle="#f4f4f1";px.fillRect(0,0,W2,H2);
+    var I8=wsLogoImg(logoReload),s8=H2*0.36;if(I8)wsLogoDraw(px,I8,W2/2-s8/2,H2*0.14,s8,"#1d1d1b");
+    px.fillStyle="#1d1d1b";px.textAlign="center";px.textBaseline="middle";px.font="500 "+Math.round(H2*0.13)+"px 'Century Gothic','Futura','Montserrat','Segoe UI',sans-serif";
+    try{px.letterSpacing=Math.round(H2*0.03)+"px";}catch(e){}px.fillText("WHITE SANDS",W2/2,H2*0.7);
+    var pm=new THREE.Mesh(new THREE.PlaneGeometry(pw,ph),new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(pc)}));pm.position.set(0,cw+(bt-cw)/2,d/2+0.002);
+    pm.add(new THREE.LineSegments(new THREE.EdgesGeometry(pm.geometry),edgeMat()));g.add(pm);
+    [-1,1].forEach(function(a){[-1,1].forEach(function(b){
+      mk(g,tb,h-bt,tb,a*(w/2-tb/2),bt+(h-bt)/2,b*(d/2-tb/2),WH2);                  /* 기둥 */
+      mkCyl(g,0.022,cw,a*(w/2-0.08),cw/2,b*(d/2-0.07),0x3a3a38,16);});});        /* 바퀴 */
+    [-1,1].forEach(function(b){mk(g,w,tb,tb,0,h-tb/2,b*(d/2-tb/2),WH2);mk(g,tb,tb,d,b*(w/2-tb/2),h-tb/2,0,WH2);});   /* 맨 위 테두리 */
+    /* 세모 철망 — 아래(상자 윗면) · 위(테두리) 사이를 지그재그로 */
+    var wm=new THREE.MeshLambertMaterial({color:0xd9d9d6}),y0=bt,y1=h-tb,zh=y1-y0;
+    var zig=function(L,place){var n=Math.max(2,Math.round(L/0.13)),sg=L/n;
+      for(var i=0;i<n;i++)[[i*sg,y0,i*sg+sg/2,y1],[i*sg+sg/2,y1,(i+1)*sg,y0]].forEach(function(q){
+        var len=Math.hypot(q[2]-q[0],q[3]-q[1]),m=new THREE.Mesh(new THREE.BoxGeometry(len,0.006,0.006),wm);
+        place(m,(q[0]+q[2])/2-L/2,(q[1]+q[3])/2,Math.atan2(q[3]-q[1],q[2]-q[0]));g.add(m);});};
+    [-1,1].forEach(function(b){
+      zig(w-tb*2,function(m,x,y,a){m.position.set(x,y,b*(d/2-tb/2));m.rotation.z=a;});                     /* 앞·뒤 */
+      zig(d-tb*2,function(m,z,y,a){m.position.set(b*(w/2-tb/2),y,z);m.rotation.y=Math.PI/2;m.rotation.z=a;});   /* 양옆 */
+    });
   }else if(c.k==="atbl"){
     /* 청주 아크릴 집기(2026-10-27 영업2팀 사진 6장, 1800×700×800 — 높이 800은 흰 상판 윗면, 아크릴 상자는 그 위로 약 130):
        민트 세로 골 받침(길이 55% · 깊이 76%, 한쪽 끝에서 6% 들어와 있음) · 두꺼운 흰 상판(약 120)이 반대쪽으로 길게 나옴 ·
@@ -30526,7 +30554,7 @@ var TR=null;
    · 카메라를 집기에 꽉 맞춘다(모서리 8개를 화면에 투영해 92%). 곡면 (좌)는 왼쪽에서 찍는다(둥근 모서리가 보이게).
    · 썸네일만 선을 진하게(#5b5a55) · 조명에 명암(위·앞·옆 세 방향) — 흰 면이 서로 구분되게. 3D 화면 선 색은 끝나면 되돌린다 */
 /* WS 로고 그림이 열리면(처음 한 번) 로고 집기 그림과 3D를 다시 그린다 */
-function logoReload(){Object.keys(CAT).forEach(function(k){if(CAT[k].k==="t700"||CAT[k].k==="ccounter")delete THUMB[k];});try{makeThumbs();renderSum();}catch(e){}rebuild3d();}
+function logoReload(){Object.keys(CAT).forEach(function(k){if(CAT[k].k==="t700"||CAT[k].k==="ccounter"||CAT[k].k==="ecart")delete THUMB[k];});try{makeThumbs();renderSum();}catch(e){}rebuild3d();}
 function makeThumbs(){
   if(!window.THREE)return;
   try{
@@ -30792,6 +30820,8 @@ var DEF={
   cjCounter:{n:"청주 카운터",s:"청주카운터",w:1000,d:600,h:1000,c:"#A6E3D8",k:"ccounter",inv:1,disp:1,est:false},
   cj3Acr:{n:"청주 3단 아크릴 집기",s:"3단아크릴",w:3370,d:1000,h:800,c:"#8FDCCC",k:"acr3",inv:1,disp:1,est:false},
   /* 청주 아크릴 집기(2026-10-27 영업2팀 사진 6장 · 1800×700×800) — 민트 세로 골 받침 + 한쪽으로 길게 나온 흰 상판 + 받침 위 청록 아크릴 상자. off = 처음엔 체크 안 함 */
+  /* 행사매대(2026-10-27 영업2팀 사진 · 1200×830×570 = 가로×높이×깊이) — 바퀴 위 흰 상자 + 앞면 WS 로고·WHITE SANDS + 위쪽 세모 철망 둘레 + 흰 테두리. off = 처음엔 체크 안 함 */
+  evtCart:{n:"행사매대",s:"행사매대",w:1200,d:570,h:830,c:"#F2F2F0",k:"ecart",inv:1,disp:1,est:false,off:1},
   acrTbl:{n:"청주 아크릴 집기",s:"청주아크릴",w:1800,d:700,h:800,c:"#F4F6F5",k:"atbl",inv:1,disp:1,est:false,off:1},
   pegStand:{n:"우양산 타공집기",s:"우양산타공",w:1000,d:800,h:1650,c:"#DCC29A",k:"pstand",inv:4,disp:2,est:false},
   rrpPallet:{n:"코스트코 팔레트 (RRP 에이린)",s:"RRP팔레트",w:1200,d:1000,h:1350,c:"#C8D8EB",k:"pallet",inv:1,disp:1,est:true,bw:400,bd:500,bh:300,ly:4,mix:"grey"},
@@ -31418,14 +31448,14 @@ window.fp2Auto=function(quiet){
   }
   /* 가운데 줄 — 자리가 모자라면 카운터 → 로고테이블 → 직접 추가 → 우양산 순서로 남긴다(보유 수량이 많은 우양산이 카운터를 밀어내지 않게).
      놓는 순서는 로고테이블 · 직접 추가 · 우양산 · 카운터(오른쪽 끝, 사진처럼) */
-  var pri=["counter","cjCounter","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr","acrTbl"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
+  var pri=["counter","cjCounter","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjTable","cjCubeW","cjCubeM","cj3Acr","acrTbl","evtCart"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand"]),want=[];
   var tuck=enabled("cjTable")&&dispOf("cjTable")>0?["cjCubeW","cjCubeM"].filter(function(t){return enabled(t)&&dispOf(t)>0;}):[];
   var TW=function(t){return CAT[t].w+(t==="cjTable"&&tuck.indexOf("cjCubeM")>=0?100:0);};   /* 민트 큐브가 테이블 오른쪽 끝에서 100 나온다 */
   pri.forEach(function(t){if(tuck.indexOf(t)>=0)return;if(enabled(t)){for(i=0;i<dispOf(t);i++)want.push(t);}});
   var midD=0,avail=W-2*MARG,rowW=0,keep=[],drop={};
   if(cv>0&&!frontRow){["curveL","curveR"].forEach(function(t){if((t==="curveL"?hasL:hasR)&&rowW+CAT[t].w<=avail){keep.push(t);rowW+=CAT[t].w;}});}
   want.forEach(function(t){if(rowW+TW(t)<=avail){keep.push(t);rowW+=TW(t);}else{drop[t]=(drop[t]||0)+1;if(t==="cjTable")tuck.forEach(function(k){drop[k]=(drop[k]||0)+1;});}});
-  var ord=["curveL","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr","acrTbl"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
+  var ord=["curveL","logoTbl","t7A1","t7A2","t7B1","t7B2","t7B3","t7C1","t7C2","step2","cjRound","cjCubeW","cjTable","cjCubeM","cj3Acr","acrTbl","evtCart"].concat(ST.cus.map(function(c){return c.k;}),["rrpPallet","wooyang","pegStand","counter","cjCounter","curveR"]);
   var seq=keep.slice().sort(function(a,b){return ord.indexOf(a)-ord.indexOf(b);});
   seq.forEach(function(t){midD=Math.max(midD,CAT[t].d);});
   var midZ=backEdge+900+midD/2;
@@ -32424,6 +32454,32 @@ function buildItem(it,bad){
     for(var sz=-d/2+ft+sg+sw/2;sz<d/2-ft-sw/2+1e-6;sz+=sw+sg)mk(g,mL-pw-ft,sw,sw,x0+ft+(mL-pw-ft)/2,h-sw/2,sz,MT);   /* 윗면 살대(좌우로) */
     mk(g,0.012,h-sw,d,xm-pw/2,(h-sw)/2,0,MT);                                    /* 칸막이 판 */
     for(var vz=-d/2+sw/2;vz<d/2-sw/2+1e-6;vz+=sw+0.025)mk(g,pw,h,sw,xm-pw/2,h/2,vz,MT);   /* 칸막이 세로 살대 */
+  }else if(c.k==="ecart"){
+    /* 행사매대(2026-10-27 영업2팀 사진, 1200×830×570) — 바퀴(60) 위 흰 상자(높이 약 62%), 앞면은 흰 테두리 안 판에 검은 WS 로고 + WHITE SANDS(700집기 lg 2처럼),
+       그 위로 네 모서리 흰 기둥 · 맨 위 흰 테두리, 둘레는 가는 철망을 세모(지그재그)로. 안은 비어 있다(모자를 담는 통) */
+    var cw=0.06,bt=cw+(h-cw)*0.62,WH2=0xf6f6f3,tb=0.035;
+    mk(g,w,bt-cw,d,0,cw+(bt-cw)/2,0,WH2);                                           /* 상자 */
+    var fr=0.05,pw=w-fr*2,ph=bt-cw-fr*2,pc=document.createElement("canvas");pc.width=640;pc.height=Math.max(64,Math.round(640*ph/pw));
+    var px=pc.getContext("2d"),W2=pc.width,H2=pc.height;px.fillStyle="#f4f4f1";px.fillRect(0,0,W2,H2);
+    var I8=wsLogoImg(logoReload),s8=H2*0.36;if(I8)wsLogoDraw(px,I8,W2/2-s8/2,H2*0.14,s8,"#1d1d1b");
+    px.fillStyle="#1d1d1b";px.textAlign="center";px.textBaseline="middle";px.font="500 "+Math.round(H2*0.13)+"px 'Century Gothic','Futura','Montserrat','Segoe UI',sans-serif";
+    try{px.letterSpacing=Math.round(H2*0.03)+"px";}catch(e){}px.fillText("WHITE SANDS",W2/2,H2*0.7);
+    var pm=new THREE.Mesh(new THREE.PlaneGeometry(pw,ph),new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(pc)}));pm.position.set(0,cw+(bt-cw)/2,d/2+0.002);
+    pm.add(new THREE.LineSegments(new THREE.EdgesGeometry(pm.geometry),edgeMat()));g.add(pm);
+    [-1,1].forEach(function(a){[-1,1].forEach(function(b){
+      mk(g,tb,h-bt,tb,a*(w/2-tb/2),bt+(h-bt)/2,b*(d/2-tb/2),WH2);                  /* 기둥 */
+      mkCyl(g,0.022,cw,a*(w/2-0.08),cw/2,b*(d/2-0.07),0x3a3a38,16);});});        /* 바퀴 */
+    [-1,1].forEach(function(b){mk(g,w,tb,tb,0,h-tb/2,b*(d/2-tb/2),WH2);mk(g,tb,tb,d,b*(w/2-tb/2),h-tb/2,0,WH2);});   /* 맨 위 테두리 */
+    /* 세모 철망 — 아래(상자 윗면) · 위(테두리) 사이를 지그재그로 */
+    var wm=new THREE.MeshLambertMaterial({color:0xd9d9d6}),y0=bt,y1=h-tb,zh=y1-y0;
+    var zig=function(L,place){var n=Math.max(2,Math.round(L/0.13)),sg=L/n;
+      for(var i=0;i<n;i++)[[i*sg,y0,i*sg+sg/2,y1],[i*sg+sg/2,y1,(i+1)*sg,y0]].forEach(function(q){
+        var len=Math.hypot(q[2]-q[0],q[3]-q[1]),m=new THREE.Mesh(new THREE.BoxGeometry(len,0.006,0.006),wm);
+        place(m,(q[0]+q[2])/2-L/2,(q[1]+q[3])/2,Math.atan2(q[3]-q[1],q[2]-q[0]));g.add(m);});};
+    [-1,1].forEach(function(b){
+      zig(w-tb*2,function(m,x,y,a){m.position.set(x,y,b*(d/2-tb/2));m.rotation.z=a;});                     /* 앞·뒤 */
+      zig(d-tb*2,function(m,z,y,a){m.position.set(b*(w/2-tb/2),y,z);m.rotation.y=Math.PI/2;m.rotation.z=a;});   /* 양옆 */
+    });
   }else if(c.k==="atbl"){
     /* 청주 아크릴 집기(2026-10-27 영업2팀 사진 6장, 1800×700×800 — 높이 800은 흰 상판 윗면, 아크릴 상자는 그 위로 약 130):
        민트 세로 골 받침(길이 55% · 깊이 76%, 한쪽 끝에서 6% 들어와 있음) · 두꺼운 흰 상판(약 120)이 반대쪽으로 길게 나옴 ·
@@ -32617,7 +32673,7 @@ var TR=null;
    · 카메라를 집기에 꽉 맞춘다(모서리 8개를 화면에 투영해 92%). 곡면 (좌)는 왼쪽에서 찍는다(둥근 모서리가 보이게).
    · 썸네일만 선을 진하게(#5b5a55) · 조명에 명암(위·앞·옆 세 방향) — 흰 면이 서로 구분되게. 3D 화면 선 색은 끝나면 되돌린다 */
 /* WS 로고 그림이 열리면(처음 한 번) 로고 집기 그림과 3D를 다시 그린다 */
-function logoReload(){Object.keys(CAT).forEach(function(k){if(CAT[k].k==="t700"||CAT[k].k==="ccounter")delete THUMB[k];});try{makeThumbs();renderSum();}catch(e){}rebuild3d();}
+function logoReload(){Object.keys(CAT).forEach(function(k){if(CAT[k].k==="t700"||CAT[k].k==="ccounter"||CAT[k].k==="ecart")delete THUMB[k];});try{makeThumbs();renderSum();}catch(e){}rebuild3d();}
 function makeThumbs(){
   if(!window.THREE)return;
   try{
