@@ -10356,7 +10356,8 @@ function _pdfWhiteAlpha(c){
    올릴 때 흰 바탕을 투명하게 하고 가장자리를 잘라 긴 변 600px PNG로 둔다. 찍는 처음 크기: 직인 62pt(약 22mm) · 명판 170pt(약 60mm) */
 var pdfTeamDB=(function(){try{return JSON.parse(localStorage.getItem("pdfTeamDB")||"null")||{};}catch(e){return {};}})();
 /* 명판 실제 크기 5×2.9cm(2026-10-28 영업2팀) — 1cm = 28.35pt */
-var PDF_TEAM={seal:{name:"직인",w0:62},plate:{name:"명판",w0:5*28.35,h0:2.9*28.35}};
+/* 직인 원 지름 1.8cm(같은 날 영업2팀) — 찍을 때 도장 잉크 테두리에 딱 맞게 잘라(_pdfTeamPrep) 가로·세로 1.8cm(둥근 도장) */
+var PDF_TEAM={seal:{name:"직인",w0:1.8*28.35,h0:1.8*28.35},plate:{name:"명판",w0:5*28.35,h0:2.9*28.35}};
 function _pdfTeamImg(kind){
   if(kind==="seal")return typeof mgCtSeal==="function"?mgCtSeal():"";
   return (pdfTeamDB&&pdfTeamDB.plate&&pdfTeamDB.plate.img)||"";
@@ -10381,7 +10382,24 @@ function _pdfTeamMsg(t,c){var m=document.getElementById("pdfMkTeamMsg");if(m){m.
 function pdfTeamUse(kind){
   var src=_pdfTeamImg(kind);
   if(!src){pdfMkOpen();_pdfTeamMsg("회사 "+PDF_TEAM[kind].name+"이 아직 없습니다 — 위 <b>＋ 올리기</b>로 한 번 올리면 팀 전체가 씁니다","err");return;}
-  _pdfUseMark(src,PDF_TEAM[kind].w0,PDF_TEAM[kind].h0);
+  _pdfTeamPrep(src,function(s2){_pdfUseMark(s2,PDF_TEAM[kind].w0,PDF_TEAM[kind].h0);});
+}
+/* 찍기 전에 흰 바탕을 투명하게 하고 여백 없이 잘라 둔다 — 공문 직인처럼 예전에 올린(바탕·여백이 남은) 이미지도
+   실제 크기(직인 지름·명판 폭)가 도장 잉크 테두리에 맞게 찍힌다. 같은 이미지는 한 번만 처리 */
+var _pdfPrepC={};
+function _pdfTeamPrep(src,cb){
+  if(_pdfPrepC[src])return cb(_pdfPrepC[src]);
+  var im=new Image();
+  im.onload=function(){
+    var out=src;
+    try{
+      var c=document.createElement("canvas");c.width=im.naturalWidth;c.height=im.naturalHeight;
+      c.getContext("2d").drawImage(im,0,0);_pdfWhiteAlpha(c);out=_pdfTrim(c,0)||src;
+    }catch(e){console.warn("직인·명판 다듬기",e);}
+    _pdfPrepC[src]=out;cb(out);
+  };
+  im.onerror=function(){cb(src);};
+  im.src=src;
 }
 function pdfTeamUpload(kind,f){
   if(!f)return;
@@ -10433,11 +10451,11 @@ function pdfTeamClear(kind){
   _pdfMkTeam();
 }
 /* 투명한 가장자리를 잘라 PNG로 */
-function _pdfTrim(c){
+function _pdfTrim(c,pad){
   var x=c.getContext("2d"),d=x.getImageData(0,0,c.width,c.height).data,x0=c.width,y0=c.height,x1=-1,y1=-1;
   for(var y=0;y<c.height;y++)for(var i=0;i<c.width;i++){if(d[(y*c.width+i)*4+3]>8){if(i<x0)x0=i;if(i>x1)x1=i;if(y<y0)y0=y;if(y>y1)y1=y;}}
   if(x1<0)return null;
-  var pd=6;x0=Math.max(0,x0-pd);y0=Math.max(0,y0-pd);x1=Math.min(c.width-1,x1+pd);y1=Math.min(c.height-1,y1+pd);
+  var pd=pad==null?6:pad;x0=Math.max(0,x0-pd);y0=Math.max(0,y0-pd);x1=Math.min(c.width-1,x1+pd);y1=Math.min(c.height-1,y1+pd);
   var o=document.createElement("canvas");o.width=x1-x0+1;o.height=y1-y0+1;
   o.getContext("2d").drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);
   return o.toDataURL("image/png");
