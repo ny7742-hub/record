@@ -9944,8 +9944,8 @@ var _pdfEd={k:-1,tool:"sel",sel:-1,editN:-1,zoom:0,scale:1,dpr:1,drag:null,mark:
   col:{text:"#111111",pen:"#1d3fa8",hl:"#ffe14d",rect:"#d62828",cover:"#ffffff"},
   size:{text:14,pen:2,hl:14,rect:2}};
 var PDF_HINT={
-  sel:"쓴 것을 눌러 고르고 끌어 옮깁니다 · 오른쪽 아래 □를 끌면 크기 · 글자는 두 번 눌러 고치기 · Delete 지우기 · Ctrl+Z 되돌리기",
-  text:"넣을 곳을 누르고 입력 → Enter(줄바꿈은 Shift+Enter) · 이미 쓴 글자를 누르면 고치기",
+  sel:"쓴 것을 눌러 고르고 끌어 옮깁니다 · 방향키로 조금씩(Shift+방향키 크게) · 오른쪽 아래 □를 끌면 크기 · 글자는 두 번 눌러 고치기 · Delete 지우기 · Ctrl+Z 되돌리기",
+  text:"넣을 곳을 누르고 입력 → Enter(줄바꿈은 Shift+Enter) → 방향키로 줄에 맞추기(Shift+방향키 크게, 입력 중엔 Alt+방향키) · 이미 쓴 글자를 누르면 고치기",
   pen:"끌어서 그립니다",
   hl:"끌어서 칠합니다 · Shift를 누른 채 끌면 곧은 줄",
   rect:"끌어서 네모를 그립니다",
@@ -9977,6 +9977,7 @@ function _pdfEdInit(){
     if(typing)return;
     if(e.key==="Delete"||e.key==="Backspace"){if(_pdfEd.sel>=0){pdfEdDel();e.preventDefault();}}
     else if((e.ctrlKey||e.metaKey)&&(e.key==="z"||e.key==="Z")){pdfEdUndo();e.preventDefault();}
+    else if(/^Arrow/.test(e.key)&&_pdfEd.sel>=0){pdfEdNudge(e.key,e.shiftKey);e.preventDefault();}
     else if(e.key==="PageDown"){pdfEdGo(1);e.preventDefault();}
     else if(e.key==="PageUp"){pdfEdGo(-1);e.preventDefault();}
   });
@@ -10160,6 +10161,7 @@ function _pdfTextOpen(X,Y,n){
     ta.addEventListener("keydown",function(e){
       if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();_pdfTextCommit();}
       else if(e.key==="Escape"){e.preventDefault();ta._cancel=true;_pdfTextCommit();}
+      else if(e.altKey&&/^Arrow/.test(e.key)){e.preventDefault();_pdfTaNudge(ta,e.key,e.shiftKey);}
     });
     ta.addEventListener("input",_pdfTaFit);
     /* 글자 크기·색 칸으로 옮겨 갈 때는 닫지 않는다 — 입력 중인 글자에 바로 적용(2026-10-28 "전체 잡고 크기 변경") */
@@ -10252,6 +10254,22 @@ function pdfEdSetSize(v){
     if(a.t==="text"){a.fs=v;_pdfEd.size.text=v;}else if(a.t==="path")a.w=v;else if(a.t==="rect")a.lw=v;
     _pdfEdDraw();
   }else if(_pdfEd.size[K.kind]!=null)_pdfEd.size[K.kind]=v;
+}
+/* 방향키로 고른 것을 조금씩 옮기기(2026-10-28 "기존 줄과 맞출 수 있게") — 화면 방향 기준 0.5pt, Shift 5pt. 연달아 누르면 되돌리기 한 번 */
+function pdfEdNudge(key,big){
+  var p=pdfPages[_pdfEd.k],a=p&&p.anns[_pdfEd.sel];if(!a)return;
+  var st=big?5:0.5,dx=key==="ArrowLeft"?-st:key==="ArrowRight"?st:0,dy=key==="ArrowUp"?-st:key==="ArrowDown"?st:0;
+  var o=_pdfToFrame(p,a,p.rot,0,0),q=_pdfToFrame(p,a,p.rot,dx,dy);dx=q[0]-o[0];dy=q[1]-o[1];
+  if(_pdfEd.sk!=="m"+_pdfEd.sel){_pdfSnap(p);_pdfEd.sk="m"+_pdfEd.sel;}
+  if(a.t==="path")a.pts.forEach(function(z){z[0]=_pdfR2(z[0]+dx);z[1]=_pdfR2(z[1]+dy);});
+  else{a.x=_pdfR2(a.x+dx);a.y=_pdfR2(a.y+dy);}
+  _pdfEdDraw();
+}
+/* 입력 중인 글자 칸을 Alt+방향키로 옮기기 */
+function _pdfTaNudge(ta,key,big){
+  var st=big?5:0.5;
+  if(key==="ArrowLeft")ta._x-=st;else if(key==="ArrowRight")ta._x+=st;else if(key==="ArrowUp")ta._y-=st;else ta._y+=st;
+  ta.style.left=(ta._x*_pdfEd.scale-3.5)+"px";ta.style.top=(ta._y*_pdfEd.scale-1.5)+"px";
 }
 function pdfEdUndo(){
   _pdfTextCommit();
