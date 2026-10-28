@@ -19,3 +19,7 @@
 - 외부 시스템(wsstudio, PlayMD 등)의 숫자는 그 화면의 묶음·우선순위 규칙을 소스에서 확인하고, 전 품목을 대조한 뒤 보고한다.
 - JS 문법 오류가 나면 앱 전체가 멈춘다. 고친 뒤 문법을 꼭 확인한다.
 - 기능을 고치면 `docs/`의 해당 문서도 같이 고친다.
+
+## 한글 깨짐 주의 (Windows PowerShell 5.1)
+- 파일은 모두 UTF-8(BOM 없음)이다. PowerShell에서 읽을 때는 **`Get-Content -Encoding UTF8`** 을 붙인다(안 붙이면 한글이 깨져 보인다).
+- 파일 수정은 `apply_patch`로 한다. `Set-Content`·`Out-File`·`>`로 파일을 쓰지 않는다 — 인코딩이 바뀌어 `index.html`의 한글이 통째로 깨진다.
