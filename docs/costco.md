@@ -178,6 +178,8 @@
   `logs/portal-open-title.txt`는 한 줄에 창 하나 · UTF-16(BOM) — VBS가 한글 제목을 깨뜨리지 않게(예전 UTF-8을 시스템 기본으로 읽었다). 백업 `_backup-portal-open-1026-dssguard.mjs`·`_backup-portal-open-1026.vbs`.
   한 창 안에 따로 공간(CDP `createBrowserContext`)을 만드는 방법은 Playwright가 그 공간의 탭을 다루지 못해 쓰지 않았다.
   로그인 유지(`portal-keepalive.mjs`)는 두 창을 다 본다.
+  **창이 좁으면 먼저 최대화**(2026-10-28, `dssWide` — `dssPage`가 DSS를 열기 전): 두 창 나란히(반폭 944px)로 둔 채면 툴바 Export 단추가 가려져
+  `locator.click: Timeout 15000ms`로 멈췄다(10/28 31번 7건 세 번 실패). 창 폭이 1400px 미만이고 보통 상태일 때만 최대화하고, 최소화된 창은 그대로 둔다. 백업 `_backup-dss-invoice-1028-maximize.mjs`.
 
 - **장우산 850 판매 행**(2026-09-29 영업2팀): 예전엔 매입가만 알아 `장우산 850 직매입` 한 행뿐이었고,
   판매현황의 `850 UV Protection Parasol`이 매장과 상관없이 **전부 직매입 행으로** 들어갔다(`CC_RAW_NAME_MAP`).
