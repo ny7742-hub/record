@@ -23637,19 +23637,30 @@ function _ccDssLine(){
   if(D.mode==="preview")return "";
   var md=D.mmdd?(+D.mmdd.slice(0,2))+'/'+(+D.mmdd.slice(2,4)):"";
   var pv=D.mode==="preview";
-  var acc=(D.accounts||[]).filter(function(a){return !a.same;}).map(function(a){
+  var accList=(D.accounts||[]).filter(function(a){return !a.same;});
+  /* DSS26·DSS31은 항상 둘 다 따로 확인한다(2026-10-28 영업2팀 "처음부터 26,31이 등록돼야 하고, 안 됐으면 안 됐다고 내용이 있어야") —
+     한쪽 기록이 없거나 채울 송장이 0건이면 조용히 넘기지 않고 미등록으로 띄운다. */
+  var sameOne=(D.accounts||[]).some(function(a){return a.same;});
+  var miss=[];
+  ["26","31"].forEach(function(n){
+    var a=accList.filter(function(x){return String(x.who||"").indexOf(n)>=0;})[0];
+    if(!a){if(!sameOne)miss.push('<b style="color:#b91c1c">DSS'+n+' 송장 미등록</b> — 이번 실행 기록에 DSS'+n+'가 없습니다');}
+    else if(!pv&&!a.orders)miss.push('<b style="color:#c2410c">DSS'+n+' 송장 미등록</b> — 채울 송장이 0건입니다(도매발주서에 DSS'+n+' 주문 송장이 있는지 확인)');
+  });
+  var acc=accList.map(function(a){
     var t=_escX(a.who)+' ';
     if(!a.orders)t+='채울 송장 없음';
     else if(pv)t+=a.orders+'건 넣을 수 있음';
     else t+=a.uploaded+'건 입력'+(a.still?' · <b style="color:#b91c1c">'+a.still+'건 남음</b>':'');
     return t;
   }).join(' · ');
-  var ok=D.ok&&!(D.errors||[]).length;
-  if(ok&&!(D.accounts||[]).some(function(a){return a.still>0;}))return "";   /* 다 들어간 송장 입력은 안 띄운다(2026-10-26 "등록이 완료된 건은 안보이게") */
+  var ok=D.ok&&!(D.errors||[]).length&&!miss.length;
+  if(ok&&!accList.some(function(a){return a.still>0;}))return "";   /* 26·31 모두 다 들어간 송장 입력은 안 띄운다(2026-10-26 "등록이 완료된 건은 안보이게") */
   var h='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'
     +'<span style="font-weight:700;color:'+(ok?(pv?'#1d4ed8':'#047857'):'#b91c1c')+'">'+(ok?(pv?'🔍':'✅'):'❗')+' DSS 송장 '+md+(pv?' 미리보기':'')+'</span>'
     +' <span style="color:#5b6675">· '+_escX(_saipFmtAt(D.at))+' · '+_escX(_saipWho(D.by))+'</span>';
   if(acc)h+='<div style="color:#334155">'+acc+'</div>';
+  miss.forEach(function(m){h+='<div>'+m+'</div>';});
   if(D.notInDss)h+='<div style="color:#5b6675">도매발주서 주문 중 '+D.notInDss+'건은 이미 입력됐거나 DSS 대기 목록에 없음</div>';
   (D.errors||[]).forEach(function(e){h+='<div style="color:#b91c1c">'+_escX(e)+'</div>';});
   /* 지난 오류 정리 — 로그인 문제였고 지금(로그인 상태 칸 기준)은 두 DSS가 로그인돼 있으면 다시 누르라고 */
