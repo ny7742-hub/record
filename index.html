@@ -10320,7 +10320,7 @@ function pdfMkOpen(){
   document.getElementById("pdfMk").style.display="flex";
   _pdfMkMsg("");_pdfTeamMsg("");_pdfMkTeam();_pdfMkList();_pdfSigInit();
 }
-function pdfMkClose(){var m=document.getElementById("pdfMk");if(m)m.style.display="none";}
+function pdfMkClose(){var m=document.getElementById("pdfMk");if(m)m.style.display="none";_pdfMkTarget="";}
 function _pdfMkList(){
   var l=_pdfMarks(),el=document.getElementById("pdfMkList");
   el.innerHTML=l.length?l.map(function(m,n){
@@ -10366,22 +10366,57 @@ function _pdfMkTeam(){
   var el=document.getElementById("pdfMkTeam");if(!el)return;
   el.innerHTML=["seal","plate"].map(function(k){
     var t=PDF_TEAM[k],src=_pdfTeamImg(k);
-    return '<div style="border:1px solid #d8dee6;border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:130px">'
+    var on=_pdfMkTarget===k;
+    return '<div data-k="'+k+'" onmouseenter="_pdfMkTarget=\''+k+'\'" ondragover="event.preventDefault();this.style.borderColor=\'#1b6e82\'" ondragleave="this.style.borderColor=\'\'" ondrop="_pdfTeamDrop(event,\''+k+'\')"'
+      +' style="border:1.5px '+(on?'solid #1b6e82':'solid #d8dee6')+';border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:150px">'
       +'<b style="font-size:12px;color:#334155">'+t.name+'</b>'
       +(src?'<img src="'+src+'" alt="" onclick="pdfTeamUse(\''+k+'\')" title="눌러서 찍기" style="height:64px;max-width:180px;cursor:pointer;background:repeating-conic-gradient(#eef1f4 0 25%,#fff 0 50%) 0 0/12px 12px;border-radius:4px">'
-           :'<span style="font-size:11.5px;color:#5b6675;height:64px;display:flex;align-items:center">아직 없음</span>')
-      +'<div style="display:flex;gap:4px">'
+           :'<span style="font-size:11.5px;color:#5b6675;height:64px;display:flex;align-items:center;text-align:center;line-height:1.4">아직 없음<br>파일 끌어 놓기·Ctrl+V</span>')
+      +'<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center">'
       +(src?'<button class="bs" onclick="pdfTeamUse(\''+k+'\')" style="padding:2px 8px;font-size:11.5px;font-weight:700">찍기</button>':'')
-      +'<label class="bs" style="padding:2px 8px;font-size:11.5px;cursor:pointer">'+(src?'바꾸기':'＋ 올리기')+'<input type="file" accept="image/*" style="display:none" onchange="pdfTeamUpload(\''+k+'\',this.files[0]);this.value=\'\'"></label>'
+      +'<label class="bs" style="padding:2px 8px;font-size:11.5px;cursor:pointer" title="이미지 파일 고르기">'+(src?'바꾸기':'＋ 파일')+'<input type="file" accept="image/*" style="display:none" onchange="pdfTeamUpload(\''+k+'\',this.files[0]);this.value=\'\'"></label>'
+      +'<button class="bs" onclick="pdfTeamPaste(\''+k+'\')" style="padding:2px 8px;font-size:11.5px" title="캡처(Win+Shift+S)·복사한 그림을 붙여 넣기">📋 붙여넣기</button>'
       +(src?'<button class="bs" onclick="pdfTeamClear(\''+k+'\')" style="padding:2px 6px;font-size:11.5px;color:#b91c1c" title="팀 전체에서 지움">✕</button>':'')
       +'</div></div>';
   }).join("");
 }
+/* 캡처한 그림 붙여넣기·끌어 놓기(2026-10-28 "명판이 없어요" — 명판을 파일이 아니라 캡처 그림으로 갖고 있었다).
+   Ctrl+V는 마우스를 올려 둔 칸(_pdfMkTarget) → 비어 있는 칸(명판 먼저) → 둘 다 있으면 '내 서명·도장'으로 */
+var _pdfMkTarget="";
+function _pdfTeamDrop(e,k){
+  e.preventDefault();e.stopPropagation();e.currentTarget.style.borderColor="";
+  var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(f)pdfTeamUpload(k,f);else _pdfTeamMsg("끌어 놓은 것이 파일이 아닙니다 — 이미지 파일을 끌어 놓거나 📋 붙여넣기를 눌러 주세요","err");
+}
+function pdfTeamPaste(k){
+  _pdfMkTarget=k;_pdfMkTeam();
+  var nm=PDF_TEAM[k].name;
+  if(!navigator.clipboard||!navigator.clipboard.read){_pdfTeamMsg(nm+" 칸에 마우스를 둔 채 <b>Ctrl+V</b>를 눌러 주세요","warn");return;}
+  navigator.clipboard.read().then(function(items){
+    for(var i=0;i<items.length;i++){
+      var t=items[i].types.filter(function(x){return /^image\//.test(x);})[0];
+      if(t)return items[i].getType(t).then(function(b){pdfTeamUpload(k,new File([b],nm+".png",{type:b.type||"image/png"}));});
+    }
+    _pdfTeamMsg("복사한 그림이 없습니다 — "+nm+"을 캡처(<b>Win+Shift+S</b>)하거나 그림을 복사한 뒤 다시 눌러 주세요","err");
+  }).catch(function(e){
+    console.warn("붙여넣기",e);
+    _pdfTeamMsg(nm+" 칸에 마우스를 둔 채 <b>Ctrl+V</b>를 눌러 주세요(브라우저가 클립보드 읽기를 막음)","warn");
+  });
+}
+document.addEventListener("paste",function(e){
+  var mk=document.getElementById("pdfMk");if(!mk||mk.style.display==="none")return;
+  var it=Array.from((e.clipboardData&&e.clipboardData.items)||[]).filter(function(x){return x.kind==="file"&&/^image\//.test(x.type);})[0];
+  if(!it)return;
+  var f=it.getAsFile();if(!f)return;
+  e.preventDefault();
+  var k=_pdfMkTarget||(!_pdfTeamImg("plate")?"plate":!_pdfTeamImg("seal")?"seal":"");
+  if(k)pdfTeamUpload(k,new File([f],PDF_TEAM[k].name+".png",{type:f.type}));else pdfMkAddImg(f);
+});
 /* 결과 안내는 직인·명판 칸 바로 아래(창 맨 아래 안내는 스크롤에 가려 안 보였다 — 2026-10-28 "명판 업로드 안되었습니다") */
 function _pdfTeamMsg(t,c){var m=document.getElementById("pdfMkTeamMsg");if(m){m.innerHTML=t||"";m.style.color=c==="err"?"#b91c1c":c==="warn"?"#92400e":"#0f766e";}}
 function pdfTeamUse(kind){
   var src=_pdfTeamImg(kind);
-  if(!src){pdfMkOpen();_pdfTeamMsg("회사 "+PDF_TEAM[kind].name+"이 아직 없습니다 — 위 <b>＋ 올리기</b>로 한 번 올리면 팀 전체가 씁니다","err");return;}
+  if(!src){_pdfMkTarget=kind;pdfMkOpen();_pdfTeamMsg("회사 "+PDF_TEAM[kind].name+"이 아직 없습니다 — "+PDF_TEAM[kind].name+"을 캡처(<b>Win+Shift+S</b>)하고 여기서 <b>Ctrl+V</b>, 또는 이미지 파일을 칸에 끌어 놓기 · <b>＋ 파일</b> — 한 번 올리면 팀 전체가 씁니다","err");return;}
   _pdfTeamPrep(src,function(s2){_pdfUseMark(s2,PDF_TEAM[kind].w0,PDF_TEAM[kind].h0);});
 }
 /* 찍기 전에 흰 바탕을 투명하게 하고 여백 없이 잘라 둔다 — 공문 직인처럼 예전에 올린(바탕·여백이 남은) 이미지도
@@ -31804,36 +31839,50 @@ function rebuild3d(){
     if(R3.root){R3.scene.remove(R3.root);disposeTree(R3.root);}
     var root=new THREE.Group(),pr=problems(),w=ST.W/1000,d=ST.D/1000,i;
     if(ST.photo&&!R3.photoTex)setupPhotoTex();
-    var floorMat=(photoOnFloor()&&R3.photoTex)
+    var phF=!!(photoOnFloor()&&R3.photoTex);
+    var floorMat=phF
       ?new THREE.MeshBasicMaterial({map:R3.photoTex,transparent:true,opacity:ST.photoOp+0.25>1?1:ST.photoOp+0.25})
-      :new THREE.MeshLambertMaterial({color:0xd3d1c7,transparent:true,opacity:0.55});
+      :new THREE.MeshPhongMaterial({map:marbleTex(),color:0xffffff,specular:0x262626,shininess:90,transparent:true,opacity:0.84});   /* 광택 대리석 — 살짝 비쳐 아래 거꾸로 놓은 집기(반사)가 은은히 보인다 */
+    if(!phF)floorMat.map.repeat.set(w/1.2,d/1.2);
     var fl=new THREE.Mesh(new THREE.PlaneGeometry(w,d),floorMat);
     fl.rotation.x=-Math.PI/2;fl.position.y=-0.002;root.add(fl);
     var pts=[];
     for(i=0.6;i<w-1e-6;i+=0.6){pts.push(new THREE.Vector3(i-w/2,0,-d/2),new THREE.Vector3(i-w/2,0,d/2));}
     for(i=0.6;i<d-1e-6;i+=0.6){pts.push(new THREE.Vector3(-w/2,0,i-d/2),new THREE.Vector3(w/2,0,i-d/2));}
-    root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xb4b2a9})));
+    root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:phF?0xb4b2a9:0xc9c4ba})));   /* 600 타일 줄눈 */
     var bd=[new THREE.Vector3(-w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,d/2),new THREE.Vector3(-w/2,0.005,d/2)];
-    root.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bd),new THREE.LineBasicMaterial({color:0x444441})));
+    root.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bd),new THREE.LineBasicMaterial({color:0x8f8b82})));
     /* 그림자 받는 바닥(투명, 그림자만 보임) */
     var sc0=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.ShadowMaterial({opacity:0.3}));sc0.rotation.x=-Math.PI/2;sc0.position.y=0.001;sc0.receiveShadow=true;root.add(sc0);
+    var nF=root.children.length;   /* 여기까지 바닥 — 반사에서 뺀다 */
     ST.items.forEach(function(it){if(!CAT[it.t])return;var gi=buildItem(it,!!pr.bad[it.id]);
       gi.traverse(function(o){if(o.isMesh){o.castShadow=!o.userData.ns&&!(o.material&&o.material.transparent&&o.material.opacity<0.5);o.receiveShadow=true;}});root.add(gi);});
     if(R3.sun){var ext=Math.max(w,d)/2+1.5,sh=R3.sun.shadow.camera;R3.sun.position.set(1.2,8,1.8);R3.sun.target.position.set(0,0,0);
       sh.left=-ext;sh.right=ext;sh.top=ext;sh.bottom=-ext;sh.near=0.5;sh.far=30;sh.updateProjectionMatrix();}
     var WHm=(ST.wallH||2400)/1000;
     ST.blocks.forEach(function(b){var bw2=(b.x1-b.x0)/1000,bd2=(b.z1-b.z0)/1000;
-      if(b.o){if(ST.poly)return;var cvr=new THREE.Mesh(new THREE.BoxGeometry(bw2,0.004,bd2),new THREE.MeshLambertMaterial({color:0xdfe3e8}));cvr.position.set((b.x0+b.x1)/2000-w/2,0.006,(b.z0+b.z1)/2000-d/2);root.add(cvr);return;}   /* 공간 밖 = 바닥 덮개 */
+      if(b.o){if(ST.poly)return;var cvr=new THREE.Mesh(new THREE.BoxGeometry(bw2,0.004,bd2),new THREE.MeshLambertMaterial({color:0xdfe3e8}));cvr.position.set((b.x0+b.x1)/2000-w/2,0.006,(b.z0+b.z1)/2000-d/2);cvr.userData.fl=1;root.add(cvr);return;}   /* 공간 밖 = 바닥 덮개 */
       mk(root,bw2,WHm,bd2,(b.x0+b.x1)/2000-w/2,WHm/2,(b.z0+b.z1)/2000-d/2,0xf3d2bf);});
     if(ST.poly&&ST.poly.length>=3){   /* 공간 밖 바닥 덮개 — 네모에서 공간 꼭짓점 모양을 뺀 판(2026-10-27) */
       var tw=function(x,z){return [x/1000-w/2,-(z/1000-d/2)];},c0=tw(0,0),c1=tw(ST.W,ST.D),osh=new THREE.Shape(),hole=new THREE.Path();
       osh.moveTo(c0[0],c0[1]);osh.lineTo(c1[0],c0[1]);osh.lineTo(c1[0],c1[1]);osh.lineTo(c0[0],c1[1]);osh.lineTo(c0[0],c0[1]);
       ST.poly.forEach(function(p,i){var t=tw(p[0],p[1]);if(i)hole.lineTo(t[0],t[1]);else hole.moveTo(t[0],t[1]);});hole.closePath();osh.holes.push(hole);
-      var og=new THREE.ShapeGeometry(osh);og.rotateX(-Math.PI/2);var om=new THREE.Mesh(og,new THREE.MeshLambertMaterial({color:0xdfe3e8,side:THREE.DoubleSide}));om.position.y=0.006;root.add(om);
+      var og=new THREE.ShapeGeometry(osh);og.rotateX(-Math.PI/2);var om=new THREE.Mesh(og,new THREE.MeshLambertMaterial({color:0xdfe3e8,side:THREE.DoubleSide}));om.position.y=0.006;om.userData.fl=1;root.add(om);
     }
     walls().forEach(function(wl){var lx=(wl.x1-wl.x0)/1000,lz=(wl.z1-wl.z0)/1000,T=0.06;
-      if(Math.abs(lx)>0.001&&Math.abs(lz)>0.001){var sw=mk(root,Math.hypot(lx,lz),WHm,T,(wl.x0+wl.x1)/2000-w/2,WHm/2,(wl.z0+wl.z1)/2000-d/2,0xeceae4);sw.rotation.y=-Math.atan2(lz,lx);return;}   /* 사선 벽 */
-      mk(root,Math.abs(lx)||T,WHm,Math.abs(lz)||T,(wl.x0+wl.x1)/2000-w/2,WHm/2,(wl.z0+wl.z1)/2000-d/2,0xeceae4);});
+      var cx=(wl.x0+wl.x1)/2000-w/2,cz=(wl.z0+wl.z1)/2000-d/2,BT=T+0.014;   /* 걸레받이 — 벽 아래 100mm 짙은 띠 */
+      if(Math.abs(lx)>0.001&&Math.abs(lz)>0.001){var sw=mk(root,Math.hypot(lx,lz),WHm,T,cx,WHm/2,cz,0xeceae4);sw.rotation.y=-Math.atan2(lz,lx);
+        mk(root,Math.hypot(lx,lz),0.1,BT,cx,0.05,cz,0x5f5d58).rotation.y=sw.rotation.y;return;}   /* 사선 벽 */
+      mk(root,Math.abs(lx)||T,WHm,Math.abs(lz)||T,cx,WHm/2,cz,0xeceae4);
+      mk(root,Math.abs(lx)||BT,0.1,Math.abs(lz)||BT,cx,0.05,cz,0x5f5d58);});
+    /* 매장 밖 복도 바닥(가장자리로 흐려짐) + 광택 바닥 반사(집기·벽을 위아래로 뒤집어 바닥 아래에 한 벌 더) — R3.root 밖에 둬 사진 맞춤·집기 고르기에 끼지 않게 */
+    if(R3.env){R3.scene.remove(R3.env);R3.env.children.forEach(function(c){if(c.userData.own){c.geometry.dispose();c.material.dispose();}});}
+    var env=new THREE.Group(),mf=mallFloor(w,d);mf.userData.own=1;env.add(mf);
+    if(!phF){var mir=new THREE.Group();mir.scale.y=-1;
+      root.children.slice(nF).forEach(function(c){if(c.userData.fl)return;var k=c.clone();
+        k.traverse(function(n){n.castShadow=n.receiveShadow=false;if(n.isLine)n.visible=false;delete n.userData.itemId;});mir.add(k);});
+      env.add(mir);}
+    R3.env=env;R3.scene.add(env);
     R3.root=root;R3.scene.add(root);
     render3d();
   });
@@ -34131,36 +34180,50 @@ function rebuild3d(){
     if(R3.root){R3.scene.remove(R3.root);disposeTree(R3.root);}
     var root=new THREE.Group(),pr=problems(),w=ST.W/1000,d=ST.D/1000,i;
     if(ST.photo&&!R3.photoTex)setupPhotoTex();
-    var floorMat=(photoOnFloor()&&R3.photoTex)
+    var phF=!!(photoOnFloor()&&R3.photoTex);
+    var floorMat=phF
       ?new THREE.MeshBasicMaterial({map:R3.photoTex,transparent:true,opacity:ST.photoOp+0.25>1?1:ST.photoOp+0.25})
-      :new THREE.MeshLambertMaterial({color:0xd3d1c7,transparent:true,opacity:0.55});
+      :new THREE.MeshPhongMaterial({map:marbleTex(),color:0xffffff,specular:0x262626,shininess:90,transparent:true,opacity:0.84});   /* 광택 대리석 — 살짝 비쳐 아래 거꾸로 놓은 집기(반사)가 은은히 보인다 */
+    if(!phF)floorMat.map.repeat.set(w/1.2,d/1.2);
     var fl=new THREE.Mesh(new THREE.PlaneGeometry(w,d),floorMat);
     fl.rotation.x=-Math.PI/2;fl.position.y=-0.002;root.add(fl);
     var pts=[];
     for(i=0.6;i<w-1e-6;i+=0.6){pts.push(new THREE.Vector3(i-w/2,0,-d/2),new THREE.Vector3(i-w/2,0,d/2));}
     for(i=0.6;i<d-1e-6;i+=0.6){pts.push(new THREE.Vector3(-w/2,0,i-d/2),new THREE.Vector3(w/2,0,i-d/2));}
-    root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xb4b2a9})));
+    root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:phF?0xb4b2a9:0xc9c4ba})));   /* 600 타일 줄눈 */
     var bd=[new THREE.Vector3(-w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,-d/2),new THREE.Vector3(w/2,0.005,d/2),new THREE.Vector3(-w/2,0.005,d/2)];
-    root.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bd),new THREE.LineBasicMaterial({color:0x444441})));
+    root.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bd),new THREE.LineBasicMaterial({color:0x8f8b82})));
     /* 그림자 받는 바닥(투명, 그림자만 보임) */
     var sc0=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.ShadowMaterial({opacity:0.3}));sc0.rotation.x=-Math.PI/2;sc0.position.y=0.001;sc0.receiveShadow=true;root.add(sc0);
+    var nF=root.children.length;   /* 여기까지 바닥 — 반사에서 뺀다 */
     ST.items.forEach(function(it){if(!CAT[it.t])return;var gi=buildItem(it,!!pr.bad[it.id]);
       gi.traverse(function(o){if(o.isMesh){o.castShadow=!o.userData.ns&&!(o.material&&o.material.transparent&&o.material.opacity<0.5);o.receiveShadow=true;}});root.add(gi);});
     if(R3.sun){var ext=Math.max(w,d)/2+1.5,sh=R3.sun.shadow.camera;R3.sun.position.set(1.2,8,1.8);R3.sun.target.position.set(0,0,0);
       sh.left=-ext;sh.right=ext;sh.top=ext;sh.bottom=-ext;sh.near=0.5;sh.far=30;sh.updateProjectionMatrix();}
     var WHm=(ST.wallH||2400)/1000;
     ST.blocks.forEach(function(b){var bw2=(b.x1-b.x0)/1000,bd2=(b.z1-b.z0)/1000;
-      if(b.o){if(ST.poly)return;var cvr=new THREE.Mesh(new THREE.BoxGeometry(bw2,0.004,bd2),new THREE.MeshLambertMaterial({color:0xdfe3e8}));cvr.position.set((b.x0+b.x1)/2000-w/2,0.006,(b.z0+b.z1)/2000-d/2);root.add(cvr);return;}   /* 공간 밖 = 바닥 덮개 */
+      if(b.o){if(ST.poly)return;var cvr=new THREE.Mesh(new THREE.BoxGeometry(bw2,0.004,bd2),new THREE.MeshLambertMaterial({color:0xdfe3e8}));cvr.position.set((b.x0+b.x1)/2000-w/2,0.006,(b.z0+b.z1)/2000-d/2);cvr.userData.fl=1;root.add(cvr);return;}   /* 공간 밖 = 바닥 덮개 */
       mk(root,bw2,WHm,bd2,(b.x0+b.x1)/2000-w/2,WHm/2,(b.z0+b.z1)/2000-d/2,0xf3d2bf);});
     if(ST.poly&&ST.poly.length>=3){   /* 공간 밖 바닥 덮개 — 네모에서 공간 꼭짓점 모양을 뺀 판(2026-10-27) */
       var tw=function(x,z){return [x/1000-w/2,-(z/1000-d/2)];},c0=tw(0,0),c1=tw(ST.W,ST.D),osh=new THREE.Shape(),hole=new THREE.Path();
       osh.moveTo(c0[0],c0[1]);osh.lineTo(c1[0],c0[1]);osh.lineTo(c1[0],c1[1]);osh.lineTo(c0[0],c1[1]);osh.lineTo(c0[0],c0[1]);
       ST.poly.forEach(function(p,i){var t=tw(p[0],p[1]);if(i)hole.lineTo(t[0],t[1]);else hole.moveTo(t[0],t[1]);});hole.closePath();osh.holes.push(hole);
-      var og=new THREE.ShapeGeometry(osh);og.rotateX(-Math.PI/2);var om=new THREE.Mesh(og,new THREE.MeshLambertMaterial({color:0xdfe3e8,side:THREE.DoubleSide}));om.position.y=0.006;root.add(om);
+      var og=new THREE.ShapeGeometry(osh);og.rotateX(-Math.PI/2);var om=new THREE.Mesh(og,new THREE.MeshLambertMaterial({color:0xdfe3e8,side:THREE.DoubleSide}));om.position.y=0.006;om.userData.fl=1;root.add(om);
     }
     walls().forEach(function(wl){var lx=(wl.x1-wl.x0)/1000,lz=(wl.z1-wl.z0)/1000,T=0.06;
-      if(Math.abs(lx)>0.001&&Math.abs(lz)>0.001){var sw=mk(root,Math.hypot(lx,lz),WHm,T,(wl.x0+wl.x1)/2000-w/2,WHm/2,(wl.z0+wl.z1)/2000-d/2,0xeceae4);sw.rotation.y=-Math.atan2(lz,lx);return;}   /* 사선 벽 */
-      mk(root,Math.abs(lx)||T,WHm,Math.abs(lz)||T,(wl.x0+wl.x1)/2000-w/2,WHm/2,(wl.z0+wl.z1)/2000-d/2,0xeceae4);});
+      var cx=(wl.x0+wl.x1)/2000-w/2,cz=(wl.z0+wl.z1)/2000-d/2,BT=T+0.014;   /* 걸레받이 — 벽 아래 100mm 짙은 띠 */
+      if(Math.abs(lx)>0.001&&Math.abs(lz)>0.001){var sw=mk(root,Math.hypot(lx,lz),WHm,T,cx,WHm/2,cz,0xeceae4);sw.rotation.y=-Math.atan2(lz,lx);
+        mk(root,Math.hypot(lx,lz),0.1,BT,cx,0.05,cz,0x5f5d58).rotation.y=sw.rotation.y;return;}   /* 사선 벽 */
+      mk(root,Math.abs(lx)||T,WHm,Math.abs(lz)||T,cx,WHm/2,cz,0xeceae4);
+      mk(root,Math.abs(lx)||BT,0.1,Math.abs(lz)||BT,cx,0.05,cz,0x5f5d58);});
+    /* 매장 밖 복도 바닥(가장자리로 흐려짐) + 광택 바닥 반사(집기·벽을 위아래로 뒤집어 바닥 아래에 한 벌 더) — R3.root 밖에 둬 사진 맞춤·집기 고르기에 끼지 않게 */
+    if(R3.env){R3.scene.remove(R3.env);R3.env.children.forEach(function(c){if(c.userData.own){c.geometry.dispose();c.material.dispose();}});}
+    var env=new THREE.Group(),mf=mallFloor(w,d);mf.userData.own=1;env.add(mf);
+    if(!phF){var mir=new THREE.Group();mir.scale.y=-1;
+      root.children.slice(nF).forEach(function(c){if(c.userData.fl)return;var k=c.clone();
+        k.traverse(function(n){n.castShadow=n.receiveShadow=false;if(n.isLine)n.visible=false;delete n.userData.itemId;});mir.add(k);});
+      env.add(mir);}
+    R3.env=env;R3.scene.add(env);
     R3.root=root;R3.scene.add(root);
     render3d();
   });
