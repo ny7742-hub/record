@@ -2555,6 +2555,8 @@ label{font-size:14px!important}
       <button class="bs pdf-tool" data-t="form" onclick="pdfEdTool('form')" title="PDF에 들어 있는 입력칸(신청서 등 양식) 채우기">📝 양식 칸</button>
       <button class="bs pdf-tool" data-t="text" onclick="pdfEdTool('text')" title="넣을 곳을 누르고 글자 입력 · Enter 끝(Shift+Enter 줄바꿈)">T 글자</button>
       <button class="bs pdf-tool" data-t="mark" onclick="pdfMkOpen()" title="서명을 그리거나 도장·이미지를 올려 넣기">✍ 서명·도장</button>
+      <button class="bs" onclick="pdfTeamUse('seal')" title="회사 직인(팀 공유) 찍기 — 누른 뒤 쪽에서 넣을 곳을 누르기">🔴 직인</button>
+      <button class="bs" onclick="pdfTeamUse('plate')" title="회사 명판(팀 공유) 찍기 — 누른 뒤 쪽에서 넣을 곳을 누르기">🏷 명판</button>
       <button class="bs pdf-tool" data-t="pen" onclick="pdfEdTool('pen')">✒ 펜</button>
       <button class="bs pdf-tool" data-t="hl" onclick="pdfEdTool('hl')">🖍 형광펜</button>
       <button class="bs pdf-tool" data-t="rect" onclick="pdfEdTool('rect')">▭ 네모</button>
@@ -2587,7 +2589,9 @@ label{font-size:14px!important}
       <b style="font-size:14.5px;color:#154f5e">✍ 서명 · 도장</b>
       <button onclick="pdfMkClose()" style="margin-left:auto;border:none;background:none;font-size:18px;cursor:pointer;color:#5b6675">✕</button>
     </div>
-    <div style="font-size:12px;color:#5b6675;margin-bottom:6px">저장한 서명·도장(이 브라우저에만 기억) — 누르면 고르고, 쪽에서 넣을 곳을 누릅니다</div>
+    <div style="font-weight:700;font-size:13px;color:#334155;margin-bottom:4px">🏢 회사 직인 · 명판 <span style="font-weight:400;font-size:12px;color:#5b6675">— 팀 공유(다른 PC에서도 그대로, 직인은 공문 직인과 같은 것)</span></div>
+    <div id="pdfMkTeam" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div style="font-size:12px;color:#5b6675;margin-bottom:6px">내 서명·도장(이 브라우저에만 기억) — 누르면 고르고, 쪽에서 넣을 곳을 누릅니다</div>
     <div id="pdfMkList" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
     <div style="font-weight:700;font-size:13px;color:#334155;margin-bottom:4px">새 서명 그리기</div>
     <canvas id="pdfSigCv" width="1040" height="340" style="width:100%;aspect-ratio:1040/340;border:1px dashed #8b95a3;border-radius:8px;background:#fff;touch-action:none;cursor:crosshair"></canvas>
@@ -3062,7 +3066,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload",
-  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","allStoreDB":"ws/allStore","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
+  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","allStoreDB":"ws/allStore","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","pdfTeamDB":"ws/pdfTeam","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","wsProdDB":"ws/wsProd","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
@@ -3618,7 +3622,12 @@ function fbListen(){
   /* 행사 공문 직인(팀 공유, 2026-10-08) */
   apply("ws/mgSeal","mgSealDB",
     function(d){if(d&&typeof d==="object")mgSealDB=d;},
-    function(){try{mgRenderSealBar();mgRenderContractPreview();var f=document.getElementById("mgCtForm");if(f&&f.style.display!=="none")mgRenderContractForm();}catch(e){}}
+    function(){try{mgRenderSealBar();mgRenderContractPreview();var f=document.getElementById("mgCtForm");if(f&&f.style.display!=="none")mgRenderContractForm();}catch(e){}try{_pdfMkTeam();}catch(e){}}
+  );
+  /* 📄 PDF 쓰기 — 회사 명판(팀 공유, 2026-10-28). 직인은 위 ws/mgSeal을 같이 쓴다 */
+  apply("ws/pdfTeam","pdfTeamDB",
+    function(d){if(d&&typeof d==="object")pdfTeamDB=d;},
+    function(){try{_pdfMkTeam();}catch(e){}}
   );
   apply("ws/ccsMall","ccsMallDB",
     function(d){if(d&&typeof d==="object")ccsMallDB=d;},
@@ -10110,7 +10119,7 @@ function _pdfEdDown(e){
     _pdfEd.drag={mode:"box",n:p.anns.length-1,x0:P[0],y0:P[1]};
   }else if(t==="mark"){
     if(!_pdfEd.mark){pdfMkOpen();return;}
-    var m=_pdfEd.mark,f=_pdfFrame(p,p.rot),ww=f[0]*(m.ar>1.8?0.28:0.14),hh=ww/m.ar;
+    var m=_pdfEd.mark,f=_pdfFrame(p,p.rot),ww=m.w0||f[0]*(m.ar>1.8?0.28:0.14),hh=ww/m.ar;
     _pdfSnap(p);p.anns.push({t:"img",r:p.rot,src:m.src,x:P[0]-ww/2,y:P[1]-hh/2,w:ww,h:hh});
     _pdfEd.tool="sel";_pdfEd.sel=p.anns.length-1;_pdfEdSyncTool();_pdfEdDraw();
     e.preventDefault();return;
@@ -10308,7 +10317,7 @@ function _pdfMkMsg(t,err){var m=document.getElementById("pdfMkMsg");if(m){m.text
 function pdfMkOpen(){
   _pdfTextCommit();
   document.getElementById("pdfMk").style.display="flex";
-  _pdfMkMsg("");_pdfMkList();_pdfSigInit();
+  _pdfMkMsg("");_pdfMkTeam();_pdfMkList();_pdfSigInit();
 }
 function pdfMkClose(){var m=document.getElementById("pdfMk");if(m)m.style.display="none";}
 function _pdfMkList(){
@@ -10326,13 +10335,75 @@ function _pdfMkSave(src){
   l.unshift({src:src,at:Date.now()});
   if(!_pdfMarksSet(l.slice(0,12)))_pdfMkMsg("브라우저 저장 칸이 모자라 기억하지 못했습니다 — 이번에는 그대로 씁니다",true);
 }
-function _pdfUseMark(src){
+/* w0 = 처음 찍을 폭(pt) — 없으면 쪽 폭 비율로 */
+function _pdfUseMark(src,w0){
   var im=_pdfImg(src);
   var go=function(){
-    _pdfEd.mark={src:src,ar:(im.naturalWidth||1)/(im.naturalHeight||1)};
+    _pdfEd.mark={src:src,ar:(im.naturalWidth||1)/(im.naturalHeight||1),w0:w0||0};
     pdfMkClose();_pdfTextCommit();_pdfEd.tool="mark";_pdfEd.sel=-1;_pdfEdSyncTool();_pdfEdDraw();
   };
   if(im.complete&&im.naturalWidth)go();else im.addEventListener("load",go,{once:true});
+}
+/* 흰 바탕(밝은 회색까지) → 투명 — 스캔·캡처한 도장 바탕이 아래 글자를 가리지 않게 */
+function _pdfWhiteAlpha(c){
+  var x=c.getContext("2d"),D=x.getImageData(0,0,c.width,c.height),d=D.data;
+  for(var i=0;i<d.length;i+=4){var mn=Math.min(d[i],d[i+1],d[i+2]);if(mn>228)d[i+3]=0;else if(mn>200)d[i+3]=Math.round(d[i+3]*(228-mn)/28);}
+  x.putImageData(D,0,0);
+}
+/* ── 🏢 회사 직인 · 명판(팀 공유, 2026-10-28 영업2팀 "pdf에 직인, 명판 저장해주세요") ──
+   직인 = 공문 직인과 같은 것(ws/mgSeal, mgCtSeal·mgCtSetSeal), 명판 = ws/pdfTeam {plate:{img,at,by}}.
+   올릴 때 흰 바탕을 투명하게 하고 가장자리를 잘라 긴 변 600px PNG로 둔다. 찍는 처음 크기: 직인 62pt(약 22mm) · 명판 170pt(약 60mm) */
+var pdfTeamDB=(function(){try{return JSON.parse(localStorage.getItem("pdfTeamDB")||"null")||{};}catch(e){return {};}})();
+var PDF_TEAM={seal:{name:"직인",w0:62},plate:{name:"명판",w0:170}};
+function _pdfTeamImg(kind){
+  if(kind==="seal")return typeof mgCtSeal==="function"?mgCtSeal():"";
+  return (pdfTeamDB&&pdfTeamDB.plate&&pdfTeamDB.plate.img)||"";
+}
+function _pdfMkTeam(){
+  var el=document.getElementById("pdfMkTeam");if(!el)return;
+  el.innerHTML=["seal","plate"].map(function(k){
+    var t=PDF_TEAM[k],src=_pdfTeamImg(k);
+    return '<div style="border:1px solid #d8dee6;border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:130px">'
+      +'<b style="font-size:12px;color:#334155">'+t.name+'</b>'
+      +(src?'<img src="'+src+'" alt="" onclick="pdfTeamUse(\''+k+'\')" title="눌러서 찍기" style="height:64px;max-width:180px;cursor:pointer;background:repeating-conic-gradient(#eef1f4 0 25%,#fff 0 50%) 0 0/12px 12px;border-radius:4px">'
+           :'<span style="font-size:11.5px;color:#5b6675;height:64px;display:flex;align-items:center">아직 없음</span>')
+      +'<div style="display:flex;gap:4px">'
+      +(src?'<button class="bs" onclick="pdfTeamUse(\''+k+'\')" style="padding:2px 8px;font-size:11.5px;font-weight:700">찍기</button>':'')
+      +'<label class="bs" style="padding:2px 8px;font-size:11.5px;cursor:pointer">'+(src?'바꾸기':'＋ 올리기')+'<input type="file" accept="image/*" style="display:none" onchange="pdfTeamUpload(\''+k+'\',this.files[0]);this.value=\'\'"></label>'
+      +(src?'<button class="bs" onclick="pdfTeamClear(\''+k+'\')" style="padding:2px 6px;font-size:11.5px;color:#b91c1c" title="팀 전체에서 지움">✕</button>':'')
+      +'</div></div>';
+  }).join("");
+}
+function pdfTeamUse(kind){
+  var src=_pdfTeamImg(kind);
+  if(!src){pdfMkOpen();_pdfMkMsg("회사 "+PDF_TEAM[kind].name+"이 아직 없습니다 — 위 '＋ 올리기'로 한 번 올리면 팀 전체가 씁니다",true);return;}
+  _pdfUseMark(src,PDF_TEAM[kind].w0);
+}
+function pdfTeamUpload(kind,f){
+  if(!f)return;
+  if(!/^image\//.test(f.type)){_pdfMkMsg("이미지 파일만 올릴 수 있습니다",true);return;}
+  var u=URL.createObjectURL(f),im=new Image();
+  im.onload=function(){
+    URL.revokeObjectURL(u);
+    var k=Math.min(1,600/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round(im.naturalWidth*k));c.height=Math.max(1,Math.round(im.naturalHeight*k));
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+    _pdfWhiteAlpha(c);
+    var src=_pdfTrim(c);
+    if(!src){_pdfMkMsg("이미지가 비어 있습니다(전부 흰색?)",true);return;}
+    if(kind==="seal"){try{mgCtSetSeal(src);}catch(e){console.warn("직인 저장",e);}}
+    else{pdfTeamDB.plate={img:src,at:new Date().toISOString(),by:(typeof _saipMe==="function"?_saipMe():"")};wsSetItem("pdfTeamDB",JSON.stringify(pdfTeamDB));}
+    _pdfMkTeam();
+    _pdfMkMsg("✅ 회사 "+PDF_TEAM[kind].name+"을 팀 공유로 저장했습니다"+(im.naturalWidth<200?" — 이미지가 작아(폭 "+im.naturalWidth+"px) 찍으면 흐릴 수 있습니다. 원본 파일이 있으면 그걸로 바꿔 주세요":""),im.naturalWidth<200);
+  };
+  im.onerror=function(){URL.revokeObjectURL(u);_pdfMkMsg("이미지를 열 수 없습니다",true);};
+  im.src=u;
+}
+function pdfTeamClear(kind){
+  if(!confirm("회사 "+PDF_TEAM[kind].name+"을 지울까요? 팀 전체에서 지워집니다"+(kind==="seal"?"(공문 직인도 같이)":"")+"."))return;
+  if(kind==="seal"){try{mgCtSetSeal("");}catch(e){}}
+  else{delete pdfTeamDB.plate;wsSetItem("pdfTeamDB",JSON.stringify(pdfTeamDB));}
+  _pdfMkTeam();
 }
 /* 투명한 가장자리를 잘라 PNG로 */
 function _pdfTrim(c){
@@ -10374,11 +10445,7 @@ function pdfMkAddImg(f){
     var k=Math.min(1,900/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement("canvas");
     c.width=Math.max(1,Math.round(im.naturalWidth*k));c.height=Math.max(1,Math.round(im.naturalHeight*k));
     var x=c.getContext("2d");x.drawImage(im,0,0,c.width,c.height);
-    if(document.getElementById("pdfMkWhite").checked){   /* 흰 바탕(밝은 회색까지) → 투명 */
-      var D=x.getImageData(0,0,c.width,c.height),d=D.data;
-      for(var i=0;i<d.length;i+=4){var mn=Math.min(d[i],d[i+1],d[i+2]);if(mn>228)d[i+3]=0;else if(mn>200)d[i+3]=Math.round(d[i+3]*(228-mn)/28);}
-      x.putImageData(D,0,0);
-    }
+    if(document.getElementById("pdfMkWhite").checked)_pdfWhiteAlpha(c);
     var src=_pdfTrim(c);
     if(!src){_pdfMkMsg("이미지가 비어 있습니다(전부 흰색?) — '흰 바탕 투명하게'를 끄고 다시 올려 보세요",true);return;}
     _pdfMkSave(src);_pdfUseMark(src);
