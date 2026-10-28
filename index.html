@@ -640,7 +640,22 @@ label{font-size:14px!important}
   #homeQuick .qc-card{min-width:0!important;max-width:none!important}
   #homeQuick .home-quick{padding:7px 3px!important;font-size:11px!important;letter-spacing:-.4px;gap:4px!important;justify-content:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:10px!important}
   #homeQuick .home-quick .hq-dot{display:none}
+  /* 📄 PDF 쓰기 창: 도구 줄이 여러 줄로 접히니 글자·여백을 줄인다 */
+  #pdfEdBar{padding:6px 8px!important;gap:4px!important;font-size:11.5px!important}
+  #pdfEdBar .bs{padding:3px 7px!important;font-size:11.5px!important}
+  #pdfEdWrap{padding:8px!important}
+  #pdfGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
+/* 📄 PDF 탭 */
+.pdf-tool.on{background:#1b6e82!important;color:#fff!important;border-color:#1b6e82!important}
+.pdf-pg{border:1px solid #d8dee6;border-radius:10px;background:#fff;padding:6px;display:flex;flex-direction:column;gap:4px;font-size:12px}
+.pdf-pg.sel{border-color:#1b6e82;box-shadow:0 0 0 2px rgba(27,110,130,.35)}
+.pdf-pg.over{border-color:#e8734a;border-style:dashed}
+.pdf-pg .pdf-th{height:170px;display:flex;align-items:center;justify-content:center;background:#f1f4f7;border-radius:6px;cursor:pointer;overflow:hidden}
+.pdf-pg .pdf-th img{max-width:100%;max-height:100%;box-shadow:0 1px 4px rgba(0,0,0,.25);background:#fff}
+.pdf-pg .pdf-bt{display:flex;gap:3px;flex-wrap:wrap}
+.pdf-pg .pdf-bt button{flex:1;min-width:0;border:1px solid #cbd5e1;background:#f8fafc;border-radius:5px;padding:2px 0;font-size:12px;cursor:pointer;color:#334155}
+.pdf-pg .pdf-bt button:hover{background:#e6f4f6}
 .au-item{flex:1 1 260px;min-width:0;border:1px solid #cfe0e5;border-radius:10px;padding:8px 12px;background:#f7fbfc;display:flex;flex-direction:column;gap:4px}
 .au-item.dragover{border-color:#1b6e82;background:#e6f4f6}
 .au-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -716,6 +731,7 @@ label{font-size:14px!important}
   <button class="tab-btn" id="tab-costco" onclick="switchTab('costco')">🛒 코스트코</button>
   <button class="tab-btn" id="tab-ccprop" onclick="switchTab('ccprop')">💡 코스트코 제안상품</button>
   <button class="tab-btn" id="tab-higgs" onclick="switchTab('higgs')">🎨 힉스필드</button>
+  <button class="tab-btn" id="tab-pdf" onclick="switchTab('pdf')">📄 PDF</button>
   <button class="tab-btn" id="tab-margin" onclick="switchTab('margin')">💰 마진계산 · 공문</button>
   <button class="tab-btn" id="tab-homeshopping" onclick="switchTab('homeshopping')">📺 홈쇼핑</button>
   <div class="tab-drop" id="tabDropStock">
@@ -2479,6 +2495,109 @@ label{font-size:14px!important}
 </div><!-- /page-higgs -->
 <div id="hgView" onclick="this.style.display='none'" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.85);align-items:center;justify-content:center;cursor:zoom-out;padding:20px;box-sizing:border-box">
   <img id="hgViewImg" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;background:#fff">
+</div>
+<!-- 📄 PDF(2026-10-28 영업2팀) — PDF 합치기·나누기 · 글자·서명·도장·펜·형광펜 쓰기. 파일은 브라우저 안에서만 다룬다(서버로 안 보냄). docs/pdf.md -->
+<div id="page-pdf" style="display:none">
+<div class="main" style="max-width:1200px;padding:16px 20px">
+  <div class="card" style="margin-bottom:12px;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sec-title" style="margin:0;font-size:15px">📄 PDF 합치기 · 나누기 · 쓰기</div>
+      <span id="pdfCount" style="font-size:12px;color:#5b6675;font-weight:600"></span>
+      <button class="bs" onclick="pdfClear()" style="margin-left:auto;padding:5px 12px;font-size:12.5px">🗑 모두 비우기</button>
+    </div>
+    <div style="font-size:12.5px;color:#5b6675;margin-top:8px;line-height:1.7">
+      PDF를 여러 개 올리면 쪽이 차례로 이어집니다. 쪽을 <b>끌어서 순서</b>를 바꾸고(◀ ▶), ⟳로 돌리고, ✕로 뺍니다.
+      쪽을 누르면 <b>✏ 쓰기</b> 창이 열려 글자·서명·도장·펜·형광펜·네모·가리기를 넣을 수 있습니다.
+      파일은 <b>이 브라우저 안에서만</b> 다루고 서버로 보내지 않습니다(새로고침하면 비워집니다).
+    </div>
+    <label id="pdfDrop" style="display:block;border:2px dashed #cbd5e1;border-radius:10px;padding:18px 12px;text-align:center;cursor:pointer;font-size:13px;color:#5b6675;background:#fafafa;margin-top:10px">
+      <input type="file" id="pdfFile" accept="application/pdf,.pdf" multiple style="display:none" onchange="pdfAddFiles(this.files);this.value=''">
+      <b style="color:#334155">＋ PDF 올리기</b> — 눌러서 고르거나, 파일을 끌어 놓기(여러 개 가능)
+      <div id="pdfMsg" style="font-size:12px;margin-top:6px;min-height:16px"></div>
+    </label>
+  </div>
+  <div class="card" style="margin-bottom:12px;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <div class="sec-title" style="margin:0;font-size:14px">💾 저장</div>
+      <button class="bs" onclick="pdfSaveAll()" style="padding:7px 16px;font-size:13px;font-weight:700;background:#1b6e82;color:#fff;border-color:#1b6e82">💾 전체를 한 PDF로 (합치기)</button>
+      <button class="bs" onclick="pdfSaveSel()" style="padding:7px 14px;font-size:13px;font-weight:700">✂ 고른 쪽만 한 PDF로</button>
+      <button class="bs" onclick="pdfSaveEach()" style="padding:7px 14px;font-size:13px">📑 쪽마다 따로</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">
+      <span style="font-weight:700;color:#334155">나누기</span>
+      <input id="pdfRanges" placeholder="예: 1-3, 4-6, 7" style="width:190px;border:1px solid #cbd5e1;border-radius:6px;padding:5px 8px;font-size:12.5px" onkeydown="if(event.key==='Enter')pdfSaveRanges()">
+      <button class="bs" onclick="pdfSaveRanges()" style="padding:5px 12px;font-size:12.5px">✂ 묶음마다 따로 저장</button>
+      <span style="color:#5b6675">쉼표로 나눈 묶음마다 PDF 하나 · 쪽 번호는 아래 지금 순서 기준</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12.5px">
+      <button class="bs" onclick="pdfSelAll(true)" style="padding:3px 10px;font-size:12px">☑ 모두 고르기</button>
+      <button class="bs" onclick="pdfSelAll(false)" style="padding:3px 10px;font-size:12px">☐ 고르기 풀기</button>
+      <button class="bs" onclick="pdfDelSel()" style="padding:3px 10px;font-size:12px">✕ 고른 쪽 빼기</button>
+      <span id="pdfSaveMsg" style="font-size:12px"></span>
+    </div>
+    <div id="pdfGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px;align-items:start"></div>
+  </div>
+</div>
+</div><!-- /page-pdf -->
+<!-- ✏ PDF 쓰기 창 -->
+<div id="pdfEd" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.82);flex-direction:column">
+  <div id="pdfEdBar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#fff;padding:8px 12px;font-size:12.5px;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+    <button class="bs" onclick="pdfEdGo(-1)" style="padding:4px 9px">◀</button>
+    <b id="pdfEdPg" style="min-width:58px;text-align:center"></b>
+    <button class="bs" onclick="pdfEdGo(1)" style="padding:4px 9px">▶</button>
+    <span style="width:1px;height:22px;background:#cbd5e1;margin:0 4px"></span>
+    <span id="pdfEdTools" style="display:inline-flex;gap:4px;flex-wrap:wrap">
+      <button class="bs pdf-tool" data-t="sel" onclick="pdfEdTool('sel')" title="눌러 고르고 끌어 옮기기 · 모서리 □로 크기 · 두 번 눌러 글자 고치기">🖱 고르기</button>
+      <button class="bs pdf-tool" data-t="text" onclick="pdfEdTool('text')" title="넣을 곳을 누르고 글자 입력 · Enter 끝(Shift+Enter 줄바꿈)">T 글자</button>
+      <button class="bs pdf-tool" data-t="mark" onclick="pdfMkOpen()" title="서명을 그리거나 도장·이미지를 올려 넣기">✍ 서명·도장</button>
+      <button class="bs pdf-tool" data-t="pen" onclick="pdfEdTool('pen')">✒ 펜</button>
+      <button class="bs pdf-tool" data-t="hl" onclick="pdfEdTool('hl')">🖍 형광펜</button>
+      <button class="bs pdf-tool" data-t="rect" onclick="pdfEdTool('rect')">▭ 네모</button>
+      <button class="bs pdf-tool" data-t="cover" onclick="pdfEdTool('cover')" title="흰 네모로 원래 글자를 가리기(위에 새 글자를 쓰면 고친 것처럼)">⬜ 가리기</button>
+    </span>
+    <span style="width:1px;height:22px;background:#cbd5e1;margin:0 4px"></span>
+    <label title="색">색 <input type="color" id="pdfEdColor" oninput="pdfEdSetColor(this.value)" style="width:30px;height:24px;padding:0;border:1px solid #cbd5e1;vertical-align:middle"></label>
+    <label><span id="pdfEdSizeLbl">굵기</span> <input type="range" id="pdfEdSize" min="1" max="72" oninput="pdfEdSetSize(+this.value)" style="width:90px;vertical-align:middle"> <b id="pdfEdSizeV" style="display:inline-block;min-width:22px"></b></label>
+    <button class="bs" onclick="pdfEdUndo()" title="Ctrl+Z" style="padding:4px 9px">↶ 되돌리기</button>
+    <button class="bs" onclick="pdfEdDel()" title="Delete" style="padding:4px 9px">🗑 고른 것 지우기</button>
+    <span style="margin-left:auto;display:inline-flex;gap:4px;align-items:center">
+      <button class="bs" onclick="pdfEdZoom(0.8)" style="padding:4px 9px">－</button>
+      <button class="bs" onclick="pdfEdZoom(0)" style="padding:4px 9px">맞춤</button>
+      <button class="bs" onclick="pdfEdZoom(1.25)" style="padding:4px 9px">＋</button>
+      <button class="bs" onclick="pdfEdClose()" style="padding:5px 16px;font-weight:700;background:#1b6e82;color:#fff;border-color:#1b6e82">✔ 완료</button>
+    </span>
+  </div>
+  <div id="pdfEdHint" style="background:#fffbeb;color:#92400e;font-size:12px;padding:4px 12px"></div>
+  <div id="pdfEdWrap" style="flex:1;overflow:auto;padding:16px;box-sizing:border-box">
+    <div id="pdfEdStage" style="position:relative;margin:0 auto;background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.45)">
+      <canvas id="pdfEdBg" style="display:block"></canvas>
+      <canvas id="pdfEdFg" style="position:absolute;left:0;top:0;touch-action:none"></canvas>
+    </div>
+  </div>
+</div>
+<!-- ✍ 서명·도장 고르기 창 -->
+<div id="pdfMk" style="display:none;position:fixed;inset:0;z-index:1010;background:rgba(15,23,42,.6);align-items:center;justify-content:center;padding:16px;box-sizing:border-box">
+  <div style="background:#fff;border-radius:12px;padding:14px 16px;width:600px;max-width:100%;max-height:100%;overflow:auto;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <b style="font-size:14.5px;color:#154f5e">✍ 서명 · 도장</b>
+      <button onclick="pdfMkClose()" style="margin-left:auto;border:none;background:none;font-size:18px;cursor:pointer;color:#5b6675">✕</button>
+    </div>
+    <div style="font-size:12px;color:#5b6675;margin-bottom:6px">저장한 서명·도장(이 브라우저에만 기억) — 누르면 고르고, 쪽에서 넣을 곳을 누릅니다</div>
+    <div id="pdfMkList" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div style="font-weight:700;font-size:13px;color:#334155;margin-bottom:4px">새 서명 그리기</div>
+    <canvas id="pdfSigCv" width="1040" height="340" style="width:100%;aspect-ratio:1040/340;border:1px dashed #8b95a3;border-radius:8px;background:#fff;touch-action:none;cursor:crosshair"></canvas>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:12.5px">
+      <label>색 <select id="pdfSigColor" style="font-size:12.5px;padding:3px 6px"><option value="#111111">검정</option><option value="#1d3fa8">파랑</option><option value="#c81e1e">빨강</option></select></label>
+      <button class="bs" onclick="pdfSigClear()" style="padding:4px 10px;font-size:12.5px">지우기</button>
+      <button class="bs" onclick="pdfSigUse()" style="margin-left:auto;padding:5px 14px;font-size:12.5px;font-weight:700;background:#1b6e82;color:#fff;border-color:#1b6e82">이 서명 쓰기</button>
+    </div>
+    <div style="font-weight:700;font-size:13px;color:#334155;margin:14px 0 4px">도장 · 이미지 올리기</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">
+      <label class="bs" style="padding:5px 12px;font-size:12.5px;cursor:pointer">＋ 이미지 고르기<input type="file" accept="image/*" style="display:none" onchange="pdfMkAddImg(this.files[0]);this.value=''"></label>
+      <label><input type="checkbox" id="pdfMkWhite" checked style="vertical-align:middle"> 흰 바탕 투명하게(스캔한 도장)</label>
+    </div>
+    <div id="pdfMkMsg" style="font-size:12px;margin-top:6px;min-height:16px"></div>
+  </div>
 </div>
 <div id="page-unship" style="display:none">
 <div class="main" style="max-width:none;padding:16px 20px">
@@ -8453,7 +8572,9 @@ function renderQuickLaunch(){
     {label:"영업2팀 P&L",url:"https://docs.google.com/spreadsheets/d/15sXsB_s-1Cbe5jIMAa8YYCBQMSu0e_eJt01kL8aXXm8/edit?gid=0#gid=0",icon:_extLinkIcon,noCred:true},
     {label:"27FW 로드쇼",url:"https://docs.google.com/spreadsheets/d/1E5vzQL8Fp-E3k3T6GCnZ4jB-XL1AgwK_MtJW_dzWEiQ/edit?pli=1&gid=2077254804#gid=2077254804",icon:_extLinkIcon,noCred:true},
     {label:"반품리스트",url:"https://docs.google.com/spreadsheets/d/1Cjoo-x9lBA5pFtGoxftdAxdoKrzt770XcPGeXOidPiI/edit?gid=0#gid=0",icon:_extLinkIcon,noCred:true},
-    {label:"OneDrive",url:OD_SALES_URL,icon:_extLinkIcon,noCred:true}
+    {label:"OneDrive",url:OD_SALES_URL,icon:_extLinkIcon,noCred:true},
+    /* 📄 PDF 탭(2026-10-28) — 합치기·나누기·쓰기, 파일은 브라우저 안에서만 */
+    {label:"PDF 합치기·쓰기",tab:"pdf",icon:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M9 15l2 2 4-4"/>',noCred:true}
   ];
   var qw=document.getElementById("homeQuick");
   function renderCard(q){
@@ -9334,6 +9455,9 @@ function switchTab(tab){
   document.getElementById("page-higgs").style.display=tab==="higgs"?"block":"none";
   document.getElementById("tab-higgs").classList.toggle("active",tab==="higgs");
   if(tab==="higgs")renderHiggs();
+  document.getElementById("page-pdf").style.display=tab==="pdf"?"block":"none";
+  document.getElementById("tab-pdf").classList.toggle("active",tab==="pdf");
+  if(tab==="pdf")pdfRender();
   document.getElementById("tab-home").classList.toggle("active",tab==="home");
   document.getElementById("tab-sales").classList.toggle("active",tab==="sales");
   document.getElementById("tab-meeting").classList.toggle("active",tab==="meeting");
@@ -9381,6 +9505,636 @@ function switchTab(tab){
   if(tab==="lossreport") initLossReportTab();
   if(tab==="floor") renderFloorPage();
   if(tab==="floor2") renderFloorPage2();
+}
+
+/* ── 📄 PDF 합치기·나누기·쓰기(2026-10-28 영업2팀) — docs/pdf.md ──
+   파일은 브라우저 안에서만 다룬다(서버·Firebase로 안 보냄, 새로고침하면 비워짐). 보기는 pdf.js, 저장은 pdf-lib(처음 저장할 때 cdnjs에서 불러옴).
+   쓰기(글자·서명·도장·펜·형광펜·네모·가리기)는 원본 쪽 위에 투명 PNG 한 장으로 얹는다 — 원본 글자·선은 그대로이고 한글 글꼴을 PDF에 넣을 필요가 없다.
+   쪽 = {s 원본 파일 번호, i 원본 쪽(0부터), w·h 원래 방향 크기(pt), r0 원본 /Rotate, rot 여기서 돌린 각도, anns 쓴 것, sel 고름, undo}
+   쓴 것은 쓸 때 보던 방향(a.r = 그때 rot)의 좌표(pt)로 둔다 — 쪽을 나중에 돌려도 _pdfM으로 돌려 그린다. */
+var pdfSrcs=[],pdfPages=[],_pdfSeq=0,_pdfDragK=-1,_pdfBusy=false,_pdfQ=Promise.resolve(),_pdfLibP=null;
+var PDF_LIB_URL="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
+var PDF_FONT='"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",sans-serif';
+function _pdfMsg(t,err){var m=document.getElementById("pdfMsg");if(m){m.textContent=t||"";m.style.color=err?"#b91c1c":"#0f766e";}}
+function _pdfSaveMsg(t,err){var m=document.getElementById("pdfSaveMsg");if(m){m.textContent=t||"";m.style.color=err?"#b91c1c":"#0f766e";}}
+function _pdfR2(v){return Math.round(v*100)/100;}
+function _pdfDropInit(){
+  var d=document.getElementById("pdfDrop"),pg=document.getElementById("page-pdf");if(!d||d._init)return;d._init=1;
+  d.addEventListener("dragover",function(e){e.preventDefault();d.style.borderColor="#1b6e82";});
+  d.addEventListener("dragleave",function(){d.style.borderColor="#cbd5e1";});
+  d.addEventListener("drop",function(e){e.preventDefault();e.stopPropagation();d.style.borderColor="#cbd5e1";if(e.dataTransfer&&e.dataTransfer.files.length)pdfAddFiles(e.dataTransfer.files);});
+  /* 쪽 목록 위에 파일을 떨어뜨려도 받는다(안 받으면 브라우저가 PDF를 열어 자비스를 떠난다) */
+  pg.addEventListener("dragover",function(e){if(_pdfDragK<0)e.preventDefault();});
+  pg.addEventListener("drop",function(e){e.preventDefault();if(_pdfDragK<0&&e.dataTransfer&&e.dataTransfer.files.length)pdfAddFiles(e.dataTransfer.files);});
+}
+function pdfAddFiles(files){var l=Array.from(files||[]);_pdfQ=_pdfQ.then(function(){return _pdfAdd(l);});return _pdfQ;}
+async function _pdfAdd(files){
+  if(!window.pdfjsLib){_pdfMsg("PDF 보기 도구(pdf.js)를 못 불러왔습니다 — 새로고침해 주세요",true);return;}
+  var list=files.filter(function(f){return /\.pdf$/i.test(f.name)||f.type==="application/pdf";});
+  if(!list.length){_pdfMsg("PDF 파일만 올릴 수 있습니다",true);return;}
+  var added=0,bad=[];
+  for(var n=0;n<list.length;n++){
+    var f=list[n];_pdfMsg("불러오는 중… "+f.name);
+    try{
+      var bytes=new Uint8Array(await f.arrayBuffer());
+      var doc=await pdfjsLib.getDocument({data:bytes.slice()}).promise;   /* pdf.js는 받은 버퍼를 가져가 버린다 — 저장용 원본은 따로 둔다 */
+      var s=pdfSrcs.push({name:f.name,bytes:bytes,js:doc})-1;
+      for(var i=1;i<=doc.numPages;i++){
+        var pg=await doc.getPage(i),vp=pg.getViewport({scale:1});
+        var p={id:++_pdfSeq,s:s,i:i-1,w:vp.width,h:vp.height,r0:pg.rotate||0,rot:0,anns:[],sel:false,undo:[]};
+        pdfPages.push(p);added++;
+        await _pdfThumb(p);
+        if(i%8===0){_pdfMsg("불러오는 중… "+f.name+" ("+i+"/"+doc.numPages+"쪽)");pdfRender();}
+      }
+    }catch(e){
+      bad.push(f.name+(e&&e.name==="PasswordException"?"(암호 걸림)":""));
+      console.warn("PDF 불러오기",f.name,e);
+    }
+  }
+  pdfRender();
+  _pdfMsg((added?"✅ "+added+"쪽 넣었습니다":"")+(bad.length?(added?" · ":"")+"못 연 파일: "+bad.join(", "):""),!added);
+}
+/* 쪽을 r 방향으로 볼 때 크기(pt) */
+function _pdfFrame(p,r){return r%180?[p.h,p.w]:[p.w,p.h];}
+/* r 방향 좌표(크기 W×H) → d도 더 시계방향으로 돌려 본 좌표, canvas transform 값 */
+function _pdfM(d,W,H){return d===90?[0,1,-1,0,H,0]:d===180?[-1,0,0,-1,W,H]:d===270?[0,-1,1,0,0,W]:[1,0,0,1,0,0];}
+/* 화면(T 방향) 점 → 쓴 것(a.r 방향) 좌표 — _pdfM의 거꾸로 */
+function _pdfToFrame(p,a,T,X,Y){
+  var d=((T-a.r)%360+360)%360,f=_pdfFrame(p,a.r),W=f[0],H=f[1];
+  return d===90?[Y,H-X]:d===180?[W-X,H-Y]:d===270?[W-Y,X]:[X,Y];
+}
+var _pdfImC={},_pdfMeasure=null;
+function _pdfImg(src){var im=_pdfImC[src];if(!im){im=_pdfImC[src]=new Image();im.onload=function(){if(_pdfEdOn())_pdfEdDraw();};im.src=src;}return im;}
+function _pdfImgsReady(p){
+  return Promise.all(p.anns.filter(function(a){return a.t==="img";}).map(function(a){
+    var im=_pdfImg(a.src);if(im.complete&&im.naturalWidth)return 0;
+    return new Promise(function(ok){im.addEventListener("load",ok,{once:true});im.addEventListener("error",ok,{once:true});});
+  }));
+}
+/* 쓴 것의 테두리 [x,y,w,h] — 쓴 방향 좌표(pt) */
+function _pdfBox(a){
+  if(a.t==="path"){
+    var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    a.pts.forEach(function(q){x0=Math.min(x0,q[0]);y0=Math.min(y0,q[1]);x1=Math.max(x1,q[0]);y1=Math.max(y1,q[1]);});
+    return [x0-a.w/2,y0-a.w/2,x1-x0+a.w,y1-y0+a.w];
+  }
+  if(a.t==="text"){
+    if(!_pdfMeasure)_pdfMeasure=document.createElement("canvas").getContext("2d");
+    _pdfMeasure.font=(a.b?"bold ":"")+"100px "+PDF_FONT;
+    var ls=String(a.s).split("\n"),mw=0;
+    ls.forEach(function(l){mw=Math.max(mw,_pdfMeasure.measureText(l).width);});
+    return [a.x,a.y,mw*a.fs/100,ls.length*a.fs*1.25];
+  }
+  return [a.x,a.y,a.w,a.h];
+}
+function _pdfDrawOne(x,a){
+  if(a.t==="path"){
+    x.globalAlpha=a.hl?0.4:1;x.strokeStyle=a.c;x.lineWidth=a.w;x.lineCap=a.hl?"butt":"round";x.lineJoin="round";
+    x.beginPath();a.pts.forEach(function(q,n){if(n)x.lineTo(q[0],q[1]);else x.moveTo(q[0],q[1]);});
+    if(a.pts.length===1)x.lineTo(a.pts[0][0]+0.01,a.pts[0][1]);
+    x.stroke();
+  }else if(a.t==="text"){
+    x.fillStyle=a.c;x.font=(a.b?"bold ":"")+a.fs+"px "+PDF_FONT;x.textBaseline="top";
+    String(a.s).split("\n").forEach(function(l,n){x.fillText(l,a.x,a.y+n*a.fs*1.25+a.fs*0.12);});
+  }else if(a.t==="rect"){
+    x.strokeStyle=a.c;x.lineWidth=a.lw;x.strokeRect(a.x,a.y,a.w,a.h);
+  }else if(a.t==="cover"){
+    x.fillStyle=a.c||"#ffffff";x.fillRect(a.x,a.y,a.w,a.h);
+  }else if(a.t==="img"){
+    var im=_pdfImg(a.src);if(im.complete&&im.naturalWidth)x.drawImage(im,a.x,a.y,a.w,a.h);
+  }
+}
+/* 쪽 p의 쓴 것을 T 방향 화면에 그린다 — k = pt당 캔버스 점 수, selN = 고른 것(테두리·크기 □) */
+function _pdfDrawAnns(x,p,T,k,selN){
+  p.anns.forEach(function(a,n){
+    var f=_pdfFrame(p,a.r),m=_pdfM(((T-a.r)%360+360)%360,f[0],f[1]);
+    x.save();x.setTransform(k,0,0,k,0,0);x.transform(m[0],m[1],m[2],m[3],m[4],m[5]);
+    _pdfDrawOne(x,a);
+    if(n===selN){
+      var b=_pdfBox(a),u=(window.devicePixelRatio||1)/k,g=3*u;
+      x.globalAlpha=1;x.lineWidth=1.5*u;x.strokeStyle="#0ea5e9";x.setLineDash([5*u,3*u]);
+      x.strokeRect(b[0]-g,b[1]-g,b[2]+2*g,b[3]+2*g);x.setLineDash([]);
+      if(a.t!=="path"){x.fillStyle="#fff";x.fillRect(b[0]+b[2]-5*u,b[1]+b[3]-5*u,10*u,10*u);x.strokeRect(b[0]+b[2]-5*u,b[1]+b[3]-5*u,10*u,10*u);}
+    }
+    x.restore();
+  });
+}
+async function _pdfThumb(p){
+  var src=pdfSrcs[p.s];if(!src||!src.js)return;
+  if(!p.bg||p.bgRot!==p.rot){
+    var f=_pdfFrame(p,p.rot),k=Math.min(2,320/Math.max(f[0],f[1]));
+    var pg=await src.js.getPage(p.i+1),vp=pg.getViewport({scale:k,rotation:(p.r0+p.rot)%360});
+    var c=document.createElement("canvas");c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+    await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+    p.bg=c;p.bgRot=p.rot;p.bgK=k;
+  }
+  await _pdfImgsReady(p);
+  var t=document.createElement("canvas");t.width=p.bg.width;t.height=p.bg.height;
+  var x=t.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,t.width,t.height);x.drawImage(p.bg,0,0);
+  _pdfDrawAnns(x,p,p.rot,p.bgK,-1);
+  p.thumb=t.toDataURL("image/jpeg",0.82);
+}
+function _pdfFilesUsed(){var o={};pdfPages.forEach(function(p){o[p.s]=1;});return Object.keys(o).length;}
+function pdfRender(){
+  _pdfDropInit();
+  var g=document.getElementById("pdfGrid");if(!g)return;
+  var c=document.getElementById("pdfCount"),ns=pdfPages.filter(function(p){return p.sel;}).length;
+  if(c)c.textContent=pdfPages.length?("파일 "+_pdfFilesUsed()+"개 · "+pdfPages.length+"쪽"+(ns?" · 고른 쪽 "+ns:"")):"";
+  if(!pdfPages.length){g.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#5b6675;font-size:12.5px;padding:24px">올린 PDF가 없습니다</div>';return;}
+  var multi=_pdfFilesUsed()>1;
+  g.innerHTML=pdfPages.map(function(p,k){
+    var nm=pdfSrcs[p.s].name.replace(/\.pdf$/i,"");
+    return '<div class="pdf-pg'+(p.sel?' sel':'')+'" draggable="true" ondragstart="_pdfDS(event,'+k+')" ondragover="_pdfDO(event,this)" ondragleave="this.classList.remove(\'over\')" ondrop="_pdfDP(event,'+k+')" ondragend="_pdfDragK=-1">'
+      +'<div class="pdf-th" onclick="pdfEdOpen('+k+')" title="눌러서 쓰기">'+(p.thumb?'<img src="'+p.thumb+'" alt="" draggable="false">':'…')+'</div>'
+      +'<div style="display:flex;align-items:center;gap:4px;min-width:0">'
+      +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:700;color:#334155;flex:none"><input type="checkbox" '+(p.sel?'checked':'')+' onchange="pdfPages['+k+'].sel=this.checked;pdfRender()" style="margin:0">'+(k+1)+'쪽</label>'
+      +(p.anns.length?'<span style="font-size:11px;color:#c2410c;font-weight:700;flex:none" title="쓴 것 '+p.anns.length+'개">✏'+p.anns.length+'</span>':'')
+      +'<span style="margin-left:auto;font-size:11px;color:#5b6675;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="'+_esc(pdfSrcs[p.s].name)+' '+(p.i+1)+'쪽">'+(multi?_esc(nm)+' ':'')+'p'+(p.i+1)+'</span></div>'
+      +'<div class="pdf-bt">'
+      +'<button onclick="pdfMove('+k+',-1)" title="앞으로">◀</button><button onclick="pdfMove('+k+',1)" title="뒤로">▶</button>'
+      +'<button onclick="pdfRotate('+k+',-90)" title="왼쪽으로 돌리기">⟲</button><button onclick="pdfRotate('+k+',90)" title="오른쪽으로 돌리기">⟳</button>'
+      +'<button onclick="pdfEdOpen('+k+')" title="쓰기">✏</button><button onclick="pdfDel('+k+')" title="이 쪽 빼기" style="color:#b91c1c">✕</button>'
+      +'</div></div>';
+  }).join("");
+}
+function _pdfDS(e,k){_pdfDragK=k;try{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(k));}catch(_){}}
+function _pdfDO(e,el){if(_pdfDragK<0)return;e.preventDefault();el.classList.add("over");}
+function _pdfDP(e,k){
+  var from=_pdfDragK;_pdfDragK=-1;if(from<0)return;
+  e.preventDefault();e.stopPropagation();
+  if(from!==k){var t=pdfPages.splice(from,1)[0];pdfPages.splice(k,0,t);}
+  pdfRender();
+}
+function pdfMove(k,d){var j=k+d;if(j<0||j>=pdfPages.length)return;var t=pdfPages.splice(k,1)[0];pdfPages.splice(j,0,t);pdfRender();}
+async function pdfRotate(k,d){var p=pdfPages[k];if(!p)return;p.rot=((p.rot+d)%360+360)%360;await _pdfThumb(p);pdfRender();}
+function pdfDel(k){pdfPages.splice(k,1);pdfRender();}
+function pdfSelAll(on){pdfPages.forEach(function(p){p.sel=on;});pdfRender();}
+function pdfDelSel(){
+  var n=pdfPages.filter(function(p){return p.sel;}).length;
+  if(!n){_pdfSaveMsg("먼저 뺄 쪽을 고르세요(체크)",true);return;}
+  if(!confirm("고른 "+n+"쪽을 뺄까요?"))return;
+  pdfPages=pdfPages.filter(function(p){return !p.sel;});pdfRender();_pdfSaveMsg("");
+}
+function pdfClear(){
+  if(pdfPages.length&&!confirm("올린 PDF와 쓴 것을 모두 비울까요?"))return;
+  pdfSrcs.forEach(function(s){try{if(s.js)s.js.destroy();}catch(e){}});
+  pdfSrcs=[];pdfPages=[];_pdfMsg("");_pdfSaveMsg("");pdfRender();
+}
+/* ── 저장(pdf-lib) ── */
+function _pdfLib(){
+  if(window.PDFLib)return Promise.resolve(window.PDFLib);
+  if(_pdfLibP)return _pdfLibP;
+  _pdfLibP=new Promise(function(ok,no){
+    var s=document.createElement("script");s.src=PDF_LIB_URL;
+    s.onload=function(){if(window.PDFLib)ok(window.PDFLib);else{_pdfLibP=null;no(new Error("저장 도구(pdf-lib)를 못 불러왔습니다"));}};
+    s.onerror=function(){_pdfLibP=null;s.remove();no(new Error("저장 도구(pdf-lib)를 못 불러왔습니다 — 인터넷 연결을 확인해 주세요"));};
+    document.head.appendChild(s);
+  });
+  return _pdfLibP;
+}
+/* 쓴 것 → 원래 방향(rot 0) 기준 투명 PNG(약 200dpi) */
+async function _pdfAnnPng(p){
+  await _pdfImgsReady(p);
+  var k=Math.min(3,2400/Math.max(p.w,p.h)),c=document.createElement("canvas");
+  c.width=Math.round(p.w*k);c.height=Math.round(p.h*k);
+  _pdfDrawAnns(c.getContext("2d"),p,0,k,-1);
+  return c.toDataURL("image/png");
+}
+async function _pdfBuild(list){
+  var L=await _pdfLib(),out=await L.PDFDocument.create(),docs={};
+  for(var n=0;n<list.length;n++){
+    var p=list[n];
+    if(!docs[p.s])docs[p.s]=await L.PDFDocument.load(pdfSrcs[p.s].bytes,{ignoreEncryption:true});
+    var pg=(await out.copyPages(docs[p.s],[p.i]))[0];
+    out.addPage(pg);
+    if(p.anns.length){
+      /* PNG는 화면(원본 /Rotate 적용) 방향이다 — 쪽 좌표계로 돌려 얹는다(pdf-lib rotate는 (x,y) 기준 반시계) */
+      var img=await out.embedPng(await _pdfAnnPng(p)),cb=pg.getCropBox(),R=((p.r0%360)+360)%360;
+      var o=R===90?{x:cb.x+cb.width,y:cb.y,width:cb.height,height:cb.width}
+        :R===180?{x:cb.x+cb.width,y:cb.y+cb.height,width:cb.width,height:cb.height}
+        :R===270?{x:cb.x,y:cb.y+cb.height,width:cb.height,height:cb.width}
+        :{x:cb.x,y:cb.y,width:cb.width,height:cb.height};
+      o.rotate=L.degrees(R);
+      pg.drawImage(img,o);
+    }
+    pg.setRotation(L.degrees(((p.r0+p.rot)%360+360)%360));
+  }
+  return await out.save();
+}
+function _pdfDown(bytes,name){
+  var u=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"})),a=document.createElement("a");
+  a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(u);},60000);
+}
+function _pdfBase(list){var s=pdfSrcs[(list[0]||{}).s];return (s?s.name:"문서").replace(/\.pdf$/i,"");}
+function _pdfLabel(nums){   /* [1,2,3,5] → "1-3,5" */
+  var out=[],a=null,b=null;
+  nums.concat([null]).forEach(function(v){
+    if(v!==null&&b!==null&&v===b+1){b=v;return;}
+    if(a!==null)out.push(a===b?String(a):a+"-"+b);
+    a=b=v;
+  });
+  return out.join(",");
+}
+async function _pdfRun(jobs){
+  if(_pdfBusy)return;
+  if(!pdfPages.length){_pdfSaveMsg("먼저 PDF를 올려 주세요",true);return;}
+  _pdfBusy=true;
+  try{
+    for(var n=0;n<jobs.length;n++){
+      _pdfSaveMsg("만드는 중… "+(jobs.length>1?(n+1)+"/"+jobs.length:""));
+      _pdfDown(await _pdfBuild(jobs[n].list),jobs[n].name);
+      if(jobs.length>1)await new Promise(function(ok){setTimeout(ok,400);});
+    }
+    _pdfSaveMsg("✅ PDF "+jobs.length+"개 저장했습니다"+(jobs.length>1?" (브라우저가 여러 파일 받기를 물으면 허용)":""));
+  }catch(e){console.warn("PDF 저장",e);_pdfSaveMsg("❌ 저장 실패: "+((e&&e.message)||e),true);}
+  _pdfBusy=false;
+}
+function pdfSaveAll(){
+  if(!pdfPages.length){_pdfSaveMsg("먼저 PDF를 올려 주세요",true);return;}
+  _pdfRun([{list:pdfPages.slice(),name:_pdfBase(pdfPages)+(_pdfFilesUsed()>1?"_합침":"_수정")+".pdf"}]);
+}
+function pdfSaveSel(){
+  var nums=[],list=pdfPages.filter(function(p,k){if(p.sel)nums.push(k+1);return p.sel;});
+  if(!list.length){_pdfSaveMsg("먼저 저장할 쪽을 고르세요(체크)",true);return;}
+  _pdfRun([{list:list,name:_pdfBase(list)+"_"+_pdfLabel(nums)+".pdf"}]);
+}
+function pdfSaveEach(){
+  if(!pdfPages.length){_pdfSaveMsg("먼저 PDF를 올려 주세요",true);return;}
+  if(pdfPages.length>15&&!confirm(pdfPages.length+"개 파일을 받습니다. 계속할까요?"))return;
+  var b=_pdfBase(pdfPages);
+  _pdfRun(pdfPages.map(function(p,k){return {list:[p],name:b+"_"+(k+1)+".pdf"};}));
+}
+function pdfSaveRanges(){
+  var N=pdfPages.length,raw=(document.getElementById("pdfRanges").value||"").replace(/\s*[-~–]\s*/g,"-");
+  if(!N){_pdfSaveMsg("먼저 PDF를 올려 주세요",true);return;}
+  var toks=raw.split(/[,，;\s]+/).filter(Boolean),jobs=[],bad=[],b=_pdfBase(pdfPages);
+  toks.forEach(function(t){
+    var m=/^(\d+)(?:-(\d+))?$/.exec(t);if(!m){bad.push(t);return;}
+    var a=+m[1],z=m[2]?+m[2]:a;if(a>z){var q=a;a=z;z=q;}
+    if(a<1||z>N){bad.push(t);return;}
+    jobs.push({list:pdfPages.slice(a-1,z),name:b+"_"+(a===z?a:a+"-"+z)+".pdf"});
+  });
+  if(bad.length){_pdfSaveMsg("쪽 번호를 확인해 주세요: "+bad.join(", ")+" (1~"+N+"쪽)",true);return;}
+  if(!jobs.length){_pdfSaveMsg("나눌 쪽을 적어 주세요 (예: 1-3, 4-6)",true);return;}
+  _pdfRun(jobs);
+}
+/* ── ✏ 쓰기 창 ── */
+var _pdfEd={k:-1,tool:"sel",sel:-1,zoom:0,scale:1,dpr:1,drag:null,mark:null,tok:0,task:null,sk:null,
+  col:{text:"#111111",pen:"#1d3fa8",hl:"#ffe14d",rect:"#d62828",cover:"#ffffff"},
+  size:{text:14,pen:2,hl:14,rect:2}};
+var PDF_HINT={
+  sel:"쓴 것을 눌러 고르고 끌어 옮깁니다 · 오른쪽 아래 □를 끌면 크기 · 글자는 두 번 눌러 고치기 · Delete 지우기 · Ctrl+Z 되돌리기",
+  text:"넣을 곳을 누르고 입력 → Enter(줄바꿈은 Shift+Enter) · 이미 쓴 글자를 누르면 고치기",
+  pen:"끌어서 그립니다",
+  hl:"끌어서 칠합니다 · Shift를 누른 채 끌면 곧은 줄",
+  rect:"끌어서 네모를 그립니다",
+  cover:"끌어서 원래 글자를 흰 네모로 가립니다 — 위에 T 글자로 새로 쓰면 고친 것처럼 보입니다(바탕이 희지 않으면 색을 맞추세요)",
+  mark:"서명·도장을 넣을 곳을 누르세요 — 넣은 뒤 끌어 옮기고 □로 크기를 바꿉니다"
+};
+function _pdfEdOn(){var e=document.getElementById("pdfEd");return !!(e&&e.style.display!=="none");}
+function _pdfEdInit(){
+  var fg=document.getElementById("pdfEdFg");if(fg._init)return;fg._init=1;
+  fg.addEventListener("pointerdown",_pdfEdDown);
+  fg.addEventListener("pointermove",_pdfEdMove);
+  fg.addEventListener("pointerup",_pdfEdUp);
+  fg.addEventListener("pointercancel",_pdfEdUp);
+  fg.addEventListener("dblclick",function(e){
+    var p=pdfPages[_pdfEd.k];if(!p||_pdfEd.tool!=="sel")return;
+    var P=_pdfEdPt(e),n=_pdfHit(p,P[0],P[1]);
+    if(n>=0&&p.anns[n].t==="text")_pdfTextEdit(n);
+  });
+  var rt=0;window.addEventListener("resize",function(){if(!_pdfEdOn()||_pdfEd.zoom)return;clearTimeout(rt);rt=setTimeout(_pdfEdRender,150);});
+  document.addEventListener("keydown",function(e){
+    if(!_pdfEdOn())return;
+    var tg=e.target||{},typing=tg.tagName==="TEXTAREA"||(tg.tagName==="INPUT"&&/^(text|search|number)$/.test(tg.type))||tg.tagName==="SELECT";
+    if(e.key==="Escape"){
+      if(document.getElementById("pdfMk").style.display!=="none"){pdfMkClose();e.preventDefault();return;}
+      if(!typing){pdfEdClose();e.preventDefault();}
+      return;
+    }
+    if(typing)return;
+    if(e.key==="Delete"||e.key==="Backspace"){if(_pdfEd.sel>=0){pdfEdDel();e.preventDefault();}}
+    else if((e.ctrlKey||e.metaKey)&&(e.key==="z"||e.key==="Z")){pdfEdUndo();e.preventDefault();}
+    else if(e.key==="PageDown"){pdfEdGo(1);e.preventDefault();}
+    else if(e.key==="PageUp"){pdfEdGo(-1);e.preventDefault();}
+  });
+}
+function pdfEdOpen(k){
+  if(!pdfPages[k])return;
+  _pdfEdInit();
+  _pdfEd.k=k;_pdfEd.sel=-1;_pdfEd.zoom=0;_pdfEd.drag=null;
+  if(_pdfEd.tool==="mark"&&!_pdfEd.mark)_pdfEd.tool="sel";
+  document.getElementById("pdfEd").style.display="flex";
+  _pdfEdSyncTool();
+  _pdfEdRender();
+}
+async function _pdfEdRender(){
+  var p=pdfPages[_pdfEd.k];if(!p)return;
+  var tok=++_pdfEd.tok;
+  if(_pdfEd.task){try{_pdfEd.task.cancel();}catch(e){}_pdfEd.task=null;}
+  document.getElementById("pdfEdPg").textContent=(_pdfEd.k+1)+" / "+pdfPages.length;
+  var wrap=document.getElementById("pdfEdWrap"),f=_pdfFrame(p,p.rot),pad=window.innerWidth<=700?16:32;
+  var fit=Math.min((wrap.clientWidth-pad)/f[0],(wrap.clientHeight-pad)/f[1]);if(!(fit>0))fit=1;
+  var dpr=_pdfEd.dpr=window.devicePixelRatio||1;
+  var sc=Math.max(0.2,Math.min(_pdfEd.zoom||fit,7000/dpr/Math.max(f[0],f[1])));   /* 캔버스 한 변 7000점까지 */
+  _pdfEd.scale=sc;_pdfEd.fit=fit;
+  var W=Math.round(f[0]*sc),H=Math.round(f[1]*sc);
+  var st=document.getElementById("pdfEdStage"),bg=document.getElementById("pdfEdBg"),fg=document.getElementById("pdfEdFg");
+  st.style.width=W+"px";st.style.height=H+"px";
+  [bg,fg].forEach(function(c){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);c.style.width=W+"px";c.style.height=H+"px";});
+  var x=bg.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,bg.width,bg.height);
+  _pdfEdDraw();
+  try{
+    var pg=await pdfSrcs[p.s].js.getPage(p.i+1);
+    if(tok!==_pdfEd.tok)return;
+    _pdfEd.task=pg.render({canvasContext:x,viewport:pg.getViewport({scale:sc*dpr,rotation:(p.r0+p.rot)%360})});
+    await _pdfEd.task.promise;
+  }catch(e){if(!(e&&e.name==="RenderingCancelledException"))console.warn("PDF 쓰기 화면",e);}
+}
+function _pdfEdDraw(){
+  var p=pdfPages[_pdfEd.k];if(!p)return;
+  var fg=document.getElementById("pdfEdFg"),x=fg.getContext("2d");
+  x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,fg.width,fg.height);
+  _pdfDrawAnns(x,p,p.rot,_pdfEd.scale*_pdfEd.dpr,_pdfEd.sel);
+}
+function _pdfEdPt(e){var r=document.getElementById("pdfEdFg").getBoundingClientRect();return [(e.clientX-r.left)/_pdfEd.scale,(e.clientY-r.top)/_pdfEd.scale];}
+function _pdfSnap(p){p.undo.push(JSON.stringify(p.anns));if(p.undo.length>40)p.undo.shift();_pdfEd.sk=null;}
+function _pdfHit(p,X,Y){
+  var t=5/_pdfEd.scale;
+  for(var n=p.anns.length-1;n>=0;n--){
+    var a=p.anns[n],q=_pdfToFrame(p,a,p.rot,X,Y),b=_pdfBox(a);
+    if(q[0]>=b[0]-t&&q[0]<=b[0]+b[2]+t&&q[1]>=b[1]-t&&q[1]<=b[1]+b[3]+t)return n;
+  }
+  return -1;
+}
+function _pdfOnHandle(p,n,X,Y){
+  var a=p.anns[n];if(!a||a.t==="path")return false;
+  var q=_pdfToFrame(p,a,p.rot,X,Y),b=_pdfBox(a),t=9/_pdfEd.scale;
+  return Math.abs(q[0]-(b[0]+b[2]))<=t&&Math.abs(q[1]-(b[1]+b[3]))<=t;
+}
+function _pdfEdDown(e){
+  if(e.button>0)return;
+  var p=pdfPages[_pdfEd.k];if(!p)return;
+  var P=_pdfEdPt(e),t=_pdfEd.tool;
+  _pdfTextCommit();
+  if(t==="sel"){
+    var onH=_pdfEd.sel>=0&&_pdfOnHandle(p,_pdfEd.sel,P[0],P[1]),n=onH?_pdfEd.sel:_pdfHit(p,P[0],P[1]);
+    _pdfEd.sel=n;_pdfEdSyncTool();
+    if(n>=0){
+      var a=p.anns[n];_pdfSnap(p);
+      _pdfEd.drag={mode:onH?"size":"move",n:n,last:_pdfToFrame(p,a,p.rot,P[0],P[1]),box:_pdfBox(a),fs0:a.fs,moved:false};
+    }
+    _pdfEdDraw();
+  }else if(t==="text"){
+    var hn=_pdfHit(p,P[0],P[1]);
+    if(hn>=0&&p.anns[hn].t==="text")_pdfTextEdit(hn);else _pdfTextOpen(P[0],P[1],null);
+    e.preventDefault();return;
+  }else if(t==="pen"||t==="hl"){
+    _pdfSnap(p);
+    p.anns.push({t:"path",r:p.rot,hl:t==="hl",c:_pdfEd.col[t],w:_pdfEd.size[t],pts:[[_pdfR2(P[0]),_pdfR2(P[1])]]});
+    _pdfEd.drag={mode:"draw",n:p.anns.length-1};
+  }else if(t==="rect"||t==="cover"){
+    _pdfSnap(p);
+    p.anns.push(t==="rect"?{t:"rect",r:p.rot,x:P[0],y:P[1],w:0,h:0,c:_pdfEd.col.rect,lw:_pdfEd.size.rect}:{t:"cover",r:p.rot,x:P[0],y:P[1],w:0,h:0,c:_pdfEd.col.cover});
+    _pdfEd.drag={mode:"box",n:p.anns.length-1,x0:P[0],y0:P[1]};
+  }else if(t==="mark"){
+    if(!_pdfEd.mark){pdfMkOpen();return;}
+    var m=_pdfEd.mark,f=_pdfFrame(p,p.rot),ww=f[0]*(m.ar>1.8?0.28:0.14),hh=ww/m.ar;
+    _pdfSnap(p);p.anns.push({t:"img",r:p.rot,src:m.src,x:P[0]-ww/2,y:P[1]-hh/2,w:ww,h:hh});
+    _pdfEd.tool="sel";_pdfEd.sel=p.anns.length-1;_pdfEdSyncTool();_pdfEdDraw();
+    e.preventDefault();return;
+  }
+  try{e.currentTarget.setPointerCapture(e.pointerId);}catch(_){}
+  e.preventDefault();
+}
+function _pdfEdMove(e){
+  var d=_pdfEd.drag,p=pdfPages[_pdfEd.k];if(!p)return;
+  var P=_pdfEdPt(e),fg=document.getElementById("pdfEdFg");
+  if(!d){
+    fg.style.cursor=_pdfEd.tool!=="sel"?(_pdfEd.tool==="text"?"text":"crosshair")
+      :(_pdfEd.sel>=0&&_pdfOnHandle(p,_pdfEd.sel,P[0],P[1]))?"nwse-resize":(_pdfHit(p,P[0],P[1])>=0?"move":"default");
+    return;
+  }
+  var a=p.anns[d.n];if(!a)return;
+  if(d.mode==="draw"){
+    if(a.hl&&e.shiftKey)a.pts=[a.pts[0],[_pdfR2(P[0]),_pdfR2(P[1])]];
+    else{var l=a.pts[a.pts.length-1];if(Math.abs(l[0]-P[0])+Math.abs(l[1]-P[1])>0.6)a.pts.push([_pdfR2(P[0]),_pdfR2(P[1])]);}
+  }else if(d.mode==="box"){
+    a.x=Math.min(d.x0,P[0]);a.y=Math.min(d.y0,P[1]);a.w=Math.abs(P[0]-d.x0);a.h=Math.abs(P[1]-d.y0);
+  }else if(d.mode==="move"){
+    var q=_pdfToFrame(p,a,p.rot,P[0],P[1]),dx=q[0]-d.last[0],dy=q[1]-d.last[1];d.last=q;d.moved=true;
+    if(a.t==="path")a.pts.forEach(function(z){z[0]=_pdfR2(z[0]+dx);z[1]=_pdfR2(z[1]+dy);});else{a.x+=dx;a.y+=dy;}
+  }else if(d.mode==="size"){
+    var q2=_pdfToFrame(p,a,p.rot,P[0],P[1]);d.moved=true;
+    if(a.t==="img"){var nw=Math.max(6,q2[0]-a.x);a.h=nw*a.h/a.w;a.w=nw;}
+    else if(a.t==="text"){a.fs=Math.max(4,Math.round(d.fs0*Math.max(4,q2[1]-a.y)/d.box[3]*10)/10);}
+    else{a.w=Math.max(3,q2[0]-a.x);a.h=Math.max(3,q2[1]-a.y);}
+  }
+  _pdfEdDraw();
+}
+function _pdfEdUp(){
+  var d=_pdfEd.drag;_pdfEd.drag=null;if(!d)return;
+  var p=pdfPages[_pdfEd.k];if(!p)return;
+  if((d.mode==="move"||d.mode==="size")&&!d.moved)p.undo.pop();   /* 누르기만 했으면 되돌리기 칸을 쓰지 않는다 */
+  if(d.mode==="box"){var a=p.anns[d.n];if(a&&(a.w<3||a.h<3)){p.anns.splice(d.n,1);p.undo.pop();}}
+  if(d.mode==="size")_pdfEdSyncTool();
+  _pdfEdDraw();
+}
+/* 글자 입력칸 — 쓴 방향이 지금 보는 방향과 같을 때만(다르면 _pdfTextEdit가 prompt로) */
+function _pdfTextOpen(X,Y,n){
+  var p=pdfPages[_pdfEd.k],ta=document.getElementById("pdfEdTa");
+  if(!ta){
+    ta=document.createElement("textarea");ta.id="pdfEdTa";ta.rows=1;ta.spellcheck=false;
+    ta.style.cssText="position:absolute;z-index:2;border:1.5px dashed #1b6e82;background:rgba(255,255,255,.9);padding:0 2px;margin:0;outline:none;resize:none;overflow:hidden;line-height:1.25;white-space:pre;box-sizing:content-box";
+    document.getElementById("pdfEdStage").appendChild(ta);
+    ta.addEventListener("keydown",function(e){
+      if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();_pdfTextCommit();}
+      else if(e.key==="Escape"){e.preventDefault();ta._cancel=true;_pdfTextCommit();}
+    });
+    ta.addEventListener("input",_pdfTaFit);
+    ta.addEventListener("blur",function(){var s=ta._sess;setTimeout(function(){if(ta._sess===s)_pdfTextCommit();},0);});
+  }
+  var a=n!=null?p.anns[n]:null,fs=a?a.fs:_pdfEd.size.text,sc=_pdfEd.scale;
+  ta._sess=(ta._sess||0)+1;ta._n=n;ta._x=a?a.x:X;ta._y=a?a.y:Y;ta._cancel=false;
+  ta.value=a?a.s:"";
+  ta.style.left=(ta._x*sc-3)+"px";ta.style.top=(ta._y*sc-2)+"px";
+  ta.style.fontSize=(fs*sc)+"px";ta.style.color=a?a.c:_pdfEd.col.text;ta.style.fontFamily=PDF_FONT;ta.style.fontWeight=a&&a.b?"bold":"normal";
+  ta.style.display="block";_pdfTaFit();
+  setTimeout(function(){ta.focus();},0);
+}
+function _pdfTaFit(){
+  var ta=document.getElementById("pdfEdTa");if(!ta)return;
+  ta.style.width="4px";ta.style.height="4px";
+  ta.style.width=Math.max(40,ta.scrollWidth+6)+"px";ta.style.height=ta.scrollHeight+"px";
+}
+function _pdfTextCommit(){
+  var ta=document.getElementById("pdfEdTa");if(!ta||ta.style.display==="none")return;
+  ta.style.display="none";ta._sess++;
+  var p=pdfPages[_pdfEd.k];if(!p||ta._cancel){ta._cancel=false;return;}
+  var s=ta.value.replace(/\s+$/,""),n=ta._n;
+  if(n!=null&&p.anns[n]){
+    if(s===p.anns[n].s)return;
+    _pdfSnap(p);if(s)p.anns[n].s=s;else p.anns.splice(n,1);
+    _pdfEd.sel=-1;
+  }else if(s){
+    _pdfSnap(p);p.anns.push({t:"text",r:p.rot,x:_pdfR2(ta._x),y:_pdfR2(ta._y),s:s,fs:_pdfEd.size.text,c:_pdfEd.col.text,b:false});
+  }
+  _pdfEdDraw();
+}
+function _pdfTextEdit(n){
+  var p=pdfPages[_pdfEd.k],a=p.anns[n];if(!a)return;
+  if(a.r!==p.rot){
+    var v=prompt("글자 고치기 (비우면 지움)",a.s);if(v===null)return;
+    _pdfSnap(p);if(v.trim())a.s=v;else p.anns.splice(n,1);
+    _pdfEd.sel=-1;_pdfEdDraw();return;
+  }
+  _pdfEd.sel=-1;_pdfEdDraw();_pdfTextOpen(0,0,n);
+}
+function pdfEdTool(t){_pdfTextCommit();_pdfEd.tool=t;if(t!=="sel")_pdfEd.sel=-1;_pdfEdSyncTool();_pdfEdDraw();}
+/* 고른 것(또는 도구)의 종류 — 색·크기 칸이 무엇을 바꾸는지 */
+function _pdfKind(){
+  var p=pdfPages[_pdfEd.k],a=(_pdfEd.tool==="sel"&&p&&_pdfEd.sel>=0)?p.anns[_pdfEd.sel]:null;
+  return {a:a,kind:a?(a.t==="path"?(a.hl?"hl":"pen"):a.t):_pdfEd.tool};
+}
+function _pdfEdSyncTool(){
+  var t=_pdfEd.tool;
+  document.querySelectorAll("#pdfEdTools .pdf-tool").forEach(function(b){b.classList.toggle("on",b.dataset.t===t);});
+  var K=_pdfKind(),a=K.a,kind=K.kind;
+  var col=document.getElementById("pdfEdColor"),sz=document.getElementById("pdfEdSize"),sv=document.getElementById("pdfEdSizeV");
+  var c=a?a.c:_pdfEd.col[kind];
+  col.disabled=!c;if(c)col.value=c;
+  var s=a?(a.t==="text"?a.fs:a.t==="path"?a.w:a.t==="rect"?a.lw:null):(_pdfEd.size[kind]!=null?_pdfEd.size[kind]:null);
+  sz.disabled=s==null;if(s!=null){sz.value=s;sv.textContent=s;}else sv.textContent="";
+  document.getElementById("pdfEdSizeLbl").textContent=kind==="text"?"글자 크기":"굵기";
+  document.getElementById("pdfEdHint").textContent=PDF_HINT[t]||"";
+}
+function pdfEdSetColor(v){
+  var K=_pdfKind(),p=pdfPages[_pdfEd.k];
+  if(K.a){if(_pdfEd.sk!=="c"+_pdfEd.sel){_pdfSnap(p);_pdfEd.sk="c"+_pdfEd.sel;}K.a.c=v;_pdfEdDraw();}
+  else if(_pdfEd.col[K.kind]!=null)_pdfEd.col[K.kind]=v;
+}
+function pdfEdSetSize(v){
+  var K=_pdfKind(),p=pdfPages[_pdfEd.k],a=K.a;
+  document.getElementById("pdfEdSizeV").textContent=v;
+  if(a){
+    if(_pdfEd.sk!=="s"+_pdfEd.sel){_pdfSnap(p);_pdfEd.sk="s"+_pdfEd.sel;}
+    if(a.t==="text")a.fs=v;else if(a.t==="path")a.w=v;else if(a.t==="rect")a.lw=v;
+    _pdfEdDraw();
+  }else if(_pdfEd.size[K.kind]!=null)_pdfEd.size[K.kind]=v;
+}
+function pdfEdUndo(){
+  _pdfTextCommit();
+  var p=pdfPages[_pdfEd.k];if(!p||!p.undo.length)return;
+  p.anns=JSON.parse(p.undo.pop());_pdfEd.sel=-1;_pdfEd.sk=null;_pdfEdSyncTool();_pdfEdDraw();
+}
+function pdfEdDel(){
+  var p=pdfPages[_pdfEd.k];if(!p||_pdfEd.sel<0||!p.anns[_pdfEd.sel])return;
+  _pdfSnap(p);p.anns.splice(_pdfEd.sel,1);_pdfEd.sel=-1;_pdfEdSyncTool();_pdfEdDraw();
+}
+function _pdfEdLeave(){
+  _pdfTextCommit();
+  var p=pdfPages[_pdfEd.k];
+  if(p)_pdfThumb(p).then(pdfRender);
+}
+function pdfEdGo(d){
+  var k=_pdfEd.k+d;if(k<0||k>=pdfPages.length)return;
+  _pdfEdLeave();_pdfEd.k=k;_pdfEd.sel=-1;_pdfEd.drag=null;_pdfEdSyncTool();_pdfEdRender();
+}
+function pdfEdZoom(f){
+  if(!f)_pdfEd.zoom=0;else _pdfEd.zoom=Math.max(0.2,Math.min(6,(_pdfEd.zoom||_pdfEd.scale)*f));
+  _pdfEdRender();
+}
+function pdfEdClose(){
+  _pdfEdLeave();
+  if(_pdfEd.task){try{_pdfEd.task.cancel();}catch(e){}_pdfEd.task=null;}
+  document.getElementById("pdfEd").style.display="none";
+  pdfMkClose();
+}
+/* ── ✍ 서명·도장 — 이 브라우저(localStorage pdfMarks)에만 기억 ── */
+function _pdfMarks(){try{var v=JSON.parse(localStorage.getItem("pdfMarks")||"[]");return Array.isArray(v)?v:[];}catch(e){return [];}}
+function _pdfMarksSet(l){try{localStorage.setItem("pdfMarks",JSON.stringify(l));return true;}catch(e){return false;}}
+function _pdfMkMsg(t,err){var m=document.getElementById("pdfMkMsg");if(m){m.textContent=t||"";m.style.color=err?"#b91c1c":"#0f766e";}}
+function pdfMkOpen(){
+  _pdfTextCommit();
+  document.getElementById("pdfMk").style.display="flex";
+  _pdfMkMsg("");_pdfMkList();_pdfSigInit();
+}
+function pdfMkClose(){var m=document.getElementById("pdfMk");if(m)m.style.display="none";}
+function _pdfMkList(){
+  var l=_pdfMarks(),el=document.getElementById("pdfMkList");
+  el.innerHTML=l.length?l.map(function(m,n){
+    return '<div onclick="pdfMkPick('+n+')" title="눌러서 고르기" style="position:relative;border:1px solid #d8dee6;border-radius:8px;padding:4px;cursor:pointer;background:repeating-conic-gradient(#eef1f4 0 25%,#fff 0 50%) 0 0/12px 12px">'
+      +'<img src="'+m.src+'" alt="" style="height:56px;max-width:170px;display:block">'
+      +'<button onclick="event.stopPropagation();pdfMkDel('+n+')" title="지우기" style="position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:1px solid #cbd5e1;background:#fff;font-size:11px;cursor:pointer;color:#5b6675;padding:0;line-height:1">✕</button></div>';
+  }).join(""):'<span style="font-size:12px;color:#5b6675">아직 없습니다 — 아래에서 그리거나 올리면 여기 남습니다</span>';
+}
+function pdfMkPick(n){var m=_pdfMarks()[n];if(m)_pdfUseMark(m.src);}
+function pdfMkDel(n){if(!confirm("이 서명·도장을 지울까요?"))return;var l=_pdfMarks();l.splice(n,1);_pdfMarksSet(l);_pdfMkList();}
+function _pdfMkSave(src){
+  var l=_pdfMarks().filter(function(m){return m.src!==src;});
+  l.unshift({src:src,at:Date.now()});
+  if(!_pdfMarksSet(l.slice(0,12)))_pdfMkMsg("브라우저 저장 칸이 모자라 기억하지 못했습니다 — 이번에는 그대로 씁니다",true);
+}
+function _pdfUseMark(src){
+  var im=_pdfImg(src);
+  var go=function(){
+    _pdfEd.mark={src:src,ar:(im.naturalWidth||1)/(im.naturalHeight||1)};
+    pdfMkClose();_pdfTextCommit();_pdfEd.tool="mark";_pdfEd.sel=-1;_pdfEdSyncTool();_pdfEdDraw();
+  };
+  if(im.complete&&im.naturalWidth)go();else im.addEventListener("load",go,{once:true});
+}
+/* 투명한 가장자리를 잘라 PNG로 */
+function _pdfTrim(c){
+  var x=c.getContext("2d"),d=x.getImageData(0,0,c.width,c.height).data,x0=c.width,y0=c.height,x1=-1,y1=-1;
+  for(var y=0;y<c.height;y++)for(var i=0;i<c.width;i++){if(d[(y*c.width+i)*4+3]>8){if(i<x0)x0=i;if(i>x1)x1=i;if(y<y0)y0=y;if(y>y1)y1=y;}}
+  if(x1<0)return null;
+  var pd=6;x0=Math.max(0,x0-pd);y0=Math.max(0,y0-pd);x1=Math.min(c.width-1,x1+pd);y1=Math.min(c.height-1,y1+pd);
+  var o=document.createElement("canvas");o.width=x1-x0+1;o.height=y1-y0+1;
+  o.getContext("2d").drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);
+  return o.toDataURL("image/png");
+}
+function _pdfSigInit(){
+  var c=document.getElementById("pdfSigCv");if(c._init)return;c._init=1;
+  var x=c.getContext("2d"),on=false,last=null;
+  function pt(e){var r=c.getBoundingClientRect();return [(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height];}
+  c.addEventListener("pointerdown",function(e){
+    on=true;last=pt(e);c._dirty=true;try{c.setPointerCapture(e.pointerId);}catch(_){}
+    x.strokeStyle=document.getElementById("pdfSigColor").value;x.lineWidth=7;x.lineCap="round";x.lineJoin="round";
+    x.beginPath();x.moveTo(last[0],last[1]);x.lineTo(last[0]+0.1,last[1]);x.stroke();e.preventDefault();
+  });
+  c.addEventListener("pointermove",function(e){
+    if(!on)return;var q=pt(e);
+    x.beginPath();x.moveTo(last[0],last[1]);x.lineTo(q[0],q[1]);x.stroke();last=q;
+  });
+  ["pointerup","pointercancel"].forEach(function(ev){c.addEventListener(ev,function(){on=false;});});
+}
+function pdfSigClear(){var c=document.getElementById("pdfSigCv");c.getContext("2d").clearRect(0,0,c.width,c.height);c._dirty=false;}
+function pdfSigUse(){
+  var c=document.getElementById("pdfSigCv"),src=c._dirty?_pdfTrim(c):null;
+  if(!src){_pdfMkMsg("먼저 위 칸에 서명을 그려 주세요",true);return;}
+  _pdfMkSave(src);pdfSigClear();_pdfUseMark(src);
+}
+function pdfMkAddImg(f){
+  if(!f)return;
+  if(!/^image\//.test(f.type)){_pdfMkMsg("이미지 파일만 올릴 수 있습니다",true);return;}
+  var u=URL.createObjectURL(f),im=new Image();
+  im.onload=function(){
+    URL.revokeObjectURL(u);
+    var k=Math.min(1,900/Math.max(im.naturalWidth,im.naturalHeight)),c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round(im.naturalWidth*k));c.height=Math.max(1,Math.round(im.naturalHeight*k));
+    var x=c.getContext("2d");x.drawImage(im,0,0,c.width,c.height);
+    if(document.getElementById("pdfMkWhite").checked){   /* 흰 바탕(밝은 회색까지) → 투명 */
+      var D=x.getImageData(0,0,c.width,c.height),d=D.data;
+      for(var i=0;i<d.length;i+=4){var mn=Math.min(d[i],d[i+1],d[i+2]);if(mn>228)d[i+3]=0;else if(mn>200)d[i+3]=Math.round(d[i+3]*(228-mn)/28);}
+      x.putImageData(D,0,0);
+    }
+    var src=_pdfTrim(c);
+    if(!src){_pdfMkMsg("이미지가 비어 있습니다(전부 흰색?) — '흰 바탕 투명하게'를 끄고 다시 올려 보세요",true);return;}
+    _pdfMkSave(src);_pdfUseMark(src);
+  };
+  im.onerror=function(){URL.revokeObjectURL(u);_pdfMkMsg("이미지를 열 수 없습니다",true);};
+  im.src=u;
 }
 
 /* ── 🎨 힉스필드 — 코스트코 RRP 디자인 시안 모음(2026-10-22 영업2팀) ──

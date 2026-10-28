@@ -38,6 +38,7 @@
 - [`docs/floorplan.md`](docs/floorplan.md) — 🧊 3D 집기 탭: 집기 목록(그림·사이즈·수량) · 예상 팝업 자리 이미지 · 자동 배치 · 평면도/3D 끌어 옮기기 · 집기리스트 이미지
 - [`docs/coupang.md`](docs/coupang.md) — 🟠 쿠팡 발주 · 쉽먼트(서플라이어 허브 두 계정 · 단계 진행표 `ws/cpProgress` · 자동화에 필요한 자료)
 - [`docs/higgsfield.md`](docs/higgsfield.md) — 🎨 힉스필드 탭: 힉스필드 새 창 열기 · 코스트코 RRP 디자인 시안 모음(올리기·Ctrl+V · 채택 · 팀 공유 `ws/hgRrp`) · ✨ 문구·참고 이미지로 만들기(자동화 PC `higgs-gen.mjs`가 API로, `ws/hgGen`)
+- [`docs/pdf.md`](docs/pdf.md) — 📄 PDF 탭: 합치기·나누기(순서·돌리기·빼기·묶음 저장) · 글자·서명·도장·펜·형광펜·가리기 쓰기(브라우저 안에서만, pdf-lib)
 - [`docs/cowork.md`](docs/cowork.md) — **별도 페이지** `cowork.html`: 디자인·생산·웹디자인·영업2팀 코스트코 상품개발 협업(단계·일정·시안·코멘트)
 
 ## 🤖 자동화 탭
