@@ -422,6 +422,14 @@
 - 매장별 일별매출 **PLAY MD만 보는 매장**(`DS_PLAYMD_ONLY`, 2026-09-30 영업2팀: `라이즈업 플리마켓`): 백화점 EDI가 없는 매장이라
   백화점·수량·EDI·수량 칸을 빼고(`_dsFldsOf`) PLAY MD만 둔다. 매장 헤더의 **달성은 PLAY MD 합계**로 계산하고(`dsRecalc`),
   EDI≠PLAY MD 빨강 표시도 하지 않는다(EDI가 늘 0이라 매일 빨갛게 나온다). 표 왼쪽 `달성금액(EDI 합계)` 열에는 여전히 들어가지 않는다.
+- 매장별 일별매출 **EDI≠PLAY MD 슬랙 알림**(2026-10-28 영업2팀 "일별매출 edi와 플레이엠디 금액이 상이할 경우 슬랙 1-2팀 실무방에"):
+  자동화 PC `automation/ds-diff-notify.mjs`(saip-watch `dsDiffTick`)가 **평일(`isBiz` — 주말·공휴일 뺌) 10시 뒤 하루 한 번** `ws/dailySales`를 읽어
+  화면의 빨간 PLAY MD 칸과 같은 조건(렌더의 `mism` — `DS_PLAYMD_ONLY` 빼고 · EDI 칸이 비지 않고 · `_dsN(edi)≠_dsN(playmd)`, PLAY MD가 비어도 다름)인 칸을
+  🔒#영업1-2팀-실무방(`slack-webhook.json`, 일정체크·등록 알림과 같은 웹훅)에 매장별로 묶어 `일자 EDI · PLAY MD · 차이(EDI−PLAY MD)`로 보낸다.
+  볼 날짜는 **이번 달 1일~어제**(달 초 일주일은 지난달까지 — 월말 주말을 놓치지 않게). 보낸 건 팀 공유 `ws/dsDiffNotify.sent`
+  (`YYYY-MM|일|매장명|EDI|PLAYMD`, 100일 보관)에 남아 **같은 매장·일자·금액은 다시 안 보낸다** — 한쪽 금액이 바뀌었는데도 다르면 새 건으로 다시 간다.
+  오늘 돌았는지는 `ws/dsDiffNotify.ran`. 60줄 넘으면 자른다. 미리보기 `node ds-diff-notify.mjs --dry`(보내지도 기록하지도 않음).
+  빨강 조건(`mism`)이나 `DS_PLAYMD_ONLY`를 바꾸면 그 파일의 `PLAYMD_ONLY`·비교도 같이 바꾼다.
 - 매장별 일별매출 매장 헤더에서 **목표 입력칸·달성률·부족을 뺐다**(2026-10-19 영업2팀) — 남은 것은 매장명·코드·📁·✕ / 달성 / 객단가.
   저장된 목표(`target`)는 지우지 않았다(`dsRecalc`는 그대로, 없는 칸은 건너뜀).
 - 매장별 일별매출 표 글자: 표 기본 15px · 매출 입력칸 14px · 필드 머리글 13px(2026-09 요구사항 — 더 줄이지 말 것).
