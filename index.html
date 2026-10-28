@@ -23808,8 +23808,17 @@ function _saipMe(){
 }
 /* 일부만 등록한 날짜(partial — 창고간이동에서 체크를 뺀 줄이 남음, 2026-10-20)는 등록 안 된 것으로 본다 — 남은 줄을 다시 [등록]할 수 있게.
    일부 등록 내역은 _saipPartialOf로 따로 보여 준다 */
-function _saipLogOf(kind,date){var L=((saipLog||{})[kind]||{})[date]||null;return L&&L.partial?null:L;}
+function _saipLogOf(kind,date){var L=((saipLog||{})[kind]||{})[date]||null;return L&&(L.partial||_saipMoreOf(kind,date))?null:L;}
 function _saipPartialOf(kind,date){var L=((saipLog||{})[kind]||{})[date]||null;return L&&L.partial?L:null;}
+/* 추가분(2026-10-28 영업2팀 "하루에 두 번 올라오면 중복건이 아니면 등록 요청") — 등록한 뒤 원본(파일 수정 시각·코스트코 새 회신)이 바뀐 날짜.
+   자동화 PC(saip-ready)가 등록할 건에 more로 싣는다. 등록 기록의 기준(fileAt → src.modified → at)보다 원본이 새것일 때만 —
+   추가분을 등록하면 기록의 fileAt이 올라가 바로 '등록됨'으로 돌아간다. 이 날짜는 등록 안 된 날처럼 [등록]이 뜨고, 등록은 PlayMD에 없는 줄만 넣는다 */
+function _saipMoreOf(kind,date){
+  var L=((saipLog||{})[kind]||{})[date]||null;if(!L||L.partial)return null;
+  var x=(((saipReady||{})[kind])||[]).filter(function(r){return r&&r.date===date&&r.more&&r.modified;})[0];if(!x)return null;
+  var base=L.fileAt||(L.src&&L.src.modified)||L.at||"";
+  return new Date(x.modified).getTime()>new Date(base).getTime()+1000?{log:L,modified:x.modified}:null;
+}
 /* 자동화 PC가 살아 있나 — 2분 넘게 신호가 없으면 꺼진 것으로 본다 */
 function _saipWatchOk(){return !!(saipWatch&&saipWatch.at&&Date.now()-new Date(saipWatch.at).getTime()<2*60*1000);}
 function _saipReqActive(r){
@@ -24036,6 +24045,7 @@ function _saipCfShow(kind,date,o){
     else if(it.status==="nofile")h+='<div style="color:#5b6675;font-weight:700">📭 '+(kind==="cc"?"회신 메일":"파일")+' 없음 — 등록할 것 없음'+when+'</div>';
     else if(it.already&&kind!=="mv")h+='<div style="color:#b45309;font-weight:800">⛔ 중복 검사: 플레이엠디에 이미 있습니다 — 등록하지 마세요'+when+'</div><div style="color:#b45309">'+_escX(it.already)+'</div>';
     else if(it.status==="preview")h+='<div style="color:#047857;font-weight:800">✅ 중복 검사: 겹치는 것 없음 — 등록해도 됩니다'+when+'</div>'
+      +(it.more?'<div style="color:#1d4ed8;font-weight:700">➕ '+_escX(it.more)+'</div>':'')
       +(it.already?'<div style="color:#b45309">⚠ '+_escX(it.already)+'</div>':'');
     else h+='<div style="color:#b91c1c;font-weight:800">❗ '+_escX((SAIP_ITEM_TXT[it.status]||[0,it.status||"확인이 필요합니다"])[1])+when+'</div>'
       +(it.error?'<div style="color:#b91c1c">'+_escX(it.error)+'</div>':'')
@@ -24405,6 +24415,9 @@ function _saipDateBtns(kind,it,active,fresh){
   var h='';
   if(P)h+='<div style="margin-top:6px;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;padding:3px 8px;font-size:12.5px;color:#9a3412;font-weight:700">◐ '+md+' 일부 등록됨 · '+(P.rows||0)+'줄 '+(P.qty||0)+'개 · '+_escX(_saipFmtAt(P.at))+' · '+_escX(_saipWho(P.by))
     +' — 뺀 줄 '+(P.off||0)+'줄이 남아 있습니다(체크하고 등록하면 남은 줄만 넣습니다)</div>';
+  var Mo=_saipMoreOf(kind,it.date);
+  if(Mo)h+='<div style="margin-top:6px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:3px 8px;font-size:12.5px;color:#1e40af;font-weight:700">➕ '+md+' 등록됨 · '+_escX(_saipFmtAt(Mo.log.at))+' · '+_escX(_saipWho(Mo.log.by))
+    +' — 그 뒤 '+(kind==="cc"?"새 회신 메일":"파일")+'이 바뀌었습니다('+_escX(_saipFmtAt(Mo.modified))+'). 등록하면 PlayMD에 없는 추가분만 넣습니다</div>';
   if(sc&&canReg&&!sc.on){canReg=false;h+='<div style="margin-top:6px;font-size:12.5px;color:#b45309;font-weight:700">등록할 줄을 체크해 주세요</div>';}
   h+='<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">';
   if(canReg)h+='<button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+dq+'\',merge:true,expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:5px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+md+(sc&&sc.off?' 선택한 '+sc.on+'줄 등록':' 등록')+'</button>';
@@ -24475,6 +24488,7 @@ function _saipCard(kind,opt){
     else if(it.bad&&it.bad.length)h+='<div style="color:#b91c1c">'+it.bad.map(_escX).join("<br>")+'<br><span style="color:#5b6675">'+(kind==="so"?'→ [🔍 다시 확인]을 누르면 멈춘 줄을 여기서 고칠 수 있습니다(매장코드·창고코드·상품코드·수량)':kind==="mv"?'→ 모르는 창고·매장 이름은 자동화 PC의 코드표(warehouse-codes.json·store-codes.json)에 더한 뒤 다시 누르세요':'→ 아래 홈쇼핑 코드매칭표에 추가한 뒤 다시 누르세요')+'</span></div>';
     if(it.error&&it.status!=="unmatched")h+='<div style="color:#b91c1c">'+_escX(it.error)+'</div>';
     if(it.verify&&it.status==="savecheck")h+='<div style="color:#b45309">'+_escX(it.verify)+'</div>';
+    if(it.more)h+='<div style="color:#1d4ed8;font-weight:700">➕ '+_escX(it.more)+'</div>';
     if(it.already&&!soDone)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>';
     var iMode=it.mode||S.mode,iFresh=(it.at||S.at)&&Date.now()-new Date(it.at||S.at).getTime()<2*3600*1000;   /* 날짜 하나만 다시 돌린 결과는 그 날짜의 at·mode(saip-watch mergeStatus) */
     if(kind==="so"&&iMode!=="preview"&&it.rows&&it.rows.length)h+=_soRows(it.rows);
@@ -24535,7 +24549,7 @@ function renderSaipAuto(){
     /* 날짜 옆에 검수 결과 — ✔ 겹침 없음 · 중복(이미 있음) · ? 검수 전 · ! 확인 필요(2026-10-14) */
     if(rd.length)note.innerHTML+='<div style="margin-top:3px;color:#b45309;font-weight:800">📥 등록할 건: '+rd.map(function(x){
       var c=_saipCheck(k,x.date),tag=!c?'<span style="color:#5b6675;font-weight:600"> 검수 전</span>':c.s==="ok"?'<span style="color:#047857"> ✔</span>':c.s==="dup"?'<span style="color:#5b6675;font-weight:600"> 중복</span>':'<span style="color:#b91c1c"> ❗</span>';
-      return '<a href="#" onclick="return _saipPickReady(\''+k+'\',\''+x.date+'\')" title="'+_escX((x.files||[]).join(", "))+' — 누르면 이 날짜로" style="color:'+(c&&c.s==="dup"?'#5b6675;text-decoration:line-through':'#b45309')+'">'+(+x.mmdd.slice(0,2))+'/'+(+x.mmdd.slice(2,4))+'</a>'+tag;}).join(", ")+'</div>';
+      return '<a href="#" onclick="return _saipPickReady(\''+k+'\',\''+x.date+'\')" title="'+_escX((x.files||[]).join(", "))+' — 누르면 이 날짜로" style="color:'+(c&&c.s==="dup"?'#5b6675;text-decoration:line-through':'#b45309')+'">'+(+x.mmdd.slice(0,2))+'/'+(+x.mmdd.slice(2,4))+'</a>'+(x.more?'<span title="등록한 뒤 원본이 바뀌었습니다 — PlayMD에 없는 줄만 넣습니다" style="color:#1d4ed8"> 추가분</span>':'')+tag;}).join(", ")+'</div>';
     else if(er)note.innerHTML+='<div style="margin-top:3px;color:#b91c1c">⚠ '+_escX(er)+'</div>';
     /* 버튼 색으로 상태를 보인다(2026-09-30 영업2팀) — 등록 중 · 완료(민트) · 요망(보라) · 평소(청록) */
     var R0=(saipReq||{})[k],v=el.value,C0=_saipCheck(k,v);
