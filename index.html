@@ -30966,6 +30966,45 @@ function mkPrism(p,shape,h,col){
   var geo=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false,curveSegments:64});geo.rotateX(-Math.PI/2);
   var m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:col}));m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,30),edgeMat()));p.add(m);return m;
 }
+/* 세로 골 민트 아크릴 몸통(2026-10-28 영업2팀 매장 사진 "실제 집기처럼") — 모서리가 둥근 네모(가로 w · 깊이 d · 모서리 r, 가운데 원점) 둘레를 따라
+   반원 골(간격 약 30mm)이 이어진 옆벽 + 윗면. 골마다 빛·그늘 줄무늬(fluteTex)를 입혀 조명 방향과 상관없이 골이 보이게. 바닥이 y=0인 묶음을 돌려준다 */
+var FLUTE_TEX=null;
+function fluteTex(){
+  if(FLUTE_TEX)return FLUTE_TEX;
+  var cv=document.createElement("canvas");cv.width=64;cv.height=4;var x=cv.getContext("2d"),gr=x.createLinearGradient(0,0,64,0);
+  gr.addColorStop(0,"#4aaea5");gr.addColorStop(0.2,"#78d3c9");gr.addColorStop(0.46,"#c8f4ef");gr.addColorStop(0.64,"#92e0d7");gr.addColorStop(1,"#4aaea5");
+  x.fillStyle=gr;x.fillRect(0,0,64,4);
+  FLUTE_TEX=new THREE.CanvasTexture(cv);FLUTE_TEX.wrapS=THREE.RepeatWrapping;return FLUTE_TEX;
+}
+function mkFluted(p,w,d,r,h,pitch){
+  r=Math.min(r,w/2,d/2);pitch=pitch||0.03;
+  var hw=w/2-r,hd=d/2-r,La=Math.PI*r/2,arc=function(cx,cz,a0,a1){return [La,function(t){var a=a0+(a1-a0)*t/La;return [cx+r*Math.cos(a),cz+r*Math.sin(a),Math.cos(a),Math.sin(a)];}];};
+  var S=[[2*hw,function(t){return [-hw+t,d/2,0,1];}],arc(hw,hd,Math.PI/2,0),[2*hd,function(t){return [w/2,hd-t,1,0];}],arc(hw,-hd,0,-Math.PI/2),
+         [2*hw,function(t){return [hw-t,-d/2,0,-1];}],arc(-hw,-hd,-Math.PI/2,-Math.PI),[2*hd,function(t){return [-w/2,-hd+t,-1,0];}],arc(-hw,hd,Math.PI,Math.PI/2)];
+  var Lp=S.reduce(function(a,q){return a+q[0];},0),at=function(s){for(var i=0;i<S.length;i++){if(s<=S[i][0]||i===S.length-1)return S[i][1](Math.min(s,S[i][0]));s-=S[i][0];}};
+  var n=Math.max(8,Math.round(Lp/pitch)),sub=6,M=n*sub,amp=Lp/n*0.3,P=[];
+  for(var i=0;i<M;i++){var b=at(i*Lp/M),o=amp*Math.sin(Math.PI*(i%sub)/sub);P.push([b[0]+b[2]*o,b[1]+b[3]*o]);}
+  var pos=[],nor=[],uv=[],idx=[];
+  for(i=0;i<=M;i++){
+    var q=P[i%M],a=P[(i-1+M)%M],c=P[(i+1)%M],tx=c[0]-a[0],tz=c[1]-a[1],tl=Math.hypot(tx,tz)||1;
+    pos.push(q[0],0,q[1],q[0],h,q[1]);nor.push(-tz/tl,0,tx/tl,-tz/tl,0,tx/tl);uv.push(i/sub,0,i/sub,1);
+    if(i<M){var k=i*2;idx.push(k,k+2,k+3,k,k+3,k+1);}
+  }
+  var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));geo.setAttribute("normal",new THREE.Float32BufferAttribute(nor,3));
+  geo.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));geo.setIndex(idx);
+  var G=new THREE.Group();G.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:0xc6eeee,map:fluteTex()})));   /* 사진 민트(#6fd0c8 안팎)에 맞춤 */
+  var cap=new THREE.ShapeGeometry(new THREE.Shape(P.map(function(q){return new THREE.Vector2(q[0],-q[1]);})));cap.rotateX(-Math.PI/2);cap.translate(0,h,0);
+  G.add(new THREE.Mesh(cap,new THREE.MeshLambertMaterial({color:0x5a9e96})));   /* 윗면은 빛을 많이 받아 옆면보다 어둡게 둔다 */
+  [0,h].forEach(function(y){var lg=new THREE.BufferGeometry().setFromPoints(P.map(function(q){return new THREE.Vector3(q[0],y,q[1]);}));G.add(new THREE.LineLoop(lg,edgeMat()));});
+  p.add(G);return G;
+}
+/* 유리 상판(2026-10-28 영업2팀 매장 사진) — 윗면·아랫면은 맑고 옅은 유리, 옆면(두께)은 유리 단면처럼 청록. 그림자는 만들지 않는다(userData.ns) */
+function mkGlass(p,shape,t){
+  var geo=new THREE.ExtrudeGeometry(shape,{depth:t,bevelEnabled:false,curveSegments:64});geo.rotateX(-Math.PI/2);
+  var m=new THREE.Mesh(geo,[new THREE.MeshPhongMaterial({color:0xbfe9e1,specular:0xffffff,shininess:90,transparent:true,opacity:0.42,depthWrite:false}),
+                            new THREE.MeshLambertMaterial({color:0x4fb8a8,transparent:true,opacity:0.85})]);
+  m.userData.ns=1;m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,30),new THREE.LineBasicMaterial({color:0x3f9e90})));p.add(m);return m;
+}
 /* 사진 윤곽 → 셰이프(가로 w · 높이 h m, 바닥 가운데 기준). 열 96개로 나눠 위·아래 끝을 잇는다. 키마다 한 번 계산(SILC) */
 var SILC={};
 function silShape(k,w,h){
@@ -31245,17 +31284,15 @@ function buildItem(it,bad){
     var ls=Math.min(w,h)*0.34,lo=new THREE.Mesh(new THREE.PlaneGeometry(ls,ls),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(lc),transparent:true}));
     lo.position.set(-w*0.14,h*0.68,d/2+0.002);g.add(lo);
   }else if(c.k==="acr3"){
-    /* 청주 3단 아크릴 집기 — 모듈마다 흰 바닥 판(스타디움) · 세로 골이 진 민트 아크릴 판 · 짙은 청록 반투명 아크릴 상판, 가운데 모듈 양끝에 흰 기둥.
-       크기를 바꾸면 통째로 늘린다(기본 3370 × 1000 × 800) */
-    var A=acr3Mods(it.j),S=new THREE.Group(),L3=A.L/1000,Dm=A.Dm/1000,bt=0.03,tp=0.12,lp=L3*0.5,sp=0.026;
-    var GL=new THREE.MeshLambertMaterial({color:0x0e5a60,transparent:true,opacity:0.55,depthWrite:false}),RB=new THREE.MeshLambertMaterial({color:0x9fe3d6}),RG=new THREE.CylinderGeometry(0.011,0.011,1,10);
+    /* 청주 3단 아크릴 집기 — 모듈마다 흰 바닥 판(스타디움) · 세로 골 민트 아크릴 몸통 · 유리 상판, 가운데 모듈 양끝에 흰 기둥.
+       2026-10-28 영업2팀 매장 사진 "실제 집기처럼": 몸통은 얇은 판 → 모서리가 둥근 통(길이 62% · 깊이 70%, 둘레 전체 골 mkFluted),
+       상판은 짙은 청록 → 맑은 유리(mkGlass), 바닥 판은 두껍게(60). 크기를 바꾸면 통째로 늘린다(기본 3370 × 1000 × 800) */
+    var A=acr3Mods(it.j),S=new THREE.Group(),L3=A.L/1000,Dm=A.Dm/1000,bt=0.06,gt=0.012;
     A.m.forEach(function(m){
-      var M=new THREE.Group(),H=m.h/1000,ph=H-bt-0.05;M.position.set(m.x/1000,0,m.z/1000);M.rotation.y=m.a;S.add(M);
+      var M=new THREE.Group(),H=m.h/1000;M.position.set(m.x/1000,0,m.z/1000);M.rotation.y=m.a;S.add(M);
       mkPrism(M,stadium(L3,Dm,0),bt,0xf7f8f8);                                                  /* 흰 바닥 판 */
-      mkPrism(M,stadium(lp+tp,tp,0),ph,0x8fdccc).position.y=bt;                                 /* 민트 아크릴 판 */
-      for(var rx=-lp/2;rx<=lp/2+1e-6;rx+=sp)[-1,1].forEach(function(b){var r=new THREE.Mesh(RG,RB);r.scale.y=ph;r.position.set(rx,bt+ph/2,b*tp/2);M.add(r);});   /* 세로 골 */
-      var gg=new THREE.ExtrudeGeometry(stadium(L3,Dm,0),{depth:0.015,bevelEnabled:false,curveSegments:48});gg.rotateX(-Math.PI/2);
-      var gm=new THREE.Mesh(gg,GL);gm.position.y=H-0.015;M.add(gm);                             /* 짙은 청록 상판 */
+      mkFluted(M,L3*0.62,Dm*0.7,0.09,H-bt-gt).position.y=bt;                                    /* 세로 골 민트 몸통 */
+      mkGlass(M,stadium(L3,Dm,0),gt).position.y=H-gt;                                           /* 유리 상판 */
     });
     var PH=A.m[0].h/1000;
     A.J.forEach(function(q){mkCyl(S,0.025,PH-bt,q[0]/1000,bt+(PH-bt)/2,q[1]/1000,0xf7f8f8,24);});   /* 흰 기둥 = 관절 */
@@ -31310,10 +31347,7 @@ function buildItem(it,bad){
        민트 세로 골 받침(길이 55% · 깊이 76%, 한쪽 끝에서 6% 들어와 있음) · 두꺼운 흰 상판(약 120)이 반대쪽으로 길게 나옴 ·
        받침 위 상판에 청록 반투명 아크릴 상자(길이 50% · 깊이 80%) + 바닥에 밝게 빛나는 테두리. it.f = 좌우반전(받침·상자가 오른쪽으로) */
     var sg=it.f?-1:1,tt=Math.min(0.12,h*0.16),bL=w*0.55,bD=d*0.76,bH=h-tt,bx=sg*(-w/2+w*0.06+bL/2),MT=0x9fe3d6,RB=0x86d6c6;
-    mk(g,bL,bH,bD,bx,bH/2,0,MT);                                                   /* 받침 */
-    var rg=new THREE.CylinderGeometry(0.011,0.011,bH-0.02,8),rm=new THREE.MeshLambertMaterial({color:RB});
-    for(var rx=-bL/2+0.02;rx<=bL/2-0.02+1e-6;rx+=0.032)[-1,1].forEach(function(b){var r=new THREE.Mesh(rg,rm);r.position.set(bx+rx,bH/2,b*(bD/2+0.002));g.add(r);});   /* 앞뒤 세로 골 */
-    for(var rz=-bD/2+0.02;rz<=bD/2-0.02+1e-6;rz+=0.032)[-1,1].forEach(function(b){var r=new THREE.Mesh(rg,rm);r.position.set(bx+b*(bL/2+0.002),bH/2,rz);g.add(r);});   /* 옆 세로 골 */
+    mkFluted(g,bL,bD,0.02,bH).position.x=bx;                                       /* 세로 골 받침(2026-10-28 3단 아크릴과 같은 골 — mkFluted) */
     mk(g,w,tt,d,0,h-tt/2,0,0xf7f8f8);                                             /* 흰 상판 */
     var aL=w*0.5,aD=d*0.8,aH=Math.min(0.13,h*0.17),ax=sg*(-w/2+w*0.06+aL/2),az=-d*0.04;
     var am=new THREE.MeshLambertMaterial({color:0x0a6870,transparent:true,opacity:0.5,depthWrite:false});
@@ -31422,7 +31456,7 @@ function rebuild3d(){
     /* 그림자 받는 바닥(투명, 그림자만 보임) */
     var sc0=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.ShadowMaterial({opacity:0.3}));sc0.rotation.x=-Math.PI/2;sc0.position.y=0.001;sc0.receiveShadow=true;root.add(sc0);
     ST.items.forEach(function(it){if(!CAT[it.t])return;var gi=buildItem(it,!!pr.bad[it.id]);
-      gi.traverse(function(o){if(o.isMesh){o.castShadow=!(o.material&&o.material.transparent&&o.material.opacity<0.5);o.receiveShadow=true;}});root.add(gi);});
+      gi.traverse(function(o){if(o.isMesh){o.castShadow=!o.userData.ns&&!(o.material&&o.material.transparent&&o.material.opacity<0.5);o.receiveShadow=true;}});root.add(gi);});
     if(R3.sun){var ext=Math.max(w,d)/2+1.5,sh=R3.sun.shadow.camera;R3.sun.position.set(1.2,8,1.8);R3.sun.target.position.set(0,0,0);
       sh.left=-ext;sh.right=ext;sh.top=ext;sh.bottom=-ext;sh.near=0.5;sh.far=30;sh.updateProjectionMatrix();}
     var WHm=(ST.wallH||2400)/1000;
@@ -33259,6 +33293,45 @@ function mkPrism(p,shape,h,col){
   var geo=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false,curveSegments:64});geo.rotateX(-Math.PI/2);
   var m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:col}));m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,30),edgeMat()));p.add(m);return m;
 }
+/* 세로 골 민트 아크릴 몸통(2026-10-28 영업2팀 매장 사진 "실제 집기처럼") — 모서리가 둥근 네모(가로 w · 깊이 d · 모서리 r, 가운데 원점) 둘레를 따라
+   반원 골(간격 약 30mm)이 이어진 옆벽 + 윗면. 골마다 빛·그늘 줄무늬(fluteTex)를 입혀 조명 방향과 상관없이 골이 보이게. 바닥이 y=0인 묶음을 돌려준다 */
+var FLUTE_TEX=null;
+function fluteTex(){
+  if(FLUTE_TEX)return FLUTE_TEX;
+  var cv=document.createElement("canvas");cv.width=64;cv.height=4;var x=cv.getContext("2d"),gr=x.createLinearGradient(0,0,64,0);
+  gr.addColorStop(0,"#4aaea5");gr.addColorStop(0.2,"#78d3c9");gr.addColorStop(0.46,"#c8f4ef");gr.addColorStop(0.64,"#92e0d7");gr.addColorStop(1,"#4aaea5");
+  x.fillStyle=gr;x.fillRect(0,0,64,4);
+  FLUTE_TEX=new THREE.CanvasTexture(cv);FLUTE_TEX.wrapS=THREE.RepeatWrapping;return FLUTE_TEX;
+}
+function mkFluted(p,w,d,r,h,pitch){
+  r=Math.min(r,w/2,d/2);pitch=pitch||0.03;
+  var hw=w/2-r,hd=d/2-r,La=Math.PI*r/2,arc=function(cx,cz,a0,a1){return [La,function(t){var a=a0+(a1-a0)*t/La;return [cx+r*Math.cos(a),cz+r*Math.sin(a),Math.cos(a),Math.sin(a)];}];};
+  var S=[[2*hw,function(t){return [-hw+t,d/2,0,1];}],arc(hw,hd,Math.PI/2,0),[2*hd,function(t){return [w/2,hd-t,1,0];}],arc(hw,-hd,0,-Math.PI/2),
+         [2*hw,function(t){return [hw-t,-d/2,0,-1];}],arc(-hw,-hd,-Math.PI/2,-Math.PI),[2*hd,function(t){return [-w/2,-hd+t,-1,0];}],arc(-hw,hd,Math.PI,Math.PI/2)];
+  var Lp=S.reduce(function(a,q){return a+q[0];},0),at=function(s){for(var i=0;i<S.length;i++){if(s<=S[i][0]||i===S.length-1)return S[i][1](Math.min(s,S[i][0]));s-=S[i][0];}};
+  var n=Math.max(8,Math.round(Lp/pitch)),sub=6,M=n*sub,amp=Lp/n*0.3,P=[];
+  for(var i=0;i<M;i++){var b=at(i*Lp/M),o=amp*Math.sin(Math.PI*(i%sub)/sub);P.push([b[0]+b[2]*o,b[1]+b[3]*o]);}
+  var pos=[],nor=[],uv=[],idx=[];
+  for(i=0;i<=M;i++){
+    var q=P[i%M],a=P[(i-1+M)%M],c=P[(i+1)%M],tx=c[0]-a[0],tz=c[1]-a[1],tl=Math.hypot(tx,tz)||1;
+    pos.push(q[0],0,q[1],q[0],h,q[1]);nor.push(-tz/tl,0,tx/tl,-tz/tl,0,tx/tl);uv.push(i/sub,0,i/sub,1);
+    if(i<M){var k=i*2;idx.push(k,k+2,k+3,k,k+3,k+1);}
+  }
+  var geo=new THREE.BufferGeometry();geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));geo.setAttribute("normal",new THREE.Float32BufferAttribute(nor,3));
+  geo.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));geo.setIndex(idx);
+  var G=new THREE.Group();G.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:0xc6eeee,map:fluteTex()})));   /* 사진 민트(#6fd0c8 안팎)에 맞춤 */
+  var cap=new THREE.ShapeGeometry(new THREE.Shape(P.map(function(q){return new THREE.Vector2(q[0],-q[1]);})));cap.rotateX(-Math.PI/2);cap.translate(0,h,0);
+  G.add(new THREE.Mesh(cap,new THREE.MeshLambertMaterial({color:0x5a9e96})));   /* 윗면은 빛을 많이 받아 옆면보다 어둡게 둔다 */
+  [0,h].forEach(function(y){var lg=new THREE.BufferGeometry().setFromPoints(P.map(function(q){return new THREE.Vector3(q[0],y,q[1]);}));G.add(new THREE.LineLoop(lg,edgeMat()));});
+  p.add(G);return G;
+}
+/* 유리 상판(2026-10-28 영업2팀 매장 사진) — 윗면·아랫면은 맑고 옅은 유리, 옆면(두께)은 유리 단면처럼 청록. 그림자는 만들지 않는다(userData.ns) */
+function mkGlass(p,shape,t){
+  var geo=new THREE.ExtrudeGeometry(shape,{depth:t,bevelEnabled:false,curveSegments:64});geo.rotateX(-Math.PI/2);
+  var m=new THREE.Mesh(geo,[new THREE.MeshPhongMaterial({color:0xbfe9e1,specular:0xffffff,shininess:90,transparent:true,opacity:0.42,depthWrite:false}),
+                            new THREE.MeshLambertMaterial({color:0x4fb8a8,transparent:true,opacity:0.85})]);
+  m.userData.ns=1;m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,30),new THREE.LineBasicMaterial({color:0x3f9e90})));p.add(m);return m;
+}
 /* 사진 윤곽 → 셰이프(가로 w · 높이 h m, 바닥 가운데 기준). 열 96개로 나눠 위·아래 끝을 잇는다. 키마다 한 번 계산(SILC) */
 var SILC={};
 function silShape(k,w,h){
@@ -33538,17 +33611,15 @@ function buildItem(it,bad){
     var ls=Math.min(w,h)*0.34,lo=new THREE.Mesh(new THREE.PlaneGeometry(ls,ls),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(lc),transparent:true}));
     lo.position.set(-w*0.14,h*0.68,d/2+0.002);g.add(lo);
   }else if(c.k==="acr3"){
-    /* 청주 3단 아크릴 집기 — 모듈마다 흰 바닥 판(스타디움) · 세로 골이 진 민트 아크릴 판 · 짙은 청록 반투명 아크릴 상판, 가운데 모듈 양끝에 흰 기둥.
-       크기를 바꾸면 통째로 늘린다(기본 3370 × 1000 × 800) */
-    var A=acr3Mods(it.j),S=new THREE.Group(),L3=A.L/1000,Dm=A.Dm/1000,bt=0.03,tp=0.12,lp=L3*0.5,sp=0.026;
-    var GL=new THREE.MeshLambertMaterial({color:0x0e5a60,transparent:true,opacity:0.55,depthWrite:false}),RB=new THREE.MeshLambertMaterial({color:0x9fe3d6}),RG=new THREE.CylinderGeometry(0.011,0.011,1,10);
+    /* 청주 3단 아크릴 집기 — 모듈마다 흰 바닥 판(스타디움) · 세로 골 민트 아크릴 몸통 · 유리 상판, 가운데 모듈 양끝에 흰 기둥.
+       2026-10-28 영업2팀 매장 사진 "실제 집기처럼": 몸통은 얇은 판 → 모서리가 둥근 통(길이 62% · 깊이 70%, 둘레 전체 골 mkFluted),
+       상판은 짙은 청록 → 맑은 유리(mkGlass), 바닥 판은 두껍게(60). 크기를 바꾸면 통째로 늘린다(기본 3370 × 1000 × 800) */
+    var A=acr3Mods(it.j),S=new THREE.Group(),L3=A.L/1000,Dm=A.Dm/1000,bt=0.06,gt=0.012;
     A.m.forEach(function(m){
-      var M=new THREE.Group(),H=m.h/1000,ph=H-bt-0.05;M.position.set(m.x/1000,0,m.z/1000);M.rotation.y=m.a;S.add(M);
+      var M=new THREE.Group(),H=m.h/1000;M.position.set(m.x/1000,0,m.z/1000);M.rotation.y=m.a;S.add(M);
       mkPrism(M,stadium(L3,Dm,0),bt,0xf7f8f8);                                                  /* 흰 바닥 판 */
-      mkPrism(M,stadium(lp+tp,tp,0),ph,0x8fdccc).position.y=bt;                                 /* 민트 아크릴 판 */
-      for(var rx=-lp/2;rx<=lp/2+1e-6;rx+=sp)[-1,1].forEach(function(b){var r=new THREE.Mesh(RG,RB);r.scale.y=ph;r.position.set(rx,bt+ph/2,b*tp/2);M.add(r);});   /* 세로 골 */
-      var gg=new THREE.ExtrudeGeometry(stadium(L3,Dm,0),{depth:0.015,bevelEnabled:false,curveSegments:48});gg.rotateX(-Math.PI/2);
-      var gm=new THREE.Mesh(gg,GL);gm.position.y=H-0.015;M.add(gm);                             /* 짙은 청록 상판 */
+      mkFluted(M,L3*0.62,Dm*0.7,0.09,H-bt-gt).position.y=bt;                                    /* 세로 골 민트 몸통 */
+      mkGlass(M,stadium(L3,Dm,0),gt).position.y=H-gt;                                           /* 유리 상판 */
     });
     var PH=A.m[0].h/1000;
     A.J.forEach(function(q){mkCyl(S,0.025,PH-bt,q[0]/1000,bt+(PH-bt)/2,q[1]/1000,0xf7f8f8,24);});   /* 흰 기둥 = 관절 */
@@ -33603,10 +33674,7 @@ function buildItem(it,bad){
        민트 세로 골 받침(길이 55% · 깊이 76%, 한쪽 끝에서 6% 들어와 있음) · 두꺼운 흰 상판(약 120)이 반대쪽으로 길게 나옴 ·
        받침 위 상판에 청록 반투명 아크릴 상자(길이 50% · 깊이 80%) + 바닥에 밝게 빛나는 테두리. it.f = 좌우반전(받침·상자가 오른쪽으로) */
     var sg=it.f?-1:1,tt=Math.min(0.12,h*0.16),bL=w*0.55,bD=d*0.76,bH=h-tt,bx=sg*(-w/2+w*0.06+bL/2),MT=0x9fe3d6,RB=0x86d6c6;
-    mk(g,bL,bH,bD,bx,bH/2,0,MT);                                                   /* 받침 */
-    var rg=new THREE.CylinderGeometry(0.011,0.011,bH-0.02,8),rm=new THREE.MeshLambertMaterial({color:RB});
-    for(var rx=-bL/2+0.02;rx<=bL/2-0.02+1e-6;rx+=0.032)[-1,1].forEach(function(b){var r=new THREE.Mesh(rg,rm);r.position.set(bx+rx,bH/2,b*(bD/2+0.002));g.add(r);});   /* 앞뒤 세로 골 */
-    for(var rz=-bD/2+0.02;rz<=bD/2-0.02+1e-6;rz+=0.032)[-1,1].forEach(function(b){var r=new THREE.Mesh(rg,rm);r.position.set(bx+b*(bL/2+0.002),bH/2,rz);g.add(r);});   /* 옆 세로 골 */
+    mkFluted(g,bL,bD,0.02,bH).position.x=bx;                                       /* 세로 골 받침(2026-10-28 3단 아크릴과 같은 골 — mkFluted) */
     mk(g,w,tt,d,0,h-tt/2,0,0xf7f8f8);                                             /* 흰 상판 */
     var aL=w*0.5,aD=d*0.8,aH=Math.min(0.13,h*0.17),ax=sg*(-w/2+w*0.06+aL/2),az=-d*0.04;
     var am=new THREE.MeshLambertMaterial({color:0x0a6870,transparent:true,opacity:0.5,depthWrite:false});
@@ -33715,7 +33783,7 @@ function rebuild3d(){
     /* 그림자 받는 바닥(투명, 그림자만 보임) */
     var sc0=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.ShadowMaterial({opacity:0.3}));sc0.rotation.x=-Math.PI/2;sc0.position.y=0.001;sc0.receiveShadow=true;root.add(sc0);
     ST.items.forEach(function(it){if(!CAT[it.t])return;var gi=buildItem(it,!!pr.bad[it.id]);
-      gi.traverse(function(o){if(o.isMesh){o.castShadow=!(o.material&&o.material.transparent&&o.material.opacity<0.5);o.receiveShadow=true;}});root.add(gi);});
+      gi.traverse(function(o){if(o.isMesh){o.castShadow=!o.userData.ns&&!(o.material&&o.material.transparent&&o.material.opacity<0.5);o.receiveShadow=true;}});root.add(gi);});
     if(R3.sun){var ext=Math.max(w,d)/2+1.5,sh=R3.sun.shadow.camera;R3.sun.position.set(1.2,8,1.8);R3.sun.target.position.set(0,0,0);
       sh.left=-ext;sh.right=ext;sh.top=ext;sh.bottom=-ext;sh.near=0.5;sh.far=30;sh.updateProjectionMatrix();}
     var WHm=(ST.wallH||2400)/1000;
