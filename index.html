@@ -651,8 +651,12 @@ label{font-size:14px!important}
 .pdf-pg{border:1px solid #d8dee6;border-radius:10px;background:#fff;padding:6px;display:flex;flex-direction:column;gap:4px;font-size:12px}
 .pdf-pg.sel{border-color:#1b6e82;box-shadow:0 0 0 2px rgba(27,110,130,.35)}
 .pdf-pg.over{border-color:#e8734a;border-style:dashed}
-.pdf-pg .pdf-th{height:170px;display:flex;align-items:center;justify-content:center;background:#f1f4f7;border-radius:6px;cursor:pointer;overflow:hidden}
+.pdf-pg .pdf-th{position:relative;height:190px;display:flex;align-items:center;justify-content:center;background:#f1f4f7;border-radius:6px;cursor:pointer;overflow:hidden;border:1px solid transparent}
+.pdf-pg .pdf-th:hover{border-color:#1b6e82;background:#e6f4f6}
 .pdf-pg .pdf-th img{max-width:100%;max-height:100%;box-shadow:0 1px 4px rgba(0,0,0,.25);background:#fff}
+.pdf-pg .pdf-th-tag{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);white-space:nowrap;background:rgba(27,110,130,.88);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;pointer-events:none}
+.pdf-pg .pdf-write{border:1px solid #1b6e82;background:#1b6e82;color:#fff;border-radius:6px;padding:4px 0;font-size:12px;font-weight:700;cursor:pointer}
+.pdf-pg .pdf-write:hover{background:#154f5e}
 .pdf-pg .pdf-bt{display:flex;gap:3px;flex-wrap:wrap}
 .pdf-pg .pdf-bt button{flex:1;min-width:0;border:1px solid #cbd5e1;background:#f8fafc;border-radius:5px;padding:2px 0;font-size:12px;cursor:pointer;color:#334155}
 .pdf-pg .pdf-bt button:hover{background:#e6f4f6}
@@ -2507,7 +2511,7 @@ label{font-size:14px!important}
     </div>
     <div style="font-size:12.5px;color:#5b6675;margin-top:8px;line-height:1.7">
       PDF를 여러 개 올리면 쪽이 차례로 이어집니다. 쪽을 <b>끌어서 순서</b>를 바꾸고(◀ ▶), ⟳로 돌리고, ✕로 뺍니다.
-      쪽을 누르면 <b>✏ 쓰기</b> 창이 열려 글자·서명·도장·펜·형광펜·네모·가리기를 넣고, 신청서처럼 <b>입력칸이 든 PDF</b>(📝 표시)는 그 칸을 바로 채울 수 있습니다.
+      쪽 그림이나 <b>✍ 쓰기 · 양식 채우기</b> 단추를 누르면 쓰기 창이 열려 글자·서명·도장·펜·형광펜·네모·가리기를 넣고, 신청서처럼 <b>입력칸이 든 PDF</b>(📝 표시)는 그 칸을 바로 채울 수 있습니다.
       파일은 <b>이 브라우저 안에서만</b> 다루고 서버로 보내지 않습니다(새로고침하면 비워집니다).
     </div>
     <label id="pdfDrop" style="display:block;border:2px dashed #cbd5e1;border-radius:10px;padding:18px 12px;text-align:center;cursor:pointer;font-size:13px;color:#5b6675;background:#fafafa;margin-top:10px">
@@ -9759,16 +9763,18 @@ function pdfRender(){
   g.innerHTML=pdfPages.map(function(p,k){
     var nm=pdfSrcs[p.s].name.replace(/\.pdf$/i,"");
     return '<div class="pdf-pg'+(p.sel?' sel':'')+'" draggable="true" ondragstart="_pdfDS(event,'+k+')" ondragover="_pdfDO(event,this)" ondragleave="this.classList.remove(\'over\')" ondrop="_pdfDP(event,'+k+')" ondragend="_pdfDragK=-1">'
-      +'<div class="pdf-th" onclick="pdfEdOpen('+k+')" title="눌러서 쓰기">'+(p.thumb?'<img src="'+p.thumb+'" alt="" draggable="false">':'…')+'</div>'
+      +'<div class="pdf-th" onclick="pdfEdOpen('+k+')" title="눌러서 크게 보고 쓰기">'+(p.thumb?'<img src="'+p.thumb+'" alt="" draggable="false">':'…')
+      +'<span class="pdf-th-tag">🔍 눌러서 쓰기</span></div>'
       +'<div style="display:flex;align-items:center;gap:4px;min-width:0">'
-      +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:700;color:#334155;flex:none"><input type="checkbox" '+(p.sel?'checked':'')+' onchange="pdfPages['+k+'].sel=this.checked;pdfRender()" style="margin:0">'+(k+1)+'쪽</label>'
+      +'<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:700;color:#334155;flex:none;white-space:nowrap"><input type="checkbox" '+(p.sel?'checked':'')+' onchange="pdfPages['+k+'].sel=this.checked;pdfRender()" style="margin:0">'+(k+1)+'쪽</label>'
       +(p.anns.length?'<span style="font-size:11px;color:#c2410c;font-weight:700;flex:none" title="쓴 것 '+p.anns.length+'개">✏'+p.anns.length+'</span>':'')
       +((p.fields||[]).length?'<span style="font-size:11px;color:#1d4ed8;font-weight:700;flex:none" title="양식 칸 '+p.fields.length+'개'+(_pdfFDirty(p)?' (채움)':'')+'">📝'+p.fields.length+(_pdfFDirty(p)?'✓':'')+'</span>':'')
       +'<span style="margin-left:auto;font-size:11px;color:#5b6675;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="'+_esc(pdfSrcs[p.s].name)+' '+(p.i+1)+'쪽">'+(multi?_esc(nm)+' ':'')+'p'+(p.i+1)+'</span></div>'
+      +'<button class="pdf-write" onclick="pdfEdOpen('+k+')">✍ 쓰기 · 양식 채우기</button>'
       +'<div class="pdf-bt">'
-      +'<button onclick="pdfMove('+k+',-1)" title="앞으로">◀</button><button onclick="pdfMove('+k+',1)" title="뒤로">▶</button>'
+      +'<button onclick="pdfMove('+k+',-1)" title="앞으로 옮기기">◀</button><button onclick="pdfMove('+k+',1)" title="뒤로 옮기기">▶</button>'
       +'<button onclick="pdfRotate('+k+',-90)" title="왼쪽으로 돌리기">⟲</button><button onclick="pdfRotate('+k+',90)" title="오른쪽으로 돌리기">⟳</button>'
-      +'<button onclick="pdfEdOpen('+k+')" title="쓰기">✏</button><button onclick="pdfDel('+k+')" title="이 쪽 빼기" style="color:#b91c1c">✕</button>'
+      +'<button onclick="pdfDel('+k+')" title="이 쪽 빼기" style="color:#b91c1c">✕</button>'
       +'</div></div>';
   }).join("");
 }
