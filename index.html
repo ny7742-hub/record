@@ -2424,7 +2424,7 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
       <div class="sec-title" style="margin:0;font-size:14px" id="ecTitle">🧮 이카운트 매장 발주</div>
-      <span style="display:inline-flex;gap:4px"><button class="bs" id="ecKindOrd" onclick="ecKind('ord')" style="padding:4px 12px;font-size:12.5px;font-weight:700">📦 매장 발주</button><button class="bs" id="ecKindRet" onclick="ecKind('ret')" style="padding:4px 12px;font-size:12.5px;font-weight:700">↩ 매장 반품</button></span>
+      <span style="display:inline-flex;gap:4px"><button class="bs" id="ecKindOrd" onclick="ecKind('ord')" style="padding:4px 12px;font-size:12.5px;font-weight:700">📦 매장 발주</button><button class="bs" id="ecKindRet" onclick="ecKind('ret')" style="padding:4px 12px;font-size:12.5px;font-weight:700">↩ 매장 반품</button><button class="bs" id="ecKindStk" onclick="ecKind('stk')" style="padding:4px 12px;font-size:12.5px;font-weight:700">📥 창고 재고 등록</button></span>
       <span id="ecSummary" style="font-size:12px;color:#5b6675;font-weight:600"></span>
     </div>
     <div style="font-size:12px;color:#5b6675;margin-bottom:10px;line-height:1.6" id="ecDesc"></div>
@@ -2432,11 +2432,11 @@ label{font-size:14px!important}
     <div class="sec-title" style="font-size:13px;margin:4px 0 6px" id="ecSec1">① 발주 요청</div>
     <div id="ecForm"></div>
   </div>
-  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+  <div class="card" id="ecCard2" style="margin-bottom:12px;padding:12px 16px">
     <div class="sec-title" style="font-size:13px;margin:0 0 8px" id="ecSec2">② 발주 목록 · 승인</div>
     <div id="ecList"></div>
   </div>
-  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+  <div class="card" id="ecCard3" style="margin-bottom:12px;padding:12px 16px">
     <div class="sec-title" style="font-size:13px;margin:0 0 8px" id="ecSec3">③ 출고 — 이카운트 창고이동 · 도매발주서</div>
     <div id="ecShipBox"></div>
   </div>
@@ -10848,19 +10848,24 @@ function _ecEcHtml(code,whCode){
   var q=ecStockQty(code,whCode);
   return '<span title="이카운트 '+_escX(whCode||"")+' 재고" style="color:#6d28d9;font-weight:700;white-space:nowrap">이카 '+(q===null?'–':q)+'</span>';
 }
-var _ecKind="ord",_ecDrafts={ord:{store:"",items:[],memo:""},ret:{store:"",items:[],memo:""}};
+var _ecKind="ord",_ecDrafts={ord:{store:"",items:[],memo:""},ret:{store:"",items:[],memo:""},
+  stk:(function(){try{var d=JSON.parse(localStorage.getItem("ecStkDraft")||"null");return d&&d.items?d:null;}catch(e){return null;}})()||{store:"",items:[],memo:""}};
 var EC_TXT={
   ord:{title:"🧮 이카운트 매장 발주",what:"발주",sec1:"① 발주 요청",sec2:"② 발주 목록 · 승인",sec3:"③ 출고 — 이카운트 창고이동 · 도매발주서",btn:"📨 발주 요청",memo:"메모(선택) — 예: 주말 행사분",
     desc:'① 매장이 상품을 담아 <b>발주 요청</b> → ② 본사(관리자)가 수량을 보고 <b>승인</b>(본사 추가 가능) → ③ 승인된 주문으로 <b>이카운트 창고이동 엑셀</b>(NH → 매장 창고)과 <b>도매발주서</b>(물류)를 받아 출고합니다.',
     done:"출고",doneBtn:"✔ 출고 처리",dateLab:"이동일자"},
   ret:{title:"🧮 이카운트 매장 반품",what:"반품",sec1:"① 반품 요청",sec2:"② 반품 목록 · 승인",sec3:"③ 입고 — 이카운트 창고이동(매장 → NH)",btn:"📨 반품 요청",memo:"반품 사유(선택) — 예: 시즌 종료 회수 · 고객 반품 불량",
     desc:'① 매장이 돌려보낼 상품을 담아 <b>반품 요청</b>(불량은 체크) → ② 본사(관리자)가 수량을 보고 <b>승인</b> → ③ 물류에 들어오면 <b>이카운트 창고이동 엑셀</b>(매장 창고 → NH, 불량은 불량창고)을 받아 <b>입고 처리</b>합니다.',
-    done:"입고",doneBtn:"✔ 입고 처리",dateLab:"입고일자"}
+    done:"입고",doneBtn:"✔ 입고 처리",dateLab:"입고일자"},
+  stk:{title:"🧮 이카운트 창고 재고 등록",what:"재고 등록",sec1:"① 창고 고르고 품목·수량 담기",sec2:"",sec3:"",btn:"",memo:"적요(선택) — 예: 10월 말 재고실사",
+    desc:'창고를 고르고 품목·수량을 담으면(검색 · 엑셀 불러오기 · PlayMD 창고재고 그대로) 이카운트 <b>웹자료올리기</b>에 붙여넣을 엑셀을 만듭니다. '
+      +'<b>재고조정</b>(재고Ⅰ › 기타 › 재고조정) = 담은 수량을 실재고로 보고 이카운트 재고와의 <b>차이</b>만 올림 · <b>기초재고</b>(기초등록 › 기초재고) = 담은 수량 그대로.',
+    done:"",doneBtn:"",dateLab:"일자"}
 };
 function _ecT(){return EC_TXT[_ecKind];}
-function _ecData(){return _ecKind==="ret"?ecReturns:ecOrders;}
+function _ecData(){return _ecKind==="ret"?ecReturns:_ecKind==="stk"?{}:ecOrders;}
 function _ecStLab(st){return st==="출고"?_ecT().done:st;}
-function ecKind(k){_ecDrafts[_ecKind]=_ecDraft;_ecKind=k==="ret"?"ret":"ord";_ecDraft=_ecDrafts[_ecKind];renderEcount();}
+function ecKind(k){_ecDrafts[_ecKind]=_ecDraft;_ecKind=k==="ret"||k==="stk"?k:"ord";_ecDraft=_ecDrafts[_ecKind];renderEcount();}
 /* 불량 입고 창고 — 기본 BAD(PlayMD 불량창고와 같은 코드, 설정에서 바꿈) */
 function _ecBad(){return String(ecConfig.bad||"BAD");}
 var ecConfig=(function(){try{return JSON.parse(localStorage.getItem("ecConfig")||"null")||{hq:"",stores:{}};}catch(e){return {hq:"",stores:{}};}})();
@@ -10889,6 +10894,7 @@ function _ecProdDl(){
 }
 /* 발주: PlayMD 주희물류 재고 + 이카운트 NH 재고 · 반품: 정상/불량 + 이카운트 매장 재고 */
 function _ecStock(code,x,store){
+  if(_ecKind==="stk")return store&&ecStock?_ecEcHtml(code,_ecWh(store)):'';
   if(_ecKind==="ret")return (x&&x.bad?'<span style="color:#b91c1c;font-weight:700">불량</span>':'<span style="color:#5b6675">정상</span>')+(store&&ecStock?' · '+_ecEcHtml(code,store):'');
   var q=typeof whQty==="function"?whQty(code):null;
   var pm=q===null?'<span style="color:#5b6675">–</span>':'<span style="color:'+(q<=WH_MIN_ORDER?"#b91c1c":"#334155")+';font-weight:'+(q<=WH_MIN_ORDER?700:400)+'">'+q+'</span>';
@@ -10929,7 +10935,7 @@ function ecRenderSearch(){
     h+='<div id="ecSr_'+k+'" onclick="ecResultClick('+k+')" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(on?"#dbeafe":"")+'\'" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;background:'+(on?"#dbeafe":"")+'">'
       +'<span style="flex:1;color:#1f2937">'+_escX(d["상품명"]||"")+'</span>'+colorChip(d["칼라명"])
       +'<span style="color:#6366f1;font-family:monospace">'+_escX(code)+'</span>'
-      +(_ecKind==="ret"?(ecStock&&(document.getElementById("ecStore")||{}).value?'<span style="min-width:62px;text-align:right">매장 '+_ecEcHtml(code,(document.getElementById("ecStore")||{}).value)+'</span>':''):'<span style="min-width:62px;text-align:right" title="주희물류 창고재고">재고 '+_ecStock(code)+'</span>')+'</div>';
+      +(_ecKind==="stk"?(ecStock&&(document.getElementById("ecStore")||{}).value?'<span style="min-width:62px;text-align:right">'+_ecStock(code,null,(document.getElementById("ecStore")||{}).value)+'</span>':''):_ecKind==="ret"?(ecStock&&(document.getElementById("ecStore")||{}).value?'<span style="min-width:62px;text-align:right">매장 '+_ecEcHtml(code,(document.getElementById("ecStore")||{}).value)+'</span>':''):'<span style="min-width:62px;text-align:right" title="주희물류 창고재고">재고 '+_ecStock(code)+'</span>')+'</div>';
   });
   box.innerHTML=h+'</div>';
   var el=document.getElementById("ecSr_"+_ecResSel);if(el)el.scrollIntoView({block:"nearest"});
@@ -10946,20 +10952,21 @@ function ecAddResult(k){
   var d=_ecRes[k];if(!d)return;
   var msg=document.getElementById("ecMsg"),say=function(t,c){if(msg){msg.style.color=c||"#5b6675";msg.textContent=t;}};
   var qs=String((document.getElementById("ecQty")||{}).value||"").replace(/[^0-9]/g,""),q=qs?parseInt(qs,10):1;
-  if(!(q>0)){say("수량을 확인해 주세요","#b91c1c");return;}
+  if(!(q>0)&&!(_ecKind==="stk"&&qs!==""&&q===0)){say("수량을 확인해 주세요","#b91c1c");return;}
   _ecDraft.store=(document.getElementById("ecStore")||{}).value||_ecDraft.store;
   var code=String(d["자사코드"]||"").trim(),label=(String(d["상품명"]||"")+" "+String(d["칼라명"]||"")).trim();
   var bad=_ecKind==="ret"&&!!(document.getElementById("ecBad")||{}).checked;
   var same=_ecDraft.items.filter(function(x){return x.code===code&&!!x.bad===bad;})[0];
   if(same)same.qty+=q;else _ecDraft.items.push(bad?{code:code,name:label,qty:q,bad:true}:{code:code,name:label,qty:q});
   var qi=document.getElementById("ecQty");if(qi)qi.value="";
+  if(_ecKind==="stk")_ecStkSave();
   renderEcount();
   var wq=_ecKind!=="ret"&&typeof whQty==="function"?whQty(code):null;
   if(wq!==null&&wq<=WH_MIN_ORDER)say("⚠ "+label+" "+q+"개 담았지만 창고재고 "+wq+"개(발주 기준 "+WH_MIN_ORDER+"개 이하)입니다","#b45309");
   else say("✔ "+label+" "+q+"개 담음"+(bad?" (불량)":""),"#047857");
   var si=document.getElementById("ecSearch");if(si)si.focus();
 }
-function ecDelItem(i){_ecDraft.items.splice(i,1);renderEcount();}
+function ecDelItem(i){_ecDraft.items.splice(i,1);if(_ecKind==="stk")_ecStkSave();renderEcount();}
 function ecSubmit(){
   var sc=(document.getElementById("ecStore")||{}).value||"";
   if(!sc){alert("매장을 골라 주세요.");return;}
@@ -11059,6 +11066,104 @@ function ecShip(){
   if(!confirm(L.length+"건("+L.map(function(o){return o.storeName;}).join(", ")+")을 "+d+" "+_ecT().done+"로 처리합니다.\n\n"+(_ecKind==="ret"?"물류에 실물이 들어온 것을 확인하고 이카운트 창고이동을 올린 뒤 눌러 주세요.":"이카운트 창고이동을 올리고 도매발주서를 물류에 보낸 뒤 눌러 주세요.")))return;
   L.forEach(function(o){o.state="출고";o.shipDate=d;o.shipBy=_saipMe();o.shipAt=new Date().toISOString();delete _ecSel[o.id];_ecPut(o.id,o);});
 }
+/* ── 📥 창고 재고 등록(2026-10-29 영업2팀 "이카운트 창고에 재고 등록할 수 있게") ──
+   창고 고르고 품목·수량 담기(검색 · 엑셀 불러오기 · PlayMD 창고재고 그대로) → 이카운트 웹자료올리기 엑셀.
+   재고조정 = 담은 수량을 실재고로 보고 이카운트 재고(ws/ecStock)와의 차이만 · 기초재고 = 담은 수량 그대로.
+   담는 중인 목록은 이 PC에만(localStorage ecStkDraft) — 팀 공유·승인 없이 엑셀만 만든다 */
+function _ecStkSave(){try{localStorage.setItem("ecStkDraft",JSON.stringify(_ecDrafts.stk));}catch(e){}}
+function _ecStkWhs(){return [{code:_ecHq(),name:"본사 창고"},{code:_ecBad(),name:"불량창고"}].concat(_ecStores());}
+function _ecStkName(code){var w=_ecStkWhs().filter(function(s){return s.code===code;})[0];return w?w.name:code;}
+/* 이카운트 재고와 차이 — 창고 자료가 없으면 null */
+function _ecStkHas(store){return !!(ecStock&&store&&_ecStockKey(_ecWh(store)));}
+function _ecStkCur(code,store){return _ecStkHas(store)?ecStockQty(code,_ecWh(store)):null;}
+function ecStkSet(i,v){var x=_ecDraft.items[i];if(!x)return;var n=parseInt(String(v).replace(/[^0-9]/g,""),10);x.qty=isNaN(n)?0:n;_ecStkSave();renderEcount();}
+function ecStkClear(){if(!_ecDraft.items.length||!confirm("담은 "+_ecDraft.items.length+"품목을 모두 비웁니다."))return;_ecDraft.items=[];_ecStkSave();renderEcount();}
+function _ecStkPut(code,name,q,add){
+  var x=_ecDraft.items.filter(function(y){return y.code===code;})[0];
+  if(x)x.qty=add?x.qty+q:q;else _ecDraft.items.push({code:code,name:name,qty:q});
+}
+/* 엑셀 불러오기 — 머리글에 자사코드/품목코드/상품코드 + 수량/실사/재고 칸이 있는 표. 같은 품목은 수량을 더한다 */
+function ecStkLoad(input){
+  var f=input.files&&input.files[0];if(!f)return;input.value="";
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:"array"}),P=_ocProdList(),got={},miss=[],rows=0;
+      wb.SheetNames.forEach(function(sn){
+        if(rows)return;
+        var a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:"",raw:true}),hi=-1;
+        for(var r=0;r<Math.min(20,a.length);r++){if((a[r]||[]).some(function(c){return /자사\s*코드|품목\s*코드|상품\s*코드/.test(String(c));})){hi=r;break;}}
+        if(hi<0)return;
+        var H=a[hi].map(function(c){return String(c).replace(/\s+/g,"");});
+        var ci=-1;["자사코드","품목코드","상품코드"].some(function(k){ci=H.indexOf(k);return ci>=0;});
+        if(ci<0)ci=H.findIndex(function(h){return /코드/.test(h);});
+        var qi=-1;["실사수량","실사","등록수량","재고수량","현재고","재고","수량"].some(function(k){qi=H.findIndex(function(h,j){return j!==ci&&h.indexOf(k)>=0;});return qi>=0;});
+        var ni=H.findIndex(function(h){return /품목명|상품명/.test(h);});
+        if(qi<0)return;
+        for(var r2=hi+1;r2<a.length;r2++){
+          var row=a[r2]||[],c=String(row[ci]||"").trim().toUpperCase(),q=_ecNum(row[qi]);
+          if(!c||q===null||/합계|소계/.test(c))continue;
+          var it=P.by[c];
+          if(!it)miss.push(c);
+          got[c]={name:it?it.label:String(ni>=0?row[ni]:"").trim()||c,q:((got[c]||{}).q||0)+q};rows++;
+        }
+      });
+      var ks=Object.keys(got);
+      if(!ks.length){alert("'자사코드(품목코드)'와 '수량(실사·재고)' 칸을 찾지 못했습니다.\n\n첫 줄 근처에 두 칸의 머리글이 있는 엑셀을 올려 주세요.");return;}
+      ks.forEach(function(c){_ecStkPut(c,got[c].name,Math.max(0,Math.round(got[c].q)),true);});
+      _ecStkSave();renderEcount();
+      alert(f.name+"에서 "+ks.length+"품목을 담았습니다."+(miss.length?"\n\n상품데이터에 없는 코드 "+miss.length+"개: "+miss.slice(0,10).join(", ")+(miss.length>10?" …":"")+"\n(코드 그대로 담았습니다 — 이카운트 품목코드와 같은지 확인해 주세요)":""));
+    }catch(err){alert("엑셀을 읽지 못했습니다: "+err.message);}
+  };
+  rd.readAsArrayBuffer(f);
+}
+/* PlayMD 주희물류 창고재고(홈에서 올린 창고재고현황)를 그대로 담는다 — 본사 창고를 이카운트에 처음 맞출 때 */
+function ecStkFromPM(){
+  if(typeof whStock==="undefined"||!whStock.n){alert("PlayMD 창고재고가 아직 없습니다 — 홈에서 창고재고현황을 먼저 올려 주세요.");return;}
+  var F=_whFlat(),P=_ocProdList(),ks=Object.keys(F).filter(function(k){return +F[k]>0;});
+  if(!ks.length){alert("PlayMD 창고재고에 수량이 있는 품목이 없습니다.");return;}
+  if(!confirm("PlayMD 주희물류 창고재고 "+ks.length+"품목을 담습니다.\n\n이미 담은 품목은 PlayMD 수량으로 바꿉니다."))return;
+  ks.forEach(function(k){
+    var it=P.by[k];
+    if(!it){var c=P.list.filter(function(o){return o.code.toUpperCase().indexOf(k)===0;});if(c.length===1)it=c[0];}
+    _ecStkPut(it?it.code:k,it?it.label:k,+F[k],false);
+  });
+  _ecStkSave();renderEcount();
+}
+function _ecStkDate(){return ((document.getElementById("ecStkDate")||{}).value||_ecToday()).replace(/-/g,"");}
+function ecStkDl(kind){
+  var st=(document.getElementById("ecStore")||{}).value||_ecDraft.store;
+  if(!st){alert("창고를 골라 주세요.");return;}
+  if(!_ecDraft.items.length){alert("담은 품목이 없습니다.");return;}
+  var wh=_ecWh(st),d=_ecStkDate(),memo=String((document.getElementById("ecMemo")||{}).value||"").trim(),aoa,nm;
+  if(kind==="base"){
+    aoa=[["창고코드","품목코드","품목명","수량"]];
+    _ecDraft.items.forEach(function(x){if(+x.qty>0)aoa.push([wh,x.code,x.name,+x.qty]);});
+    nm="이카운트_기초재고_"+wh+"_"+d+".xlsx";
+  }else{
+    var has=_ecStkHas(st),all=has&&!!(document.getElementById("ecStkAll")||{}).checked,seen={},note=memo||"재고조정(자비스)";
+    aoa=[["일자","순서","창고","품목코드","품목명","수량","적요"]];
+    _ecDraft.items.forEach(function(x){
+      seen[String(x.code).toUpperCase()]=1;
+      var cur=has?(+_ecStkCur(x.code,st)||0):0,q=(+x.qty||0)-cur;
+      if(q)aoa.push([d,1,wh,x.code,x.name,q,note+(has?" · 실재고 "+x.qty+" / 이카 "+cur:"")]);
+    });
+    /* 전수 실사: 이카운트에 재고가 있는데 담지 않은 품목은 0으로 */
+    if(all){var m=ecStock.wh[_ecStockKey(wh)]||{},P=_ocProdList();Object.keys(m).forEach(function(c){
+      if(seen[c]||!+m[c])return;var it=P.by[c];aoa.push([d,1,wh,it?it.code:c,it?it.label:c,-m[c],note+" · 실사 없음 → 0"]);});}
+    if(aoa.length<2){alert("이카운트 재고와 차이 나는 품목이 없습니다 — 올릴 것이 없습니다.");return;}
+    if(!has&&!confirm("이카운트 "+wh+" 창고재고 자료가 없어 담은 수량을 그대로 조정 수량(+)으로 넣습니다.\n\n실재고 기준으로 맞추려면 위 '📤 이카운트 재고현황 올리기'를 먼저 해 주세요. 그대로 받을까요?"))return;
+    nm="이카운트_재고조정_"+wh+"_"+d+".xlsx";
+  }
+  var ws=XLSX.utils.aoa_to_sheet(aoa);ws["!cols"]=_xlFitCols(aoa);
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,kind==="base"?"기초재고":"재고조정");
+  XLSX.writeFile(wb,nm);
+}
+/* 창고 고르기 칸 — 발주·반품은 매장만, 재고 등록은 본사·불량창고도 */
+function _ecStoreOpts(){
+  var L=_ecKind==="stk"?_ecStkWhs():_ecStores();
+  return '<option value="">'+(_ecKind==="stk"?"창고 선택":"매장 선택")+'</option>'+L.map(function(s){return '<option value="'+_escX(s.code)+'">'+_escX(s.name+" ("+_ecWh(s.code)+")")+'</option>';}).join("");
+}
 /* ── 창고코드 설정(관리자) ── */
 function ecSaveConf(){
   if(!_ecAdmin()){alert("관리자만 바꿀 수 있습니다.");return;}
@@ -11090,9 +11195,11 @@ function renderEcount(){
         :'<span style="color:#5b6675">아직 없음 — 이카운트 <b>재고현황(창고별)</b>을 엑셀로 저장해 올리면 상품 옆에 <b style="color:#6d28d9">이카</b> 재고가 같이 보입니다</span>')
       +'<label class="bs" style="cursor:pointer;padding:3px 10px;font-size:12px;font-weight:700;margin-left:auto">📤 이카운트 재고현황 올리기<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="ecStockLoad(this)"></label>';
   }
-  [["ecKindOrd","ord",rqO],["ecKindRet","ret",rqR]].forEach(function(a){var b=document.getElementById(a[0]);if(!b)return;var on=_ecKind===a[1];
-    b.style.background=on?"#1b6e82":"";b.style.color=on?"#fff":"";b.style.borderColor=on?"#1b6e82":"";b.textContent=(a[1]==="ord"?"📦 매장 발주":"↩ 매장 반품")+(a[2]?" ("+a[2]+")":"");});
-  var sum=document.getElementById("ecSummary");if(sum)sum.textContent="승인 대기 "+nReq+"건 · "+T.done+" 대기 "+nOk+"건"+(adm?" · 관리자":"");
+  [["ecKindOrd","ord",rqO],["ecKindRet","ret",rqR],["ecKindStk","stk",0]].forEach(function(a){var b=document.getElementById(a[0]);if(!b)return;var on=_ecKind===a[1];
+    b.style.background=on?"#1b6e82":"";b.style.color=on?"#fff":"";b.style.borderColor=on?"#1b6e82":"";b.textContent={ord:"📦 매장 발주",ret:"↩ 매장 반품",stk:"📥 창고 재고 등록"}[a[1]]+(a[2]?" ("+a[2]+")":"");});
+  var stk=_ecKind==="stk";
+  ["ecCard2","ecCard3"].forEach(function(id){var c=document.getElementById(id);if(c)c.style.display=stk?"none":"";});
+  var sum=document.getElementById("ecSummary");if(sum)sum.textContent=stk?(_ecDraft.store?_ecStkName(_ecDraft.store)+" · ":"")+_ecDraft.items.length+"품목 · "+_ecSum(_ecDraft)+"개":"승인 대기 "+nReq+"건 · "+T.done+" 대기 "+nOk+"건"+(adm?" · 관리자":"");
   /* ① 담기 */
   _ecProdDl();
   var f=document.getElementById("ecForm");
@@ -11100,8 +11207,7 @@ function renderEcount(){
     var keep={memo:(document.getElementById("ecMemo")||{}).value};
     if(!document.getElementById("ecSearch")){
       f.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
-        +'<select id="ecStore" onchange="_ecDraft.store=this.value" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"><option value="">매장 선택</option>'
-        +_ecStores().map(function(s){return '<option value="'+_escX(s.code)+'">'+_escX(s.name+" ("+s.code+")")+'</option>';}).join("")+'</select>'
+        +'<select id="ecStore" onchange="_ecDraft.store=this.value;if(_ecKind===\'stk\'){_ecStkSave();renderEcount();ecRenderSearch();}" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></select>'
         +'<input id="ecSearch" oninput="ecSearchInput()" onkeydown="ecSearchKey(event)" autocomplete="off" placeholder="상품명·칼라·자사코드 (예: 루시 베이지)" style="flex:1;min-width:240px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
         +'<input id="ecQty" inputmode="numeric" placeholder="수량(1)" style="width:70px;padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;text-align:right" onkeydown="if(event.key===\'Enter\')ecAddItem()">'
         +'<label id="ecBadLab" style="font-size:12.5px;color:#b91c1c;font-weight:700;display:none;align-items:center;gap:3px"><input type="checkbox" id="ecBad"> 불량</label>'
@@ -11109,9 +11215,45 @@ function renderEcount(){
         +'<span id="ecMsg" style="font-size:12px;color:#5b6675"></span></div>'
         +'<div id="ecSr"></div><div id="ecDraftBox"></div>';
     }
-    var stSel=document.getElementById("ecStore");if(stSel&&!stSel.value&&_ecDraft.store)stSel.value=_ecDraft.store;
+    var stSel=document.getElementById("ecStore");
+    if(stSel&&stSel.dataset.kind!==_ecKind){stSel.innerHTML=_ecStoreOpts();stSel.dataset.kind=_ecKind;stSel.value=_ecDraft.store||"";}
+    if(stSel&&!stSel.value&&_ecDraft.store)stSel.value=_ecDraft.store;
+    var qIn=document.getElementById("ecQty");if(qIn)qIn.placeholder=stk?"수량":"수량(1)";
     var bl=document.getElementById("ecBadLab");if(bl)bl.style.display=ret?"flex":"none";
     var h='';
+    if(stk){
+      var sv=_ecDraft.store||(stSel||{}).value||"",has=_ecStkHas(sv);
+      h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12.5px">'
+        +'<label class="bs" style="cursor:pointer;padding:4px 11px;font-size:12.5px;font-weight:700">📤 엑셀 불러오기<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="ecStkLoad(this)"></label>'
+        +'<button class="bs" onclick="ecStkFromPM()" style="padding:4px 11px;font-size:12.5px;font-weight:700" title="홈에서 올린 PlayMD 창고재고현황(주희물류) 수량을 그대로 담습니다">📦 PlayMD 창고재고 그대로 담기</button>'
+        +(_ecDraft.items.length?'<button class="bs" onclick="ecStkClear()" style="padding:4px 11px;font-size:12.5px;color:#b91c1c">모두 비우기</button>':'')
+        +'<span style="color:#5b6675">엑셀은 머리글에 <b>자사코드</b>(품목코드)·<b>수량</b>(실사·재고) 칸이 있으면 됩니다 · 같은 품목은 더합니다</span></div>';
+      if(_ecDraft.items.length){
+        var tc=0,td=0;
+        h+='<div style="max-height:420px;overflow-y:auto;margin-top:8px;border:1px solid #e2e8f0;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:#f1f5f9;position:sticky;top:0"><th style="text-align:left;padding:4px 6px">상품</th><th style="padding:4px 6px">자사코드</th><th style="padding:4px 6px;text-align:right">등록 수량</th>'
+          +(has?'<th style="padding:4px 6px;text-align:right">이카운트 지금</th><th style="padding:4px 6px;text-align:right" title="재고조정으로 올라갈 수량">조정</th>':'')+'<th></th></tr>'
+          +_ecDraft.items.map(function(x,i){
+            var cur=has?(+_ecStkCur(x.code,sv)||0):null,df=has?(+x.qty||0)-cur:null;if(has){tc+=cur;td+=df;}
+            return '<tr style="border-top:1px solid #e2e8f0"><td style="padding:3px 6px">'+_escX(x.name)+'</td><td style="padding:3px 6px;color:#5b6675">'+_escX(x.code)+'</td>'
+              +'<td style="padding:3px 6px;text-align:right"><input value="'+(+x.qty||0)+'" inputmode="numeric" onchange="ecStkSet('+i+',this.value)" style="width:60px;text-align:right;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;font-weight:700"></td>'
+              +(has?'<td style="padding:3px 6px;text-align:right;color:#6d28d9">'+cur+'</td><td style="padding:3px 6px;text-align:right;font-weight:800;color:'+(df>0?'#047857':df<0?'#b91c1c':'#5b6675')+'">'+(df>0?'+':'')+df+'</td>':'')
+              +'<td style="padding:3px 6px;text-align:right"><button class="bs" style="padding:2px 8px;font-size:11.5px;color:#b91c1c" onclick="ecDelItem('+i+')">빼기</button></td></tr>';}).join("")
+          +'<tr style="border-top:2px solid #cbd5e1;background:#f8fafc"><td style="padding:4px 6px;font-weight:700">'+_ecDraft.items.length+'품목</td><td></td><td style="padding:4px 6px;text-align:right;font-weight:800">'+_ecSum(_ecDraft)+'</td>'
+          +(has?'<td style="padding:4px 6px;text-align:right;color:#6d28d9">'+tc+'</td><td style="padding:4px 6px;text-align:right;font-weight:800">'+(td>0?'+':'')+td+'</td>':'')+'<td></td></tr></table></div>';
+      }
+      h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:13px">'
+        +'<label style="display:flex;align-items:center;gap:4px;white-space:nowrap">'+T.dateLab+' <input type="date" id="ecStkDate" value="'+_escX((document.getElementById("ecStkDate")||{}).value||_ecToday())+'" style="padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px"></label>'
+        +'<input id="ecMemo" placeholder="'+_escX(T.memo)+'" style="flex:1;min-width:200px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">'
+        +(has?'<label style="font-size:12.5px;display:flex;align-items:center;gap:3px;white-space:nowrap" title="이카운트에 재고가 있는데 목록에 없는 품목을 0으로 맞춥니다(창고 전체를 실사했을 때만)"><input type="checkbox" id="ecStkAll" style="width:auto;margin:0"> 전수 실사(안 담은 품목은 0)</label>':'')+'</div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
+        +'<button onclick="ecStkDl(\'adj\')" style="padding:6px 14px;font-size:13px;font-weight:800;background:#7c3aed;color:#fff;border:0;border-radius:8px;cursor:pointer">⬇ 이카운트 재고조정 엑셀</button>'
+        +'<button onclick="ecStkDl(\'base\')" style="padding:6px 14px;font-size:13px;font-weight:800;background:#0f766e;color:#fff;border:0;border-radius:8px;cursor:pointer">⬇ 이카운트 기초재고 엑셀</button></div>'
+        +'<div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.6"><b>재고조정</b>은 이카운트 <b>재고Ⅰ › 기타 › 재고조정</b> 웹자료올리기(일자·순서·창고·품목코드·품목명·수량·적요 — 한 파일 = 전표 1장)에 붙여넣습니다. '
+        +(has?'담은 수량을 실재고로 보고 이카운트 재고와의 <b>차이(±)</b>만 넣습니다.':'<b style="color:#b45309">이 창고의 이카운트 재고 자료가 없어</b> 담은 수량을 그대로 + 조정합니다 — 실재고로 맞추려면 위에서 이카운트 재고현황을 먼저 올리세요.')
+        +' <b>기초재고</b>는 이카운트를 처음 쓰는 창고에 <b>재고Ⅰ › 기초등록 › 기초재고</b>로 올립니다(창고코드·품목코드·품목명·수량).</div>';
+      var db0=document.getElementById("ecDraftBox");if(db0)db0.innerHTML=h;
+      if(keep.memo)document.getElementById("ecMemo").value=keep.memo;
+    }else{
     if(_ecDraft.items.length){
       h+='<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px"><tr style="background:#f1f5f9"><th style="text-align:left;padding:4px 6px">상품</th><th style="padding:4px 6px">자사코드</th><th style="padding:4px 6px;text-align:right">수량</th><th style="padding:4px 6px;text-align:right" title="'+(ret?'불량이면 불량창고로 들어갑니다':'주희물류 창고재고(홈에서 올린 창고재고현황 기준)')+'">'+(ret?'구분':'창고재고')+'</th><th></th></tr>'
         +_ecDraft.items.map(function(x,i){return '<tr style="border-top:1px solid #e2e8f0"><td style="padding:4px 6px">'+_escX(x.name)+'</td><td style="padding:4px 6px;color:#5b6675">'+_escX(x.code)+'</td><td style="padding:4px 6px;text-align:right;font-weight:700">'+x.qty+'</td><td style="padding:4px 6px;text-align:right">'+_ecStock(x.code,x,_ecDraft.store||(document.getElementById("ecStore")||{}).value)+'</td><td style="padding:4px 6px;text-align:right"><button class="bs" style="padding:2px 8px;font-size:11.5px;color:#b91c1c" onclick="ecDelItem('+i+')">빼기</button></td></tr>';}).join("")
@@ -11121,6 +11263,7 @@ function renderEcount(){
       +'<button onclick="ecSubmit()" style="padding:6px 16px;font-size:13.5px;font-weight:800;background:#1b6e82;color:#fff;border:0;border-radius:8px;cursor:pointer"'+(_ecDraft.items.length?'':' disabled')+'>'+T.btn+(_ecDraft.items.length?' ('+_ecDraft.items.length+'품목 · '+_ecSum(_ecDraft)+'개)':'')+'</button></div>';
     var db=document.getElementById("ecDraftBox");if(db)db.innerHTML=h;
     if(keep.memo)document.getElementById("ecMemo").value=keep.memo;
+    }
   }
   /* ② 목록 */
   var lst=document.getElementById("ecList");
