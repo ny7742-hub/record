@@ -2019,16 +2019,15 @@ label{font-size:14px!important}
       <textarea id="msReportText" style="width:100%;box-sizing:border-box;min-height:220px;border:1px solid #cbd5e1;border-radius:6px;padding:8px;font-size:12.5px;font-family:inherit;line-height:1.55;resize:vertical"></textarea>
     </div>
   </div>
-  <!-- 코스트코 직매입 이익계산 (2026-10-29 영업2팀) — 위안 원가×환율 + 미정 부자재(RRP·물류) → 공급가(판매가−수수료) 대비 이익·이익률. 팀 공유 ws/ccDirect. -->
+  <!-- 코스트코 직매입 이익계산 (2026-10-29 영업2팀) — 모든 금액 원(₩). 원가·스트랩·패키지·RRP·물류·관세를 원으로 넣고 → 공급가(판매가−수수료) 대비 이익·이익률. 원가·스트랩은 구성수량(세트당 개수)만큼 곱한다(600AIR=2개세트). 팀 공유 ws/ccDirect. -->
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
       <div class="sec-title" style="margin:0;font-size:13px">📦 코스트코 직매입 이익계산</div>
-      <label style="font-size:12px;color:#1b6e82;font-weight:600">환율(위안→원) <input type="number" id="cdFx" step="0.1" oninput="cdSet('fx',this.value)" onchange="saveCd()" style="width:72px;font-size:12px;padding:4px 8px;text-align:right"></label>
       <label style="font-size:12px;color:#1b6e82;font-weight:600">수수료율(%) <input type="number" id="cdFee" step="0.1" oninput="cdSet('fee',this.value)" onchange="saveCd()" style="width:60px;font-size:12px;padding:4px 8px;text-align:right"></label>
       <label style="font-size:12px;color:#1b6e82;font-weight:600;display:flex;align-items:center;gap:5px"><input type="checkbox" id="cdVat" onchange="cdSet('vat',this.checked);saveCd()" style="width:15px;height:15px"> VAT 포함(÷1.1)</label>
       <button onclick="cdAddRow()" class="bg" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
       <button onclick="cdExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
-      <span style="font-size:11px;color:#5b6675">직매입 — 매출은 공급가(판매가 − 수수료). 네고·패키지·RRP는 <b>위안</b>, 물류·관세는 <b>원</b>. 미정값은 비워 두세요(0으로 계산).</span>
+      <span style="font-size:11px;color:#5b6675">직매입 — 매출은 공급가(판매가 − 수수료). <b>모든 금액은 원(₩)</b>. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). 미정값은 비워 두세요.</span>
     </div>
     <div id="cdWrap" style="overflow-x:auto"></div>
   </div>
@@ -3639,9 +3638,9 @@ function fbListen(){
   );
   /* 코스트코 직매입 이익계산 (팀 공유) — 입력 중이면 다시 그리지 않는다 */
   apply("ws/ccDirect","cdDB",
-    function(d){if(d&&Array.isArray(d.rows))cdDB=d;},
+    function(d){if(_cdFresh(d))cdDB=d;},
     function(){var pg=document.getElementById("page-margin");var ae=document.activeElement;
-      if(pg&&pg.style.display!=="none"&&!(ae&&ae.closest&&ae.closest("#cdWrap"))&&ae!==document.getElementById("cdFx")&&ae!==document.getElementById("cdFee"))cdRender();}
+      if(pg&&pg.style.display!=="none"&&!(ae&&ae.closest&&ae.closest("#cdWrap"))&&ae!==document.getElementById("cdFee"))cdRender();}
   );
   apply("ws/ccProp","ccPropDB",
     function(d){if(d&&Array.isArray(d.rows))ccPropDB=d;},
@@ -19962,37 +19961,41 @@ function msExport(){
 
 /* ── 📦 코스트코 직매입 이익계산 (2026-10-29 영업2팀) ──
    직매입: 매출 = 공급가(판매가 − 수수료). 이익 = 공급가 − 총원가. 이익률은 공급가(매출) 대비.
-   네고·패키지·RRP는 위안 → ×환율으로 원, 물류·관세는 원으로 바로 더한다. VAT 포함이면 공급가를 ÷1.1(순매출)로 보고 계산(기본).
+   **모든 금액은 원(₩)** — 원가·스트랩·패키지·RRP·물류·관세를 원으로 바로 넣는다(위안·달러 환산 없음, 2026-10-29 영업2팀 "원으로 계산"). VAT 포함이면 공급가를 ÷1.1(순매출)로.
+   **구성수량(세트당 개수)**: 원가·스트랩은 개당값이라 ×구성수량(600AIR=2개세트), 패키지·RRP·물류는 세트 1건 기준. 판매가도 세트 기준.
    팀 공유 ws/ccDirect. 입력 중에는 계산 칸만 다시 칠한다(_cdPaint). 기본으로 중우산·600AIR가 들어 있다(저장본이 생기면 그걸 쓴다). */
-var cdDB=(function(){try{var d=JSON.parse(localStorage.getItem("cdDB")||"null");if(d&&Array.isArray(d.rows))return d;}catch(e){}
-  return {fx:"199",fee:"14",vat:true,rows:[
-    {name:"코스트코 중우산",sale:"15990",nego:"37.5",pack:"2.8",rrp:"",logi:""},
-    {name:"코스트코 600AIR",sale:"33990",nego:"32.1",pack:"",rrp:"",logi:""}
+/* 옛 형식(위안·달러 기준: nego/usd·fx, won 없음)은 무시하고 새 기본값을 쓴다 — 원 기준으로 바뀌었다(2026-10-29) */
+function _cdFresh(d){return d&&typeof d==="object"&&Array.isArray(d.rows)&&(!d.rows.length||("won" in d.rows[0]));}
+var cdDB=(function(){try{var d=JSON.parse(localStorage.getItem("cdDB")||"null");if(_cdFresh(d))return d;}catch(e){}
+  return {fee:"14",vat:true,rows:[
+    {name:"코스트코 중우산",qty:"1",sale:"15990",won:"7560",strap:"",pack:"563",rrp:"",logi:""},
+    {name:"코스트코 600AIR",qty:"2",sale:"33990",won:"6475",strap:"",pack:"",rrp:"",logi:""}
   ]};})();
 function saveCd(){wsSetItem("cdDB",JSON.stringify(cdDB));}
 function _cdN(v){v=String(v==null?"":v).replace(/,/g,"").trim();var n=parseFloat(v);return isFinite(n)?n:0;}
 var CD_COLS=[
-  {k:"name",lab:"상품명",w:200,in:1,txt:1},
-  {k:"sale",lab:"판매가(원)",w:92,in:1},
-  {k:"nego",lab:"네고(¥)",w:78,in:1},
-  {k:"pack",lab:"패키지(¥)",w:82,in:1},
-  {k:"rrp",lab:"RRP박스(¥)",w:90,in:1},
-  {k:"logi",lab:"물류·관세(원)",w:96,in:1},
+  {k:"name",lab:"상품명",w:196,in:1,txt:1},
+  {k:"qty",lab:"구성(개)",w:62,in:1},
+  {k:"sale",lab:"판매가(원)",w:90,in:1},
+  {k:"won",lab:"원가(원/개)",w:92,in:1},
+  {k:"strap",lab:"스트랩(원/개)",w:98,in:1},
+  {k:"pack",lab:"패키지(원)",w:84,in:1},
+  {k:"rrp",lab:"RRP박스(원)",w:92,in:1},
+  {k:"logi",lab:"물류·관세(원)",w:94,in:1},
   {k:"supply",lab:"공급가(매출)",w:92},
   {k:"cost",lab:"총원가",w:84},
-  {k:"profit",lab:"개당이익",w:88},
+  {k:"profit",lab:"이익",w:84},
   {k:"rate",lab:"이익률",w:70},
   {k:"cRate",lab:"원가대비",w:74}
 ];
 function _cdCalc(r){
-  var fx=_cdN(cdDB.fx),fee=_cdN(cdDB.fee)/100,vat=cdDB.vat!==false;
-  var sale=_cdN(r.sale);
-  var supplyGross=sale*(1-fee);                 /* 공급가(코스트코 지급, 판매가−수수료) */
+  var fee=_cdN(cdDB.fee)/100,vat=cdDB.vat!==false;
+  var sale=_cdN(r.sale),qty=_cdN(r.qty)||1;
+  var supplyGross=sale*(1-fee);                 /* 공급가(코스트코 지급, 판매가−수수료) — 세트 기준 */
   var supplyNet=vat?supplyGross/1.1:supplyGross;/* VAT 포함이면 순매출로 */
-  var cny=(_cdN(r.nego)+_cdN(r.pack)+_cdN(r.rrp))*fx;   /* 위안 원가 → 원 */
-  var cost=cny+_cdN(r.logi);
+  var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi);   /* 모두 원 — 원가·스트랩은 ×구성, 패키지·RRP·물류는 세트 */
   var profit=supplyNet-cost;
-  return {supplyNet:supplyNet,cny:cny,cost:cost,profit:profit,
+  return {supplyNet:supplyNet,cost:cost,profit:profit,
     rate:supplyNet>0?profit/supplyNet:null,cRate:supplyNet>0?cost/supplyNet:null,has:sale>0};
 }
 function _cdCell(k,c){
@@ -20015,8 +20018,7 @@ function _cdPaint(i){
 }
 function cdRender(){
   var wrap=document.getElementById("cdWrap");if(!wrap)return;
-  var fx=document.getElementById("cdFx"),fe=document.getElementById("cdFee"),vt=document.getElementById("cdVat");
-  if(fx&&document.activeElement!==fx)fx.value=cdDB.fx==null?"":cdDB.fx;
+  var fe=document.getElementById("cdFee"),vt=document.getElementById("cdVat");
   if(fe&&document.activeElement!==fe)fe.value=cdDB.fee==null?"":cdDB.fee;
   if(vt)vt.checked=cdDB.vat!==false;
   var th='position:sticky;top:0;background:#e3eeee;border:1px solid #cfe0e5;padding:6px 6px;color:#1b6e82;font-weight:700;font-size:12px;white-space:nowrap;text-align:center';
@@ -20029,7 +20031,7 @@ function cdRender(){
     CD_COLS.forEach(function(col){
       if(col.in){
         var v=r[col.k]==null?"":String(r[col.k]);
-        var ph=(col.k==="pack"||col.k==="rrp"||col.k==="logi")?"미정":"";
+        var ph=(col.k==="strap"||col.k==="pack"||col.k==="rrp"||col.k==="logi")?"미정":"";
         h+='<td style="border:1px solid #e1e6ee;padding:2px"><input id="cdi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'
           +(col.txt?' placeholder="상품명" title="'+_escX(v)+'"':' inputmode="decimal" placeholder="'+ph+'"')
           +' oninput="cdInput('+i+',\''+col.k+'\',this.value)" onchange="saveCd()"'
@@ -20046,19 +20048,19 @@ function cdRender(){
 }
 function cdInput(i,k,v){var r=cdDB.rows[i];if(!r)return;r[k]=String(v);_cdPaint(i);}
 function cdSet(k,v){cdDB[k]=(k==="vat")?!!v:String(v);cdDB.rows.forEach(function(r,i){_cdPaint(i);});}
-function cdAddRow(){cdDB.rows.push({name:"",sale:"",nego:"",pack:"",rrp:"",logi:""});saveCd();cdRender();}
+function cdAddRow(){cdDB.rows.push({name:"",qty:"1",sale:"",won:"",strap:"",pack:"",rrp:"",logi:""});saveCd();cdRender();}
 function cdDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;cdDB.rows.splice(i,1);saveCd();cdRender();}
 function cdExport(){
   if(!cdDB.rows.length){alert("계산한 상품이 없습니다.");return;}
-  var aoa=[["상품명","판매가","네고(위안)","패키지(위안)","RRP박스(위안)","물류·관세(원)","공급가(매출)","총원가","개당이익","이익률","원가대비","환율","수수료율","VAT"]];
+  var aoa=[["상품명","구성(개)","판매가","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","공급가(매출)","총원가","이익","이익률","원가대비","수수료율","VAT"]];
   cdDB.rows.forEach(function(r){var c=_cdCalc(r);
-    aoa.push([r.name||"",_cdN(r.sale)||"",_cdN(r.nego)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",
+    aoa.push([r.name||"",_cdN(r.qty)||1,_cdN(r.sale)||"",_cdN(r.won)||"",_cdN(r.strap)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",
       c.has?Math.round(c.supplyNet):"",c.has?Math.round(c.cost):"",c.has?Math.round(c.profit):"",
       c.rate==null?"":(c.rate*100).toFixed(1)+"%",c.cRate==null?"":(c.cRate*100).toFixed(1)+"%",
-      _cdN(cdDB.fx),_cdN(cdDB.fee)+"%",cdDB.vat!==false?"포함":"제외"]);
+      _cdN(cdDB.fee)+"%",cdDB.vat!==false?"포함":"제외"]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[{wch:22},{wch:10},{wch:10},{wch:10},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:8},{wch:9},{wch:7},{wch:9},{wch:6}];
+  ws["!cols"]=[{wch:22},{wch:8},{wch:10},{wch:12},{wch:12},{wch:10},{wch:11},{wch:12},{wch:12},{wch:10},{wch:10},{wch:8},{wch:9},{wch:9},{wch:6}];
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"직매입이익계산");
   var d=new Date();XLSX.writeFile(wb,"코스트코직매입이익("+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+").xlsx");
 }
