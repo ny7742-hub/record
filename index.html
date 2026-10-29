@@ -2019,6 +2019,19 @@ label{font-size:14px!important}
       <textarea id="msReportText" style="width:100%;box-sizing:border-box;min-height:220px;border:1px solid #cbd5e1;border-radius:6px;padding:8px;font-size:12.5px;font-family:inherit;line-height:1.55;resize:vertical"></textarea>
     </div>
   </div>
+  <!-- 코스트코 직매입 이익계산 (2026-10-29 영업2팀) — 위안 원가×환율 + 미정 부자재(RRP·물류) → 공급가(판매가−수수료) 대비 이익·이익률. 팀 공유 ws/ccDirect. -->
+  <div class="card" style="margin-bottom:12px;padding:12px 16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <div class="sec-title" style="margin:0;font-size:13px">📦 코스트코 직매입 이익계산</div>
+      <label style="font-size:12px;color:#1b6e82;font-weight:600">환율(위안→원) <input type="number" id="cdFx" step="0.1" oninput="cdSet('fx',this.value)" onchange="saveCd()" style="width:72px;font-size:12px;padding:4px 8px;text-align:right"></label>
+      <label style="font-size:12px;color:#1b6e82;font-weight:600">수수료율(%) <input type="number" id="cdFee" step="0.1" oninput="cdSet('fee',this.value)" onchange="saveCd()" style="width:60px;font-size:12px;padding:4px 8px;text-align:right"></label>
+      <label style="font-size:12px;color:#1b6e82;font-weight:600;display:flex;align-items:center;gap:5px"><input type="checkbox" id="cdVat" onchange="cdSet('vat',this.checked);saveCd()" style="width:15px;height:15px"> VAT 포함(÷1.1)</label>
+      <button onclick="cdAddRow()" class="bg" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
+      <button onclick="cdExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
+      <span style="font-size:11px;color:#5b6675">직매입 — 매출은 공급가(판매가 − 수수료). 네고·패키지·RRP는 <b>위안</b>, 물류·관세는 <b>원</b>. 미정값은 비워 두세요(0으로 계산).</span>
+    </div>
+    <div id="cdWrap" style="overflow-x:auto"></div>
+  </div>
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <div class="sec-title" style="margin:0;font-size:13px">💰 코스트코 행사 마진 계산서</div>
@@ -3128,7 +3141,7 @@ var FB_PATH={
   "popupDB_v2":"ws/popup","shipLists":"ws/shipLists","homeshoppingDB":"ws/homeshopping","marginDB":"ws/margin",
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload",
-  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","allStoreDB":"ws/allStore","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","pdfTeamDB":"ws/pdfTeam","ccPropDB":"ws/ccProp","msDB":"ws/msSimple",
+  "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","allStoreDB":"ws/allStore","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","pdfTeamDB":"ws/pdfTeam","ccPropDB":"ws/ccProp","msDB":"ws/msSimple","cdDB":"ws/ccDirect",
   "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","wsProdDB":"ws/wsProd","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
@@ -3623,6 +3636,12 @@ function fbListen(){
     function(d){if(d&&Array.isArray(d.rows))msDB=d;},
     function(){var pg=document.getElementById("page-margin");var ae=document.activeElement;
       if(pg&&pg.style.display!=="none"&&!(ae&&ae.closest&&ae.closest("#msWrap")))msRender();}
+  );
+  /* 코스트코 직매입 이익계산 (팀 공유) — 입력 중이면 다시 그리지 않는다 */
+  apply("ws/ccDirect","cdDB",
+    function(d){if(d&&Array.isArray(d.rows))cdDB=d;},
+    function(){var pg=document.getElementById("page-margin");var ae=document.activeElement;
+      if(pg&&pg.style.display!=="none"&&!(ae&&ae.closest&&ae.closest("#cdWrap"))&&ae!==document.getElementById("cdFx")&&ae!==document.getElementById("cdFee"))cdRender();}
   );
   apply("ws/ccProp","ccPropDB",
     function(d){if(d&&Array.isArray(d.rows))ccPropDB=d;},
@@ -9617,7 +9636,7 @@ function switchTab(tab){
   if(tab==="ccpdforder"){ renderCcPdfTable(); ccPdfDropZoneInit(); ccPdfInvoiceDropZoneInit(); ccPdfPairDropZoneInit(); }
   if(tab==="ananti"){ anRenderTable(); anDropZoneInit(); anShipDropZoneInit(); }
   _tabDropSync();
-  if(tab==="margin"){ msRender(); renderMargin(); mgRenderContractPreview(); cpRender(); }
+  if(tab==="margin"){ msRender(); cdRender(); renderMargin(); mgRenderContractPreview(); cpRender(); }
   if(tab==="homeshopping"){ renderHomeshopping(); renderHsPre(); }
   if(tab==="stock"){ initStockTab(); stockWhDropInit(); }
   whInitSlots();          /* 발주 화면들의 창고재고 불러오기 칸 */
@@ -19939,6 +19958,109 @@ function msExport(){
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"간단마진계산");
   var d=new Date();
   XLSX.writeFile(wb,"간단마진계산("+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+").xlsx");
+}
+
+/* ── 📦 코스트코 직매입 이익계산 (2026-10-29 영업2팀) ──
+   직매입: 매출 = 공급가(판매가 − 수수료). 이익 = 공급가 − 총원가. 이익률은 공급가(매출) 대비.
+   네고·패키지·RRP는 위안 → ×환율으로 원, 물류·관세는 원으로 바로 더한다. VAT 포함이면 공급가를 ÷1.1(순매출)로 보고 계산(기본).
+   팀 공유 ws/ccDirect. 입력 중에는 계산 칸만 다시 칠한다(_cdPaint). 기본으로 중우산·600AIR가 들어 있다(저장본이 생기면 그걸 쓴다). */
+var cdDB=(function(){try{var d=JSON.parse(localStorage.getItem("cdDB")||"null");if(d&&Array.isArray(d.rows))return d;}catch(e){}
+  return {fx:"199",fee:"14",vat:true,rows:[
+    {name:"코스트코 중우산",sale:"15990",nego:"37.5",pack:"2.8",rrp:"",logi:""},
+    {name:"코스트코 600AIR",sale:"33990",nego:"32.1",pack:"",rrp:"",logi:""}
+  ]};})();
+function saveCd(){wsSetItem("cdDB",JSON.stringify(cdDB));}
+function _cdN(v){v=String(v==null?"":v).replace(/,/g,"").trim();var n=parseFloat(v);return isFinite(n)?n:0;}
+var CD_COLS=[
+  {k:"name",lab:"상품명",w:200,in:1,txt:1},
+  {k:"sale",lab:"판매가(원)",w:92,in:1},
+  {k:"nego",lab:"네고(¥)",w:78,in:1},
+  {k:"pack",lab:"패키지(¥)",w:82,in:1},
+  {k:"rrp",lab:"RRP박스(¥)",w:90,in:1},
+  {k:"logi",lab:"물류·관세(원)",w:96,in:1},
+  {k:"supply",lab:"공급가(매출)",w:92},
+  {k:"cost",lab:"총원가",w:84},
+  {k:"profit",lab:"개당이익",w:88},
+  {k:"rate",lab:"이익률",w:70},
+  {k:"cRate",lab:"원가대비",w:74}
+];
+function _cdCalc(r){
+  var fx=_cdN(cdDB.fx),fee=_cdN(cdDB.fee)/100,vat=cdDB.vat!==false;
+  var sale=_cdN(r.sale);
+  var supplyGross=sale*(1-fee);                 /* 공급가(코스트코 지급, 판매가−수수료) */
+  var supplyNet=vat?supplyGross/1.1:supplyGross;/* VAT 포함이면 순매출로 */
+  var cny=(_cdN(r.nego)+_cdN(r.pack)+_cdN(r.rrp))*fx;   /* 위안 원가 → 원 */
+  var cost=cny+_cdN(r.logi);
+  var profit=supplyNet-cost;
+  return {supplyNet:supplyNet,cny:cny,cost:cost,profit:profit,
+    rate:supplyNet>0?profit/supplyNet:null,cRate:supplyNet>0?cost/supplyNet:null,has:sale>0};
+}
+function _cdCell(k,c){
+  if(!c.has)return "–";
+  if(k==="supply")return Math.round(c.supplyNet).toLocaleString();
+  if(k==="cost")return Math.round(c.cost).toLocaleString();
+  if(k==="profit")return Math.round(c.profit).toLocaleString();
+  if(k==="rate")return c.rate==null?"–":(c.rate*100).toFixed(1)+"%";
+  if(k==="cRate")return c.cRate==null?"–":(c.cRate*100).toFixed(1)+"%";
+  return "";
+}
+function _cdPaint(i){
+  var r=cdDB.rows[i];if(!r)return;var c=_cdCalc(r);
+  ["supply","cost","profit","rate","cRate"].forEach(function(k){
+    var el=document.getElementById("cd_"+i+"_"+k);if(!el)return;
+    el.textContent=_cdCell(k,c);
+    var neg=(k==="profit"||k==="rate")&&c.has&&c.profit<0;
+    el.style.color=neg?"#dc2626":((k==="profit"||k==="rate")?"#15803d":"#334155");
+  });
+}
+function cdRender(){
+  var wrap=document.getElementById("cdWrap");if(!wrap)return;
+  var fx=document.getElementById("cdFx"),fe=document.getElementById("cdFee"),vt=document.getElementById("cdVat");
+  if(fx&&document.activeElement!==fx)fx.value=cdDB.fx==null?"":cdDB.fx;
+  if(fe&&document.activeElement!==fe)fe.value=cdDB.fee==null?"":cdDB.fee;
+  if(vt)vt.checked=cdDB.vat!==false;
+  var th='position:sticky;top:0;background:#e3eeee;border:1px solid #cfe0e5;padding:6px 6px;color:#1b6e82;font-weight:700;font-size:12px;white-space:nowrap;text-align:center';
+  var h='<table style="border-collapse:collapse;font-size:13px;min-width:100%"><thead><tr>';
+  CD_COLS.forEach(function(c){h+='<th style="'+th+';min-width:'+c.w+'px'+(c.k==="name"?'':';width:'+c.w+'px')+'">'+c.lab+'</th>';});
+  h+='<th style="'+th+';width:34px"></th></tr></thead><tbody>';
+  if(!cdDB.rows.length)h+='<tr><td colspan="'+(CD_COLS.length+1)+'" style="padding:18px;text-align:center;color:#5b6675;border:1px solid #e1e6ee">＋ 행 추가를 눌러 상품을 넣으세요</td></tr>';
+  cdDB.rows.forEach(function(r,i){
+    h+='<tr>';
+    CD_COLS.forEach(function(col){
+      if(col.in){
+        var v=r[col.k]==null?"":String(r[col.k]);
+        var ph=(col.k==="pack"||col.k==="rrp"||col.k==="logi")?"미정":"";
+        h+='<td style="border:1px solid #e1e6ee;padding:2px"><input id="cdi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'
+          +(col.txt?' placeholder="상품명" title="'+_escX(v)+'"':' inputmode="decimal" placeholder="'+ph+'"')
+          +' oninput="cdInput('+i+',\''+col.k+'\',this.value)" onchange="saveCd()"'
+          +' style="width:100%;box-sizing:border-box;border:none;outline:none;padding:5px 6px;font-size:13px;background:transparent;'+(col.txt?'':'text-align:right')+'"></td>';
+      }else{
+        h+='<td id="cd_'+i+'_'+col.k+'" style="border:1px solid #e1e6ee;padding:5px 8px;text-align:right;background:#f1f5f9;font-weight:700;white-space:nowrap"></td>';
+      }
+    });
+    h+='<td style="border:1px solid #e1e6ee;text-align:center"><button onclick="cdDelRow('+i+')" title="삭제" style="border:none;background:#fee2e2;color:#dc2626;border-radius:6px;padding:3px 7px;cursor:pointer;font-weight:700">✕</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+  cdDB.rows.forEach(function(r,i){_cdPaint(i);});
+}
+function cdInput(i,k,v){var r=cdDB.rows[i];if(!r)return;r[k]=String(v);_cdPaint(i);}
+function cdSet(k,v){cdDB[k]=(k==="vat")?!!v:String(v);cdDB.rows.forEach(function(r,i){_cdPaint(i);});}
+function cdAddRow(){cdDB.rows.push({name:"",sale:"",nego:"",pack:"",rrp:"",logi:""});saveCd();cdRender();}
+function cdDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;cdDB.rows.splice(i,1);saveCd();cdRender();}
+function cdExport(){
+  if(!cdDB.rows.length){alert("계산한 상품이 없습니다.");return;}
+  var aoa=[["상품명","판매가","네고(위안)","패키지(위안)","RRP박스(위안)","물류·관세(원)","공급가(매출)","총원가","개당이익","이익률","원가대비","환율","수수료율","VAT"]];
+  cdDB.rows.forEach(function(r){var c=_cdCalc(r);
+    aoa.push([r.name||"",_cdN(r.sale)||"",_cdN(r.nego)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",
+      c.has?Math.round(c.supplyNet):"",c.has?Math.round(c.cost):"",c.has?Math.round(c.profit):"",
+      c.rate==null?"":(c.rate*100).toFixed(1)+"%",c.cRate==null?"":(c.cRate*100).toFixed(1)+"%",
+      _cdN(cdDB.fx),_cdN(cdDB.fee)+"%",cdDB.vat!==false?"포함":"제외"]);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"]=[{wch:22},{wch:10},{wch:10},{wch:10},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:8},{wch:9},{wch:7},{wch:9},{wch:6}];
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"직매입이익계산");
+  var d=new Date();XLSX.writeFile(wb,"코스트코직매입이익("+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+").xlsx");
 }
 function _cpFindProduct(q){
   var key=_cpNameKey(q);if(!key)return null;
