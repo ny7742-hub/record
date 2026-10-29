@@ -2027,6 +2027,7 @@ label{font-size:14px!important}
       <label style="font-size:12px;color:#1b6e82;font-weight:600;display:flex;align-items:center;gap:5px"><input type="checkbox" id="cdVat" onchange="cdSet('vat',this.checked);saveCd()" style="width:15px;height:15px"> VAT 포함(÷1.1)</label>
       <button onclick="cdAddRow()" class="bg" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
       <button onclick="cdExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
+      <button onclick="cdReset()" class="bs" style="padding:5px 12px;font-size:12px" title="중우산·600AIR 기본값으로 되돌립니다(지금 입력값은 지워집니다)">↩ 기본값</button>
       <span style="font-size:11px;color:#5b6675">직매입 — 매출은 공급가(판매가 − 수수료). <b>모든 금액은 원(₩)</b>. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). 미정값은 비워 두세요.</span>
     </div>
     <div id="cdWrap" style="overflow-x:auto"></div>
@@ -20058,6 +20059,16 @@ function cdInput(i,k,v){var r=cdDB.rows[i];if(!r)return;
 function cdSet(k,v){cdDB[k]=(k==="vat")?!!v:String(v);cdDB.rows.forEach(function(r,i){_cdPaint(i);});}
 function cdAddRow(){cdDB.rows.push({name:"",qty:"1",sale:"",won:"",strap:"",pack:"",rrp:"",logi:"",etc:""});saveCd();cdRender();}
 function cdDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;cdDB.rows.splice(i,1);saveCd();cdRender();}
+/* 기본값(중우산·600AIR)으로 되돌리기 — 팀 공유라 누른 사람이 로그인돼 있으면 전체에 반영된다(2026-10-29 영업2팀) */
+function cdReset(){
+  if(!confirm("직매입 이익계산을 기본값(중우산·600AIR)으로 되돌릴까요? 지금 표의 입력값은 지워집니다."))return;
+  cdDB.fee="14";cdDB.vat=true;
+  cdDB.rows=[
+    {name:"코스트코 중우산",qty:"1",sale:"15990",won:"7560",strap:"",pack:"563",rrp:"",logi:"",etc:""},
+    {name:"코스트코 600AIR",qty:"2",sale:"33990",won:"6475",strap:"",pack:"",rrp:"",logi:"",etc:""}
+  ];
+  saveCd();cdRender();
+}
 function cdExport(){
   if(!cdDB.rows.length){alert("계산한 상품이 없습니다.");return;}
   var aoa=[["상품명","구성(개)","판매가","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","기타(원)","공급가(매출)","총원가","이익금","이익률","원가대비","수수료율","VAT"]];
