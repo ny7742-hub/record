@@ -19968,23 +19968,24 @@ function msExport(){
 function _cdFresh(d){return d&&typeof d==="object"&&Array.isArray(d.rows)&&(!d.rows.length||("won" in d.rows[0]));}
 var cdDB=(function(){try{var d=JSON.parse(localStorage.getItem("cdDB")||"null");if(_cdFresh(d))return d;}catch(e){}
   return {fee:"14",vat:true,rows:[
-    {name:"코스트코 중우산",qty:"1",sale:"15990",won:"7560",strap:"",pack:"563",rrp:"",logi:""},
-    {name:"코스트코 600AIR",qty:"2",sale:"33990",won:"6475",strap:"",pack:"",rrp:"",logi:""}
+    {name:"코스트코 중우산",qty:"1",sale:"15990",won:"7560",strap:"",pack:"563",rrp:"",logi:"",etc:""},
+    {name:"코스트코 600AIR",qty:"2",sale:"33990",won:"6475",strap:"",pack:"",rrp:"",logi:"",etc:""}
   ]};})();
 function saveCd(){wsSetItem("cdDB",JSON.stringify(cdDB));}
 function _cdN(v){v=String(v==null?"":v).replace(/,/g,"").trim();var n=parseFloat(v);return isFinite(n)?n:0;}
 var CD_COLS=[
-  {k:"name",lab:"상품명",w:196,in:1,txt:1},
-  {k:"qty",lab:"구성(개)",w:62,in:1},
-  {k:"sale",lab:"판매가(원)",w:90,in:1},
-  {k:"won",lab:"원가(원/개)",w:92,in:1},
-  {k:"strap",lab:"스트랩(원/개)",w:98,in:1},
-  {k:"pack",lab:"패키지(원)",w:84,in:1},
-  {k:"rrp",lab:"RRP박스(원)",w:92,in:1},
-  {k:"logi",lab:"물류·관세(원)",w:94,in:1},
+  {k:"name",lab:"상품명",w:150,in:1,txt:1},
+  {k:"qty",lab:"구성(개)",w:58,in:1},
+  {k:"sale",lab:"판매가(원)",w:92,in:1,money:1},
+  {k:"won",lab:"원가(원/개)",w:94,in:1,money:1},
+  {k:"strap",lab:"스트랩(원/개)",w:98,in:1,money:1},
+  {k:"pack",lab:"패키지(원)",w:84,in:1,money:1},
+  {k:"rrp",lab:"RRP박스(원)",w:92,in:1,money:1},
+  {k:"logi",lab:"물류·관세(원)",w:94,in:1,money:1},
+  {k:"etc",lab:"기타(원)",w:84,in:1,money:1},
   {k:"supply",lab:"공급가(매출)",w:92},
   {k:"cost",lab:"총원가",w:84},
-  {k:"profit",lab:"이익",w:84},
+  {k:"profit",lab:"이익금",w:88},
   {k:"rate",lab:"이익률",w:70},
   {k:"cRate",lab:"원가대비",w:74}
 ];
@@ -19993,7 +19994,7 @@ function _cdCalc(r){
   var sale=_cdN(r.sale),qty=_cdN(r.qty)||1;
   var supplyGross=sale*(1-fee);                 /* 공급가(코스트코 지급, 판매가−수수료) — 세트 기준 */
   var supplyNet=vat?supplyGross/1.1:supplyGross;/* VAT 포함이면 순매출로 */
-  var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi);   /* 모두 원 — 원가·스트랩은 ×구성, 패키지·RRP·물류는 세트 */
+  var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi)+_cdN(r.etc);   /* 모두 원 — 원가·스트랩은 ×구성, 패키지·RRP·물류·기타는 세트 */
   var profit=supplyNet-cost;
   return {supplyNet:supplyNet,cost:cost,profit:profit,
     rate:supplyNet>0?profit/supplyNet:null,cRate:supplyNet>0?cost/supplyNet:null,has:sale>0};
@@ -20023,7 +20024,7 @@ function cdRender(){
   if(vt)vt.checked=cdDB.vat!==false;
   var th='position:sticky;top:0;background:#e3eeee;border:1px solid #cfe0e5;padding:6px 6px;color:#1b6e82;font-weight:700;font-size:12px;white-space:nowrap;text-align:center';
   var h='<table style="border-collapse:collapse;font-size:13px;min-width:100%"><thead><tr>';
-  CD_COLS.forEach(function(c){h+='<th style="'+th+';min-width:'+c.w+'px'+(c.k==="name"?'':';width:'+c.w+'px')+'">'+c.lab+'</th>';});
+  CD_COLS.forEach(function(c){h+='<th style="'+th+';min-width:'+c.w+'px;width:'+c.w+'px">'+c.lab+'</th>';});
   h+='<th style="'+th+';width:34px"></th></tr></thead><tbody>';
   if(!cdDB.rows.length)h+='<tr><td colspan="'+(CD_COLS.length+1)+'" style="padding:18px;text-align:center;color:#5b6675;border:1px solid #e1e6ee">＋ 행 추가를 눌러 상품을 넣으세요</td></tr>';
   cdDB.rows.forEach(function(r,i){
@@ -20031,7 +20032,8 @@ function cdRender(){
     CD_COLS.forEach(function(col){
       if(col.in){
         var v=r[col.k]==null?"":String(r[col.k]);
-        var ph=(col.k==="strap"||col.k==="pack"||col.k==="rrp"||col.k==="logi")?"미정":"";
+        if(col.money)v=_cdFmt(v);
+        var ph=(col.k==="strap"||col.k==="pack"||col.k==="rrp"||col.k==="logi"||col.k==="etc")?"미정":"";
         h+='<td style="border:1px solid #e1e6ee;padding:2px"><input id="cdi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'
           +(col.txt?' placeholder="상품명" title="'+_escX(v)+'"':' inputmode="decimal" placeholder="'+ph+'"')
           +' oninput="cdInput('+i+',\''+col.k+'\',this.value)" onchange="saveCd()"'
@@ -20046,21 +20048,27 @@ function cdRender(){
   wrap.innerHTML=h;
   cdDB.rows.forEach(function(r,i){_cdPaint(i);});
 }
-function cdInput(i,k,v){var r=cdDB.rows[i];if(!r)return;r[k]=String(v);_cdPaint(i);}
+/* 천단위 콤마 — 판매가·원가 등 금액 칸에서 입력하면 자동으로 콤마가 붙는다(소수점은 유지). _cdN이 콤마를 지워 계산한다 */
+function _cdFmt(v){v=String(v==null?"":v).replace(/,/g,"");if(v==="")return "";var neg=v.charAt(0)==="-";v=v.replace(/[^\d.]/g,"");if(v==="")return neg?"-":"";var p=v.split(".");p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,",");return (neg?"-":"")+p.join(".");}
+function _cdMoney(k){for(var i=0;i<CD_COLS.length;i++){if(CD_COLS[i].k===k)return !!CD_COLS[i].money;}return false;}
+function cdInput(i,k,v){var r=cdDB.rows[i];if(!r)return;
+  if(_cdMoney(k)){var raw=String(v).replace(/,/g,"");r[k]=raw;var el=document.getElementById("cdi_"+i+"_"+k);if(el){el.value=_cdFmt(raw);try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
+  else r[k]=String(v);
+  _cdPaint(i);}
 function cdSet(k,v){cdDB[k]=(k==="vat")?!!v:String(v);cdDB.rows.forEach(function(r,i){_cdPaint(i);});}
-function cdAddRow(){cdDB.rows.push({name:"",qty:"1",sale:"",won:"",strap:"",pack:"",rrp:"",logi:""});saveCd();cdRender();}
+function cdAddRow(){cdDB.rows.push({name:"",qty:"1",sale:"",won:"",strap:"",pack:"",rrp:"",logi:"",etc:""});saveCd();cdRender();}
 function cdDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;cdDB.rows.splice(i,1);saveCd();cdRender();}
 function cdExport(){
   if(!cdDB.rows.length){alert("계산한 상품이 없습니다.");return;}
-  var aoa=[["상품명","구성(개)","판매가","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","공급가(매출)","총원가","이익","이익률","원가대비","수수료율","VAT"]];
+  var aoa=[["상품명","구성(개)","판매가","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","기타(원)","공급가(매출)","총원가","이익금","이익률","원가대비","수수료율","VAT"]];
   cdDB.rows.forEach(function(r){var c=_cdCalc(r);
-    aoa.push([r.name||"",_cdN(r.qty)||1,_cdN(r.sale)||"",_cdN(r.won)||"",_cdN(r.strap)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",
+    aoa.push([r.name||"",_cdN(r.qty)||1,_cdN(r.sale)||"",_cdN(r.won)||"",_cdN(r.strap)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",_cdN(r.etc)||"",
       c.has?Math.round(c.supplyNet):"",c.has?Math.round(c.cost):"",c.has?Math.round(c.profit):"",
       c.rate==null?"":(c.rate*100).toFixed(1)+"%",c.cRate==null?"":(c.cRate*100).toFixed(1)+"%",
       _cdN(cdDB.fee)+"%",cdDB.vat!==false?"포함":"제외"]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[{wch:22},{wch:8},{wch:10},{wch:12},{wch:12},{wch:10},{wch:11},{wch:12},{wch:12},{wch:10},{wch:10},{wch:8},{wch:9},{wch:9},{wch:6}];
+  ws["!cols"]=[{wch:18},{wch:8},{wch:10},{wch:12},{wch:12},{wch:10},{wch:11},{wch:12},{wch:10},{wch:12},{wch:10},{wch:10},{wch:8},{wch:9},{wch:9},{wch:6}];
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"직매입이익계산");
   var d=new Date();XLSX.writeFile(wb,"코스트코직매입이익("+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+").xlsx");
 }
