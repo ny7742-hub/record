@@ -3137,7 +3137,8 @@ var FB_PATH={
   "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","cpProgress":"ws/cpProgress","cpOrderReady":"ws/cpOrderReady","cpCountReq":"ws/cpCountReq","cpOrderLog":"ws/cpOrderLog","cpPause":"ws/cpPause","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipFix":"ws/saipFix","saipAck":"ws/saipAck","saipSeen":"ws/saipSeen","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen","unshipSrc":"ws/unshipSrc","usSaipStatus":"ws/usSaipStatus",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix","mvFix":"ws/mvFix","soFix":"ws/soFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
-  "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre"
+  "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre",
+  "pmWhAll":"ws/pmWhAll","ecStkStatus":"ws/ecStkStatus"   /* PlayMD 전체 창고재고(사이즈별) · 이카운트 창고 재고 자동 입력 결과(2026-10-29) */
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
 
@@ -3906,7 +3907,16 @@ function fbListen(){
   );
   apply("ws/saipReq","saipReq",
     function(d){if(d&&typeof d==="object")saipReq=d;},
-    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();}
+    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();}
+  );
+  /* PlayMD 전체 창고재고(사이즈별 자사코드) — 창고재고현황을 올릴 때 같이 만든다 · 이카운트 자동 입력 결과(자동화 PC ecount-stock.mjs가 쓴다) */
+  apply("ws/pmWhAll","pmWhAll",
+    function(d){if(d&&typeof d==="object"&&d.wh)pmWhAll=d;},
+    function(){if(typeof ecStkAutoRender==="function")ecStkAutoRender();}
+  );
+  apply("ws/ecStkStatus","ecStkStatus",
+    function(d){if(d&&typeof d==="object")ecStkStatus=d;},
+    function(){if(typeof ecStkAutoRender==="function")ecStkAutoRender();}
   );
   /* 자동 반품등록 — 줄별 등록 기록 · 결과(자동화 PC가 쓴다) */
   apply("ws/retLog","retLog",
@@ -11321,6 +11331,93 @@ function ecStkDl(kind){
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,kind==="base"?"기초재고":"재고조정");
   XLSX.writeFile(wb,nm);
 }
+/* ── 🏭 PlayMD 창고 → 이카운트(2026-10-29 영업2팀 "PlayMD 창고재고를 이카운트 창고로 — 이런 식으로 메뉴") ──
+   창고재고현황(전체 창고 · 사이즈 칸)을 올릴 때 창고마다 자사코드(상품코드+칼라+사이즈)별 수량을 팀 공유 ws/pmWhAll에 둔다
+   {at, file, day, wh:{창고코드:{name, items:{자사코드:수량}}}}. 사이즈 칸 머리글은 'S\n \n230'처럼 패턴마다 한 줄이라
+   상품데이터에 있는 자사코드가 되는 사이즈를 고른다(10/29 파일 8,824칸 모두 하나로 맞음). 소문자 nh는 NH에 합친다 */
+var pmWhAll=(function(){try{var d=JSON.parse(localStorage.getItem("pmWhAll")||"null");return d&&d.wh?d:null;}catch(e){return null;}})();
+function _pmWhAllFromRows(rows,file,at){
+  var hi=-1;for(var r=0;r<Math.min(10,rows.length);r++){if((rows[r]||[]).some(function(c){return String(c||"").replace(/\s/g,"")==="상품코드";})){hi=r;break;}}
+  if(hi<0)return null;
+  var H=rows[hi].map(function(h){return String(h==null?"":h);}),HN=H.map(function(h){return h.replace(/\s/g,"");});
+  var cW=HN.indexOf("창고코드"),cWn=HN.indexOf("창고명"),cP=HN.indexOf("상품코드"),cC=HN.indexOf("칼라"),cT=HN.indexOf("재고합계");
+  if(cW<0||cP<0||cC<0||cT<0)return null;
+  var cEnd=HN.indexOf("TAG가");if(cEnd<0)cEnd=H.length;
+  var sz=[];for(var j=cT+1;j<cEnd;j++)sz.push([j,H[j].split(/\n/).map(function(t){return t.trim();}).filter(Boolean)]);
+  var by=_ocProdList().by,wh={},day=(String((rows[0]||[])[0]||"").match(/재고일자\s*:\s*(\d{8})/)||[])[1]||"";
+  for(var i=hi+1;i<rows.length;i++){
+    var row=rows[i]||[],w=String(row[cW]||"").trim().toUpperCase(),pc=String(row[cP]||"").trim().toUpperCase(),cc=String(row[cC]||"").trim().toUpperCase();
+    if(!w||!pc)continue;
+    var W=wh[w]=wh[w]||{name:String(row[cWn]||"").trim(),items:{}};
+    var put=function(code,q){W.items[code]=(W.items[code]||0)+q;};
+    var hit=false;
+    sz.forEach(function(s){
+      var q=_ecNum(row[s[0]]);if(!q)return;hit=true;
+      var cand=s[1].filter(function(t){return by[pc+cc+t.toUpperCase()];});
+      put(pc+cc+(cand[0]||s[1][0]||"X").toUpperCase(),q);
+    });
+    if(!hit){var t=_ecNum(row[cT]);if(t)put(pc+cc+"X",t);}   /* 사이즈 칸이 없는 파일 — ONE SIZE(X)로 */
+  }
+  return {at:at,file:file||"",day:day,wh:wh};
+}
+/* PlayMD 창고코드 → 이카운트 창고코드 — 같은 코드가 이카운트에 있으면 그대로, 이름이 다른 것만 여기 */
+var PM_EC_WH={HATANDI:"HATAN",ALLDAY:"ALDAY",CPT:"MKT"};
+function _pmEcWh(pm){pm=String(pm||"").toUpperCase();if(PM_EC_WH[pm])return PM_EC_WH[pm];return EC_WHS.some(function(w){return w[0]===pm;})?pm:"";}
+function ecStkPmPick(){
+  var sel=document.getElementById("ecPmWh"),to=document.getElementById("ecPmTo");
+  if(sel&&to){var m=_pmEcWh(sel.value);if(m)to.value=m;}
+  var info=document.getElementById("ecPmInfo");
+  if(info&&sel){var W=pmWhAll&&pmWhAll.wh[sel.value];info.textContent=W?Object.keys(W.items).length+"품목 · "+Object.keys(W.items).reduce(function(a,k){return a+W.items[k];},0).toLocaleString()+"개":"";}
+}
+/* 그 PlayMD 창고 재고를 고른 이카운트 창고로 담는다(같은 창고·품목은 PlayMD 수량으로 바꿈) */
+function ecStkFromPmWh(){
+  var pw=(document.getElementById("ecPmWh")||{}).value,ew=(document.getElementById("ecPmTo")||{}).value;
+  if(!pmWhAll||!pw){alert("PlayMD 창고를 골라 주세요.");return;}
+  if(!ew){alert("넣을 이카운트 창고를 골라 주세요.");return;}
+  var W=pmWhAll.wh[pw],ks=Object.keys((W||{}).items||{}).filter(function(k){return W.items[k]>0;}),P=_ocProdList();
+  if(!ks.length){alert("PlayMD "+pw+" 창고에 재고가 있는 품목이 없습니다.");return;}
+  if(!confirm("PlayMD "+pw+"("+(W.name||"")+") 재고 "+ks.length+"품목을 이카운트 "+ew+"("+_ecStkName(ew)+")로 담습니다.\n\n이 창고에 이미 담은 품목은 PlayMD 수량으로 바꿉니다."))return;
+  ks.forEach(function(k){var it=P.by[k];_ecStkPut(it?it.code:k,it?it.label:k,W.items[k],false,ew);});
+  _ecStkSave();renderEcount();
+}
+/* ── 🤖 이카운트에 넣기 — 자동화 PC가 이카운트 [간편재고조정]에 창고별 수량을 직접 넣는다 ──
+   담은 수량 = 그 창고의 **맞출 재고 수량**(간편재고조정은 '지금 재고를 이 수량으로'). 이미 같으면 건너뛴다 — 두 번 눌러도 두 번 늘지 않는다.
+   목록은 ws/ecStkJob/{id}(객체), 요청은 ws/saipReq.ek {id, by, at, state, mode:'preview'|'save', n} → automation/saip-watch.mjs → ecount-stock.mjs.
+   결과 ws/ecStkStatus {id, at, by, mode, state, items:[{wh,code,name,want,before,after,res,why}], msg} */
+var ecStkStatus=(function(){try{return JSON.parse(localStorage.getItem("ecStkStatus")||"null");}catch(e){return null;}})();
+function ecStkAuto(mode){
+  if(!_ecDraft.items.length){alert("담은 품목이 없습니다.");return;}
+  var cur=(saipReq||{}).ek;
+  if(_saipReqActive(cur)){alert("이카운트 넣기가 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+").");return;}
+  if(WS_LOCAL_ONLY||!(_authState==="member"||_authState==="open")){alert("팀 공유에 로그인해야 자동화 PC에 요청할 수 있습니다.");return;}
+  var W=_ecStkWhList(),n=_ecDraft.items.length,save=mode==="save";
+  if(save&&!confirm("자동화 PC가 이카운트 [간편재고조정]에 넣습니다.\n\n창고 "+W.map(function(w){return _ecWh(w);}).join(", ")+" · "+n+"품목\n담은 수량이 그 창고의 '맞출 재고'가 됩니다(지금 이카운트 재고와 같으면 건너뜀).\n\n품목마다 10초쯤 걸립니다. 넣을까요?"))return;
+  var id="ek"+Date.now().toString(36),by=_saipMe();
+  try{fbDB.ref("ws/ecStkJob/"+id).set({id:id,by:by,at:new Date().toISOString(),items:_ecDraft.items.map(function(x){return {wh:_ecWh(x.wh),code:x.code,name:x.name,qty:+x.qty||0};})});}
+  catch(e){alert("목록을 팀 공유에 올리지 못했습니다: "+e.message);return;}
+  _saipReqSet("ek",{id:id,by:by,at:new Date().toISOString(),state:"요청",mode:save?"save":"preview",n:n});
+  ecStkAutoRender();
+}
+function ecStkAutoRender(){
+  var box=document.getElementById("ecStkAutoBox");if(!box)return;
+  var R=(saipReq||{}).ek,act=_saipReqActive(R),S=ecStkStatus,on=saipWatch&&Date.now()-new Date(saipWatch.at).getTime()<5*60*1000;
+  var h='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+    +'<button onclick="ecStkAuto(\'save\')"'+(act?' disabled':'')+' style="padding:6px 14px;font-size:13px;font-weight:800;background:#1b6e82;color:#fff;border:0;border-radius:8px;cursor:pointer">🤖 이카운트에 넣기(자동화 PC)</button>'
+    +'<button class="bs" onclick="ecStkAuto(\'preview\')"'+(act?' disabled':'')+' style="padding:5px 12px;font-size:12.5px;font-weight:700">🔍 미리보기(넣지 않고 지금 수량만)</button>'
+    +'<span style="font-size:12px;color:'+(on?'#047857':'#b45309')+'">자동화 PC '+(on?'켜짐':'꺼짐·응답 없음')+'</span>'
+    +(act?'<span style="font-size:12.5px;font-weight:700;color:#1b6e82">⏳ '+_escX(R.state)+' · '+_escX(R.by||"")+(R.progress?' — '+_escX(R.progress):'')+'</span>':'')+'</div>'
+    +'<div style="font-size:12px;color:#5b6675;margin-top:4px;line-height:1.6">이카운트 <b>재고 I › 기타이동 › 재고조정 › 간편재고조정</b>에 창고별로 넣습니다. 담은 수량이 그 창고의 <b>맞출 재고</b>입니다 — 이카운트에 이미 그 수량이면 건너뛰어 두 번 눌러도 두 번 늘지 않습니다. 자동화 창(포탈 창)에 이카운트가 로그인돼 있어야 합니다.</div>';
+  if(S&&S.items){
+    var cnt={};S.items.forEach(function(x){cnt[x.res]=(cnt[x.res]||0)+1;});
+    h+='<div style="margin-top:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:6px 8px;font-size:12.5px">'
+      +'<b>'+(S.mode==="save"?"넣기":"미리보기")+' 결과</b> <span style="color:#5b6675">'+_escX(_saipFmtAt(S.at))+' · '+_escX(S.by||"")+' · '+_escX(S.state||"")+'</span> '
+      +Object.keys(cnt).map(function(k){return '<span style="margin-left:6px;font-weight:700;color:'+(k==="넣음"?"#047857":k==="실패"?"#b91c1c":"#334155")+'">'+_escX(k)+' '+cnt[k]+'</span>';}).join("")
+      +(S.msg?'<div style="color:#b45309;margin-top:3px">'+_escX(S.msg)+'</div>':'')
+      +'<div style="max-height:220px;overflow-y:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse"><tr style="background:#f1f5f9"><th style="text-align:left;padding:2px 5px">창고</th><th style="text-align:left;padding:2px 5px">품목</th><th style="padding:2px 5px;text-align:right">이카 전</th><th style="padding:2px 5px;text-align:right">맞출 수량</th><th style="padding:2px 5px;text-align:right">이카 후</th><th style="padding:2px 5px">결과</th></tr>'
+      +S.items.map(function(x){return '<tr style="border-top:1px solid #eef2f7"><td style="padding:2px 5px">'+_escX(x.wh)+'</td><td style="padding:2px 5px">'+_escX(x.code)+' <span style="color:#5b6675">'+_escX(x.name||"")+'</span></td><td style="padding:2px 5px;text-align:right">'+(x.before==null?'–':x.before)+'</td><td style="padding:2px 5px;text-align:right;font-weight:700">'+x.want+'</td><td style="padding:2px 5px;text-align:right">'+(x.after==null?'–':x.after)+'</td><td style="padding:2px 5px;font-weight:700;color:'+(x.res==="넣음"?"#047857":x.res==="실패"?"#b91c1c":"#334155")+'">'+_escX(x.res||"")+(x.why?' <span style="font-weight:400;color:#b45309">'+_escX(x.why)+'</span>':'')+'</td></tr>';}).join("")+'</table></div></div>';
+  }
+  box.innerHTML=h;
+}
 /* 창고 고르기 칸 — 발주·반품은 매장만, 재고 등록은 전체 창고 */
 function _ecStoreOpts(){
   var L=_ecKind==="stk"?_ecStkWhs():_ecStores();
@@ -11389,7 +11486,17 @@ function renderEcount(){
         +'<label class="bs" style="cursor:pointer;padding:4px 11px;font-size:12.5px;font-weight:700">📤 엑셀 불러오기<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="ecStkLoad(this)"></label>'
         +'<button class="bs" onclick="ecStkFromPM()" style="padding:4px 11px;font-size:12.5px;font-weight:700" title="홈에서 올린 PlayMD 창고재고현황(주희물류) 수량을 본사 창고로 그대로 담습니다">📦 PlayMD 창고재고 그대로 담기(본사)</button>'
         +(_ecDraft.items.length?'<button class="bs" onclick="ecStkClear()" style="padding:4px 11px;font-size:12.5px;color:#b91c1c">모두 비우기</button>':'')
-        +'<span style="color:#5b6675">엑셀은 머리글에 <b>자사코드</b>(품목코드)·<b>수량</b> 칸 — <b>창고</b> 칸이 있거나 창고마다 수량 칸이면 그 창고대로, 없으면 고른 창고로 담습니다 · 검색은 고른 창고로</span></div>';
+        +'<span style="color:#5b6675">엑셀은 머리글에 <b>자사코드</b>(품목코드)·<b>수량</b> 칸 — <b>창고</b> 칸이 있거나 창고마다 수량 칸이면 그 창고대로, 없으면 고른 창고로 담습니다 · 검색은 고른 창고로</span></div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12.5px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:5px 8px">'
+        +'<b style="color:#0369a1">🏭 PlayMD 창고 → 이카운트</b>'
+        +(pmWhAll?'<select id="ecPmWh" onchange="ecStkPmPick()" style="padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"><option value="">PlayMD 창고</option>'
+            +Object.keys(pmWhAll.wh).sort().map(function(k){var W=pmWhAll.wh[k];return '<option value="'+_escX(k)+'">'+_escX(k+" "+(W.name||"")+" ("+Object.keys(W.items).length+")")+'</option>';}).join("")+'</select> → '
+          +'<select id="ecPmTo" style="padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px"><option value="">이카운트 창고</option>'
+            +_ecStkWhs().map(function(w){return '<option value="'+_escX(w.code)+'">'+_escX(w.code+" "+w.name)+'</option>';}).join("")+'</select>'
+          +'<button class="bs" onclick="ecStkFromPmWh()" style="padding:3px 11px;font-size:12.5px;font-weight:700">담기</button><span id="ecPmInfo" style="color:#5b6675"></span>'
+          +'<span style="color:#5b6675;margin-left:auto">PlayMD '+_escX((pmWhAll.day||"").replace(/(\d{4})(\d{2})(\d{2})/,"$1-$2-$3"))+' 재고 · '+_escX(_saipFmtAt(pmWhAll.at))+' 올림</span>'
+          :'<span style="color:#5b6675">PlayMD 전체 창고재고가 아직 없습니다 — 홈에서 창고재고현황을 다시 올리면(자동화가 매시 올림) 창고마다 나옵니다</span>')
+        +'</div>';
       if(_ecDraft.items.length){
         /* 창고별 합계 칩 */
         h+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px">'+W.map(function(w){
@@ -11418,9 +11525,13 @@ function renderEcount(){
         +'<button onclick="ecStkDl(\'base\')" style="padding:6px 14px;font-size:13px;font-weight:800;background:#0f766e;color:#fff;border:0;border-radius:8px;cursor:pointer">⬇ 이카운트 기초재고 엑셀</button></div>'
         +'<div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.6"><b>재고조정</b>은 이카운트 <b>재고Ⅰ › 기타 › 재고조정</b> 웹자료올리기(일자·순서·창고·품목코드·품목명·수량·적요 — 창고마다 순서 번호 = 전표 1장)에 붙여넣습니다. '
         +(has?'담은 수량을 실재고로 보고 이카운트 재고와의 <b>차이(±)</b>만 넣습니다(이카 자료 없는 창고는 담은 수량 그대로 +).':'<b style="color:#b45309">이카운트 재고 자료가 없어</b> 담은 수량을 그대로 + 조정합니다 — 실재고로 맞추려면 위에서 이카운트 재고현황을 먼저 올리세요.')
-        +' <b>기초재고</b>는 이카운트를 처음 쓰는 창고에 <b>재고Ⅰ › 기초등록 › 기초재고</b>로 올립니다(창고코드·품목코드·품목명·수량).</div>';
+        +' <b>기초재고</b>는 이카운트를 처음 쓰는 창고에 <b>재고Ⅰ › 기초등록 › 기초재고</b>로 올립니다(창고코드·품목코드·품목명·수량).</div>'
+        +'<div id="ecStkAutoBox" style="margin-top:10px;padding-top:8px;border-top:1px dashed #cbd5e1"></div>';
+      var keepPm=[(document.getElementById("ecPmWh")||{}).value,(document.getElementById("ecPmTo")||{}).value];
       var db0=document.getElementById("ecDraftBox");if(db0)db0.innerHTML=h;
       if(keep.memo)document.getElementById("ecMemo").value=keep.memo;
+      if(keepPm[0]){var e1=document.getElementById("ecPmWh");if(e1){e1.value=keepPm[0];var e2=document.getElementById("ecPmTo");if(e2)e2.value=keepPm[1]||"";ecStkPmPick();if(e2&&keepPm[1])e2.value=keepPm[1];}}
+      ecStkAutoRender();
     }else{
     if(_ecDraft.items.length){
       h+='<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px"><tr style="background:#f1f5f9"><th style="text-align:left;padding:4px 6px">상품</th><th style="padding:4px 6px">자사코드</th><th style="padding:4px 6px;text-align:right">수량</th><th style="padding:4px 6px;text-align:right" title="'+(ret?'불량이면 불량창고로 들어갑니다':'주희물류 창고재고(홈에서 올린 창고재고현황 기준)')+'">'+(ret?'구분':'창고재고')+'</th><th></th></tr>'
@@ -15236,6 +15347,7 @@ function whIngestFile(file){
       var cp=_whCompact(rows);
       if(!cp||cp.length<3){_auMsg("wh","");alert("창고재고현황 형식이 아닙니다 (상품코드 열이 필요합니다)");return;}
       var at=new Date().toISOString();
+      try{var pa=_pmWhAllFromRows(rows,file.name,at);if(pa){pmWhAll=pa;wsSetItem("pmWhAll",JSON.stringify(pa));}}catch(e){console.warn("PlayMD 전체 창고재고 정리 오류",e);}
       _whRawApplied=at;
       _whApplyRows(cp,file.name,true);
       wsSetItem("whRaw",JSON.stringify({rows:cp,fileName:file.name,at:at}));
