@@ -23609,6 +23609,8 @@ function _ccPrevLine(it,dv,opt,active,fresh){
   if(why.length)h+='<div style="font-size:12px;color:#5b6675">'+why.map(_escX).join(' · ')+'</div>';
   if(saleErr)h+='<div style="font-size:12px;color:#b91c1c">매출: '+_escX(it.error||(SAIP_ITEM_TXT[it.status]||[0,it.status])[1]||"")+'</div>';
   if(D)(D.errors||[]).forEach(function(e){h+='<div style="font-size:12px;color:#b91c1c">DSS: '+_escX(e)+'</div>';});
+  /* 매출이 이미 있는 날짜 — 체크하면 다음부터 안 띄운다(saipAck, 2026-10-29 "이미 등록된 건은 체크하면 다음부터 보이지 않도록"). DSS 오류가 남아 있어도 사람이 확인했으면 */
+  if(!(opt&&opt.noRows))h+=_saipAckBox("cc",it);
   /* 내역 · 상품코드 고치기(2026-10-22 영업2팀 "코스트코 매출등록도 내역 보여주고, 수정할 수 있도록") — 홈쇼핑·백화점몰과 같은 줄 목록(_saipRowList, ws/saipFix).
      10/14 "13줄·17줄 내용은 필요없습니다"라 접어 두고, 고른 날짜·멈춘 줄·고친 코드가 있는 날만 펼친다. 확정 창은 위에 줄 목록이 따로 있어 뺀다(noRows) */
   if(it.rows&&it.rows.length&&!(opt&&opt.noRows)){
@@ -23703,6 +23705,15 @@ function saipAckSet(kind,date,on){
   if(on)saipCfClose();
   renderSaipAuto();
 }
+/* 카드에서도 같은 체크칸(2026-10-29 영업2팀 "이미 등록된 건은 체크하면 다음부터 보이지 않도록") — 플레이엠디에 이미 있는 날짜 줄·맨 위 검수 줄.
+   창고간이동은 일부만 옮겨진 것도 '이미 있음'이라(남은 줄을 등록할 수 있다) 전부 옮겨진 날(status already)만 */
+function _saipAckBox(kind,it){
+  if(!it||!it.date||!it.already||_saipLogOf(kind,it.date))return "";
+  if(kind==="mv"&&it.status!=="already")return "";
+  var dq=_escX(it.date),md=(+it.date.slice(5,7))+"/"+(+it.date.slice(8,10));
+  return '<label style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;padding:3px 9px;border-radius:6px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12.5px;font-weight:700;cursor:pointer">'
+    +'<input type="checkbox" style="width:16px;height:16px;margin:0"'+(_saipAckOf(kind,it.date)?' checked':'')+' onchange="saipAckSet(\''+kind+'\',\''+dq+'\',this.checked)"> '+md+' 이미 등록됨 확인 — 다음부터 안 보기</label>';
+}
 function _saipPickReady(k,date){var el=_saipDateEl(k);if(el){el.value=date;_saipTouched[k]=true;renderSaipAuto();}return false;}
 function _saipStatusOf(k){return k==="ds"?dsSaipStatus:k==="cc"?ccSaipStatus:k==="xc"?xcSaipStatus:k==="mv"?mvSaipStatus:k==="so"?soSaipStatus:hsSaipStatus;}
 /* ── 등록 전 중복 검수(2026-10-13 영업2팀 "매출등록도 등록 전에 중복인지 검수하고 등록요망 뜨게") ──
@@ -23735,7 +23746,7 @@ function _saipCheckLine(k,date){
   if(!C)return '<div style="color:#5b6675">🔍 아직 중복 검수를 안 했습니다 — 등록 버튼을 누르면 먼저 플레이엠디에 이미 있는지 검사하고 미리보기를 보여 줍니다</div>';
   var when=' <span style="color:#5b6675">· '+_escX(_saipFmtAt(C.at))+'</span>';
   if(C.s==="dup"&&(_saipItemDone(k,_saipItemOf(k,date))||_saipAckOf(k,date)))return doneLine("플레이엠디에 이미 있어 등록할 건 없음");
-  if(C.s==="dup")return '<div style="color:#b45309;font-weight:700">🔍 중복 검수: 플레이엠디에 <b>이미 있습니다</b> — 등록하지 마세요'+when+'</div>';
+  if(C.s==="dup")return '<div style="color:#b45309;font-weight:700">🔍 중복 검수: 플레이엠디에 <b>이미 있습니다</b> — 등록하지 마세요'+when+'</div>'+_saipAckBox(k,_saipItemOf(k,date));
   if(C.s==="err")return '<div style="color:#b91c1c;font-weight:700">🔍 중복 검수: '+_escX(C.txt)+when+'</div>';
   return '<div style="color:#047857;font-weight:700">🔍 중복 검수: 겹치는 것 없음 — 등록해도 됩니다 <span style="color:#334155;font-weight:600">('+(k==="cc"?'':C.rows+'줄 · ')+C.qty+'개 · '+Number(C.amt||0).toLocaleString()+'원)</span>'+when+'</div>';
 }
@@ -24517,7 +24528,7 @@ function _saipCard(kind,opt){
     if(it.error&&it.status!=="unmatched")h+='<div style="color:#b91c1c">'+_escX(it.error)+'</div>';
     if(it.verify&&it.status==="savecheck")h+='<div style="color:#b45309">'+_escX(it.verify)+'</div>';
     if(it.more)h+='<div style="color:#1d4ed8;font-weight:700">➕ '+_escX(it.more)+'</div>';
-    if(it.already&&!soDone)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>';
+    if(it.already&&!soDone)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>'+(it.date===dv?'':_saipAckBox(kind,it));   /* 고른 날짜는 맨 위 검수 줄에 있다 */
     var iMode=it.mode||S.mode,iFresh=(it.at||S.at)&&Date.now()-new Date(it.at||S.at).getTime()<2*3600*1000;   /* 날짜 하나만 다시 돌린 결과는 그 날짜의 at·mode(saip-watch mergeStatus) */
     if(kind==="so"&&iMode!=="preview"&&it.rows&&it.rows.length)h+=_soRows(it.rows);
     /* 창고간이동 — 멈춘 줄(창고코드 모름 등)도 표에 실려 와 고칠 수 있다(2026-10-19) */
