@@ -36,7 +36,6 @@
 - [`docs/auth.md`](docs/auth.md) — 회원 승인제(이메일 링크 로그인 · 승인 · Firebase 규칙)
 - [`docs/ecount.md`](docs/ecount.md) — 🧮 이카운트 탭: 매장 발주 요청 → 본사 승인 → 창고이동 엑셀·도매발주서
 - [`docs/floorplan.md`](docs/floorplan.md) — 🧊 3D 집기 탭: 집기 목록(그림·사이즈·수량) · 예상 팝업 자리 이미지 · 자동 배치 · 평면도/3D 끌어 옮기기 · 집기리스트 이미지
-- [`docs/coupang.md`](docs/coupang.md) — 🟠 쿠팡 발주 · 쉽먼트(서플라이어 허브 두 계정 · 단계 진행표 `ws/cpProgress` · 자동화에 필요한 자료)
 - [`docs/higgsfield.md`](docs/higgsfield.md) — 🎨 힉스필드 탭: 힉스필드 새 창 열기 · 코스트코 RRP 디자인 시안 모음(올리기·Ctrl+V · 채택 · 팀 공유 `ws/hgRrp`) · ✨ 문구·참고 이미지로 만들기(자동화 PC `higgs-gen.mjs`가 API로, `ws/hgGen`)
 - [`docs/pdf.md`](docs/pdf.md) — 📄 PDF 탭: 합치기·나누기(순서·돌리기·빼기·묶음 저장) · 글자·서명·도장·펜·형광펜·가리기 쓰기 · 양식 칸 채우기(브라우저 안에서만, pdf-lib, 글자는 한글 글꼴 넣어 벡터)
 - [`docs/cowork.md`](docs/cowork.md) — **별도 페이지** `cowork.html`: 디자인·생산·웹디자인·영업2팀 코스트코 상품개발 협업(단계·일정·시안·코멘트)
@@ -46,7 +45,7 @@
   사입출고등록 4 · 반품등록 2 · 미출고 반영을 한 화면에. **새 카드를 만들지 않고 원래 화면의 카드 함수(`_saipCard`·`_retCard`)를 쓰거나,
   원래 화면을 그릴 때 복사한다(`_apCopy` — renderPortalLogin·ccAutoRender·ocAutoRender 끝)**. 원래 화면을 고치면 이 탭도 같이 바뀐다.
   로그인 칸의 DSS 이름은 아이디 끝 두 자리(`코스트코 DSS26`·`DSS31`).
-  카드 순서(2026-10-15): 로그인 상태+PlayMD 자료 업로드(한 칸) · 세일즈 매니지먼트 · 도매 · 코스트코 · **쿠팡 발주 · 쉽먼트(단계 진행표, `docs/coupang.md`)** · 사입출고 · 반품.
+  카드 순서(2026-10-15): 로그인 상태+PlayMD 자료 업로드(한 칸) · 세일즈 매니지먼트 · 도매 · 코스트코 · 사입출고 · 반품.
   카드·칸마다 `⛶ 크게 보기`(2026-10-23, `bigToggle` — 칸에 `data-big="열쇠"` + `_bigBtn(열쇠)`, 제목 없는 카드는 `_bigWrap`). **고칠 수 있는 칸을 새로 만들면 이 단추도 단다.**
   카드·칸마다 `↗ 열기`(2026-10-15) — `apOpen(탭, id)`가 원래 탭으로 가서 그 칸까지 내려 잠깐 주황 테두리(세일즈 매니지먼트만 외부 사이트 새 탭).
 
