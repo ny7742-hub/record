@@ -8767,26 +8767,29 @@ var wssalesUpload=(function(){try{return JSON.parse(localStorage.getItem("wssale
 var wssalesChk=(function(){try{return JSON.parse(localStorage.getItem("wssalesChk")||"null")||{};}catch(e){return {};}})();
 var _wsShowHidden=false;
 function wsChkToggleHidden(){_wsShowHidden=!_wsShowHidden;renderWsAuto();}
-function wsChkSet(i,on){
-  var W=wssalesUpload;if(!W||!W.at)return;
+function wsChkSet(key,on){
   if(!wssalesChk||typeof wssalesChk!=="object")wssalesChk={};
-  var key=W.at+"#"+i;
   if(on)wssalesChk[key]={by:(typeof _saipMe==="function"?_saipMe():""),at:Date.now()};
   else delete wssalesChk[key];
   _wsSaveChk();renderWsAuto();
 }
 function _wsSaveChk(){
-  var at=(wssalesUpload||{}).at;
-  Object.keys(wssalesChk).forEach(function(k){if(!at||k.indexOf(at+"#")!==0)delete wssalesChk[k];});
+  /* 이번 업로드(at)·이번 확인(checkAt) 줄만 남긴다 — 새 업로드/확인이면 예전 체크는 버려 쌓이지 않게 */
+  var W=wssalesUpload||{},keep=[];if(W.at)keep.push(W.at+"#");if(W.checkAt)keep.push(W.checkAt+"#");
+  Object.keys(wssalesChk).forEach(function(k){if(!keep.some(function(p){return k.indexOf(p)===0;}))delete wssalesChk[k];});
   wsSetItem("wssalesChk",JSON.stringify(wssalesChk));
 }
 function _wsMissHtml(c){
   if(!c)return "";
   var md=function(y){return (+y.slice(5,7))+"/"+(+y.slice(8,10));};
-  var by=function(arr){var t={};arr.forEach(function(x){(t[x.type]=t[x.type]||[]).push(md(x.ymd));});return Object.keys(t).map(function(k){return "<b>"+_escX(k)+"</b> "+t[k].join("·");}).join(" / ");};
+  var by=function(arr){var t={};arr.forEach(function(x){(t[x.type]=t[x.type]||[]).push(md(x.ymd));});return Object.keys(t).map(function(k){return _escX(k)+" "+t[k].join("·");}).join(" / ");};
   var tip=function(arr){return arr.map(function(x){return md(x.ymd)+" "+x.type+" — 판매일보 "+x.fileN+"줄 "+Number(x.fileAmt).toLocaleString()+"원 · 세일즈 "+x.dbN+"줄 "+Number(x.dbAmt).toLocaleString()+"원";}).join("\n");};
-  return (c.missing&&c.missing.length?'<span style="color:#b91c1c" title="'+_escX(tip(c.missing))+'">미등록 '+by(c.missing)+'</span>':'<span style="color:#047857">미등록 없음</span>')
-    +(c.partial&&c.partial.length?' · <span style="color:#b45309" title="'+_escX(tip(c.partial))+'">일부만 '+by(c.partial)+'</span>':'');
+  /* 미등록 = 그날 그 채널이 세일즈 매니지먼트에 아예 안 들어감(진짜 문제). 일부만 = 들어는 갔는데 파일보다 건수가 조금 적음(정산·반품 등으로 흔함, 대개 괜찮음) */
+  var miss=c.missing||[],part=c.partial||[],out="";
+  if(miss.length)out+='<b style="color:#b91c1c" title="'+_escX(tip(miss))+'">⚠ 아직 안 올라간 날 '+miss.length+'건 — '+by(miss)+'</b>';
+  else out+='<b style="color:#047857">✅ 빠진 날 없이 모두 등록됨</b>';
+  if(part.length)out+='<div style="color:#5b6675;font-size:11.5px" title="'+_escX(tip(part))+'">· 일부만 들어간 날 '+part.length+'건 — 등록은 됐지만 파일보다 건수가 조금 적어요(정산·반품 등으로 흔하며 대개 문제 아님. 날짜는 마우스를 올리면 보여요)</div>';
+  return out;
 }
 /* 버튼 — 자동화 PC에 요청(ws/saipReq.wsu, mode check|upload) → saip-watch가 wssales-upload.mjs(--check / --force)를 돌린다 */
 function wsAutoGo(mode){
@@ -8836,30 +8839,31 @@ function renderWsAuto(){
   if(typeof _saipProgTick==="function")_saipProgTick();
   if(!W){box.innerHTML=top+(top?'':'<span style="color:#5b6675">아직 기록이 없습니다 — 평일 16:00에 처음 올립니다.</span>');return;}
   if(!W){box.innerHTML='<span style="color:#5b6675">아직 기록이 없습니다 — 평일 16:00에 처음 올립니다.</span>';return;}
-  var h="";
+  var h="",items=[];                                             /* items = 체크하면 숨길 수 있는 줄들(결과 줄 · 올리기 전 · 올린 뒤 · 확인) */
   if(W.at){
     h+='<div>'+(W.ok?'✅':'❗')+' 마지막 업로드 '+_escX(_saipFmtAt(W.at))+'</div>';
-    var res=W.results||[],hid=0;
-    res.forEach(function(r,i){                                   /* 확인 안 한 줄만 보인다 — 체크하면 숨긴다 */
-      if(wssalesChk&&wssalesChk[W.at+"#"+i]){hid++;return;}
-      h+='<div style="color:#334155;font-size:12.5px;padding-left:4px">'
-        +'<input type="checkbox" onclick="wsChkSet('+i+',true)" title="확인함 — 숨기기" style="width:14px;height:14px;padding:0;flex:none;vertical-align:-1px;margin-right:5px;cursor:pointer">'
-        +_escX(r.msg||"")+'</div>';
-    });
-    if(hid){                                                     /* 확인한(숨긴) 줄 — 접어 두고 펼치면 체크 풀어 다시 볼 수 있다 */
-      h+='<div style="padding-left:4px;margin-top:2px"><a href="#" onclick="wsChkToggleHidden();return false" style="font-size:12px;color:#5b6675;text-decoration:none">✓ 확인한 '+hid+'줄 '+(_wsShowHidden?'접기 ▲':'보기 ▼')+'</a></div>';
-      if(_wsShowHidden)res.forEach(function(r,i){
-        if(!(wssalesChk&&wssalesChk[W.at+"#"+i]))return;
-        h+='<div style="color:#334155;font-size:12.5px;padding-left:4px;opacity:.5;text-decoration:line-through">'
-          +'<input type="checkbox" checked onclick="wsChkSet('+i+',false)" title="확인 풀기 — 다시 보이기" style="width:14px;height:14px;padding:0;flex:none;vertical-align:-1px;margin-right:5px;cursor:pointer;text-decoration:none">'
-          +_escX(r.msg||"")+'</div>';
-      });
-    }
-    h+=(W.before?'<div style="padding-left:18px">올리기 전: '+_wsMissHtml(W.before)+'</div>':'')
-      +(W.after?'<div style="padding-left:18px">올린 뒤: '+_wsMissHtml(W.after)+'</div>':'');
+    (W.results||[]).forEach(function(r,i){items.push({key:W.at+"#r"+i,html:_escX(r.msg||"")});});
+    if(W.before)items.push({key:W.at+"#before",html:'<b>올리기 전</b> · '+_wsMissHtml(W.before)});
+    if(W.after)items.push({key:W.at+"#after",html:'<b>올린 뒤</b> · '+_wsMissHtml(W.after)});
   }
-  if(W.checkAt&&(!W.at||W.checkAt>W.at))h+='<div style="margin-top:3px">🔍 확인 '+_escX(_saipFmtAt(W.checkAt))+' — '+_wsMissHtml(W.check)+'</div>';
-  if(W.err&&W.errAt&&(!W.at||W.errAt>W.at))h+='<div style="color:#b91c1c">❗ '+_escX(_saipFmtAt(W.errAt))+' '+_escX(W.err)+'</div>';
+  if(W.checkAt&&(!W.at||W.checkAt>W.at))items.push({key:W.checkAt+"#check",html:'🔍 <b>확인</b> '+_escX(_saipFmtAt(W.checkAt))+' · '+_wsMissHtml(W.check)});
+  var hid=0;
+  items.forEach(function(it){                                    /* 확인 안 한 줄만 보인다 — 체크하면 숨긴다 */
+    if(wssalesChk&&wssalesChk[it.key]){hid++;return;}
+    h+='<div style="color:#334155;font-size:12.5px;padding-left:4px;margin-top:1px">'
+      +'<input type="checkbox" onclick="wsChkSet(\''+it.key+'\',true)" title="확인함 — 숨기기" style="width:14px;height:14px;padding:0;flex:none;vertical-align:-1px;margin-right:5px;cursor:pointer">'
+      +it.html+'</div>';
+  });
+  if(hid){                                                       /* 확인한(숨긴) 줄 — 접어 두고 펼치면 체크 풀어 다시 볼 수 있다 */
+    h+='<div style="padding-left:4px;margin-top:3px"><a href="#" onclick="wsChkToggleHidden();return false" style="font-size:12px;color:#5b6675;text-decoration:none">✓ 확인한 '+hid+'줄 '+(_wsShowHidden?'접기 ▲':'보기 ▼')+'</a></div>';
+    if(_wsShowHidden)items.forEach(function(it){
+      if(!(wssalesChk&&wssalesChk[it.key]))return;
+      h+='<div style="color:#334155;font-size:12.5px;padding-left:4px;opacity:.5;margin-top:1px">'
+        +'<input type="checkbox" checked onclick="wsChkSet(\''+it.key+'\',false)" title="확인 풀기 — 다시 보이기" style="width:14px;height:14px;padding:0;flex:none;vertical-align:-1px;margin-right:5px;cursor:pointer">'
+        +it.html+'</div>';
+    });
+  }
+  if(W.err&&W.errAt&&(!W.at||W.errAt>W.at))h+='<div style="color:#b91c1c;margin-top:2px">❗ '+_escX(_saipFmtAt(W.errAt))+' '+_escX(W.err)+'</div>';
   box.innerHTML=top+(h||'<span style="color:#5b6675">아직 기록이 없습니다.</span>');
 }
 function renderAutoPage(){
