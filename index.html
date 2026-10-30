@@ -2024,11 +2024,10 @@ label{font-size:14px!important}
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
       <div class="sec-title" style="margin:0;font-size:13px">📦 코스트코 직매입 이익계산</div>
       <label style="font-size:12px;color:#1b6e82;font-weight:600">수수료율(%) <input type="number" id="cdFee" step="0.1" oninput="cdSet('fee',this.value)" onchange="saveCd()" style="width:60px;font-size:12px;padding:4px 8px;text-align:right"></label>
-      <label style="font-size:12px;color:#1b6e82;font-weight:600;display:flex;align-items:center;gap:5px"><input type="checkbox" id="cdVat" onchange="cdSet('vat',this.checked);saveCd()" style="width:15px;height:15px"> VAT 포함(÷1.1)</label>
       <button onclick="cdAddRow()" class="bg" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
       <button onclick="cdExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
       <button onclick="cdReset()" class="bs" style="padding:5px 12px;font-size:12px" title="중우산·600AIR 기본값으로 되돌립니다(지금 입력값은 지워집니다)">↩ 기본값</button>
-      <span style="font-size:11px;color:#5b6675">직매입 — 매출은 공급가(판매가 − 수수료). <b>모든 금액은 원(₩)</b>. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). 미정값은 비워 두세요.</span>
+      <span style="font-size:11px;color:#5b6675">직매입 — 매출은 공급가(판매가 − 수수료, <b>부가세 포함가</b>). <b>모든 금액은 원(₩)</b>. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). 미정값은 비워 두세요.</span>
     </div>
     <div id="cdWrap" style="overflow-x:auto"></div>
   </div>
@@ -11066,8 +11065,9 @@ function ecAddItem(){if(_ecRes.length)ecAddResult(_ecResSel>=0?_ecResSel:0);else
 function ecAddResult(k){
   var d=_ecRes[k];if(!d)return;
   var msg=document.getElementById("ecMsg"),say=function(t,c){if(msg){msg.style.color=c||"#5b6675";msg.textContent=t;}};
-  var qs=String((document.getElementById("ecQty")||{}).value||"").replace(/[^0-9]/g,""),q=qs?parseInt(qs,10):1;
-  if(!(q>0)&&!(_ecKind==="stk"&&qs!==""&&q===0)){say("수량을 확인해 주세요","#b91c1c");return;}
+  var qs=String((document.getElementById("ecQty")||{}).value||"").replace(_ecKind==="stk"?/[^0-9\-]/g:/[^0-9]/g,""),q=qs?parseInt(qs,10):1;
+  /* 재고 등록은 0·마이너스 재고도 담는다(2026-10-30 영업2팀 "마이너스 재고도 들어가게") */
+  if(!(q>0)&&!(_ecKind==="stk"&&qs!==""&&!isNaN(q))){say("수량을 확인해 주세요","#b91c1c");return;}
   _ecDraft.store=(document.getElementById("ecStore")||{}).value||_ecDraft.store;
   var code=String(d["자사코드"]||"").trim(),label=(String(d["상품명"]||"")+" "+String(d["칼라명"]||"")).trim();
   if(_ecKind==="stk"){
@@ -11236,7 +11236,7 @@ function _ecStkSave(){
 function _ecStkHas(wh){return !!(ecStock&&wh&&_ecStockKey(_ecWh(wh)));}
 function _ecStkCur(code,wh){return _ecStkHas(wh)?ecStockQty(code,_ecWh(wh)):null;}
 function _ecStkWhList(){var o=[];_ecDraft.items.forEach(function(x){if(o.indexOf(x.wh)<0)o.push(x.wh);});return o;}
-function ecStkSet(i,v){var x=_ecDraft.items[i];if(!x)return;var n=parseInt(String(v).replace(/[^0-9]/g,""),10);x.qty=isNaN(n)?0:n;_ecStkSave();renderEcount();}
+function ecStkSet(i,v){var x=_ecDraft.items[i];if(!x)return;var n=parseInt(String(v).replace(/[^0-9\-]/g,""),10);x.qty=isNaN(n)?0:n;_ecStkSave();renderEcount();}
 function ecStkClear(wh){
   var L=wh?_ecDraft.items.filter(function(x){return x.wh===wh;}):_ecDraft.items;
   if(!L.length||!confirm((wh?_ecStkName(wh)+"("+_ecWh(wh)+")에 ":"")+"담은 "+L.length+"품목을 모두 비웁니다."))return;
@@ -11292,7 +11292,7 @@ function ecStkLoad(input){
       if(how==="창고 없음"){alert("엑셀에 창고 칸이 없습니다 — 위에서 담을 창고를 고른 뒤 다시 올려 주세요.\n\n(창고 칸이 있거나 창고마다 수량 칸이 있으면 그 창고대로 담습니다)");return;}
       var ks=Object.keys(got);
       if(!ks.length){alert("'자사코드(품목코드)'와 '수량(실사·재고)' 칸을 찾지 못했습니다.\n\n첫 줄 근처에 두 칸의 머리글이 있는 엑셀을 올려 주세요.");return;}
-      ks.forEach(function(k){var g=got[k];_ecStkPut(g.code,g.name,Math.max(0,Math.round(g.q)),true,g.wh);});
+      ks.forEach(function(k){var g=got[k];_ecStkPut(g.code,g.name,Math.round(g.q),true,g.wh);});
       _ecStkSave();renderEcount();
       var whs={};ks.forEach(function(k){whs[got[k].wh]=(whs[got[k].wh]||0)+1;});
       var ms=Object.keys(miss),us=Object.keys(unk);
@@ -11306,7 +11306,7 @@ function ecStkLoad(input){
 /* PlayMD 주희물류 창고재고(홈에서 올린 창고재고현황)를 본사 창고로 그대로 담는다 */
 function ecStkFromPM(){
   if(typeof whStock==="undefined"||!whStock.n){alert("PlayMD 창고재고가 아직 없습니다 — 홈에서 창고재고현황을 먼저 올려 주세요.");return;}
-  var F=_whFlat(),P=_ocProdList(),ks=Object.keys(F).filter(function(k){return +F[k]>0;}),hq=_ecHq();
+  var F=_whFlat(),P=_ocProdList(),ks=Object.keys(F).filter(function(k){return +F[k]!==0;}),hq=_ecHq();   /* 마이너스 재고도(2026-10-30) */
   if(!ks.length){alert("PlayMD 창고재고에 수량이 있는 품목이 없습니다.");return;}
   if(!confirm("PlayMD 주희물류 창고재고 "+ks.length+"품목을 본사 창고("+_ecWh(hq)+")로 담습니다.\n\n본사 창고에 이미 담은 품목은 PlayMD 수량으로 바꿉니다."))return;
   ks.forEach(function(k){
@@ -11323,7 +11323,7 @@ function ecStkDl(kind){
   var tag=W.length===1?_ecWh(W[0]):"전체창고";
   if(kind==="base"){
     aoa=[["창고코드","품목코드","품목명","수량"]];
-    _ecDraft.items.forEach(function(x){if(+x.qty>0)aoa.push([_ecWh(x.wh),x.code,x.name,+x.qty]);});
+    _ecDraft.items.forEach(function(x){if(+x.qty)aoa.push([_ecWh(x.wh),x.code,x.name,+x.qty]);});
     nm="이카운트_기초재고_"+tag+"_"+d+".xlsx";
   }else{
     var all=!!(document.getElementById("ecStkAll")||{}).checked,note=memo||"재고조정(자비스)",seq=0,noData=[];
@@ -11393,7 +11393,7 @@ function ecStkFromPmWh(){
   var pw=(document.getElementById("ecPmWh")||{}).value,ew=(document.getElementById("ecPmTo")||{}).value;
   if(!pmWhAll||!pw){alert("PlayMD 창고를 골라 주세요.");return;}
   if(!ew){alert("넣을 이카운트 창고를 골라 주세요.");return;}
-  var W=pmWhAll.wh[pw],ks=Object.keys((W||{}).items||{}).filter(function(k){return W.items[k]>0;}),P=_ocProdList();
+  var W=pmWhAll.wh[pw],ks=Object.keys((W||{}).items||{}).filter(function(k){return W.items[k]!==0;}),P=_ocProdList();   /* 마이너스 재고도 그대로(2026-10-30) */
   if(!ks.length){alert("PlayMD "+pw+" 창고에 재고가 있는 품목이 없습니다.");return;}
   if(!confirm("PlayMD "+pw+"("+(W.name||"")+") 재고 "+ks.length+"품목을 이카운트 "+ew+"("+_ecStkName(ew)+")로 담습니다.\n\n이 창고에 이미 담은 품목은 PlayMD 수량으로 바꿉니다."))return;
   ks.forEach(function(k){var it=P.by[k];_ecStkPut(it?it.code:k,it?it.label:k,W.items[k],false,ew);});
@@ -11529,7 +11529,7 @@ function renderEcount(){
           +_ecDraft.items.map(function(x,i){
             var hw=_ecStkHas(x.wh),cur=hw?(+_ecStkCur(x.code,x.wh)||0):null,df=hw?(+x.qty||0)-cur:null;if(hw){tc+=cur;td+=df;}
             return '<tr style="border-top:1px solid #e2e8f0"><td style="padding:3px 6px;font-weight:700;color:#1b6e82;white-space:nowrap" title="'+_escX(_ecStkName(x.wh))+'">'+_escX(_ecWh(x.wh))+'</td><td style="padding:3px 6px">'+_escX(x.name)+'</td><td style="padding:3px 6px;color:#5b6675">'+_escX(x.code)+'</td>'
-              +'<td style="padding:3px 6px;text-align:right"><input value="'+(+x.qty||0)+'" inputmode="numeric" onchange="ecStkSet('+i+',this.value)" style="width:60px;text-align:right;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;font-weight:700"></td>'
+              +'<td style="padding:3px 6px;text-align:right"><input value="'+(+x.qty||0)+'" onchange="ecStkSet('+i+',this.value)" style="width:60px;text-align:right;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px;font-weight:700;color:'+(+x.qty<0?'#b91c1c':'inherit')+'"></td>'
               +(has?(hw?'<td style="padding:3px 6px;text-align:right;color:#6d28d9">'+cur+'</td><td style="padding:3px 6px;text-align:right;font-weight:800;color:'+(df>0?'#047857':df<0?'#b91c1c':'#5b6675')+'">'+(df>0?'+':'')+df+'</td>':'<td style="padding:3px 6px;text-align:right;color:#5b6675">–</td><td style="padding:3px 6px;text-align:right;color:#b45309">+'+(+x.qty||0)+'</td>'):'')
               +'<td style="padding:3px 6px;text-align:right"><button class="bs" style="padding:2px 8px;font-size:11.5px;color:#b91c1c" onclick="ecDelItem('+i+')">빼기</button></td></tr>';}).join("")
           +'<tr style="border-top:2px solid #cbd5e1;background:#f8fafc"><td style="padding:4px 6px;font-weight:700">'+W.length+'곳</td><td style="padding:4px 6px;font-weight:700">'+_ecDraft.items.length+'줄</td><td></td><td style="padding:4px 6px;text-align:right;font-weight:800">'+_ecSum(_ecDraft)+'</td>'
@@ -19984,17 +19984,16 @@ var CD_COLS=[
   {k:"rrp",lab:"RRP박스(원)",w:92,in:1,money:1},
   {k:"logi",lab:"물류·관세(원)",w:94,in:1,money:1},
   {k:"etc",lab:"기타(원)",w:84,in:1,money:1},
-  {k:"supply",lab:"공급가(매출)",w:92},
+  {k:"supply",lab:"공급가(VAT포함)",w:106},
   {k:"cost",lab:"총원가",w:84},
   {k:"profit",lab:"이익금",w:88},
   {k:"rate",lab:"이익률",w:70},
   {k:"cRate",lab:"원가대비",w:74}
 ];
 function _cdCalc(r){
-  var fee=_cdN(cdDB.fee)/100,vat=cdDB.vat!==false;
+  var fee=_cdN(cdDB.fee)/100;
   var sale=_cdN(r.sale),qty=_cdN(r.qty)||1;
-  var supplyGross=sale*(1-fee);                 /* 공급가(코스트코 지급, 판매가−수수료) — 세트 기준 */
-  var supplyNet=vat?supplyGross/1.1:supplyGross;/* VAT 포함이면 순매출로 */
+  var supplyNet=sale*(1-fee);                   /* 공급가(매출) = 판매가 − 수수료, 부가세 포함가(2026-10-30 영업2팀 "공급가 매출은 부가세포함가로") */
   var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi)+_cdN(r.etc);   /* 모두 원 — 원가·스트랩은 ×구성, 패키지·RRP·물류·기타는 세트 */
   var profit=supplyNet-cost;
   return {supplyNet:supplyNet,cost:cost,profit:profit,
@@ -20071,7 +20070,7 @@ function cdReset(){
 }
 function cdExport(){
   if(!cdDB.rows.length){alert("계산한 상품이 없습니다.");return;}
-  var aoa=[["상품명","구성(개)","판매가","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","기타(원)","공급가(매출)","총원가","이익금","이익률","원가대비","수수료율","VAT"]];
+  var aoa=[["상품명","구성(개)","판매가","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","기타(원)","공급가(VAT포함)","총원가","이익금","이익률","원가대비","수수료율","비고"]];
   cdDB.rows.forEach(function(r){var c=_cdCalc(r);
     aoa.push([r.name||"",_cdN(r.qty)||1,_cdN(r.sale)||"",_cdN(r.won)||"",_cdN(r.strap)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",_cdN(r.etc)||"",
       c.has?Math.round(c.supplyNet):"",c.has?Math.round(c.cost):"",c.has?Math.round(c.profit):"",
