@@ -8899,7 +8899,7 @@ function renderAutoPage(){
         +(dv?'<span class="ap-sub">'+(+dv.slice(5,7))+'/'+(+dv.slice(8,10))+'</span>':'')
         +_apBtn("saipAuto"+k.charAt(0).toUpperCase()+k.slice(1),"saipAutoGo('"+k+"')","등록")
         +'<button class="ap-btn sub" onclick="apOpen(\'ccorder\',\'saipAuto'+k.charAt(0).toUpperCase()+k.slice(1)+'\')" title="사입출고등록 탭의 이 칸을 엽니다">↗ 열기</button>'+_bigBtn("ap-saip-"+k)+'</div>'
-        +_saipCard(k,{noReg:true,noSeenBox:true})+_apSrcLink(k,dv)+_seenCardBox(_seenLast[k])+'</div>';   /* 끝난 문구 '확인'은 링크 밑(2026-10-29) */
+        +_saipCard(k,{noReg:true,noSeenBox:true})+_apSrcLink(k,dv)+_seenFooter(k,_seenLast[k])+'</div>';   /* '확인한 N줄 보기'는 링크 밑(2026-10-29) */
     }).join("");
   }
   /* 반품등록 2개 */
@@ -22966,7 +22966,8 @@ function _retCardBody(kind){
   var h='<div style="border:1px solid #cfe0e5;border-radius:8px;background:#fff;padding:9px 12px;font-size:14px;line-height:1.6">';
   /* 1줄 언제·누가 · 2줄 건수·수량·금액 · 3줄부터 이슈 — 사입출고 카드와 같은 모양 */
   var last=_retLastRun(kind);
-  if(last&&!_seenOf("retlast|"+kind+"|"+last.at))h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:3px"><div style="color:#047857;font-weight:700">'+_seenBox("retlast|"+kind+"|"+last.at)+'✅ '+_escX(_saipFmtAt(last.at))+' 등록됨 · '+_escX(_saipWho(last.by))+(last.check?' <span style="color:#b45309">(확인 필요)</span>':'')+'</div>'
+  var _rlg=last?_seenGuard("retlast|"+kind+"|"+last.at):null;
+  if(last&&_rlg!==null)h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:3px"><div style="color:#047857;font-weight:700">'+_rlg+'✅ '+_escX(_saipFmtAt(last.at))+' 등록됨 · '+_escX(_saipWho(last.by))+(last.check?' <span style="color:#b45309">(확인 필요)</span>':'')+'</div>'
     +'<div style="font-weight:600;color:#334155;padding-left:18px">'+last.n+'건 · '+last.qty+'개 · '+Math.round(last.amt).toLocaleString()+'원</div></div>';
   if(R&&R.state){
     var who=_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="preview"?"미리보기":"등록";
@@ -23038,7 +23039,7 @@ function _retCardBody(kind){
   var resKey="retres|"+kind+"|"+(S.at||"");
   var resDone=!S.error&&["saved","none","moveonly","cleanonly"].indexOf(S.status)>=0&&!(S.bad&&S.bad.length)&&!(S.partial&&S.partial.length)&&!(S.hold&&S.hold.length)
     &&!(M&&M.status&&/partial|error|movecheck|skipped/.test(M.status))&&!(SH&&SH.status&&/partial|error|off/.test(SH.status));
-  if(resDone&&h.length>h0){if(_seenOf(resKey))h=h.slice(0,h0);else h+='<div style="padding-left:4px;margin-top:2px;font-size:12px;color:#5b6675">'+_seenBox(resKey)+'이 실행 결과 확인 — 숨기기</div>';}
+  if(resDone&&h.length>h0){var _reg=_seenGuard(resKey);if(_reg===null)h=h.slice(0,h0);else h+='<div style="padding-left:4px;margin-top:2px;font-size:12px;color:#5b6675">'+_reg+(_seenOf(resKey)?'이 실행 결과 — 확인 풀기':'이 실행 결과 확인 — 숨기기')+'</div>';}
   var mvp=_retMovesPending(kind).length;
   if(mvp&&!(active))h+='<div style="color:#6d28d9;font-weight:700">🔧 불량 창고간이동 대기 '+mvp+'건 — 버튼을 누르면 창고간이동만 다시 합니다</div>';
   if(S.mode==="preview"&&((S.rows||[]).length||(S.holdRows||[]).length)){S.rows=S.rows||[];
@@ -24092,26 +24093,31 @@ function _saipAckBox(kind,it){
 var saipSeen=(function(){try{return JSON.parse(localStorage.getItem("saipSeen")||"null")||{};}catch(e){return {};}})();
 function _seenOf(key){return !!(saipSeen&&saipSeen[key]);}
 /* 카드를 그리는 동안(_seenCollect)은 열쇠만 모으고 문구 옆엔 체크를 두지 않는다 — 카드 아래(링크 밑) 체크 하나로(2026-10-29 영업2팀 "온드라이브 링크 밑에 넣어주세요") */
-var _seenCollect=null,_seenLast={};
+var _seenCollect=null,_seenLast={},_seenCurId=null,_seenShow={};   /* _seenShow[카드id]=true면 그 카드의 숨긴 줄을 펼쳐 본다 */
 function _seenBox(key){return _seenBoxInline(key);}
 /* 등록건마다 줄 맨 앞(왼쪽) 작은 체크박스로 통일(2026-10-30 영업2팀 "모든 등록건은 왼쪽 앞에 체크, 통일") — 세일즈 매니지먼트 카드와 같은 모양. 체크하면 그 줄을 팀 전체 화면에서 숨긴다(saipSeen) */
 function _seenBoxInline(key){return '<input type="checkbox" data-k="'+_escX(key)+'" onchange="saipSeenSet(this.dataset.k)" title="확인함 — 이 줄을 팀 전체 화면에서 숨깁니다(새 결과가 나오면 다시 보입니다)" style="width:13px;height:13px;padding:0;flex:none;vertical-align:-1px;margin-right:5px;cursor:pointer">';}
-/* html(끝이 </div>)의 마지막 </div> 앞에 체크를 넣는다 — 확인한 열쇠면 통째로 뺀다 */
-function _seenWrap(key,html){if(!html||_seenOf(key))return "";var j=html.indexOf(">");return j<0?_seenBox(key)+html:html.slice(0,j+1)+_seenBox(key)+html.slice(j+1);}   /* 여는 태그 바로 뒤(줄 맨 앞)에 체크박스 */
-/* 카드 아래 체크 하나 — 그 카드의 끝난 문구 열쇠 전부(줄바꿈으로 묶음) */
-function _seenCardBox(keys){
+/* 펼쳐 볼 때(확인한 줄) 앞에 붙는 체크 — 다시 누르면 확인을 풀어 모두에게 다시 보인다 */
+function _seenBoxChecked(key){return '<input type="checkbox" checked data-k="'+_escX(key)+'" onchange="saipSeenUnset(this.dataset.k)" title="확인 풀기 — 다시 보이기" style="width:13px;height:13px;padding:0;flex:none;vertical-align:-1px;margin-right:5px;cursor:pointer">';}
+/* 이 줄을 지금 그릴지 판단 — 확인한 줄은 세고(_seenCollect), 펼침 상태가 아니면 null(숨김). 그릴 땐 앞에 붙일 체크(확인 전=숨기기 · 확인함=풀기)를 돌려준다 */
+function _seenGuard(key){var seen=_seenOf(key);if(seen&&_seenCollect)_seenCollect.push(key);if(seen&&!(_seenCurId&&_seenShow[_seenCurId]))return null;return seen?_seenBoxChecked(key):_seenBox(key);}
+/* html(여는 태그 바로 뒤)에 체크를 넣는다 — 확인했고 펼치지 않았으면 통째로 뺀다 */
+function _seenWrap(key,html){if(!html)return "";var g=_seenGuard(key);if(g===null)return "";var j=html.indexOf(">");return j<0?g+html:html.slice(0,j+1)+g+html.slice(j+1);}
+/* 카드 아래 '✓ 확인한 N줄 보기 ▼' — 숨긴 줄을 펼쳐(접어) 다시 볼 수 있다(2026-10-30 영업2팀, 세일즈 매니지먼트 카드와 같은 방식). id=카드 종류 */
+function _seenFooter(id,keys){
   if(!keys||!keys.length)return "";
-  return '<div style="margin-top:6px"><label title="체크하면 이 카드의 끝난 문구('+keys.length+'개)를 팀 전체 화면에서 감춥니다 — 새 결과가 나오면 다시 보입니다" style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;color:#475569;cursor:pointer">'
-    +'<input type="checkbox" data-k="'+_escX(keys.join("\n"))+'" onchange="saipSeenSet(this.dataset.k)" style="width:15px;height:15px;margin:0">확인 — 끝난 문구 안 보기</label></div>';
+  var on=!!_seenShow[id];
+  return '<div style="margin-top:6px;padding-left:4px"><a href="#" onclick="_seenToggleShow(\''+id+'\');return false" style="font-size:12px;color:#5b6675;text-decoration:none">✓ 확인한 '+keys.length+'줄 '+(on?'접기 ▲':'보기 ▼')+'</a></div>';
 }
-/* 카드 함수를 감싸 열쇠를 모은다 — 끝에 카드 체크를 붙이거나(noSeenBox면 붙이지 않고 _seenLast[종류]에만 둔다) */
+function _seenToggleShow(id){_seenShow[id]=!_seenShow[id];try{renderSaipAuto();}catch(e){}try{renderRetAuto();}catch(e){}}
+/* 카드 함수를 감싸 확인한(숨긴) 열쇠를 모은다 — 끝에 '확인한 N줄 보기' 꼬리를 붙인다(noSeenBox면 붙이지 않고 _seenLast[종류]에만 둔다 — 복사본이 직접 붙인다) */
 function _seenCard(id,fn,opt){
-  var prev=_seenCollect,keys=[];_seenCollect=keys;
-  var h;try{h=fn();}finally{_seenCollect=prev;}
+  var prevC=_seenCollect,prevId=_seenCurId,keys=[];_seenCollect=keys;_seenCurId=id;
+  var h;try{h=fn();}finally{_seenCollect=prevC;_seenCurId=prevId;}
   _seenLast[id]=keys;
   if(opt&&opt.noSeenBox)return h;
   var i=h.lastIndexOf("</div>");
-  return i<0?h+_seenCardBox(keys):h.slice(0,i)+_seenCardBox(keys)+h.slice(i);
+  return i<0?h+_seenFooter(id,keys):h.slice(0,i)+_seenFooter(id,keys)+h.slice(i);
 }
 function saipSeenSet(key){
   if(!key)return;
@@ -24119,6 +24125,14 @@ function saipSeenSet(key){
   var now=Date.now();
   Object.keys(saipSeen).forEach(function(k){var t=Date.parse((saipSeen[k]||{}).at||"")||0;if(now-t>60*86400000)delete saipSeen[k];});
   String(key).split("\n").forEach(function(k){if(k)saipSeen[k]={by:_saipMe(),at:new Date().toISOString()};});
+  wsSetItem("saipSeen",JSON.stringify(saipSeen));
+  try{renderSaipAuto();}catch(e){}
+  try{renderRetAuto();}catch(e){}
+}
+/* 확인 풀기 — 펼쳐 본 줄의 체크를 끄면 그 줄을 모두에게 다시 보인다 */
+function saipSeenUnset(key){
+  if(!key||!saipSeen)return;
+  String(key).split("\n").forEach(function(k){if(k)delete saipSeen[k];});
   wsSetItem("saipSeen",JSON.stringify(saipSeen));
   try{renderSaipAuto();}catch(e){}
   try{renderRetAuto();}catch(e){}
@@ -24951,7 +24965,8 @@ function _saipCardBody(kind,opt){
     var imd=it.mmdd?(+it.mmdd.slice(0,2))+'/'+(+it.mmdd.slice(2,4)):"";
     if(multi&&it.status==="nofile"){noFile.push(imd);return;}
     var nfKey=!multi&&it.status==="nofile"?"item|"+kind+"|"+it.date+"|nofile":"";   /* 파일 없는 날짜 한 줄(검사한 날짜가 하나뿐) — 확인하면 감춤 */
-    if(nfKey&&_seenOf(nfKey))return;
+    var nfG=nfKey?_seenGuard(nfKey):'';
+    if(nfG===null)return;
     if(kind==="cc"&&S.mode==="preview"){h+=_ccPrevLine(it,dv,opt,active,fresh);return;}   /* 코스트코는 날짜마다 한 줄(줄 목록 없음) */
     var t=SAIP_ITEM_TXT[it.status]||["•",it.status||"",""];
     var soDone=kind==="so"&&it.status==="already";                     /* 매장출고: 이미 있으면 '등록완료'로만(2026-10-15 영업2팀) */
@@ -24961,7 +24976,7 @@ function _saipCardBody(kind,opt){
     if(multi&&it.already&&!soDone)head+=' <span style="color:#b45309;font-weight:800">· 이미 있음</span>';
     var ok1=kind+'|'+it.date;
     if(multi)h+='<details'+_saipOpenAttr(ok1,it.date===dv)+' style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0"><summary onclick="_saipOpenClick(this,\''+ok1+'\')" style="cursor:pointer;list-style-position:inside">'+head+'</summary>';
-    else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+(nfKey?_seenBox(nfKey):'')+head;
+    else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+(nfKey?nfG:'')+head;
     if(it.skipped&&it.skipped.length)h+='<div style="color:#5b6675">⏭ 발송후취소 중 Cafe24 '+it.skipped.length+'줄은 뺐습니다(매장코드 미정)</div>';
     if(kind==="mv"&&it.badRows&&it.badRows.length)h+='<div style="color:#b91c1c;font-weight:700">'+it.badRows.length+'줄이 멈췄습니다 — 아래 빨간 줄의 창고코드·상품코드·수량을 고친 뒤 [🔍 이 날짜 다시 확인]</div>';
     else if(kind==="so"&&it.badRows&&it.badRows.length)h+=_soBadRows(it);   /* 매장출고 — 멈춘 줄을 여기서 고친다(2026-10-26) */
