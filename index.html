@@ -22966,8 +22966,8 @@ function _retCardBody(kind){
   var h='<div style="border:1px solid #cfe0e5;border-radius:8px;background:#fff;padding:9px 12px;font-size:14px;line-height:1.6">';
   /* 1줄 언제·누가 · 2줄 건수·수량·금액 · 3줄부터 이슈 — 사입출고 카드와 같은 모양 */
   var last=_retLastRun(kind);
-  if(last&&!_seenOf("retlast|"+kind+"|"+last.at))h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:3px"><div style="color:#047857;font-weight:700">✅ '+_escX(_saipFmtAt(last.at))+' 등록됨 · '+_escX(_saipWho(last.by))+(last.check?' <span style="color:#b45309">(확인 필요)</span>':'')+'</div>'
-    +'<div style="font-weight:600;color:#334155">'+last.n+'건 · '+last.qty+'개 · '+Math.round(last.amt).toLocaleString()+'원'+_seenBox("retlast|"+kind+"|"+last.at)+'</div></div>';
+  if(last&&!_seenOf("retlast|"+kind+"|"+last.at))h+='<div style="background:#ecfdf5;border-radius:6px;padding:4px 8px;margin-bottom:3px"><div style="color:#047857;font-weight:700">'+_seenBox("retlast|"+kind+"|"+last.at)+'✅ '+_escX(_saipFmtAt(last.at))+' 등록됨 · '+_escX(_saipWho(last.by))+(last.check?' <span style="color:#b45309">(확인 필요)</span>':'')+'</div>'
+    +'<div style="font-weight:600;color:#334155;padding-left:18px">'+last.n+'건 · '+last.qty+'개 · '+Math.round(last.amt).toLocaleString()+'원</div></div>';
   if(R&&R.state){
     var who=_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="preview"?"미리보기":"등록";
     if(active){
@@ -23038,7 +23038,7 @@ function _retCardBody(kind){
   var resKey="retres|"+kind+"|"+(S.at||"");
   var resDone=!S.error&&["saved","none","moveonly","cleanonly"].indexOf(S.status)>=0&&!(S.bad&&S.bad.length)&&!(S.partial&&S.partial.length)&&!(S.hold&&S.hold.length)
     &&!(M&&M.status&&/partial|error|movecheck|skipped/.test(M.status))&&!(SH&&SH.status&&/partial|error|off/.test(SH.status));
-  if(resDone&&h.length>h0){if(_seenOf(resKey))h=h.slice(0,h0);else{var rbx=_seenBox(resKey);if(rbx)h+='<div style="text-align:right;margin-top:-2px">'+rbx+'</div>';}}   /* 카드 체크로 모일 땐 열쇠만 */
+  if(resDone&&h.length>h0){if(_seenOf(resKey))h=h.slice(0,h0);else h+='<div style="padding-left:4px;margin-top:2px;font-size:12px;color:#5b6675">'+_seenBox(resKey)+'이 실행 결과 확인 — 숨기기</div>';}
   var mvp=_retMovesPending(kind).length;
   if(mvp&&!(active))h+='<div style="color:#6d28d9;font-weight:700">🔧 불량 창고간이동 대기 '+mvp+'건 — 버튼을 누르면 창고간이동만 다시 합니다</div>';
   if(S.mode==="preview"&&((S.rows||[]).length||(S.holdRows||[]).length)){S.rows=S.rows||[];
@@ -24093,11 +24093,11 @@ var saipSeen=(function(){try{return JSON.parse(localStorage.getItem("saipSeen")|
 function _seenOf(key){return !!(saipSeen&&saipSeen[key]);}
 /* 카드를 그리는 동안(_seenCollect)은 열쇠만 모으고 문구 옆엔 체크를 두지 않는다 — 카드 아래(링크 밑) 체크 하나로(2026-10-29 영업2팀 "온드라이브 링크 밑에 넣어주세요") */
 var _seenCollect=null,_seenLast={};
-function _seenBox(key){if(_seenCollect){if(_seenCollect.indexOf(key)<0)_seenCollect.push(key);return "";}return _seenBoxInline(key);}
-function _seenBoxInline(key){return ' <label title="체크하면 이 문구를 팀 전체 화면에서 감춥니다(새 결과가 나오면 다시 보입니다)" style="display:inline-flex;align-items:center;gap:3px;margin-left:4px;font-size:11.5px;font-weight:600;color:#5b6675;cursor:pointer;white-space:nowrap;vertical-align:middle">'
-  +'<input type="checkbox" data-k="'+_escX(key)+'" onchange="saipSeenSet(this.dataset.k)" style="width:13px;height:13px;margin:0">확인</label>';}
+function _seenBox(key){return _seenBoxInline(key);}
+/* 등록건마다 줄 맨 앞(왼쪽) 작은 체크박스로 통일(2026-10-30 영업2팀 "모든 등록건은 왼쪽 앞에 체크, 통일") — 세일즈 매니지먼트 카드와 같은 모양. 체크하면 그 줄을 팀 전체 화면에서 숨긴다(saipSeen) */
+function _seenBoxInline(key){return '<input type="checkbox" data-k="'+_escX(key)+'" onchange="saipSeenSet(this.dataset.k)" title="확인함 — 이 줄을 팀 전체 화면에서 숨깁니다(새 결과가 나오면 다시 보입니다)" style="width:13px;height:13px;padding:0;flex:none;vertical-align:-1px;margin-right:5px;cursor:pointer">';}
 /* html(끝이 </div>)의 마지막 </div> 앞에 체크를 넣는다 — 확인한 열쇠면 통째로 뺀다 */
-function _seenWrap(key,html){if(!html||_seenOf(key))return "";var i=html.lastIndexOf("</div>");return i<0?html+_seenBox(key):html.slice(0,i)+_seenBox(key)+html.slice(i);}
+function _seenWrap(key,html){if(!html||_seenOf(key))return "";var j=html.indexOf(">");return j<0?_seenBox(key)+html:html.slice(0,j+1)+_seenBox(key)+html.slice(j+1);}   /* 여는 태그 바로 뒤(줄 맨 앞)에 체크박스 */
 /* 카드 아래 체크 하나 — 그 카드의 끝난 문구 열쇠 전부(줄바꿈으로 묶음) */
 function _seenCardBox(keys){
   if(!keys||!keys.length)return "";
@@ -24961,7 +24961,7 @@ function _saipCardBody(kind,opt){
     if(multi&&it.already&&!soDone)head+=' <span style="color:#b45309;font-weight:800">· 이미 있음</span>';
     var ok1=kind+'|'+it.date;
     if(multi)h+='<details'+_saipOpenAttr(ok1,it.date===dv)+' style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0"><summary onclick="_saipOpenClick(this,\''+ok1+'\')" style="cursor:pointer;list-style-position:inside">'+head+'</summary>';
-    else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+head;
+    else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+(nfKey?_seenBox(nfKey):'')+head;
     if(it.skipped&&it.skipped.length)h+='<div style="color:#5b6675">⏭ 발송후취소 중 Cafe24 '+it.skipped.length+'줄은 뺐습니다(매장코드 미정)</div>';
     if(kind==="mv"&&it.badRows&&it.badRows.length)h+='<div style="color:#b91c1c;font-weight:700">'+it.badRows.length+'줄이 멈췄습니다 — 아래 빨간 줄의 창고코드·상품코드·수량을 고친 뒤 [🔍 이 날짜 다시 확인]</div>';
     else if(kind==="so"&&it.badRows&&it.badRows.length)h+=_soBadRows(it);   /* 매장출고 — 멈춘 줄을 여기서 고친다(2026-10-26) */
@@ -24981,7 +24981,7 @@ function _saipCardBody(kind,opt){
     /* 날짜별 — 이대로 등록 · 이 날짜만 다시 확인(2026-10-19 영업2팀 "날짜별로 개별 등록도 가능하게").
        자동화 탭(noReg)에서도 날짜마다 등록할 수 있다 — 예전엔 자동화 탭은 미리보기만(2026-10-12). 저장은 그 날짜 하나만, 결과는 카드의 그 날짜에만 끼운다(merge) */
     if(iMode==="preview"&&it.status!=="nofile")h+=_saipDateBtns(kind,it,active,iFresh);
-    h+=multi?'</details>':(nfKey?_seenBox(nfKey):'')+'</div>';
+    h+=multi?'</details>':'</div>';
   });
   if(doneDays.length)h+=_seenWrap("done|"+kind+"|"+doneDays.join(","),'<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0;color:#047857;font-size:13px;font-weight:700">✅ 완료: '+doneDays.join(", ")+' <span style="color:#5b6675;font-weight:600">— 등록할 건 없음</span></div>');
   if(noFile.length)h+=_seenWrap("nofile|"+kind+"|"+noFile.join(","),'<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0;color:#5b6675;font-size:13px">📭 '+(kind==="cc"?"회신 메일":"파일")+' 없음: '+noFile.join(", ")+'</div>');
