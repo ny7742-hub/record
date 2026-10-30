@@ -8791,6 +8791,31 @@ function _wsMissHtml(c){
   if(part.length)out+='<div style="color:#5b6675;font-size:11.5px" title="'+_escX(tip(part))+'">· 일부만 들어간 날 '+part.length+'건 — 등록은 됐지만 파일보다 건수가 조금 적어요(정산·반품 등으로 흔하며 대개 문제 아님. 날짜는 마우스를 올리면 보여요)</div>';
   return out;
 }
+/* 일자별 미등록/등록완료 한 줄씩(간결, 2026-10-30 영업2팀 "일자별로 미등록, 등록완료으로 간결하게") —
+   올린 파일(results)·남은 미등록(after 우선, 없으면 check)을 날짜·채널로 모아 최종 상태만 보여 준다.
+   세일즈 매니지먼트가 업로드 때 띄우는 진행 토스트(🔄 반영 중 · 최신 데이터로 갱신 완료)는 더 안 띄운다 — 그건 결과가 아니라 중간 안내라 결과를 가렸다 */
+function _wsDayItems(W){
+  var state=W.after||W.check||W.before,out=[];
+  if(!state)return out;
+  var missSet={},partSet={};
+  (state.missing||[]).forEach(function(x){missSet[x.ymd+"|"+x.type]=1;});
+  (state.partial||[]).forEach(function(x){partSet[x.ymd+"|"+x.type]=1;});
+  var dc={};   /* ymd → {채널:상태(miss|part|done)} */
+  function mark(ymd,type){var k=ymd+"|"+type;(dc[ymd]=dc[ymd]||{})[type]=missSet[k]?"miss":partSet[k]?"part":"done";}
+  (W.results||[]).forEach(function(r){var m=String(r.file||"").match(/^(\d{2})(\d{2})(\d{2})_(.+)\.xlsx$/);if(m)mark("20"+m[1]+"-"+m[2]+"-"+m[3],m[4]);});
+  (state.missing||[]).forEach(function(x){mark(x.ymd,x.type);});
+  (state.partial||[]).forEach(function(x){mark(x.ymd,x.type);});
+  Object.keys(dc).sort().forEach(function(ymd){
+    var ch=dc[ymd],miss=[],part=[],done=[];
+    Object.keys(ch).forEach(function(t){(ch[t]==="miss"?miss:ch[t]==="part"?part:done).push(t);});
+    var md=(+ymd.slice(5,7))+"/"+(+ymd.slice(8,10)),seg=[];
+    if(miss.length)seg.push('<b style="color:#b91c1c">⚠ 미등록</b> '+_escX(miss.join("·")));
+    if(part.length)seg.push('<span style="color:#b45309">일부만</span> '+_escX(part.join("·")));
+    if(done.length)seg.push('<span style="color:#047857;font-weight:700">✅ 등록완료</span> <span style="color:#5b6675">'+_escX(done.join("·"))+'</span>');
+    out.push({key:(W.at||W.checkAt||"")+"#d"+ymd,html:'<b>'+md+'</b> · '+seg.join(' · ')});
+  });
+  return out;
+}
 /* 버튼 — 자동화 PC에 요청(ws/saipReq.wsu, mode check|upload) → saip-watch가 wssales-upload.mjs(--check / --force)를 돌린다 */
 function wsAutoGo(mode){
   var cur=(saipReq||{}).wsu;
@@ -8839,13 +8864,9 @@ function renderWsAuto(){
   if(typeof _saipProgTick==="function")_saipProgTick();
   if(!W){box.innerHTML=top+(top?'':'<span style="color:#5b6675">아직 기록이 없습니다 — 평일 16:00에 처음 올립니다.</span>');return;}
   if(!W){box.innerHTML='<span style="color:#5b6675">아직 기록이 없습니다 — 평일 16:00에 처음 올립니다.</span>';return;}
-  var h="",items=[];                                             /* items = 체크하면 숨길 수 있는 줄들(결과 줄 · 올리기 전 · 올린 뒤 · 확인) */
-  if(W.at){
-    h+='<div>'+(W.ok?'✅':'❗')+' 마지막 업로드 '+_escX(_saipFmtAt(W.at))+'</div>';
-    (W.results||[]).forEach(function(r,i){items.push({key:W.at+"#r"+i,html:_escX(r.msg||"")});});
-    if(W.before)items.push({key:W.at+"#before",html:'<b>올리기 전</b> · '+_wsMissHtml(W.before)});
-    if(W.after)items.push({key:W.at+"#after",html:'<b>올린 뒤</b> · '+_wsMissHtml(W.after)});
-  }
+  var h="",items=[];                                             /* items = 체크하면 숨길 수 있는 줄들(일자별 미등록/등록완료 · 확인) */
+  if(W.at)h+='<div>'+(W.ok?'✅':'❗')+' 마지막 업로드 '+_escX(_saipFmtAt(W.at))+'</div>';
+  _wsDayItems(W).forEach(function(it){items.push(it);});          /* 일자별 미등록/등록완료 한 줄씩 — 사이트 진행 토스트는 안 띄운다 */
   if(W.checkAt&&(!W.at||W.checkAt>W.at))items.push({key:W.checkAt+"#check",html:'🔍 <b>확인</b> '+_escX(_saipFmtAt(W.checkAt))+' · '+_wsMissHtml(W.check)});
   var hid=0;
   items.forEach(function(it){                                    /* 확인 안 한 줄만 보인다 — 체크하면 숨긴다 */
