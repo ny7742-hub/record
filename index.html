@@ -18001,7 +18001,8 @@ function ocAnMerge(fn,k){
   var msg=document.getElementById("ocAnMsg_"+k),say=function(t,c){if(msg){msg.style.color=c||"#5b6675";msg.textContent=t;}};
   var pick=(document.getElementById("ocAnStore_"+k)||{}).value||"",sel=document.getElementById("anStore");
   if(pick&&sel){sel.value=pick;try{anRenderTable();}catch(e){}}
-  var code=(sel&&sel.value)||"ANG",st=_ordStoreByCode(code)||{};
+  if(!(sel&&sel.value)){say("⚠ 매장을 찾지 못해 넣지 않았습니다 — 왼쪽 칸에서 매장을 고르고 다시 올리세요","#c2410c");return;}
+  var code=sel.value,st=_ordStoreByCode(code)||{};
   var add=anRows.filter(function(r){return r.checked&&(Number(r.qty)||0)>0;}).map(function(r){
     var sku=String(r.skuCode||"").trim();
     var o={store:code,storeName:st.name||code,recv:st.recv||"",tel:st.tel||"",addr:st.addr||"",
@@ -26288,7 +26289,7 @@ function ccOrderBuildFromDss(orders){
    바코드로 사내 상품을 매칭하며, 품절 상품은 체크 해제로 제외한다. ── */
 var ANANTI_STORES=[
   {code:"ANC",kw:["코브","cove"]},
-  {code:"ANG",kw:["코드","가평"]},
+  {code:"ANG",kw:["코드","가평","펜트하우스"]},
   {code:"ANT",kw:["남해"]},
   {code:"ANV",kw:["빌라쥬","빌라주","villa"]}
 ];
@@ -26495,6 +26496,7 @@ function _anParse(rows,fileName){
   if(!rate)rate=0.7;
   anMeta={
     fileName:fileName||"",
+    headText:rows.slice(0,hRow).map(function(x){return (x||[]).join(" ");}).join(" "),   /* 품목표 위 글자 전부 — 매장 추정용 */
     docNo:String(_anLabelVal(rows,hRow,"공급받는자",0,8)||"").trim(),
     rate:rate,
     buyer:{
@@ -26533,12 +26535,20 @@ function _anParse(rows,fileName){
 /* 발주서 내용·파일명에서 아난티 매장 추정 */
 function _anGuessStore(){
   var m=anMeta||{buyer:{}};
-  var hay=((m.buyer.addr||"")+(m.buyer.company||"")+(m.buyer.person||"")+" "+(m.fileName||"")).toLowerCase();
-  for(var i=0;i<ANANTI_STORES.length;i++){
-    var st=ANANTI_STORES[i];
-    for(var j=0;j<st.kw.length;j++){if(hay.indexOf(st.kw[j].toLowerCase())>=0)return st.code;}
-  }
-  return "ANG";
+  /* 남해는 코드와 다른 매장이다(2026-11-02 영업2팀) — '바코드'·'상품코드'의 '코드'에 걸려 코드(ANG)로 잡히지 않게 하고,
+     파일 이름보다 발주서 내용을 먼저 보고, 못 찾으면 ANG로 넘기지 않고 비워 사람이 고르게 한다. */
+  var clean=function(s){return String(s||"").toLowerCase().replace(/(바|상품|자사|품목|칼라|컬러)\s*코드/g,"");};
+  var find=function(hay){
+    /* 남해를 먼저 — 코드·코브는 다른 낱말에도 들어갈 수 있다 */
+    var order=["ANT","ANV","ANC","ANG"];
+    for(var i=0;i<order.length;i++){
+      var st=ANANTI_STORES.filter(function(s){return s.code===order[i];})[0];
+      for(var j=0;j<st.kw.length;j++){if(hay.indexOf(st.kw[j].toLowerCase())>=0)return st.code;}
+    }
+    return "";
+  };
+  var b=m.buyer||{};
+  return find(clean((b.addr||"")+" "+(b.company||"")+" "+(b.person||"")+" "+(m.headText||"")))||find(clean(m.fileName));
 }
 function _anProcessFiles(fileList,done){
   var file=(fileList||[])[0];if(!file)return;
@@ -26557,7 +26567,9 @@ function _anProcessFiles(fileList,done){
           var o=(typeof _ordStoreByCode==="function")?_ordStoreByCode(st.code):null;
           return '<option value="'+st.code+'">'+st.code+' · '+((o&&o.name)||st.code)+'</option>';
         }).join("");
-        sel.value=_anGuessStore();
+        var _g=_anGuessStore();
+        sel.value=_g||"";   /* 못 찾으면 빈칸 — 아래 3단계·명세서에서 잘못된 매장으로 나가지 않게 */
+        if(!_g&&typeof done!=="function")alert("발주서에서 아난티 매장을 찾지 못했습니다.\n매장 칸에서 직접 고른 뒤 진행해 주세요.");
       }
       var dt=document.getElementById("anDate");
       if(dt){var n=new Date();dt.value=n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0");}
@@ -26862,7 +26874,8 @@ function anDownloadWholesale(){
   if(!picked.length){alert("출고할 상품이 없습니다.\n표에서 상품을 체크해주세요.");return;}
   var _w=anRows.filter(function(r){return r.checked&&r.nameWarn;}).length;
   if(_w&&!confirm("⚠ 아난티 품목명과 바코드 상품이 다른 줄(주황)이 "+_w+"줄 있습니다.\n바코드 상품으로 도매발주서를 만들까요?\n(취소 후 표에서 자사코드를 고치면 경고가 사라집니다)"))return;
-  var code=(document.getElementById("anStore")||{}).value||"ANG";
+  var code=(document.getElementById("anStore")||{}).value||"";
+  if(!code){alert("아난티 매장을 먼저 골라 주세요.");return;}
   var st=(typeof _ordStoreByCode==="function")?_ordStoreByCode(code):null;
   var aoa=[ORDER_HEADERS.slice()];
   picked.forEach(function(r){
@@ -27041,6 +27054,7 @@ function _rowRenumber(rowXml,from,to){
 /* 업로드한 아난티 발주서를 템플릿으로 거래명세서 xlsx 생성 — 서식·수식 원본 그대로.
    출고분을 품목행 위쪽부터 채우고, 남는 품목행은 삭제해 총합계가 바로 뒤에 오게 한다. */
 async function _anBuildInvoiceXlsx(){
+  if(!(document.getElementById("anStore")||{}).value)throw new Error("아난티 매장을 먼저 골라 주세요.");
   var M=_anInvoiceModel();
   var TPL=_anInvoiceTpl();
   if(!TPL)throw new Error("원본 발주서를 찾을 수 없습니다. 파일을 다시 올려주세요.");
