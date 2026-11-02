@@ -13524,7 +13524,8 @@ function dsApplyEdi(src,days,codes,dry){
     Object.keys(got).forEach(function(c){if(!byCode[c]&&(got[c].amt||got[c].qty))skipped[c]=(skipped[c]||0)+1;});
     (codes||[]).forEach(function(c){
       var nm=byCode[c];if(!nm)return;
-      var v=got[c]||{};
+      if(!got[c])return;   /* 이번 조회에 안 온 매장은 건드리지 않는다 — 조회가 불완전해도(로그인 끊김·보이는 줄만 읽힘 등) 멀쩡한 EDI 값이 지워지지 않게(2026-11-02 영업2팀, jarvis-rest applyEdi와 같게) */
+      var v=got[c];
       var cur=((dailySalesDB.data[mk]||{})[day]||{})[nm]||{};
       /* [칸, 수량칸, 금액 키, 수량 키] */
       [["dept","deptQ","dept","qDept"],["online","onlineQ","online","qOnline"],["edi","ediQ","amt","qty"]].forEach(function(f){
