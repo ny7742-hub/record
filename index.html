@@ -2028,7 +2028,7 @@ label{font-size:14px!important}
       <button onclick="cdAddRow()" class="bg" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
       <button onclick="cdExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
       <button onclick="cdReset()" class="bs" style="padding:5px 12px;font-size:12px" title="중우산·600AIR 기본값으로 되돌립니다(지금 입력값은 지워집니다)">↩ 기본값</button>
-      <span style="font-size:11px;color:#5b6675">직매입 — <b>판매가만 VAT 포함</b>이고, 나머지 금액과 공급가·총원가·이익금은 모두 <b>VAT 별도</b>입니다. 입고비는 판매가의 <b>4%</b>로 자동 계산합니다. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). 미정값은 비워 두세요.</span>
+      <span style="font-size:11px;color:#5b6675">직매입 — <b>판매가만 VAT 포함</b>이고, 나머지 금액과 공급가·총원가·이익금은 모두 <b>VAT 별도</b>입니다. 입고비는 <b>부가세를 뺀 판매가의 4%</b>로 자동 계산합니다. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). 미정값은 비워 두세요.</span>
     </div>
     <div id="cdWrap" style="overflow-x:auto"></div>
   </div>
@@ -19777,7 +19777,7 @@ function msExport(){
    직매입: 매출 = 공급가(판매가 − 수수료). 이익 = 공급가 − 총원가. 이익률은 공급가(매출) 대비.
    **모든 금액은 원(₩)** — 원가·스트랩·패키지·RRP·물류·관세를 원으로 바로 넣는다(위안·달러 환산 없음, 2026-10-29 영업2팀 "원으로 계산").
    **부가세 기준(2026-11-02 영업2팀)**: 판매가만 VAT 포함(공급가에서 ÷1.1), 그 밖의 금액은 모두 VAT 별도로 그대로 쓴다. 공급가·총원가·이익도 VAT 별도.
-   **입고비는 판매가×4% 자동 칸**이다 — 칸에 적는 값이면 저장된 0이 4%를 막는다. 옛 기타(etc) 값은 쓰지 않는다.
+   **입고비는 VAT 별도 판매가×4% 자동 칸**이다 — 칸에 적는 값이면 저장된 0이 4%를 막는다. 옛 기타(etc) 값은 쓰지 않는다.
    **구성수량(세트당 개수)**: 원가·스트랩은 개당값이라 ×구성수량(600AIR=2개세트), 패키지·RRP·물류·입고비·쿠폰은 세트 1건 기준. 판매가도 세트 기준.
    팀 공유 ws/ccDirect. 입력 중에는 계산 칸만 다시 칠한다(_cdPaint). 기본으로 중우산·600AIR가 들어 있다(저장본이 생기면 그걸 쓴다). */
 /* 옛 형식(위안·달러 기준: nego/usd·fx, won 없음)은 무시하고 새 기본값을 쓴다 — 원 기준으로 바뀌었다(2026-10-29) */
@@ -19810,7 +19810,7 @@ function _cdCalc(r){
   var fee=_cdN(cdDB.fee)/100;
   var sale=_cdN(r.sale),qty=_cdN(r.qty)||1;
   var supplyNet=sale*(1-fee)/1.1;               /* 공급가(매출) = 판매가 − 수수료, 부가세 별도(2026-11-02 영업2팀) */
-  var inbound=sale*0.04;                        /* 입고비 = 판매가×4% 금액을 VAT 별도로 그대로 쓴다 */
+  var inbound=sale/1.1*0.04;                    /* 입고비 = VAT 별도 판매가의 4% */
   var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi)+inbound+_cdN(r.coupon);   /* 원가·스트랩은 ×구성, 나머지는 세트 */
   var profit=supplyNet-cost;
   return {supplyNet:supplyNet,inbound:inbound,cost:cost,profit:profit,
