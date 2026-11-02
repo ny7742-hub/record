@@ -35840,13 +35840,12 @@ window.renderCcProp=function(){listen();listenImg();cppRender();};
 /* ══ 🗓️ 주간회의 탭 (2026-11-02 영업2팀) — docs/meeting.md ══
    매출 = 세일즈 매니지먼트(wssales) 대시보드와 같은 표 `sales_daily_summary`의 total_amount, 영업2팀 = 매장구분 6개(wssales TEAM_MAP).
    주간 비교는 대시보드 '지난주'와 같이 **작년 같은 ISO 주차**(월~일), 월간은 작년 같은 달, 올해는 1/1~어제 vs 작년 같은 날까지.
-   세일즈 매니지먼트에 아직 안 올라온 날(채널별 마지막 날짜 뒤)은 자비스 판매일보(ws/allSales·ws/allStore)로 채우고 '보완'으로 표시한다
-   — 2026-11-02 기준 팩토리·트래블메이트·아난티는 6/30까지만 올라가 있었다. 코스트코는 판매일보에 반품만 있어 채우지 않는다.
+   **세일즈 매니지먼트에 없는 매출은 넣지 않는다**(2026-11-02 영업2팀 — 자비스 판매일보로 채우던 것을 뺐다).
+   채널별 마지막 등록일만 비고·사유에 적는다 — 2026-11-02 기준 팩토리·트래블메이트·아난티는 6/30까지만 올라가 있었다.
    업무 = 공유캘린더(영업2팀_업무 시트, 링크 공개) CSV. 반복 업무(재고 체크·매출 마감 …)는 접어 둔다.
    회의 메모 = 팀 공유 ws/wkMtg/<W2026-10-26 | M2026-10>. 슬랙은 브라우저에서 못 읽어 메모 칸에 적는다. */
 (function(){
 var TYPES=["백화점","코스트코","팩토리","홈쇼핑","트래블메이트","아난티"];
-var FILL_TYPES=["백화점","팩토리","홈쇼핑","트래블메이트","아난티"];
 var CAL_ID="13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc",CAL_GID="1131579574";
 var ROUTINE=/주간회의|전체회의|재고 ?체크|재고 ?확인|매출 ?마감|반품 ?등록|신상 출고 확인|온라인 등록 가능 상품 공지|홈쇼핑 일정 공유/;
 var KEYEV=/셋팅|세팅|오픈|철수|행사|LIVE|라이브|방송|녹화|BTV|프로모션|기획전|블랙프라이데이|팝업|입점|간담회|미팅|제안|연차|인수인계/i;
@@ -35914,33 +35913,18 @@ function loadSales(){
 }
 function _prog(){var el=document.getElementById("wkmProg");if(el)el.textContent="세일즈 매니지먼트 불러오는 중… "+S.prog+"%";}
 
-/* ── 기간 합계 — fill=true면 채널별 마지막 날짜 뒤는 자비스 판매일보로 채운다 ── */
-function agg(a,b,fill){
-  var R={tot:0,type:{},store:{},prod:{},fill:{},fillTot:0};
+/* ── 기간 합계 — 세일즈 매니지먼트 자료만 ── */
+function agg(a,b){
+  var R={tot:0,type:{},store:{},prod:{}};
   (S.rows||[]).forEach(function(r){
     if(r[0]<a||r[0]>b)return;
     R.tot+=r[4];R.type[r[1]]=(R.type[r[1]]||0)+r[4];
     var sk=r[1]+"|"+r[2];R.store[sk]=(R.store[sk]||0)+r[4];
     var pk=r[1]+"|"+r[3],P=R.prod[pk]||(R.prod[pk]={amt:0,qty:0});P.amt+=r[4];P.qty+=r[5];
   });
-  if(fill&&typeof allSalesDB==="object"&&allSalesDB){
-    FILL_TYPES.forEach(function(t){
-      var ld=S.last[t]||"0000",o=allSalesDB[t]||{},v=0,days={};
-      Object.keys(o).forEach(function(d){if(d>ld&&d>=a&&d<=b){v+=Number(o[d])||0;days[d]=1;}});
-      if(!v)return;
-      R.fill[t]=v;R.fillTot+=v;R.tot+=v;R.type[t]=(R.type[t]||0)+v;
-      var sv=0;
-      if(typeof allStoreDB==="object"&&allStoreDB)Object.keys(allStoreDB).forEach(function(k){
-        if(k.indexOf(t+"|")!==0)return;var so=allStoreDB[k]||{},x=0;
-        Object.keys(days).forEach(function(d){x+=Number(so[d])||0;});
-        if(x){R.store[k]=(R.store[k]||0)+x;sv+=x;}
-      });
-      if(Math.round(v-sv))R.store[t+"|(자비스 판매일보)"]=(R.store[t+"|(자비스 판매일보)"]||0)+(v-sv);
-    });
-  }
   return R;
 }
-function cmp(P){return {cur:agg(P.a,P.b,true),prev:agg(P.pa,P.pb,false)};}
+function cmp(P){return {cur:agg(P.a,P.b),prev:agg(P.pa,P.pb)};}
 
 /* ── 공유캘린더 — 달 머리(연·월) → 요일 머리 → 날짜 줄 → 할 일 줄(체크칸, 글) 반복. 열: 일=1·2 월=3·4 … 토=13·14, TO-DO=17 ── */
 function loadCal(){
@@ -36004,28 +35988,26 @@ function reasons(P,C,evs){
   var cur=C.cur,prev=C.prev,L=[],d=cur.tot-prev.tot;
   L.push("전체 "+man(cur.tot)+"원 — 전년 동기("+md(P.pa)+"~"+md(P.pb)+") "+man(prev.tot)+"원 대비 "+sgn(d)+man(Math.abs(d))+"원("+pctTxt(cur.tot,prev.tot)+")");
   /* 자료 기준 */
-  var miss=[],part=[],fl=[];
+  var miss=[],part=[];
   TYPES.forEach(function(t){
     var ld=S.last[t]||"";
-    if(cur.fill[t])fl.push(t+" "+man(cur.fill[t]));
-    if(ld<P.a&&!cur.fill[t]&&prev.type[t])miss.push(t);
-    else if(ld>=P.a&&ld<P.b&&!cur.fill[t])part.push(t+" "+md(ld)+"까지");
+    if(ld<P.a&&prev.type[t])miss.push(t+"("+(ld?md(ld)+"까지":"자료 없음")+")");
+    else if(ld>=P.a&&ld<P.b)part.push(t+" "+md(ld)+"까지");
   });
-  if(fl.length)L.push("세일즈 매니지먼트에 아직 없는 날은 자비스 판매일보로 보완: "+fl.join(" · "));
   if(miss.length){
-    var mv=0;miss.forEach(function(t){mv+=prev.type[t]||0;});
+    var mv=0;miss.forEach(function(t){mv+=prev.type[t.replace(/\(.*$/,"")]||0;});
     var d2=cur.tot-(prev.tot-mv);
-    L.push("⚠ "+miss.join("·")+"는 이 기간 자료가 세일즈 매니지먼트·판매일보 모두 없어 0으로 잡힘(실제 감소 아님) — 빼고 보면 "+sgn(d2)+man(Math.abs(d2))+"원("+pctTxt(cur.tot,prev.tot-mv)+")");
+    L.push("⚠ "+miss.join("·")+"는 세일즈 매니지먼트에 이 기간 자료가 아직 없어 0으로 잡힘(실제 감소 아님) — 빼고 보면 "+sgn(d2)+man(Math.abs(d2))+"원("+pctTxt(cur.tot,prev.tot-mv)+")");
   }
   if(part.length)L.push("자료 반영: "+part.join(" · ")+" (그 뒤 날은 아직 미반영)");
   /* 채널별 */
   var ch=TYPES.map(function(t){return {t:t,c:cur.type[t]||0,p:prev.type[t]||0};}).filter(function(x){return x.c||x.p;})
     .sort(function(x,y){return Math.abs(y.c-y.p)-Math.abs(x.c-x.p);});
   ch.forEach(function(x){
-    if(miss.indexOf(x.t)>=0)return;
+    if(miss.some(function(m){return m.indexOf(x.t+"(")===0;}))return;
     var dd=x.c-x.p,parts=[];
     var ks={};Object.keys(cur.store).concat(Object.keys(prev.store)).forEach(function(k){if(k.indexOf(x.t+"|")===0)ks[k]=1;});
-    var st=Object.keys(ks).map(function(k){return {k:k,c:cur.store[k]||0,p:prev.store[k]||0};}).filter(function(s){return s.k.indexOf("(자비스 판매일보)")<0;});
+    var st=Object.keys(ks).map(function(k){return {k:k,c:cur.store[k]||0,p:prev.store[k]||0};});
     var gone=st.filter(function(s){return !s.c&&s.p>0;}).sort(function(a,b){return b.p-a.p;});
     var neu=st.filter(function(s){return s.c>0&&!s.p;}).sort(function(a,b){return b.c-a.c;});
     var both=st.filter(function(s){return s.c&&s.p;}).sort(function(a,b){return Math.abs(b.c-b.p)-Math.abs(a.c-a.p);});
@@ -36105,10 +36087,9 @@ function chRows(cols){ /* cols=[{C,label}] — 채널 × (올해, 전년, 증감
     return r+td(note||"","text-align:left;font-size:12px;color:#5b6675;white-space:normal")+'</tr>';
   }
   TYPES.forEach(function(t){
-    var note=[],ld=S.last[t]||"",f=cols.some(function(c){return c.C.cur.fill[t];});
+    var note=[],ld=S.last[t]||"";
     var P0=cols[0].P;
-    if(f)note.push("자비스 판매일보 보완 "+cols.map(function(c){return c.C.cur.fill[t]?man(c.C.cur.fill[t]):"";}).filter(Boolean).join("/"));
-    if(ld&&ld<P0.b&&!f)note.push("세일즈 매니지먼트 "+md(ld)+"까지");
+    if(ld&&ld<P0.b)note.push("세일즈 매니지먼트 "+md(ld)+"까지");
     if(!ld)note.push("자료 없음");
     h+=line(t,function(R){return R.type[t]||0;},false,note.join(" · "));
   });
@@ -36119,7 +36100,7 @@ function kpi(lbl,v,sub,col){return '<div style="flex:1;min-width:150px;border:1p
 function kpis(P,C,lbl,plbl){
   var c=C.cur.tot,p=C.prev.tot,d=c-p;
   return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
-    +kpi(lbl,man(c)+"원",md(P.a)+" ~ "+md(P.b)+(C.cur.fillTot?" · 보완 "+man(C.cur.fillTot):""))
+    +kpi(lbl,man(c)+"원",md(P.a)+" ~ "+md(P.b)+"")
     +kpi(plbl,man(p)+"원",P.pa.slice(2).replace(/-/g,".")+" ~ "+P.pb.slice(5).replace("-","."))
     +kpi("증감",sgn(d)+man(Math.abs(d))+"원",pctTxt(c,p)+" (전년 대비)",diffCol(d))+'</div>';
 }
@@ -36185,7 +36166,7 @@ function render(){
       +"\n\n■ 지난주 주요 업무\n"+ev.filter(function(e){return !e.routine;}).map(function(e){return "- "+md(e.d)+" "+e.t;}).join("\n")
       +"\n\n■ 이번주 예정\n"+calIn(P.thisWeek.a,P.thisWeek.b).filter(function(e){return !e.routine;}).map(function(e){return "- "+md(e.d)+" "+e.t;}).join("\n");
   }else{
-    var M=P.month,Yr=P.year,CM=cmp(M),CY=cmp(Yr),pf=agg(Yr.pfa,Yr.pfb,false);
+    var M=P.month,Yr=P.year,CM=cmp(M),CY=cmp(Yr),pf=agg(Yr.pfa,Yr.pfb);
     var LM=reasons(M,CM,calIn(ymd(addD(pd(M.a),-7)),M.b,M.a)),LY=reasons(Yr,CY,[]).filter(function(l){return !/^베스트|^주요 일정/.test(l);});
     h+=card("📊 지난달 · 올해 누계 매출",kpis(M,CM,"지난달 ("+M.label+")","전년 동월")+kpis(Yr,CY,"올해 누계","전년 동기간")
       +'<div style="font-size:12.5px;color:#5b6675;margin:-4px 0 10px">전년 연간 합계 '+man(pf.tot)+'원 · 올해 진도율 '+(pf.tot?(CY.cur.tot/pf.tot*100).toFixed(1):"-")+'%</div>'
@@ -36194,11 +36175,11 @@ function render(){
     var y=new Date().getFullYear(),mt='<tr><th '+TH.replace("right","left")+'>월</th><th '+TH+'>'+y+'</th><th '+TH+'>'+(y-1)+'</th><th '+TH+'>증감</th><th '+TH+'>증감률</th><th '+TH+'>누계 '+y+'</th><th '+TH+'>누계 '+(y-1)+'</th></tr>',ac=0,ap=0;
     for(var m=1;m<=12;m++){
       var a=y+"-"+p2(m)+"-01",b=ymd(new Date(y,m,0)),yd=ymd(addD(new Date(),-1)),part=a<=yd&&b>yd;if(part)b=yd;   /* 이번 달은 어제까지 · 전년도 같은 날까지 */
-      var c0=a>yd?0:agg(a,b,true).tot,p0=agg((y-1)+a.slice(4),(y-1)+b.slice(4),false).tot,dm=c0-p0;
+      var c0=a>yd?0:agg(a,b).tot,p0=agg((y-1)+a.slice(4),(y-1)+b.slice(4)).tot,dm=c0-p0;
       ac+=c0;ap+=p0;
       mt+='<tr>'+td(m+"월"+(part?" (~"+md(b)+")":""),"text-align:left;font-weight:700")+td(c0?won(c0):"-")+td(won(p0),"color:#5b6675")+td(c0?sgn(dm)+won(Math.abs(dm)):"","color:"+diffCol(dm))+td(c0?pctTxt(c0,p0):"","color:"+diffCol(dm))+td(c0?won(ac):"-")+td(won(ap),"color:#5b6675")+'</tr>';
     }
-    h+=card("📈 월별 추이 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">세일즈 매니지먼트 + 빠진 날 자비스 판매일보 보완</span>",'<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:520px">'+mt+'</table></div>');
+    h+=card("📈 월별 추이 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">세일즈 매니지먼트 기준</span>",'<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:520px">'+mt+'</table></div>');
     h+=card("💬 지난달 증감 사유 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">자동 작성</span>",reasonBox(LM));
     h+=card("💬 올해 누계 증감 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">채널별</span>",reasonBox(LY));
     var td2=(S.cal&&S.cal.todo[M.a.slice(0,7)])||[];
