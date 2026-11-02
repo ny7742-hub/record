@@ -787,6 +787,7 @@ label{font-size:14px!important}
     </div>
   </div>
   <button class="tab-btn" id="tab-meeting" onclick="switchTab('meeting')">📋 전략회의</button>
+  <button class="tab-btn" id="tab-wkmtg" onclick="switchTab('wkmtg')">🗓️ 주간회의</button>
   <button class="tab-btn" id="tab-popup" onclick="switchTab('popup')">🏪 팝업</button>
   <button class="tab-btn" id="tab-lossreport" onclick="switchTab('lossreport')">🧾 로스 품의서</button>
   <button class="tab-btn" id="tab-floor" onclick="switchTab('floor')">🧊 3D 집기</button>
@@ -1302,6 +1303,11 @@ label{font-size:14px!important}
   <div class="week-grid" id="meetingGrid"></div>
 </div>
 </div><!-- /page-meeting -->
+
+<!-- ===== 주간회의 페이지 (2026-11-02 영업2팀) — 세일즈 매니지먼트 영업2팀 매출 + 공유캘린더 업무 · docs/meeting.md ===== -->
+<div id="page-wkmtg" style="display:none">
+<div class="main" id="wkmBody"></div>
+</div><!-- /page-wkmtg -->
 
 <!-- ===== 백화점 페이지 ===== -->
 <div id="page-dept" style="display:none">
@@ -9373,6 +9379,9 @@ function switchTab(tab){
   document.getElementById("page-home").style.display=tab==="home"?"block":"none";
   document.getElementById("page-sales").style.display=tab==="sales"?"block":"none";
   document.getElementById("page-meeting").style.display=tab==="meeting"?"block":"none";
+  document.getElementById("page-wkmtg").style.display=tab==="wkmtg"?"block":"none";
+  document.getElementById("tab-wkmtg").classList.toggle("active",tab==="wkmtg");
+  if(tab==="wkmtg")renderWkMtg();
   document.getElementById("page-dept").style.display=tab==="dept"?"block":"none";
   document.getElementById("page-daily").style.display=tab==="daily"?"block":"none";
   document.getElementById("page-costco").style.display=tab==="costco"?"block":"none";
@@ -35825,6 +35834,386 @@ window.cppExcel=function(){
 };
 
 window.renderCcProp=function(){listen();listenImg();cppRender();};
+})();
+</script>
+<script>
+/* ══ 🗓️ 주간회의 탭 (2026-11-02 영업2팀) — docs/meeting.md ══
+   매출 = 세일즈 매니지먼트(wssales) 대시보드와 같은 표 `sales_daily_summary`의 total_amount, 영업2팀 = 매장구분 6개(wssales TEAM_MAP).
+   주간 비교는 대시보드 '지난주'와 같이 **작년 같은 ISO 주차**(월~일), 월간은 작년 같은 달, 올해는 1/1~어제 vs 작년 같은 날까지.
+   세일즈 매니지먼트에 아직 안 올라온 날(채널별 마지막 날짜 뒤)은 자비스 판매일보(ws/allSales·ws/allStore)로 채우고 '보완'으로 표시한다
+   — 2026-11-02 기준 팩토리·트래블메이트·아난티는 6/30까지만 올라가 있었다. 코스트코는 판매일보에 반품만 있어 채우지 않는다.
+   업무 = 공유캘린더(영업2팀_업무 시트, 링크 공개) CSV. 반복 업무(재고 체크·매출 마감 …)는 접어 둔다.
+   회의 메모 = 팀 공유 ws/wkMtg/<W2026-10-26 | M2026-10>. 슬랙은 브라우저에서 못 읽어 메모 칸에 적는다. */
+(function(){
+var TYPES=["백화점","코스트코","팩토리","홈쇼핑","트래블메이트","아난티"];
+var FILL_TYPES=["백화점","팩토리","홈쇼핑","트래블메이트","아난티"];
+var CAL_ID="13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc",CAL_GID="1131579574";
+var ROUTINE=/주간회의|전체회의|재고 ?체크|재고 ?확인|매출 ?마감|반품 ?등록|신상 출고 확인|온라인 등록 가능 상품 공지|홈쇼핑 일정 공유/;
+var KEYEV=/셋팅|세팅|오픈|철수|행사|LIVE|라이브|방송|녹화|BTV|프로모션|기획전|블랙프라이데이|팝업|입점|간담회|미팅|제안|연차|인수인계/i;
+var S={mode:"week",wkOff:1,moOff:1,rows:null,last:{},st:"idle",err:"",at:0,prog:0,from:"",cal:null,calSt:"idle",calErr:"",memo:{},showRoutine:false,listening:false};
+window._wkmState=S;
+
+function p2(n){return String(n).padStart(2,"0");}
+function ymd(d){return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());}
+function addD(d,n){var x=new Date(d);x.setDate(x.getDate()+n);return x;}
+function pd(s){var a=s.split("-");return new Date(+a[0],+a[1]-1,+a[2]);}
+function md(s){return (+s.slice(5,7))+"/"+(+s.slice(8,10));}
+function mdw(s){return md(s)+"("+"일월화수목금토".charAt(pd(s).getDay())+")";}
+function monday(d){var x=new Date(d);x.setHours(0,0,0,0);var w=x.getDay();x.setDate(x.getDate()+(w===0?-6:1-w));return x;}
+function isoWeek(d){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()+4-(x.getDay()||7));var y0=new Date(x.getFullYear(),0,1);return {year:x.getFullYear(),week:Math.ceil(((x-y0)/86400000+1)/7)};}
+function isoMonday(y,w){var j=new Date(y,0,4);var m=addD(j,-((j.getDay()||7)-1));return addD(m,(w-1)*7);}
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function won(v){return Math.round(v||0).toLocaleString();}
+function man(v){var a=Math.round((v||0)/10000);return a.toLocaleString()+"만";}
+function sgn(v){return v>0?"▲":v<0?"▼":"";}
+function pct(c,p){return p>0?((c-p)/p*100):null;}
+function pctTxt(c,p){var x=pct(c,p);return x==null?(c>0?"신규":"-"):x>999?"+999%↑":(x>=0?"+":"")+x.toFixed(1)+"%";}
+function diffCol(v){return v>0?"#047857":v<0?"#dc2626":"#374151";}
+
+/* ── 기간 ── */
+function periods(){
+  var today=new Date();today.setHours(0,0,0,0);
+  var yest=addD(today,-1);
+  var w0=addD(monday(today),-7*S.wkOff),w1=addD(w0,6);if(w1>yest)w1=yest<w0?w0:yest;
+  var iw=isoWeek(w0),pw0=isoMonday(iw.year-1,iw.week),pw1=addD(pw0,Math.round((w1-w0)/86400000));
+  var mBase=new Date(today.getFullYear(),today.getMonth()-S.moOff,1);
+  var m1=new Date(mBase.getFullYear(),mBase.getMonth()+1,0);if(m1>yest)m1=yest<mBase?mBase:yest;
+  var pm0=new Date(mBase.getFullYear()-1,mBase.getMonth(),1),pm1=new Date(m1.getFullYear()-1,m1.getMonth(),m1.getDate());
+  var y0=new Date(today.getFullYear(),0,1),y1=yest<y0?y0:yest;
+  return {
+    week:{a:ymd(w0),b:ymd(w1),pa:ymd(pw0),pb:ymd(pw1),label:iw.year+"년 "+iw.week+"주차",key:"W"+ymd(w0)},
+    month:{a:ymd(mBase),b:ymd(m1),pa:ymd(pm0),pb:ymd(pm1),label:mBase.getFullYear()+"년 "+(mBase.getMonth()+1)+"월",key:"M"+ymd(mBase).slice(0,7),y:mBase.getFullYear(),m:mBase.getMonth()+1},
+    year:{a:ymd(y0),b:ymd(y1),pa:(y0.getFullYear()-1)+"-01-01",pb:(y1.getFullYear()-1)+ymd(y1).slice(4),label:y0.getFullYear()+"년 누계",pfa:(y0.getFullYear()-1)+"-01-01",pfb:(y0.getFullYear()-1)+"-12-31"},
+    thisWeek:{a:ymd(monday(today)),b:ymd(addD(monday(today),6))}
+  };
+}
+function loadFrom(){return (new Date().getFullYear()-1)+"-01-01";}
+
+/* ── 세일즈 매니지먼트 불러오기 — 달마다 나눠 1000행씩(PostgREST 한도), 6개씩 동시에 ── */
+function loadSales(){
+  if(S.st==="load")return;
+  S.st="load";S.err="";S.prog=0;var rows=[],from=loadFrom(),today=ymd(new Date());
+  var chunks=[],d=pd(from);
+  while(ymd(d)<=today){var e=new Date(d.getFullYear(),d.getMonth()+1,0);chunks.push([ymd(d),ymd(e)]);d=new Date(d.getFullYear(),d.getMonth()+1,1);}
+  var st="in.("+TYPES.join(",")+")",H={apikey:WSSALES_KEY,Authorization:"Bearer "+WSSALES_KEY};
+  function page(c,off){
+    var q="select=ymd,store_type,store_name,product_name,total_amount,total_qty&store_type="+encodeURIComponent(st)
+      +"&ymd=gte."+c[0]+"&ymd=lte."+c[1]+"&order=ymd,store_type,store_name,product_code,color,product_name&offset="+off+"&limit=1000";
+    return fetch(WSSALES_URL+"/rest/v1/sales_daily_summary?"+q,{headers:H}).then(function(r){if(!r.ok)throw new Error("세일즈 매니지먼트 응답 "+r.status);return r.json();})
+      .then(function(a){a.forEach(function(x){rows.push([x.ymd,x.store_type,x.store_name||"",x.product_name||"",Number(x.total_amount)||0,Number(x.total_qty)||0]);});
+        if(a.length===1000)return page(c,off+1000);});
+  }
+  var i=0,done=0;
+  function next(){if(i>=chunks.length)return Promise.resolve();var c=chunks[i++];return page(c,0).then(function(){done++;S.prog=Math.round(done/chunks.length*100);_prog();return next();});}
+  var ws=[];for(var k=0;k<6;k++)ws.push(next());
+  Promise.all(ws).then(function(){
+    var last={};rows.forEach(function(r){if(!last[r[1]]||r[0]>last[r[1]])last[r[1]]=r[0];});
+    S.rows=rows;S.last=last;S.from=from;S.st="ok";S.at=Date.now();render();
+  }).catch(function(e){S.st="err";S.err=String(e&&e.message||e);render();});
+  render();
+}
+function _prog(){var el=document.getElementById("wkmProg");if(el)el.textContent="세일즈 매니지먼트 불러오는 중… "+S.prog+"%";}
+
+/* ── 기간 합계 — fill=true면 채널별 마지막 날짜 뒤는 자비스 판매일보로 채운다 ── */
+function agg(a,b,fill){
+  var R={tot:0,type:{},store:{},prod:{},fill:{},fillTot:0};
+  (S.rows||[]).forEach(function(r){
+    if(r[0]<a||r[0]>b)return;
+    R.tot+=r[4];R.type[r[1]]=(R.type[r[1]]||0)+r[4];
+    var sk=r[1]+"|"+r[2];R.store[sk]=(R.store[sk]||0)+r[4];
+    var pk=r[1]+"|"+r[3],P=R.prod[pk]||(R.prod[pk]={amt:0,qty:0});P.amt+=r[4];P.qty+=r[5];
+  });
+  if(fill&&typeof allSalesDB==="object"&&allSalesDB){
+    FILL_TYPES.forEach(function(t){
+      var ld=S.last[t]||"0000",o=allSalesDB[t]||{},v=0,days={};
+      Object.keys(o).forEach(function(d){if(d>ld&&d>=a&&d<=b){v+=Number(o[d])||0;days[d]=1;}});
+      if(!v)return;
+      R.fill[t]=v;R.fillTot+=v;R.tot+=v;R.type[t]=(R.type[t]||0)+v;
+      var sv=0;
+      if(typeof allStoreDB==="object"&&allStoreDB)Object.keys(allStoreDB).forEach(function(k){
+        if(k.indexOf(t+"|")!==0)return;var so=allStoreDB[k]||{},x=0;
+        Object.keys(days).forEach(function(d){x+=Number(so[d])||0;});
+        if(x){R.store[k]=(R.store[k]||0)+x;sv+=x;}
+      });
+      if(Math.round(v-sv))R.store[t+"|(자비스 판매일보)"]=(R.store[t+"|(자비스 판매일보)"]||0)+(v-sv);
+    });
+  }
+  return R;
+}
+function cmp(P){return {cur:agg(P.a,P.b,true),prev:agg(P.pa,P.pb,false)};}
+
+/* ── 공유캘린더 — 달 머리(연·월) → 요일 머리 → 날짜 줄 → 할 일 줄(체크칸, 글) 반복. 열: 일=1·2 월=3·4 … 토=13·14, TO-DO=17 ── */
+function loadCal(){
+  if(S.calSt==="load")return;S.calSt="load";S.calErr="";
+  fetch("https://docs.google.com/spreadsheets/d/"+CAL_ID+"/export?format=csv&gid="+CAL_GID,{cache:"no-store"})
+    .then(function(r){if(!r.ok)throw new Error("공유캘린더 응답 "+r.status);return r.text();})
+    .then(function(t){
+      if(/^\s*<(!doctype|html)/i.test(t))throw new Error("공유캘린더를 읽을 수 없습니다 — 시트 공유 설정(링크가 있는 사용자 보기)을 확인하세요");
+      var wb=XLSX.read(t,{type:"string",raw:true});
+      var rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:"",raw:true});
+      S.cal=parseCal(rows);S.calSt="ok";render();
+    }).catch(function(e){S.calSt="err";S.calErr=String(e&&e.message||e);render();});
+}
+function parseCal(rows){
+  var ev={},todo={},Y=0,M=0,days=null;
+  function cs(v){return String(v==null?"":v).replace(/\s*[\r\n]+\s*/g," / ").trim();}
+  rows.forEach(function(r){
+    var c1=cs(r[1]),c2=cs(r[2]);
+    if(/^\d{4}$/.test(c1)&&/^\d{1,2}$/.test(c2)){Y=+c1;M=+c2;days=null;return;}
+    if(!Y)return;
+    if(c1==="SUN")return;
+    var isItem=false,isDay=false,dd=[];
+    for(var w=0;w<7;w++){
+      var v=cs(r[1+2*w]).toUpperCase();
+      if(v==="TRUE"||v==="FALSE")isItem=true;
+      else if(/^\d{1,2}$/.test(v)){isDay=true;dd[w]=+v;}
+    }
+    var td=cs(r[17]);if(td){var mk=Y+"-"+p2(M);(todo[mk]=todo[mk]||[]).push(td);}
+    if(isDay&&!isItem){days=dd;return;}
+    if(!isItem||!days)return;
+    for(var w2=0;w2<7;w2++){
+      if(!days[w2])continue;var txt=cs(r[2+2*w2]);if(!txt)continue;
+      var k=Y+"-"+p2(M)+"-"+p2(days[w2]);
+      (ev[k]=ev[k]||[]).push({t:txt,done:cs(r[1+2*w2]).toUpperCase()==="TRUE"});
+    }
+  });
+  return {ev:ev,todo:todo};
+}
+function calIn(a,b,pre){ /* pre=기간 첫날 — 그 앞 날은 셋팅·오픈 같은 주요 일정만 사유에 쓴다 */
+  var out=[];if(!S.cal)return out;
+  Object.keys(S.cal.ev).sort().forEach(function(d){if(d>=a&&d<=b)S.cal.ev[d].forEach(function(e){out.push({d:d,t:e.t,done:e.done,routine:ROUTINE.test(e.t),key:KEYEV.test(e.t),pre:!!pre&&d<pre});});});
+  return out;
+}
+
+/* ── 자비스 홈쇼핑 방송 ── */
+function hsIn(a,b){
+  if(typeof homeshoppingDB==="undefined"||!Array.isArray(homeshoppingDB))return [];
+  return homeshoppingDB.filter(function(r){var d=String(r&&r.date||"");return /^\d{4}-\d{2}-\d{2}$/.test(d)&&d>=a&&d<=b&&r.stage!=="탈락"&&!/제안|검토/.test(r.stage||"");})
+    .sort(function(x,y){return x.date<y.date?-1:1;})
+    .map(function(r){return md(r.date)+" "+String(r.company||"").trim()+" "+String(r.name||"").trim()+(r.live?" "+r.live:"")+(r.sold?" (판매 "+Number(r.sold).toLocaleString()+"개)":"");});
+}
+
+/* ── 증감 사유 자동 작성 ── */
+function storeKey(n){
+  var s=String(n).replace(/\(.*?\)/g," ").replace(/롯데백화점|현대백화점|신세계백화점|신세계팩토리|롯데아울렛|현대아울렛|롯데몰|커넥트현대|백화점|아울렛|온라인|홈쇼핑|아난티|트래블메이트|코스트코/g," ").trim().split(/\s+/).filter(Boolean);
+  var k=(s[s.length-1]||"").replace(/점$/,"");return k.length>=2?k:"";
+}
+function shortProd(n){return String(n).replace(/\[[^\]]*\]\s*/g,"").replace(/^\d{2}(SS|FW|AW|SU|WI)\s*/i,"").trim();}
+function storeName(k){return k.slice(k.indexOf("|")+1);}
+function reasons(P,C,evs){
+  var cur=C.cur,prev=C.prev,L=[],d=cur.tot-prev.tot;
+  L.push("전체 "+man(cur.tot)+"원 — 전년 동기("+md(P.pa)+"~"+md(P.pb)+") "+man(prev.tot)+"원 대비 "+sgn(d)+man(Math.abs(d))+"원("+pctTxt(cur.tot,prev.tot)+")");
+  /* 자료 기준 */
+  var miss=[],part=[],fl=[];
+  TYPES.forEach(function(t){
+    var ld=S.last[t]||"";
+    if(cur.fill[t])fl.push(t+" "+man(cur.fill[t]));
+    if(ld<P.a&&!cur.fill[t]&&prev.type[t])miss.push(t);
+    else if(ld>=P.a&&ld<P.b&&!cur.fill[t])part.push(t+" "+md(ld)+"까지");
+  });
+  if(fl.length)L.push("세일즈 매니지먼트에 아직 없는 날은 자비스 판매일보로 보완: "+fl.join(" · "));
+  if(miss.length){
+    var mv=0;miss.forEach(function(t){mv+=prev.type[t]||0;});
+    var d2=cur.tot-(prev.tot-mv);
+    L.push("⚠ "+miss.join("·")+"는 이 기간 자료가 세일즈 매니지먼트·판매일보 모두 없어 0으로 잡힘(실제 감소 아님) — 빼고 보면 "+sgn(d2)+man(Math.abs(d2))+"원("+pctTxt(cur.tot,prev.tot-mv)+")");
+  }
+  if(part.length)L.push("자료 반영: "+part.join(" · ")+" (그 뒤 날은 아직 미반영)");
+  /* 채널별 */
+  var ch=TYPES.map(function(t){return {t:t,c:cur.type[t]||0,p:prev.type[t]||0};}).filter(function(x){return x.c||x.p;})
+    .sort(function(x,y){return Math.abs(y.c-y.p)-Math.abs(x.c-x.p);});
+  ch.forEach(function(x){
+    if(miss.indexOf(x.t)>=0)return;
+    var dd=x.c-x.p,parts=[];
+    var ks={};Object.keys(cur.store).concat(Object.keys(prev.store)).forEach(function(k){if(k.indexOf(x.t+"|")===0)ks[k]=1;});
+    var st=Object.keys(ks).map(function(k){return {k:k,c:cur.store[k]||0,p:prev.store[k]||0};}).filter(function(s){return s.k.indexOf("(자비스 판매일보)")<0;});
+    var gone=st.filter(function(s){return !s.c&&s.p>0;}).sort(function(a,b){return b.p-a.p;});
+    var neu=st.filter(function(s){return s.c>0&&!s.p;}).sort(function(a,b){return b.c-a.c;});
+    var both=st.filter(function(s){return s.c&&s.p;}).sort(function(a,b){return Math.abs(b.c-b.p)-Math.abs(a.c-a.p);});
+    if(gone.length)parts.push("전년만 매출(올해 미운영·철수): "+gone.slice(0,4).map(function(s){return storeName(s.k)+" -"+man(s.p);}).join(", "));
+    if(neu.length)parts.push("올해 신규·추가: "+neu.slice(0,4).map(function(s){return storeName(s.k)+" +"+man(s.c);}).join(", "));
+    var mv2=both.filter(function(s){return Math.abs(s.c-s.p)>=Math.max(100000,Math.abs(dd)*0.1);}).slice(0,3);
+    if(mv2.length)parts.push("매장 증감: "+mv2.map(function(s){return storeName(s.k)+" "+(s.c>=s.p?"+":"-")+man(Math.abs(s.c-s.p))+"("+pctTxt(s.c,s.p)+")";}).join(", "));
+    /* 일정 — 그 채널 매장 이름이 들어간 캘린더 일정(기간 앞 7일 셋팅 포함) */
+    var keys={};st.forEach(function(s){var k=storeKey(storeName(s.k));if(k)keys[k]=1;});
+    var hit=evs.filter(function(e){if(e.routine||(e.pre&&!/셋팅|세팅|오픈|철수|입점|행사/.test(e.t)))return false;if(x.t==="홈쇼핑")return /홈쇼핑|홈앤|LIVE|라이브|BTV|녹화|방송/i.test(e.t);if(x.t==="코스트코")return /코스트코|코코/.test(e.t);
+      return Object.keys(keys).some(function(k){return e.t.indexOf(k)>=0;});});
+    var KO=/셋팅|세팅|오픈|철수|입점|행사|LIVE|라이브|방송|BTV|프로모션|기획전/i;   /* 매출에 바로 닿는 일정을 앞으로 */
+    hit.sort(function(p,q){var a=KO.test(p.t)?0:1,b=KO.test(q.t)?0:1;return a-b||(p.d<q.d?-1:p.d>q.d?1:0);});
+    if(hit.length)parts.push("일정: "+hit.slice(0,4).map(function(e){return md(e.d)+" "+e.t;}).join(" / "));
+    if(x.t==="홈쇼핑"){var hs=hsIn(P.a,P.b),hp=hsIn(P.pa,P.pb);if(hs.length)parts.push("방송(자비스 홈쇼핑): "+hs.slice(0,4).join(" / "));if(hp.length)parts.push("전년 방송: "+hp.slice(0,3).join(" / "));}
+    if(x.t==="코스트코"||!parts.length){
+      var tp=topProds(cur,prev,x.t,2);if(tp.length)parts.push("상품: "+tp.map(function(p){return p.n+" "+man(p.c)+"("+pctTxt(p.c,p.p)+")";}).join(", "));
+    }
+    L.push(x.t+" "+sgn(dd)+man(Math.abs(dd))+"원("+pctTxt(x.c,x.p)+")"+(parts.length?" — "+parts.join(" · "):""));
+  });
+  var tp2=topProds(cur,prev,null,5);
+  if(tp2.length)L.push("베스트: "+tp2.map(function(p,i){return (i+1)+") "+p.n+" "+man(p.c)+"("+p.q.toLocaleString()+"개)";}).join("  "));
+  var ke=evs.filter(function(e){return e.key&&!e.routine&&!e.pre;});
+  if(ke.length)L.push("주요 일정(공유캘린더): "+ke.slice(0,8).map(function(e){return md(e.d)+" "+e.t;}).join(" / "));
+  return L;
+}
+function topProds(cur,prev,t,n){
+  var by={};
+  function add(R,f){Object.keys(R.prod).forEach(function(k){var ty=k.slice(0,k.indexOf("|"));if(t&&ty!==t)return;var nm=shortProd(k.slice(k.indexOf("|")+1));var o=by[nm]||(by[nm]={n:nm,c:0,p:0,q:0});o[f]+=R.prod[k].amt;if(f==="c")o.q+=R.prod[k].qty;});}
+  add(cur,"c");add(prev,"p");
+  return Object.keys(by).map(function(k){return by[k];}).filter(function(o){return o.c>0;}).sort(function(a,b){return b.c-a.c;}).slice(0,n);
+}
+
+/* ── 회의 메모(팀 공유) ── */
+function listenMemo(){
+  if(S.listening||typeof fbDB==="undefined")return;S.listening=true;
+  try{fbDB.ref("ws/wkMtg").on("value",function(s){S.memo=s.val()||{};paintMemo();},function(){});}catch(e){}
+}
+function paintMemo(){
+  var ta=document.getElementById("wkmMemo");if(!ta||document.activeElement===ta)return;
+  var m=S.memo[ta.dataset.key]||{};ta.value=m.text||"";
+  var i=document.getElementById("wkmMemoInfo");if(i)i.textContent=m.at?("마지막 저장 "+new Date(m.at).toLocaleString("ko-KR")+(m.by?" · "+m.by:"")):"";
+}
+window.wkmMemoSave=function(){
+  var ta=document.getElementById("wkmMemo");if(!ta)return;
+  if(_authState!=="member"&&_authState!=="open"){alert("로그인 후 저장할 수 있습니다.");return;}
+  var v={text:ta.value,by:(typeof _saipMe==="function"?_saipMe():""),at:Date.now()};
+  S.memo[ta.dataset.key]=v;
+  try{fbDB.ref("ws/wkMtg/"+ta.dataset.key).set(v);}catch(e){alert("저장 실패: "+e);}
+  var i=document.getElementById("wkmMemoInfo");if(i)i.textContent="저장됨 "+new Date().toLocaleTimeString("ko-KR");
+};
+window.wkmMemoAuto=function(){
+  var ta=document.getElementById("wkmMemo");if(!ta)return;
+  var t=(window._wkmAutoText||"");
+  if(ta.value.trim()&&!confirm("메모 칸 맨 아래에 자동 사유를 붙일까요?"))return;
+  ta.value=(ta.value.trim()?ta.value.replace(/\s+$/,"")+"\n\n":"")+t;wkmMemoSave();
+};
+
+/* ── 화면 ── */
+window.wkmSet=function(k,v){if(k==="mode")S.mode=v;else if(k==="wk")S.wkOff=Math.max(0,Math.min(50,S.wkOff+v));else if(k==="mo")S.moOff=Math.max(0,Math.min(11,S.moOff+v));else if(k==="routine")S.showRoutine=!S.showRoutine;render();};
+window.wkmReload=function(){S.st="idle";S.calSt="idle";S.rows=null;S.cal=null;loadSales();loadCal();};
+window.wkmCopy=function(){
+  var t=window._wkmCopyText||"";
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){alert("회의 자료를 복사했습니다 — 슬랙·시트에 붙여넣으세요.");},function(){prompt("아래 내용을 복사하세요",t);});
+};
+
+var BTN='style="padding:6px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;font-weight:700;color:#1f2937;cursor:pointer"';
+var TH='style="padding:7px 9px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:12.5px;color:#334155;text-align:right;white-space:nowrap"';
+function td(v,st){return '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right;white-space:nowrap;font-size:13px;'+(st||"")+'">'+v+'</td>';}
+function chRows(cols){ /* cols=[{C,label}] — 채널 × (올해, 전년, 증감, 증감률) */
+  var h='<tr><th '+TH.replace("right","left")+'>채널</th>';
+  cols.forEach(function(c){h+='<th '+TH+'>'+esc(c.label)+'</th><th '+TH+'>'+esc(c.plabel)+'</th><th '+TH+'>증감</th><th '+TH+'>증감률</th>';});
+  h+='<th '+TH.replace("right","left")+'>비고</th></tr>';
+  function line(nm,get,bold,note){
+    var r='<tr'+(bold?' style="background:#f8fafc;font-weight:800"':'')+'>'+td(esc(nm),"text-align:left;font-weight:700");
+    cols.forEach(function(c){var v=get(c.C.cur),p=get(c.C.prev),d=v-p;r+=td(won(v))+td(won(p),"color:#5b6675")+td(sgn(d)+won(Math.abs(d)),"color:"+diffCol(d))+td(pctTxt(v,p),"color:"+diffCol(d));});
+    return r+td(note||"","text-align:left;font-size:12px;color:#5b6675;white-space:normal")+'</tr>';
+  }
+  TYPES.forEach(function(t){
+    var note=[],ld=S.last[t]||"",f=cols.some(function(c){return c.C.cur.fill[t];});
+    var P0=cols[0].P;
+    if(f)note.push("자비스 판매일보 보완 "+cols.map(function(c){return c.C.cur.fill[t]?man(c.C.cur.fill[t]):"";}).filter(Boolean).join("/"));
+    if(ld&&ld<P0.b&&!f)note.push("세일즈 매니지먼트 "+md(ld)+"까지");
+    if(!ld)note.push("자료 없음");
+    h+=line(t,function(R){return R.type[t]||0;},false,note.join(" · "));
+  });
+  h+=line("영업2팀 합계",function(R){return R.tot;},true,"");
+  return '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:560px">'+h+'</table></div>';
+}
+function kpi(lbl,v,sub,col){return '<div style="flex:1;min-width:150px;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff"><div style="font-size:12px;color:#5b6675;font-weight:700">'+esc(lbl)+'</div><div style="font-size:22px;font-weight:800;color:'+(col||"#111827")+';margin-top:2px">'+v+'</div><div style="font-size:12px;color:#5b6675;margin-top:2px">'+sub+'</div></div>';}
+function kpis(P,C,lbl,plbl){
+  var c=C.cur.tot,p=C.prev.tot,d=c-p;
+  return '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">'
+    +kpi(lbl,man(c)+"원",md(P.a)+" ~ "+md(P.b)+(C.cur.fillTot?" · 보완 "+man(C.cur.fillTot):""))
+    +kpi(plbl,man(p)+"원",P.pa.slice(2).replace(/-/g,".")+" ~ "+P.pb.slice(5).replace("-","."))
+    +kpi("증감",sgn(d)+man(Math.abs(d))+"원",pctTxt(c,p)+" (전년 대비)",diffCol(d))+'</div>';
+}
+function reasonBox(L){
+  return '<div style="font-size:13.5px;line-height:1.7;color:#1f2937">'+L.map(function(l,i){return '<div style="display:flex;gap:6px;'+(i===0?'font-weight:800':'')+'"><span style="flex:none;color:#1b6e82">•</span><span>'+esc(l)+'</span></div>';}).join("")+'</div>';
+}
+function calBox(a,b,keyOnly){
+  if(S.calSt==="load"||S.calSt==="idle")return '<div style="font-size:13px;color:#5b6675">공유캘린더 불러오는 중…</div>';
+  if(S.calSt==="err")return '<div style="font-size:13px;color:#dc2626">'+esc(S.calErr)+'</div>';
+  var ev=calIn(a,b),by={},nR=0;
+  ev.forEach(function(e){if(e.routine){nR++;if(!S.showRoutine)return;}if(keyOnly&&!e.key&&!S.showRoutine)return;(by[e.d]=by[e.d]||[]).push(e);});
+  var h=Object.keys(by).sort().map(function(d){return '<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed #e5e7eb"><b style="flex:none;width:62px;font-size:13px;color:#1b6e82">'+mdw(d)+'</b><div style="font-size:13px;line-height:1.6">'
+    +by[d].map(function(e){return '<div style="'+(e.routine?'color:#5b6675':'')+'">'+(e.done?'<span style="color:#047857">✓</span> ':'· ')+esc(e.t)+'</div>';}).join("")+'</div></div>';}).join("");
+  if(!h)h='<div style="font-size:13px;color:#5b6675">이 기간 일정 없음</div>';
+  return h+'<div style="margin-top:6px"><button '+BTN.replace("13px","12px")+' onclick="wkmSet(\'routine\')">'+(S.showRoutine?"반복 업무 숨기기":"반복 업무 "+nR+"건"+(keyOnly?"·기타 일정":"")+" 보기")+'</button></div>';
+}
+function card(title,body,extra){return '<div class="card" style="margin-bottom:14px"><div class="sec-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+title+(extra||"")+'</div>'+body+'</div>';}
+function memoCard(key,auto){
+  window._wkmAutoText=auto;
+  return card("📝 회의 메모 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">팀 공유 · 슬랙 공유사항·추가 사유를 적어 두세요</span>",
+    '<textarea id="wkmMemo" data-key="'+esc(key)+'" rows="9" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:10px;font-size:13.5px;line-height:1.6;font-family:inherit" placeholder="예) 슬랙 #영업2팀: 동대문 오픈 첫 주 반응 …"></textarea>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button '+BTN+' onclick="wkmMemoSave()">💾 저장</button><button '+BTN+' onclick="wkmMemoAuto()">⤵ 자동 사유 붙여넣기</button><span id="wkmMemoInfo" style="font-size:12px;color:#5b6675"></span></div>');
+}
+function plainTable(C,P,label){
+  var t=label+" ("+md(P.a)+"~"+md(P.b)+" / 전년 "+md(P.pa)+"~"+md(P.pb)+")\n";
+  TYPES.concat(["합계"]).forEach(function(x){var c=x==="합계"?C.cur.tot:(C.cur.type[x]||0),p=x==="합계"?C.prev.tot:(C.prev.type[x]||0);if(!c&&!p)return;t+="- "+x+": "+won(c)+"원 (전년 "+won(p)+", "+pctTxt(c,p)+")\n";});
+  return t;
+}
+
+function render(){
+  var box=document.getElementById("wkmBody");if(!box)return;
+  if(S.st==="idle")loadSales();
+  if(S.calSt==="idle")loadCal();
+  listenMemo();
+  var P=periods(),wk=S.mode==="week";
+  var nav=wk?'<button '+BTN+' onclick="wkmSet(\'wk\',1)">◀</button><b style="font-size:14px">'+esc(P.week.label)+' · '+mdw(P.week.a)+' ~ '+mdw(P.week.b)+'</b><button '+BTN+(S.wkOff<=0?' disabled':'')+' onclick="wkmSet(\'wk\',-1)">▶</button>'
+    :'<button '+BTN+' onclick="wkmSet(\'mo\',1)">◀</button><b style="font-size:14px">'+esc(P.month.label)+'</b><button '+BTN+(S.moOff<=0?' disabled':'')+' onclick="wkmSet(\'mo\',-1)">▶</button>';
+  function seg(v,l){var on=S.mode===v;return '<button onclick="wkmSet(\'mode\',\''+v+'\')" style="padding:7px 16px;border:none;font-size:13.5px;font-weight:800;cursor:pointer;background:'+(on?'#1b6e82':'#fff')+';color:'+(on?'#fff':'#1b6e82')+'">'+l+'</button>';}
+  var info=S.st==="load"?'<span id="wkmProg">세일즈 매니지먼트 불러오는 중… '+S.prog+'%</span>':S.st==="err"?'<span style="color:#dc2626">'+esc(S.err)+'</span>':S.st==="ok"?'세일즈 매니지먼트 영업2팀 · '+new Date(S.at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})+' 불러옴':'';
+  var h='<div class="card" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    +'<div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none">🗓️ 주간회의</div>'
+    +'<div style="display:inline-flex;border:1.5px solid #1b6e82;border-radius:8px;overflow:hidden">'+seg("week","주간회의")+seg("all","전체회의")+'</div>'
+    +'<div style="display:flex;align-items:center;gap:6px">'+nav+'</div>'
+    +'<div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-size:12px;color:#5b6675">'+info+'</span>'
+    +'<button '+BTN+' onclick="wkmReload()" title="세일즈 매니지먼트·공유캘린더를 다시 읽습니다">🔄 새로고침</button>'
+    +'<button '+BTN+(S.st==="ok"?'':' disabled')+' onclick="wkmCopy()" title="표·사유·업무를 글로 복사합니다(슬랙·시트 붙여넣기용)">📋 회의자료 복사</button>'
+    +'<a '+BTN.replace('style="','style="text-decoration:none;')+' href="https://wssales.pages.dev/" target="_blank" rel="noopener">↗ 세일즈 매니지먼트</a>'
+    +'<a '+BTN.replace('style="','style="text-decoration:none;')+' href="https://docs.google.com/spreadsheets/d/'+CAL_ID+'/edit#gid='+CAL_GID+'" target="_blank" rel="noopener">↗ 공유캘린더</a></div></div></div>';
+  if(S.st!=="ok"){
+    box.innerHTML=h+card("📊 매출",'<div style="font-size:13px;color:'+(S.st==="err"?"#dc2626":"#5b6675")+';padding:20px;text-align:center">'+(S.st==="err"?esc(S.err)+' — 🔄 새로고침을 눌러 다시 시도하세요':'세일즈 매니지먼트에서 영업2팀 매출(작년 1월~오늘)을 불러오는 중입니다… 10~20초 걸립니다')+'</div>');
+    return;
+  }
+  var copy="";
+  if(wk){
+    var W=P.week,C=cmp(W),ev=calIn(W.a,W.b),evR=calIn(ymd(addD(pd(W.a),-7)),W.b,W.a);
+    var L=reasons(W,C,evR);
+    h+=card("📊 지난주 매출 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">vs 전년 같은 주차(월~일)</span>",kpis(W,C,"지난주 매출","전년 동주")+chRows([{C:C,P:W,label:"지난주",plabel:"전년 동주"}]));
+    h+=card("💬 증감 사유 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">자동 작성 — 매장·상품 증감 + 공유캘린더 + 자비스 홈쇼핑 일정</span>",reasonBox(L));
+    h+=card("✅ 지난주 업무 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">공유캘린더 "+md(W.a)+"~"+md(W.b)+"</span>",calBox(W.a,W.b,false));
+    h+=card("📅 이번주 예정 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">"+md(P.thisWeek.a)+"~"+md(P.thisWeek.b)+"</span>",calBox(P.thisWeek.a,P.thisWeek.b,false));
+    h+=memoCard(W.key,L.join("\n"));
+    copy="[영업2팀 주간회의] "+W.label+"\n"+plainTable(C,W,"■ 지난주 매출")+"\n■ 증감 사유\n"+L.map(function(l){return "- "+l;}).join("\n")
+      +"\n\n■ 지난주 주요 업무\n"+ev.filter(function(e){return !e.routine;}).map(function(e){return "- "+md(e.d)+" "+e.t;}).join("\n")
+      +"\n\n■ 이번주 예정\n"+calIn(P.thisWeek.a,P.thisWeek.b).filter(function(e){return !e.routine;}).map(function(e){return "- "+md(e.d)+" "+e.t;}).join("\n");
+  }else{
+    var M=P.month,Yr=P.year,CM=cmp(M),CY=cmp(Yr),pf=agg(Yr.pfa,Yr.pfb,false);
+    var LM=reasons(M,CM,calIn(ymd(addD(pd(M.a),-7)),M.b,M.a)),LY=reasons(Yr,CY,[]).filter(function(l){return !/^베스트|^주요 일정/.test(l);});
+    h+=card("📊 지난달 · 올해 누계 매출",kpis(M,CM,"지난달 ("+M.label+")","전년 동월")+kpis(Yr,CY,"올해 누계","전년 동기간")
+      +'<div style="font-size:12.5px;color:#5b6675;margin:-4px 0 10px">전년 연간 합계 '+man(pf.tot)+'원 · 올해 진도율 '+(pf.tot?(CY.cur.tot/pf.tot*100).toFixed(1):"-")+'%</div>'
+      +chRows([{C:CM,P:M,label:"지난달",plabel:"전년 동월"},{C:CY,P:Yr,label:"올해 누계",plabel:"전년 동기"}]));
+    /* 월별 추이 */
+    var y=new Date().getFullYear(),mt='<tr><th '+TH.replace("right","left")+'>월</th><th '+TH+'>'+y+'</th><th '+TH+'>'+(y-1)+'</th><th '+TH+'>증감</th><th '+TH+'>증감률</th><th '+TH+'>누계 '+y+'</th><th '+TH+'>누계 '+(y-1)+'</th></tr>',ac=0,ap=0;
+    for(var m=1;m<=12;m++){
+      var a=y+"-"+p2(m)+"-01",b=ymd(new Date(y,m,0)),yd=ymd(addD(new Date(),-1)),part=a<=yd&&b>yd;if(part)b=yd;   /* 이번 달은 어제까지 · 전년도 같은 날까지 */
+      var c0=a>yd?0:agg(a,b,true).tot,p0=agg((y-1)+a.slice(4),(y-1)+b.slice(4),false).tot,dm=c0-p0;
+      ac+=c0;ap+=p0;
+      mt+='<tr>'+td(m+"월"+(part?" (~"+md(b)+")":""),"text-align:left;font-weight:700")+td(c0?won(c0):"-")+td(won(p0),"color:#5b6675")+td(c0?sgn(dm)+won(Math.abs(dm)):"","color:"+diffCol(dm))+td(c0?pctTxt(c0,p0):"","color:"+diffCol(dm))+td(c0?won(ac):"-")+td(won(ap),"color:#5b6675")+'</tr>';
+    }
+    h+=card("📈 월별 추이 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">세일즈 매니지먼트 + 빠진 날 자비스 판매일보 보완</span>",'<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:520px">'+mt+'</table></div>');
+    h+=card("💬 지난달 증감 사유 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">자동 작성</span>",reasonBox(LM));
+    h+=card("💬 올해 누계 증감 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">채널별</span>",reasonBox(LY));
+    var td2=(S.cal&&S.cal.todo[M.a.slice(0,7)])||[];
+    h+=card("✅ 지난달 주요 업무 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">공유캘린더 "+esc(M.label)+"</span>",calBox(M.a,M.b,true)
+      +(td2.length?'<div style="margin-top:10px;font-size:13px"><b>TO-DO</b>'+td2.map(function(t){return '<div>· '+esc(t)+'</div>';}).join("")+'</div>':''));
+    h+=memoCard(M.key,LM.join("\n")+"\n\n[올해 누계]\n"+LY.join("\n"));
+    copy="[영업2팀 전체회의] "+M.label+"\n"+plainTable(CM,M,"■ 지난달 매출")+"\n"+plainTable(CY,Yr,"■ 올해 누계")+"- 전년 연간 "+won(pf.tot)+"원\n\n■ 지난달 증감 사유\n"+LM.map(function(l){return "- "+l;}).join("\n")
+      +"\n\n■ 올해 누계\n"+LY.map(function(l){return "- "+l;}).join("\n")
+      +"\n\n■ 지난달 주요 업무\n"+calIn(M.a,M.b).filter(function(e){return e.key&&!e.routine;}).map(function(e){return "- "+md(e.d)+" "+e.t;}).join("\n");
+  }
+  window._wkmCopyText=copy;
+  box.innerHTML=h;
+  paintMemo();
+}
+window.renderWkMtg=render;
 })();
 </script>
 </body>
