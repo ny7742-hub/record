@@ -35848,8 +35848,9 @@ window.renderCcProp=function(){listen();listenImg();cppRender();};
 var TYPES=["백화점","코스트코","팩토리","홈쇼핑","트래블메이트","아난티"];
 var CAL_ID="13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc",CAL_GID="1131579574";
 var ROUTINE=/주간회의|전체회의|재고 ?체크|재고 ?확인|매출 ?마감|반품 ?등록|신상 출고 확인|온라인 등록 가능 상품 공지|홈쇼핑 일정 공유/;
+var LEAVE=/연차|반차|반반차|휴가/;
 var KEYEV=/셋팅|세팅|오픈|철수|행사|LIVE|라이브|방송|녹화|BTV|프로모션|기획전|블랙프라이데이|팝업|입점|간담회|미팅|제안|연차|인수인계/i;
-var S={mode:"week",wkOff:1,moOff:1,rows:null,last:{},st:"idle",err:"",at:0,prog:0,from:"",cal:null,calSt:"idle",calErr:"",memo:{},showRoutine:false,listening:false};
+var S={mode:"week",wkOff:1,moOff:1,rows:null,last:{},st:"idle",err:"",at:0,prog:0,from:"",cal:null,calSt:"idle",calErr:"",memo:{},marks:{},showRoutine:false,listening:false};
 window._wkmState=S;
 
 function p2(n){return String(n).padStart(2,"0");}
@@ -35963,9 +35964,13 @@ function parseCal(rows){
   });
   return {ev:ev,todo:todo};
 }
-function calIn(a,b,pre){ /* pre=기간 첫날 — 그 앞 날은 셋팅·오픈 같은 주요 일정만 사유에 쓴다 */
+function mkey(d,t){var x=5381;for(var i=0;i<t.length;i++)x=((x<<5)+x+t.charCodeAt(i))|0;return d+"_"+(x>>>0).toString(36);}
+function calIn(a,b,pre,withDel){ /* 연차·반차·휴가와 삭제한 일정은 회의자료에서 제외 */
   var out=[];if(!S.cal)return out;
-  Object.keys(S.cal.ev).sort().forEach(function(d){if(d>=a&&d<=b)S.cal.ev[d].forEach(function(e){out.push({d:d,t:e.t,done:e.done,routine:ROUTINE.test(e.t),key:KEYEV.test(e.t),pre:!!pre&&d<pre});});});
+  Object.keys(S.cal.ev).sort().forEach(function(d){if(d>=a&&d<=b)S.cal.ev[d].forEach(function(e){
+    if(LEAVE.test(e.t))return;
+    var k=mkey(d,e.t),m=S.marks[k]||{};if(m.d&&!withDel)return;
+    out.push({d:d,t:e.t,done:e.done,routine:ROUTINE.test(e.t),key:KEYEV.test(e.t),pre:!!pre&&d<pre,k:k,b:!!m.b,del:!!m.d});});});
   return out;
 }
 
@@ -35974,7 +35979,7 @@ function hsIn(a,b){
   if(typeof homeshoppingDB==="undefined"||!Array.isArray(homeshoppingDB))return [];
   return homeshoppingDB.filter(function(r){var d=String(r&&r.date||"");return /^\d{4}-\d{2}-\d{2}$/.test(d)&&d>=a&&d<=b&&r.stage!=="탈락"&&!/제안|검토/.test(r.stage||"");})
     .sort(function(x,y){return x.date<y.date?-1:1;})
-    .map(function(r){return md(r.date)+" "+String(r.company||"").trim()+" "+String(r.name||"").trim()+(r.live?" "+r.live:"")+(r.sold?" (판매 "+Number(r.sold).toLocaleString()+"개)":"");});
+    .map(function(r){var nm=String(r.name||"").trim().split(/\s+/).pop();return md(r.date)+" "+String(r.company||"").replace(/쇼핑$/,"").trim()+" "+nm+(r.sold?" "+Number(r.sold).toLocaleString()+"개":"");});
 }
 
 /* ── 증감 사유 자동 작성 ── */
@@ -35984,54 +35989,45 @@ function storeKey(n){
 }
 function shortProd(n){return String(n).replace(/\[[^\]]*\]\s*/g,"").replace(/^\d{2}(SS|FW|AW|SU|WI)\s*/i,"").trim();}
 function storeName(k){return k.slice(k.indexOf("|")+1);}
+function nick(k){var n=storeName(k);return storeKey(n)||n;}
 function reasons(P,C,evs){
   var cur=C.cur,prev=C.prev,L=[],d=cur.tot-prev.tot;
-  L.push("전체 "+man(cur.tot)+"원 — 전년 동기("+md(P.pa)+"~"+md(P.pb)+") "+man(prev.tot)+"원 대비 "+sgn(d)+man(Math.abs(d))+"원("+pctTxt(cur.tot,prev.tot)+")");
-  /* 자료 기준 */
-  var miss=[],part=[];
+  L.push("전체 "+man(cur.tot)+"원 (전년 "+man(prev.tot)+"원 대비 "+sgn(d)+man(Math.abs(d))+", "+pctTxt(cur.tot,prev.tot)+")");
+  var miss=[],mt=[],part=[];
   TYPES.forEach(function(t){
     var ld=S.last[t]||"";
-    if(ld<P.a&&prev.type[t])miss.push(t+"("+(ld?md(ld)+"까지":"자료 없음")+")");
-    else if(ld>=P.a&&ld<P.b)part.push(t+" "+md(ld)+"까지");
+    if(ld<P.a&&prev.type[t]){miss.push(t);mt.push(t+(ld?" "+md(ld)+"까지":""));}
+    else if(ld>=P.a&&ld<P.b)part.push(t+" "+md(ld));
   });
-  if(miss.length){
-    var mv=0;miss.forEach(function(t){mv+=prev.type[t.replace(/\(.*$/,"")]||0;});
-    var d2=cur.tot-(prev.tot-mv);
-    L.push("⚠ "+miss.join("·")+"는 세일즈 매니지먼트에 이 기간 자료가 아직 없어 0으로 잡힘(실제 감소 아님) — 빼고 보면 "+sgn(d2)+man(Math.abs(d2))+"원("+pctTxt(cur.tot,prev.tot-mv)+")");
-  }
-  if(part.length)L.push("자료 반영: "+part.join(" · ")+" (그 뒤 날은 아직 미반영)");
-  /* 채널별 */
-  var ch=TYPES.map(function(t){return {t:t,c:cur.type[t]||0,p:prev.type[t]||0};}).filter(function(x){return x.c||x.p;})
-    .sort(function(x,y){return Math.abs(y.c-y.p)-Math.abs(x.c-x.p);});
-  ch.forEach(function(x){
-    if(miss.some(function(m){return m.indexOf(x.t+"(")===0;}))return;
-    var dd=x.c-x.p,parts=[];
-    var ks={};Object.keys(cur.store).concat(Object.keys(prev.store)).forEach(function(k){if(k.indexOf(x.t+"|")===0)ks[k]=1;});
+  var note=[];
+  if(miss.length){var mv=0;miss.forEach(function(t){mv+=prev.type[t]||0;});var d2=cur.tot-(prev.tot-mv);
+    note.push(mt.join(" · ")+" 미등록(0 처리) · 제외 시 "+sgn(d2)+man(Math.abs(d2))+"("+pctTxt(cur.tot,prev.tot-mv)+")");}
+  if(part.length)note.push(part.join(" · ")+"까지 반영");
+  if(note.length)L.push("세일즈 매니지먼트 "+note.join(" · "));
+  var KO=/셋팅|세팅|오픈|철수|입점|행사|LIVE|라이브|BTV|프로모션|기획전/i;
+  TYPES.map(function(t){return {t:t,c:cur.type[t]||0,p:prev.type[t]||0};}).filter(function(x){return (x.c||x.p)&&miss.indexOf(x.t)<0;})
+    .sort(function(x,y){return Math.abs(y.c-y.p)-Math.abs(x.c-x.p);}).forEach(function(x){
+    var dd=x.c-x.p,parts=[],ks={};
+    Object.keys(cur.store).concat(Object.keys(prev.store)).forEach(function(k){if(k.indexOf(x.t+"|")===0)ks[k]=1;});
     var st=Object.keys(ks).map(function(k){return {k:k,c:cur.store[k]||0,p:prev.store[k]||0};});
-    var gone=st.filter(function(s){return !s.c&&s.p>0;}).sort(function(a,b){return b.p-a.p;});
-    var neu=st.filter(function(s){return s.c>0&&!s.p;}).sort(function(a,b){return b.c-a.c;});
-    var both=st.filter(function(s){return s.c&&s.p;}).sort(function(a,b){return Math.abs(b.c-b.p)-Math.abs(a.c-a.p);});
-    if(gone.length)parts.push("전년만 매출(올해 미운영·철수): "+gone.slice(0,4).map(function(s){return storeName(s.k)+" -"+man(s.p);}).join(", "));
-    if(neu.length)parts.push("올해 신규·추가: "+neu.slice(0,4).map(function(s){return storeName(s.k)+" +"+man(s.c);}).join(", "));
-    var mv2=both.filter(function(s){return Math.abs(s.c-s.p)>=Math.max(100000,Math.abs(dd)*0.1);}).slice(0,3);
-    if(mv2.length)parts.push("매장 증감: "+mv2.map(function(s){return storeName(s.k)+" "+(s.c>=s.p?"+":"-")+man(Math.abs(s.c-s.p))+"("+pctTxt(s.c,s.p)+")";}).join(", "));
-    /* 일정 — 그 채널 매장 이름이 들어간 캘린더 일정(기간 앞 7일 셋팅 포함) */
-    var keys={};st.forEach(function(s){var k=storeKey(storeName(s.k));if(k)keys[k]=1;});
-    var hit=evs.filter(function(e){if(e.routine||(e.pre&&!/셋팅|세팅|오픈|철수|입점|행사/.test(e.t)))return false;if(x.t==="홈쇼핑")return /홈쇼핑|홈앤|LIVE|라이브|BTV|녹화|방송/i.test(e.t);if(x.t==="코스트코")return /코스트코|코코/.test(e.t);
-      return Object.keys(keys).some(function(k){return e.t.indexOf(k)>=0;});});
-    var KO=/셋팅|세팅|오픈|철수|입점|행사|LIVE|라이브|방송|BTV|프로모션|기획전/i;   /* 매출에 바로 닿는 일정을 앞으로 */
-    hit.sort(function(p,q){var a=KO.test(p.t)?0:1,b=KO.test(q.t)?0:1;return a-b||(p.d<q.d?-1:p.d>q.d?1:0);});
-    if(hit.length)parts.push("일정: "+hit.slice(0,4).map(function(e){return md(e.d)+" "+e.t;}).join(" / "));
-    if(x.t==="홈쇼핑"){var hs=hsIn(P.a,P.b),hp=hsIn(P.pa,P.pb);if(hs.length)parts.push("방송(자비스 홈쇼핑): "+hs.slice(0,4).join(" / "));if(hp.length)parts.push("전년 방송: "+hp.slice(0,3).join(" / "));}
-    if(x.t==="코스트코"||!parts.length){
-      var tp=topProds(cur,prev,x.t,2);if(tp.length)parts.push("상품: "+tp.map(function(p){return p.n+" "+man(p.c)+"("+pctTxt(p.c,p.p)+")";}).join(", "));
+    var gone=st.filter(function(s){return !s.c&&s.p>0;}).sort(function(a,b){return b.p-a.p;}).slice(0,2);
+    var neu=st.filter(function(s){return s.c>0&&!s.p;}).sort(function(a,b){return b.c-a.c;}).slice(0,2);
+    var big=st.filter(function(s){return s.c&&s.p&&Math.abs(s.c-s.p)>=Math.max(100000,Math.abs(dd)*0.15);}).sort(function(a,b){return Math.abs(b.c-b.p)-Math.abs(a.c-a.p);})[0];
+    function sum(a,f){return a.reduce(function(v,s){return v+s[f];},0);}
+    if(gone.length)parts.push(gone.map(function(s){return nick(s.k);}).join("·")+" 미운영 -"+man(sum(gone,"p")));
+    if(neu.length)parts.push(neu.map(function(s){return nick(s.k);}).join("·")+" 신규 +"+man(sum(neu,"c")));
+    if(big)parts.push(nick(big.k)+" "+(big.c>=big.p?"+":"-")+man(Math.abs(big.c-big.p)));
+    if(x.t==="홈쇼핑"){var hs=hsIn(P.a,P.b);if(hs.length)parts.push(hs.slice(0,2).join(", "));}
+    else{
+      var keys={};st.forEach(function(s){var k=storeKey(storeName(s.k));if(k)keys[k]=1;});
+      var ev=evs.filter(function(e){return !e.routine&&KO.test(e.t)&&(x.t==="코스트코"?/코스트코|코코/.test(e.t):Object.keys(keys).some(function(k){return e.t.indexOf(k)>=0;}));})[0];
+      if(ev)parts.push(md(ev.d)+" "+ev.t);
     }
-    L.push(x.t+" "+sgn(dd)+man(Math.abs(dd))+"원("+pctTxt(x.c,x.p)+")"+(parts.length?" — "+parts.join(" · "):""));
+    if(!parts.length||x.t==="코스트코"){var tp=topProds(cur,prev,x.t,1)[0];if(tp)parts.push(tp.n+" "+man(tp.c));}
+    L.push(x.t+" "+sgn(dd)+man(Math.abs(dd))+"("+pctTxt(x.c,x.p)+")"+(parts.length?": "+parts.join(", "):""));
   });
-  var tp2=topProds(cur,prev,null,5);
-  if(tp2.length)L.push("베스트: "+tp2.map(function(p,i){return (i+1)+") "+p.n+" "+man(p.c)+"("+p.q.toLocaleString()+"개)";}).join("  "));
-  var ke=evs.filter(function(e){return e.key&&!e.routine&&!e.pre;});
-  if(ke.length)L.push("주요 일정(공유캘린더): "+ke.slice(0,8).map(function(e){return md(e.d)+" "+e.t;}).join(" / "));
+  var tp2=topProds(cur,prev,null,3);
+  if(tp2.length)L.push("베스트: "+tp2.map(function(p){return p.n+" "+man(p.c);}).join("  "));
   return L;
 }
 function topProds(cur,prev,t,n){
@@ -36045,6 +36041,7 @@ function topProds(cur,prev,t,n){
 function listenMemo(){
   if(S.listening||typeof fbDB==="undefined")return;S.listening=true;
   try{fbDB.ref("ws/wkMtg").on("value",function(s){S.memo=s.val()||{};paintMemo();},function(){});}catch(e){}
+  try{fbDB.ref("ws/wkMtgMark").on("value",function(s){S.marks=s.val()||{};if(S.st==="ok")render();},function(){});}catch(e){}
 }
 function paintMemo(){
   var ta=document.getElementById("wkmMemo");if(!ta||document.activeElement===ta)return;
@@ -36110,13 +36107,36 @@ function reasonBox(L){
 function calBox(a,b,keyOnly){
   if(S.calSt==="load"||S.calSt==="idle")return '<div style="font-size:13px;color:#5b6675">공유캘린더 불러오는 중…</div>';
   if(S.calSt==="err")return '<div style="font-size:13px;color:#dc2626">'+esc(S.calErr)+'</div>';
-  var ev=calIn(a,b),by={},nR=0;
+  var ev=calIn(a,b),by={},nR=0,nD=calIn(a,b,null,true).filter(function(e){return e.del;}).length;
   ev.forEach(function(e){if(e.routine){nR++;if(!S.showRoutine)return;}if(keyOnly&&!e.key&&!S.showRoutine)return;(by[e.d]=by[e.d]||[]).push(e);});
-  var h=Object.keys(by).sort().map(function(d){return '<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed #e5e7eb"><b style="flex:none;width:62px;font-size:13px;color:#1b6e82">'+mdw(d)+'</b><div style="font-size:13px;line-height:1.6">'
-    +by[d].map(function(e){return '<div style="'+(e.routine?'color:#5b6675':'')+'">'+(e.done?'<span style="color:#047857">✓</span> ':'· ')+esc(e.t)+'</div>';}).join("")+'</div></div>';}).join("");
+  var h=Object.keys(by).sort().map(function(d){return '<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed #e5e7eb"><b style="flex:none;width:62px;font-size:13px;color:#111827">'+mdw(d)+'</b><div style="font-size:13px;line-height:1.6;color:#111827;flex:1">'
+    +by[d].map(function(e){return '<div class="wkm-it" data-k="'+e.k+'" style="font-weight:'+(e.b?800:400)+'">'+(e.done?'✓ ':'')+esc(e.t)+'<button type="button" class="wkm-x" title="이 줄 삭제(팀 전체)" onclick="wkmMark([\''+e.k+'\'],\'d\',true)">×</button></div>';}).join("")+'</div></div>';}).join("");
   if(!h)h='<div style="font-size:13px;color:#5b6675">이 기간 일정 없음</div>';
-  return h+'<div style="margin-top:6px"><button '+BTN.replace("13px","12px")+' onclick="wkmSet(\'routine\')">'+(S.showRoutine?"반복 업무 숨기기":"반복 업무 "+nR+"건"+(keyOnly?"·기타 일정":"")+" 보기")+'</button></div>';
+  return '<div class="wkm-cal">'+h+'</div><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button '+BTN.replace("13px","12px")+' onclick="wkmSet(\'routine\')">'+(S.showRoutine?"반복 업무 숨기기":"반복 업무 "+nR+"건"+(keyOnly?"·기타 일정":"")+" 보기")+'</button>'
+    +(nD?'<button '+BTN.replace("13px","12px")+' onclick="wkmUndel(\''+a+'\',\''+b+'\')">삭제한 '+nD+'줄 되돌리기</button>':'')
+    +'<span style="font-size:12px;color:#111827">끌어 고르면 진하게(다시 고르면 해제) · 줄 끝 ×로 삭제 · 팀 공유</span></div>';
 }
+window.wkmMark=function(keys,f,val){
+  if(_authState!=="member"&&_authState!=="open"){alert("로그인 후 바꿀 수 있습니다.");return;}
+  if(val===undefined)val=!keys.every(function(k){return (S.marks[k]||{})[f];});
+  var updates={};keys.forEach(function(k){updates[k+"/"+f]=val?true:null;});
+  if(!keys.length)return;
+  fbDB.ref("ws/wkMtgMark").update(updates).catch(function(e){alert("표시 저장 실패: "+e.message);});
+};
+window.wkmUndel=function(a,b){wkmMark(calIn(a,b,null,true).filter(function(e){return e.del;}).map(function(e){return e.k;}),"d",false);};
+function _selItems(){
+  var sel=window.getSelection();if(!sel||sel.isCollapsed||!sel.rangeCount)return [];
+  var out=[];document.querySelectorAll("#wkmBody .wkm-it").forEach(function(el){if(sel.containsNode(el,true)&&out.indexOf(el.dataset.k)<0)out.push(el.dataset.k);});return out;
+}
+document.addEventListener("mouseup",function(ev){
+  if(!ev.target.closest||!ev.target.closest(".wkm-cal")||ev.target.closest(".wkm-x"))return;
+  setTimeout(function(){var ks=_selItems();if(!ks.length)return;window.getSelection().removeAllRanges();wkmMark(ks,"b");},0);
+});
+document.addEventListener("keydown",function(ev){
+  if(ev.key!=="Delete"&&ev.key!=="Backspace")return;
+  var a=document.activeElement;if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable))return;
+  var ks=_selItems();if(!ks.length)return;ev.preventDefault();window.getSelection().removeAllRanges();wkmMark(ks,"d",true);
+});
 function card(title,body,extra){return '<div class="card" style="margin-bottom:14px"><div class="sec-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+title+(extra||"")+'</div>'+body+'</div>';}
 function memoCard(key,auto){
   window._wkmAutoText=auto;
@@ -36191,8 +36211,10 @@ function render(){
       +"\n\n■ 지난달 주요 업무\n"+calIn(M.a,M.b).filter(function(e){return e.key&&!e.routine;}).map(function(e){return "- "+md(e.d)+" "+e.t;}).join("\n");
   }
   window._wkmCopyText=copy;
-  box.innerHTML=h;
+  var ota=document.getElementById("wkmMemo"),keep=ota&&{k:ota.dataset.key,v:ota.value,f:document.activeElement===ota,start:ota.selectionStart,end:ota.selectionEnd};
+  box.innerHTML='<style>#wkmBody .wkm-it{cursor:text}#wkmBody .wkm-x{margin-left:8px;color:#dc2626;cursor:pointer;font-weight:700;background:none;border:none;opacity:0}#wkmBody .wkm-it:hover .wkm-x,#wkmBody .wkm-x:focus{opacity:1}#wkmBody .wkm-it:hover{background:#f8fafc}@media(hover:none){#wkmBody .wkm-x{opacity:1}}</style>'+h;
   paintMemo();
+  var nta=document.getElementById("wkmMemo");if(keep&&nta&&nta.dataset.key===keep.k){if(keep.v!==((S.memo[keep.k]||{}).text||""))nta.value=keep.v;if(keep.f){nta.focus();nta.setSelectionRange(keep.start,keep.end);}}
 }
 window.renderWkMtg=render;
 })();
