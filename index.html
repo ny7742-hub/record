@@ -3148,7 +3148,7 @@ var FB_PATH={
   "saipLog":"ws/saipLog","saipFix":"ws/saipFix","saipAck":"ws/saipAck","saipSeen":"ws/saipSeen","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen","unshipSrc":"ws/unshipSrc","usSaipStatus":"ws/usSaipStatus",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix","mvFix":"ws/mvFix","soFix":"ws/soFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre",
-  "pmWhAll":"ws/pmWhAll","ecStkStatus":"ws/ecStkStatus"   /* PlayMD 전체 창고재고(사이즈별) · 이카운트 창고 재고 자동 입력 결과(2026-10-29) */
+  "pmWhAll":"ws/pmWhAll","ecStkStatus":"ws/ecStkStatus","ecSalStatus":"ws/ecSalStatus"   /* PlayMD 전체 창고재고(사이즈별) · 이카운트 창고 재고 자동 입력 결과(2026-10-29) */
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
 
@@ -3909,12 +3909,16 @@ function fbListen(){
   );
   apply("ws/saipReq","saipReq",
     function(d){if(d&&typeof d==="object")saipReq=d;},
-    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();}
+    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();}
   );
   /* PlayMD 전체 창고재고(사이즈별 자사코드) — 창고재고현황을 올릴 때 같이 만든다 · 이카운트 자동 입력 결과(자동화 PC ecount-stock.mjs가 쓴다) */
   apply("ws/pmWhAll","pmWhAll",
     function(d){if(d&&typeof d==="object"&&d.wh)pmWhAll=d;},
     function(){if(typeof ecStkAutoRender==="function")ecStkAutoRender();}
+  );
+  apply("ws/ecSalStatus","ecSalStatus",
+    function(d){if(d&&typeof d==="object")ecSalStatus=d;},
+    function(){if(typeof ecSalAutoRender==="function")ecSalAutoRender();}
   );
   apply("ws/ecStkStatus","ecStkStatus",
     function(d){if(d&&typeof d==="object")ecStkStatus=d;},
@@ -11373,6 +11377,56 @@ function _ecSalSlips(){
 function _ecSalPicked(s){return s.key in _ecSalPick?_ecSalPick[s.key]:!s.log;}
 /* 공급가액·부가세 — 판매금액은 VAT 포함. 트래블메이트는 명세표 규칙(단가÷1.1 버림 × 수량)을 그대로 */
 function _ecSalSup(x){return x.sup!=null?x.sup:Math.round(x.amt/1.1);}
+/* 전표 한 장의 줄(엑셀·자동 입력 같이 씀) — 단가 = 판매금액÷수량(VAT 포함, 이카운트 판매입력 칸이 '단가(vat포함)') */
+function _ecSalRows(s,memo){
+  return s.items.slice().sort(function(a,b){return a.code<b.code?-1:a.code>b.code?1:b.qty-a.qty;}).map(function(x){
+    var sup=_ecSalSup(x);
+    return {code:x.code,name:x.name,qty:x.qty,unit:x.qty?Math.round(x.amt/x.qty):0,sup:sup,vat:Math.round(x.amt)-sup,memo:memo||(_ecSalChLab(s.ch)+" 매출(자비스)")};
+  });
+}
+/* 🤖 이카운트에 넣기(자동화 PC) — 고른 전표를 ws/ecSalJob/{id}에 올리고 ws/saipReq.es로 요청 → automation/ecount-sales.mjs
+   (판매입력 › 웹자료올리기 창에 붙여넣고 다시 읽어 대조). 시험 = 붙여넣고 저장 없이 닫음. 실제 넣기는 EC_SAL_AUTO_SAVE를 켜야 보인다(2026-11-02 영업2팀 "테스트만") */
+var EC_SAL_AUTO_SAVE=false;
+var ecSalStatus=(function(){try{return JSON.parse(localStorage.getItem("ecSalStatus")||"null");}catch(e){return null;}})();
+function ecSalAuto(mode){
+  var S=_ecSalSlips().filter(_ecSalPicked),save=mode==="save";
+  if(!S.length){alert("고른 전표가 없습니다.");return;}
+  if(save&&!EC_SAL_AUTO_SAVE){alert("실제 넣기는 아직 꺼 두었습니다(시험만).");return;}
+  var cur=(saipReq||{}).es;
+  if(_saipReqActive(cur)){alert("이카운트 매출 넣기가 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+").");return;}
+  if(!_ecSalCanWrite()){alert("팀 공유에 로그인해야 자동화 PC에 요청할 수 있습니다.");return;}
+  var re=S.filter(function(s){return s.log;});
+  if(save&&re.length){alert("이미 받은(넣은) 전표 "+re.length+"장이 골라져 있습니다 — 빼고 다시 눌러 주세요.");return;}
+  var memo=String((document.getElementById("ecSalMemo")||{}).value||"").trim(),n=S.reduce(function(a,s){return a+s.items.length;},0);
+  if(save&&!confirm("자동화 PC가 이카운트 [판매입력 › 웹자료올리기]에 전표 "+S.length+"장("+n+"줄)을 넣고 저장합니다. 넣을까요?"))return;
+  var id="es"+Date.now().toString(36),by=_saipMe();
+  var job={id:id,by:by,at:new Date().toISOString(),slips:S.map(function(s){return {key:s.key,day:s.day,ch:s.ch,sc:s.sc,sn:s.sn,cust:_ecSalCust(s.sc),wh:_ecSalWh(s.sc),items:_ecSalRows(s,memo)};})};
+  try{fbDB.ref("ws/ecSalJob/"+id).set(job);}catch(e){alert("전표를 팀 공유에 올리지 못했습니다: "+e.message);return;}
+  _saipReqSet("es",{id:id,by:by,at:new Date().toISOString(),state:"요청",mode:save?"save":"test",n:S.length});
+  ecSalAutoRender();
+}
+function ecSalAutoRender(){
+  var box=document.getElementById("ecSalAutoBox");if(!box)return;
+  var R=(saipReq||{}).es,act=_saipReqActive(R),S=ecSalStatus,on=saipWatch&&Date.now()-new Date(saipWatch.at).getTime()<5*60*1000;
+  var h='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+    +(EC_SAL_AUTO_SAVE?'<button onclick="ecSalAuto(\'save\')"'+(act?' disabled':'')+' style="padding:6px 14px;font-size:13px;font-weight:800;background:#1b6e82;color:#fff;border:0;border-radius:8px;cursor:pointer">🤖 이카운트에 넣기(자동화 PC)</button>':'')
+    +'<button class="bs" onclick="ecSalAuto(\'test\')"'+(act?' disabled':'')+' style="padding:5px 12px;font-size:12.5px;font-weight:700">🤖 이카운트 시험 입력(저장 안 함)</button>'
+    +'<span style="font-size:12px;color:'+(on?'#047857':'#b45309')+'">자동화 PC '+(on?'켜짐':'꺼짐·응답 없음')+'</span>'
+    +(act?'<span style="font-size:12.5px;font-weight:700;color:#1b6e82">⏳ '+_escX(R.state)+' · '+_escX(R.by||"")+(R.progress?' — '+_escX(R.progress):'')+'</span>':'')+'</div>'
+    +'<div style="font-size:12px;color:#5b6675;margin-top:4px;line-height:1.6">고른 전표를 자동화 창의 이카운트 <b>판매입력 › 웹자료올리기</b>에 붙여넣고 다시 읽어 줄마다 맞는지 봅니다. '
+    +(EC_SAL_AUTO_SAVE?'':'<b>지금은 시험만</b> — 붙여넣은 뒤 저장하지 않고 닫습니다(이카운트에 전표가 생기지 않음). ')+'자동화 창에 이카운트가 로그인돼 있어야 합니다.</div>';
+  if(S&&S.slips){
+    var cnt={};S.slips.forEach(function(x){cnt[x.res]=(cnt[x.res]||0)+1;});
+    var col=function(k){return k==="넣음"||k==="시험 OK"?"#047857":k==="실패"?"#b91c1c":"#334155";};
+    h+='<div style="margin-top:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:6px 8px;font-size:12.5px">'
+      +'<b>'+(S.mode==="save"?"넣기":"시험")+' 결과</b> <span style="color:#5b6675">'+_escX(_saipFmtAt(S.at))+' · '+_escX(S.by||"")+' · '+_escX(S.state||"")+' · 붙여넣음 '+(S.pasted||0)+'/'+(S.rows||0)+'줄</span> '
+      +Object.keys(cnt).map(function(k){return '<span style="margin-left:6px;font-weight:700;color:'+col(k)+'">'+_escX(k)+' '+cnt[k]+'</span>';}).join("")
+      +(S.msg?'<div style="color:'+(S.state==="끝"?'#334155':'#b45309')+';margin-top:3px">'+_escX(S.msg)+'</div>':'')
+      +'<div style="max-height:200px;overflow-y:auto;margin-top:4px"><table style="width:100%;border-collapse:collapse"><tr style="background:#f1f5f9"><th style="text-align:left;padding:2px 5px">일자</th><th style="text-align:left;padding:2px 5px">매장</th><th style="padding:2px 5px;text-align:right">줄</th><th style="padding:2px 5px;text-align:right">수량</th><th style="padding:2px 5px;text-align:right">금액</th><th style="padding:2px 5px;text-align:left">결과</th></tr>'
+      +S.slips.map(function(x){return '<tr style="border-top:1px solid #eef2f7"><td style="padding:2px 5px">'+_escX(String(x.day||"").slice(5))+'</td><td style="padding:2px 5px">'+_escX(x.sn||"")+'</td><td style="padding:2px 5px;text-align:right">'+(x.n||0)+'</td><td style="padding:2px 5px;text-align:right">'+(x.qty||0)+'</td><td style="padding:2px 5px;text-align:right">'+Math.round(x.amt||0).toLocaleString()+'</td><td style="padding:2px 5px;font-weight:700;color:'+col(x.res)+'">'+_escX(x.res||"")+(x.why?' <span style="font-weight:400;color:#b45309">'+_escX(x.why)+'</span>':'')+'</td></tr>';}).join("")+'</table></div></div>';
+  }
+  box.innerHTML=h;
+}
 function ecSalSet(k,v){
   if(k==="from"||k==="to")_ecSal[k]=v;
   else if(k==="ch")_ecSal.ch[v]=_ecSal.ch[v]?0:1;
@@ -11437,13 +11491,14 @@ function ecSalDl(){
   if(re.length&&!confirm("이미 엑셀로 받은 전표 "+re.length+"장이 들어 있습니다:\n"+re.slice(0,8).map(function(s){return "  "+s.day+" "+s.sn+" — "+_saipFmtAt(s.log.at)+" "+(s.log.by||"");}).join("\n")+(re.length>8?"\n  …":"")
     +"\n\n이카운트에 두 번 올리면 매출이 두 번 잡힙니다. 그래도 받을까요?"))return;
   var memo=String((document.getElementById("ecSalMemo")||{}).value||"").trim();
-  var aoa=[["일자","순서","거래처코드","거래처명","출하창고","품목코드","품목명","수량","단가","공급가액","부가세","적요"]],seq=0,tq=0,ta=0,zero=0;
+  /* 열 = 이카운트 판매 웹자료올리기 그대로(2026-11-02 화면에서 읽음) */
+  var aoa=[["출고일-No.","순번","거래처코드","거래처명","담당자","담당자명","출하창고","출하창고명","거래유형","통화","환율","품목코드","품목명","규격","수량","단가","외화공급가액","공급가액","부가세","적요","생산전표생성"]],seq=0,tq=0,ta=0,zero=0;
   S.forEach(function(s){
     seq++;
-    s.items.slice().sort(function(a,b){return a.code<b.code?-1:a.code>b.code?1:b.qty-a.qty;}).forEach(function(x){
-      var sup=_ecSalSup(x),unit=x.qty?Math.round(sup/x.qty):0;if(!x.amt)zero++;
-      aoa.push([s.day.replace(/-/g,""),seq,_ecSalCust(s.sc),s.sn,_ecSalWh(s.sc),x.code,x.name,x.qty,unit,sup,x.amt-sup,memo||(_ecSalChLab(s.ch)+" 매출(자비스)")]);
-      tq+=x.qty;ta+=x.amt;
+    _ecSalRows(s,memo).forEach(function(x){
+      if(!x.sup&&!x.vat)zero++;
+      aoa.push([s.day.replace(/-/g,""),seq,_ecSalCust(s.sc),s.sn,"","",_ecSalWh(s.sc),"","","","",x.code,x.name,"",x.qty,x.unit,"",x.sup,x.vat,x.memo,""]);
+      tq+=x.qty;ta+=x.sup+x.vat;
     });
   });
   var R=_ecSalRange(),tag=R[0]===R[1]?R[0].replace(/-/g,""):R[0].replace(/-/g,"")+"-"+R[1].replace(/-/g,"").slice(4);
@@ -11536,7 +11591,8 @@ function ecSalRender(){
     +'<span id="ecSalMsg" style="font-size:12.5px"></span></div>'
     +'<div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.6">이카운트 <b>영업관리 › 판매 › 판매입력</b>의 웹자료올리기에 붙여넣습니다(일자·순서·거래처코드·거래처명·출하창고·품목코드·품목명·수량·단가·공급가액·부가세·적요 — 같은 순서 번호 = 전표 1장). '
     +'금액은 판매일보 <b>판매금액</b>(VAT 포함)을 공급가액 = 금액÷1.1 · 부가세 = 나머지로 나눴고, 단가 = 공급가액÷수량입니다. 반품은 수량·금액 −. 트래블메이트는 명세표와 같은 단가(TAG가 고정표)입니다. '
-    +'엑셀을 받으면 그 전표가 <b>받음</b>으로 팀에 기록돼 다음엔 빠집니다.</div>';
+    +'엑셀을 받으면 그 전표가 <b>받음</b>으로 팀에 기록돼 다음엔 빠집니다.</div>'
+    +'<div id="ecSalAutoBox" style="margin-top:10px;padding-top:8px;border-top:1px dashed #cbd5e1"></div>';
   /* 거래처코드 · 출하창고 */
   var stores={};
   Object.keys(ecSalSrc).forEach(function(ym){var M=ecSalSrc[ym];Object.keys(M.d||{}).forEach(function(dd){Object.keys(M.d[dd]).forEach(function(sc){var x=M.d[dd][sc];stores[sc]={sc:sc,sn:x.n,ch:x.c};});});});
@@ -11552,6 +11608,7 @@ function ecSalRender(){
     +'</details>';
   box.innerHTML=h;
   if(keepMemo)document.getElementById("ecSalMemo").value=keepMemo;
+  ecSalAutoRender();
 }
 function ecSaveConf(){
   if(!_ecAdmin()){alert("관리자만 바꿀 수 있습니다.");return;}
