@@ -19800,9 +19800,9 @@ var CD_COLS=[
   {k:"logi",lab:"물류·관세(원)",w:94,in:1,money:1},
   {k:"inbound",lab:"입고비(4%)",w:84},
   {k:"coupon",lab:"쿠폰비용(원)",w:92,in:1,money:1},
-  {k:"supply",lab:"공급가(VAT별도)",w:106},
-  {k:"cost",lab:"총원가(VAT별도)",w:106},
-  {k:"profit",lab:"이익금",w:88},
+  {k:"supply",lab:"공급가(원)",w:88},
+  {k:"cost",lab:"총원가(원)",w:88},
+  {k:"profit",lab:"이익금(원)",w:88},
   {k:"rate",lab:"이익률",w:70},
   {k:"cRate",lab:"원가대비",w:74}
 ];
@@ -19888,16 +19888,16 @@ function cdReset(){
 }
 function cdExport(){
   if(!cdDB.rows.length){alert("계산한 상품이 없습니다.");return;}
-  var aoa=[["상품명","구성(개)","판매가(VAT포함)","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","입고비(4%)","쿠폰비용(원)","공급가(VAT별도)","총원가(VAT별도)","이익금","이익률","원가대비","수수료율","비고"]];
+  var aoa=[["상품명","구성(개)","판매가(VAT포함)","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","입고비(4%)","쿠폰비용(원)","공급가(원)","총원가(원)","이익금(원)","이익률","원가대비","수수료율","비고"]];
   cdDB.rows.forEach(function(r){var c=_cdCalc(r);
     aoa.push([r.name||"",_cdN(r.qty)||1,_cdN(r.sale)||"",_cdN(r.won)||"",_cdN(r.strap)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",
       c.has?Math.round(c.inbound):"",_cdN(r.coupon)||"",
       c.has?Math.round(c.supplyNet):"",c.has?Math.round(c.cost):"",c.has?Math.round(c.profit):"",
       c.rate==null?"":(c.rate*100).toFixed(1)+"%",c.cRate==null?"":(c.cRate*100).toFixed(1)+"%",
-      _cdN(cdDB.fee)+"%","판매가만 부가세 포함"]);
+      _cdN(cdDB.fee)+"%",""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"]=[{wch:18},{wch:8},{wch:13},{wch:12},{wch:12},{wch:10},{wch:11},{wch:12},{wch:13},{wch:15},{wch:13},{wch:13},{wch:10},{wch:8},{wch:9},{wch:9},{wch:22}];
+  ws["!cols"]=[{wch:18},{wch:8},{wch:13},{wch:12},{wch:12},{wch:10},{wch:11},{wch:12},{wch:13},{wch:15},{wch:13},{wch:13},{wch:10},{wch:8},{wch:9},{wch:9},{wch:6}];
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"직매입이익계산");
   var d=new Date();XLSX.writeFile(wb,"코스트코직매입이익("+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+").xlsx");
 }
