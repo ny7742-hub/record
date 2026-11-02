@@ -19807,7 +19807,9 @@ function _cdCalc(r){
   var fee=_cdN(cdDB.fee)/100;
   var sale=_cdN(r.sale),qty=_cdN(r.qty)||1;
   var supplyNet=sale*(1-fee)/1.1;               /* 공급가(매출) = 판매가 − 수수료, 부가세 별도(2026-11-02 영업2팀) */
-  var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi)+_cdN(r.etc);   /* 모두 원 — 원가·스트랩은 ×구성, 패키지·RRP·물류·기타는 세트 */
+  var etcBlank=String(r.etc==null?"":r.etc).trim()==="";
+  var etc=etcBlank?Math.round(sale*0.04):_cdN(r.etc);   /* 기타 비우면 판매가×4%(입고비용) 자동 */
+  var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi)+etc;   /* 모두 원 — 원가·스트랩은 ×구성, 패키지·RRP·물류·기타는 세트 */
   var profit=supplyNet-cost;
   return {supplyNet:supplyNet,cost:cost,profit:profit,
     rate:supplyNet>0?profit/supplyNet:null,cRate:supplyNet>0?cost/supplyNet:null,has:sale>0};
@@ -19829,6 +19831,12 @@ function _cdPaint(i){
     var neg=(k==="profit"||k==="rate")&&c.has&&c.profit<0;
     el.style.color=neg?"#dc2626":((k==="profit"||k==="rate")?"#15803d":"#334155");
   });
+  /* 기타 placeholder — 판매가가 바뀌면 자동값(판매가×4%)도 갱신 */
+  var etcEl=document.getElementById("cdi_"+i+"_etc");
+  if(etcEl&&String(r.etc||"").trim()===""){
+    var autoEtc=Math.round(_cdN(r.sale)*0.04);
+    etcEl.placeholder=autoEtc>0?(_cdFmt(String(autoEtc))+" 자동"):"미정";
+  }
 }
 function cdRender(){
   var wrap=document.getElementById("cdWrap");if(!wrap)return;
@@ -19846,7 +19854,8 @@ function cdRender(){
       if(col.in){
         var v=r[col.k]==null?"":String(r[col.k]);
         if(col.money)v=_cdFmt(v);
-        var ph=(col.k==="strap"||col.k==="pack"||col.k==="rrp"||col.k==="logi"||col.k==="etc")?"미정":"";
+        var ph=(col.k==="strap"||col.k==="pack"||col.k==="rrp"||col.k==="logi")?"미정":
+               col.k==="etc"?(_cdFmt(String(Math.round(_cdN(r.sale)*0.04)))+" 자동"):"" ;
         h+='<td style="border:1px solid #e1e6ee;padding:2px"><input id="cdi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'
           +(col.txt?' placeholder="상품명" title="'+_escX(v)+'"':' inputmode="decimal" placeholder="'+ph+'"')
           +' oninput="cdInput('+i+',\''+col.k+'\',this.value)" onchange="saveCd()"'
