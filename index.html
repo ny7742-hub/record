@@ -2028,7 +2028,7 @@ label{font-size:14px!important}
       <button onclick="cdAddRow()" class="bg" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
       <button onclick="cdExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
       <button onclick="cdReset()" class="bs" style="padding:5px 12px;font-size:12px" title="중우산·600AIR 기본값으로 되돌립니다(지금 입력값은 지워집니다)">↩ 기본값</button>
-      <span style="font-size:11px;color:#5b6675">직매입 — 매출은 공급가(판매가 − 수수료, <b>부가세 포함가</b>). <b>모든 금액은 원(₩)</b>. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). 미정값은 비워 두세요.</span>
+      <span style="font-size:11px;color:#5b6675">직매입 — 매출은 공급가(판매가 − 수수료, <b>부가세 별도</b>). <b>모든 금액은 원(₩)</b>. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). 미정값은 비워 두세요.</span>
     </div>
     <div id="cdWrap" style="overflow-x:auto"></div>
   </div>
@@ -19797,7 +19797,7 @@ var CD_COLS=[
   {k:"rrp",lab:"RRP박스(원)",w:92,in:1,money:1},
   {k:"logi",lab:"물류·관세(원)",w:94,in:1,money:1},
   {k:"etc",lab:"기타(원)",w:84,in:1,money:1},
-  {k:"supply",lab:"공급가(VAT포함)",w:106},
+  {k:"supply",lab:"공급가(VAT별도)",w:106},
   {k:"cost",lab:"총원가",w:84},
   {k:"profit",lab:"이익금",w:88},
   {k:"rate",lab:"이익률",w:70},
@@ -19806,7 +19806,7 @@ var CD_COLS=[
 function _cdCalc(r){
   var fee=_cdN(cdDB.fee)/100;
   var sale=_cdN(r.sale),qty=_cdN(r.qty)||1;
-  var supplyNet=sale*(1-fee);                   /* 공급가(매출) = 판매가 − 수수료, 부가세 포함가(2026-10-30 영업2팀 "공급가 매출은 부가세포함가로") */
+  var supplyNet=sale*(1-fee)/1.1;               /* 공급가(매출) = 판매가 − 수수료, 부가세 별도(2026-11-02 영업2팀) */
   var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi)+_cdN(r.etc);   /* 모두 원 — 원가·스트랩은 ×구성, 패키지·RRP·물류·기타는 세트 */
   var profit=supplyNet-cost;
   return {supplyNet:supplyNet,cost:cost,profit:profit,
