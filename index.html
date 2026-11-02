@@ -19784,8 +19784,8 @@ function msExport(){
 function _cdFresh(d){return d&&typeof d==="object"&&Array.isArray(d.rows)&&(!d.rows.length||("won" in d.rows[0]));}
 var cdDB=(function(){try{var d=JSON.parse(localStorage.getItem("cdDB")||"null");if(_cdFresh(d))return d;}catch(e){}
   return {fee:"14",vat:true,rows:[
-    {name:"코스트코 중우산",qty:"1",sale:"15990",won:"7560",strap:"",pack:"563",rrp:"",logi:"",coupon:""},
-    {name:"코스트코 600AIR",qty:"2",sale:"33990",won:"6475",strap:"",pack:"",rrp:"",logi:"",coupon:""}
+    {name:"코스트코 중우산",qty:"1",sale:"15990",won:"7560",strap:"",pack:"563",rrp:"",logi:"",coupon:"",extra:""},
+    {name:"코스트코 600AIR",qty:"2",sale:"33990",won:"6475",strap:"",pack:"",rrp:"",logi:"",coupon:"",extra:""}
   ]};})();
 function saveCd(){wsSetItem("cdDB",JSON.stringify(cdDB));}
 function _cdN(v){v=String(v==null?"":v).replace(/,/g,"").trim();var n=parseFloat(v);return isFinite(n)?n:0;}
@@ -19800,6 +19800,7 @@ var CD_COLS=[
   {k:"logi",lab:"물류·관세(원)",w:94,in:1,money:1},
   {k:"inbound",lab:"입고비(4%)",w:84},
   {k:"coupon",lab:"쿠폰비용(원)",w:92,in:1,money:1},
+  {k:"extra",lab:"추가비용(원)",w:92,in:1,money:1},
   {k:"supply",lab:"공급가(원)",w:88},
   {k:"cost",lab:"총원가(원)",w:88},
   {k:"profit",lab:"이익금(원)",w:88},
@@ -19811,7 +19812,7 @@ function _cdCalc(r){
   var sale=_cdN(r.sale),qty=_cdN(r.qty)||1;
   var supplyNet=sale*(1-fee)/1.1;               /* 공급가(매출) = 판매가 − 수수료, 부가세 별도(2026-11-02 영업2팀) */
   var inbound=sale/1.1*0.04;                    /* 입고비 = VAT 별도 판매가의 4% */
-  var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi)+inbound+_cdN(r.coupon);   /* 원가·스트랩은 ×구성, 나머지는 세트 */
+  var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi)+inbound+_cdN(r.coupon)+_cdN(r.extra);   /* 원가·스트랩은 ×구성, 나머지는 세트 */
   var profit=supplyNet-cost;
   return {supplyNet:supplyNet,inbound:inbound,cost:cost,profit:profit,
     rate:supplyNet>0?profit/supplyNet:null,cRate:supplyNet>0?cost/supplyNet:null,has:sale>0};
@@ -19851,7 +19852,7 @@ function cdRender(){
       if(col.in){
         var v=r[col.k]==null?"":String(r[col.k]);
         if(col.money)v=_cdFmt(v);
-        var ph=(col.k==="strap"||col.k==="pack"||col.k==="rrp"||col.k==="logi"||col.k==="coupon")?"미정":"";
+        var ph=(col.k==="strap"||col.k==="pack"||col.k==="rrp"||col.k==="logi"||col.k==="coupon"||col.k==="extra")?"미정":"";
         h+='<td style="border:1px solid #e1e6ee;padding:2px"><input id="cdi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'
           +(col.txt?' placeholder="상품명" title="'+_escX(v)+'"':' inputmode="decimal" placeholder="'+ph+'"')
           +' oninput="cdInput('+i+',\''+col.k+'\',this.value)" onchange="saveCd()"'
@@ -19874,31 +19875,31 @@ function cdInput(i,k,v){var r=cdDB.rows[i];if(!r)return;
   else r[k]=String(v);
   _cdPaint(i);}
 function cdSet(k,v){cdDB[k]=(k==="vat")?!!v:String(v);cdDB.rows.forEach(function(r,i){_cdPaint(i);});}
-function cdAddRow(){cdDB.rows.push({name:"",qty:"1",sale:"",won:"",strap:"",pack:"",rrp:"",logi:"",coupon:""});saveCd();cdRender();}
+function cdAddRow(){cdDB.rows.push({name:"",qty:"1",sale:"",won:"",strap:"",pack:"",rrp:"",logi:"",coupon:"",extra:""});saveCd();cdRender();}
 function cdDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;cdDB.rows.splice(i,1);saveCd();cdRender();}
 /* 기본값(중우산·600AIR)으로 되돌리기 — 팀 공유라 누른 사람이 로그인돼 있으면 전체에 반영된다(2026-10-29 영업2팀) */
 function cdReset(){
   if(!confirm("직매입 이익계산을 기본값(중우산·600AIR)으로 되돌릴까요? 지금 표의 입력값은 지워집니다."))return;
   cdDB.fee="14";cdDB.vat=true;
   cdDB.rows=[
-    {name:"코스트코 중우산",qty:"1",sale:"15990",won:"7560",strap:"",pack:"563",rrp:"",logi:"",coupon:""},
-    {name:"코스트코 600AIR",qty:"2",sale:"33990",won:"6475",strap:"",pack:"",rrp:"",logi:"",coupon:""}
+    {name:"코스트코 중우산",qty:"1",sale:"15990",won:"7560",strap:"",pack:"563",rrp:"",logi:"",coupon:"",extra:""},
+    {name:"코스트코 600AIR",qty:"2",sale:"33990",won:"6475",strap:"",pack:"",rrp:"",logi:"",coupon:"",extra:""}
   ];
   saveCd();cdRender();
 }
 function cdExport(){
   if(!cdDB.rows.length){alert("계산한 상품이 없습니다.");return;}
-  var aoa=[["상품명","구성(개)","판매가(VAT포함)","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","입고비(4%)","쿠폰비용(원)","공급가(원)","총원가(원)","이익금(원)","이익률","원가대비","수수료율","비고"]];
+  var aoa=[["상품명","구성(개)","판매가(VAT포함)","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","입고비(4%)","쿠폰비용(원)","추가비용(원)","공급가(원)","총원가(원)","이익금(원)","이익률","원가대비","수수료율","비고"]];
   cdDB.rows.forEach(function(r){var c=_cdCalc(r);
     aoa.push([r.name||"",_cdN(r.qty)||1,_cdN(r.sale)||"",_cdN(r.won)||"",_cdN(r.strap)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",
-      c.has?Math.round(c.inbound):"",_cdN(r.coupon)||"",
+      c.has?Math.round(c.inbound):"",_cdN(r.coupon)||"",_cdN(r.extra)||"",
       c.has?Math.round(c.supplyNet):"",c.has?Math.round(c.cost):"",c.has?Math.round(c.profit):"",
       c.rate==null?"":(c.rate*100).toFixed(1)+"%",c.cRate==null?"":(c.cRate*100).toFixed(1)+"%",
       _cdN(cdDB.fee)+"%",""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  for(var R=1;R<aoa.length;R++)for(var C=2;C<=12;C++){var a=XLSX.utils.encode_cell({r:R,c:C});if(ws[a]&&typeof ws[a].v==="number")ws[a].z="#,##0";}
-  ws["!cols"]=[{wch:18},{wch:8},{wch:13},{wch:12},{wch:12},{wch:10},{wch:11},{wch:12},{wch:13},{wch:15},{wch:13},{wch:13},{wch:10},{wch:8},{wch:9},{wch:9},{wch:6}];
+  for(var R=1;R<aoa.length;R++)for(var C=2;C<=13;C++){var a=XLSX.utils.encode_cell({r:R,c:C});if(ws[a]&&typeof ws[a].v==="number")ws[a].z="#,##0";}
+  ws["!cols"]=[{wch:18},{wch:8},{wch:13},{wch:12},{wch:12},{wch:10},{wch:11},{wch:12},{wch:13},{wch:15},{wch:13},{wch:13},{wch:13},{wch:10},{wch:8},{wch:9},{wch:9},{wch:6}];
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"직매입이익계산");
   var d=new Date();XLSX.writeFile(wb,"코스트코직매입이익("+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+").xlsx");
 }
