@@ -36152,6 +36152,36 @@ window.wkmMemoAuto=function(){
 /* ── 화면 ── */
 window.wkmSet=function(k,v){if(k==="mode")S.mode=v;else if(k==="wk")S.wkOff=Math.max(0,Math.min(50,S.wkOff+v));else if(k==="mo")S.moOff=Math.max(0,Math.min(11,S.moOff+v));else if(k==="routine")S.showRoutine=!S.showRoutine;render();};
 window.wkmReload=function(){S.st="idle";S.calSt="idle";S.rows=null;S.cal=null;loadSales();loadCal();};
+/* 🔄 새로고침 = PlayMD에서 매출 가져오기(2026-11-03 영업2팀 "새로고침을 누르면 플레이엠디에서 매출을 가져오게")
+   ① 자동화 PC에 PlayMD 판매일보 받기(ws/saipReq.pms, 지난달 1일~오늘 — 월말 일괄등록 채널 때문에 지난달부터)
+   ② 끝나면 세일즈 매니지먼트 올리기(ws/saipReq.wsu mode upload → wssales-upload.mjs --force — 빠진 날·채널만, 어제까지)
+   ③ 끝나면 세일즈 매니지먼트를 다시 읽는다. 누른 화면이 열려 있는 동안 3초마다 요청 상태를 본다(S.pull). 자동화 PC가 꺼져 있으면 다시 읽기만 */
+function _pullReq(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function _pullSay(t,col){S.pullMsg=t;var el=document.getElementById("wkmPull");if(el){el.textContent=t;el.style.color=col||"#1b6e82";}}
+function _pullStart(kind,R){if(!saipReq||typeof saipReq!=="object")saipReq={};_saipReqSet(kind,R);S.pull={kind:kind,id:R.id,at:Date.now()};}
+function _pullTick(){
+  var P=S.pull;if(!P){clearInterval(S.pullT);S.pullT=null;return;}
+  var R=(saipReq||{})[P.kind]||{},mine=R.id===P.id,lab=P.kind==="pms"?"① PlayMD 판매일보 받는 중":"② 세일즈 매니지먼트에 올리는 중";
+  var sec=Math.round((Date.now()-P.at)/1000);
+  if(!mine||R.state==="요청"||R.state==="처리중"){
+    if(Date.now()-P.at>25*60*1000){S.pull=null;_pullSay("자동화 PC가 25분 안에 끝내지 못했습니다 — 세일즈 매니지먼트를 다시 읽습니다","#b45309");wkmReload();return;}
+    _pullSay(lab+(R.state==="요청"?" (자동화 PC 대기)":"")+" · "+sec+"초"+(R.progress?" — "+String(R.progress).slice(0,60):""));return;
+  }
+  if(R.state!=="끝"){S.pull=null;_pullSay((P.kind==="pms"?"PlayMD 판매일보 받기":"세일즈 매니지먼트 올리기")+" 실패"+(R.state&&R.state!=="실패"?"("+R.state+")":"")+" — 지금 있는 자료로 다시 읽습니다","#dc2626");wkmReload();return;}
+  if(P.kind==="pms"){_pullStart("wsu",{id:_pullReq(),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"upload"});_pullSay("② 세일즈 매니지먼트에 올리는 중 · 0초");return;}
+  S.pull=null;_pullSay("✅ PlayMD 매출 반영 "+new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),"#047857");wkmReload();
+}
+window.wkmPull=function(){
+  if(S.pull){alert("이미 가져오는 중입니다 — "+(S.pullMsg||""));return;}
+  if(_authState!=="member"&&_authState!=="open"){wkmReload();return;}
+  if(typeof _saipWatchOk==="function"&&!_saipWatchOk()){alert("자동화 PC 신호가 없어 PlayMD에서 새로 받지 못합니다.\n지금 세일즈 매니지먼트에 있는 자료로 다시 읽습니다.");wkmReload();return;}
+  var busy=[["pms","PlayMD 판매일보 받기"],["wsu","세일즈 매니지먼트 올리기"]].filter(function(k){return _saipReqActive((saipReq||{})[k[0]]);})[0];
+  if(busy){alert(busy[1]+"가 이미 진행 중입니다 ("+(((saipReq||{})[busy[0]]||{}).by||"?")+"). 끝난 뒤 다시 눌러 주세요.");return;}
+  var now=new Date(),f=new Date(now.getFullYear(),now.getMonth()-1,1),y8=function(d){return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate());};
+  _pullStart("pms",{id:_pullReq(),by:_saipMe(),at:now.toISOString(),state:"요청",ym:ymd(now).slice(0,7),from:y8(f),to:y8(now)});
+  _pullSay("① PlayMD 판매일보 받는 중 · 0초");
+  if(!S.pullT)S.pullT=setInterval(_pullTick,3000);
+};
 window.wkmCopy=function(){
   var t=window._wkmCopyText||"";
   (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){alert("회의 자료를 복사했습니다 — 슬랙·시트에 붙여넣으세요.");},function(){prompt("아래 내용을 복사하세요",t);});
@@ -36288,8 +36318,9 @@ function render(){
     +'<div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none">🗓️ 주간회의</div>'
     +'<div style="display:inline-flex;border:1.5px solid #1b6e82;border-radius:8px;overflow:hidden">'+seg("week","주간회의")+seg("all","전체회의")+'</div>'
     +'<div style="display:flex;align-items:center;gap:6px">'+nav+'</div>'
-    +'<div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-size:12px;color:#5b6675">'+info+'</span>'
-    +'<button '+BTN+' onclick="wkmReload()" title="세일즈 매니지먼트·공유캘린더를 다시 읽습니다">🔄 새로고침</button>'
+    +'<div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span id="wkmPull" style="font-size:12px;font-weight:700;color:#1b6e82">'+esc(S.pullMsg||"")+'</span><span style="font-size:12px;color:#5b6675">'+info+'</span>'
+    +'<button '+BTN+(S.pull?' disabled':'')+' onclick="wkmPull()" title="자동화 PC가 PlayMD 판매일보(지난달 1일~오늘)를 받아 세일즈 매니지먼트에 올린 뒤 다시 읽습니다(5분쯤)">🔄 새로고침</button>'
+    +'<button '+BTN.replace("13px","12px")+' onclick="wkmReload()" title="PlayMD에서 받지 않고 지금 세일즈 매니지먼트·공유캘린더만 다시 읽습니다">다시 읽기만</button>'
     +'<button '+BTN+(S.st==="ok"?'':' disabled')+' onclick="wkmCopy()" title="표·사유·업무를 글로 복사합니다(슬랙·시트 붙여넣기용)">📋 회의자료 복사</button>'
     +'<a '+BTN.replace('style="','style="text-decoration:none;')+' href="https://wssales.pages.dev/" target="_blank" rel="noopener">↗ 세일즈 매니지먼트</a>'
     +'<a '+BTN.replace('style="','style="text-decoration:none;')+' href="https://docs.google.com/spreadsheets/d/'+CAL_ID+'/edit#gid='+CAL_GID+'" target="_blank" rel="noopener">↗ 공유캘린더</a></div></div></div>';
