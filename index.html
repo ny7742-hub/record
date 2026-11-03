@@ -24457,6 +24457,9 @@ function _ccPrevLine(it,dv,opt,active,fresh){
       +(nBad?' <span style="color:#b91c1c">· ⛔ '+nBad+'줄 확인</span>':'')+(nFx?' <span style="color:#b45309">· ✏️ '+nFx+'줄 고침</span>':'')+' — 상품코드·판매가 고치기</summary>'
       +_saipRowList("cc",it.rows,"300px",it.mmdd)+'</details>';
   }
+  /* 확인(미리보기)은 PlayMD 검사 뒤 같은 요청 안에서 DSS 송장 중복 확인까지 돈다 — 그동안 버튼이 숨어 '등록 버튼이 없다'고 보였다(2026-11-03 영업2팀). 꺼진 버튼으로 자리와 까닭을 보인다 */
+  if(saleTodo&&!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&active&&fresh)
+    h+='<div style="margin-top:4px"><button class="bs" disabled style="font-size:13px;font-weight:800;padding:4px 12px;opacity:.6;cursor:wait">⏳ '+imd+' 이대로 등록</button> <span style="font-size:12px;color:#5b6675">확인 마무리 중(DSS 송장 중복 확인) — 끝나면 바로 눌러집니다</span></div>';
   if(saleTodo&&!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&!active&&fresh)
     h+='<div style="margin-top:4px"><button class="bs" onclick="saipAutoGo(\'cc\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:13px;font-weight:800;padding:4px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+imd+' 이대로 등록</button></div>';
   return h+'</div>';
@@ -25385,6 +25388,8 @@ function _saipDateBtns(kind,it,active,fresh){
     +' — 그 뒤 '+(kind==="cc"?"새 회신 메일":"파일")+'이 바뀌었습니다('+_escX(_saipFmtAt(Mo.modified))+'). 등록하면 PlayMD에 없는 추가분만 넣습니다</div>';
   if(sc&&canReg&&!sc.on){canReg=false;h+='<div style="margin-top:6px;font-size:12.5px;color:#b45309;font-weight:700">등록할 줄을 체크해 주세요</div>';}
   h+='<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">';
+  /* 확인(미리보기)이 아직 도는 중 — 코스트코는 PlayMD 검사 뒤 같은 요청 안에서 DSS 송장 중복 확인까지 해 그동안 버튼이 통째로 숨어 '등록 버튼이 없다'고 보였다(2026-11-03 영업2팀). 꺼진 버튼으로 자리와 까닭을 보인다 */
+  if(active&&((saipReq||{})[kind]||{}).mode==="preview"&&it.status==="preview"&&(kind==="mv"||!it.already))h+='<button class="bs" disabled style="font-size:14px;font-weight:800;padding:5px 12px;opacity:.55;cursor:wait">⏳ '+md+' 등록</button><span style="font-size:12px;color:#5b6675">확인이 끝나면 눌러집니다'+(kind==="cc"?'(지금 DSS 송장 중복 확인 중)':'')+'</span>';
   if(canReg)h+='<button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+dq+'\',merge:true,expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:5px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+md+(sc&&sc.off?' 선택한 '+sc.on+'줄 등록':' 등록')+'</button>';
   if(!active)h+='<button class="bs" onclick="saipPreviewDate(\''+kind+'\',\''+dq+'\')" style="font-size:13px;font-weight:700;padding:5px 10px">🔍 '+md+' 다시 확인</button>';
   h+='</div>';
