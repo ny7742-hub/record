@@ -24289,34 +24289,49 @@ function ccAutoRender(){
   var dStill=dAcc.reduce(function(s,a){return s+(+a.still||0);},0),dErr=!!(DD&&(!DD.ok||(DD.errors||[]).length));
   var dssOk=!!(DD&&!dErr&&!dStill),salOk=!!(CSs&&CSs.ok&&/^(saved|already)$/.test(CSs.state));
   var RUN='<span style="color:#1d4ed8;font-weight:700">',BAD='<span style="color:#b91c1c;font-weight:700">';
-  var runTxt=RUN+'⏳ '+(Rc&&Rc.state==="요청"?'요청됨':'차례 기다림')+'</span>';
-  var dTxt=DD?(dErr?BAD+'❗ 멈춤</span> '+GRAY+_escX((DD.errors||[])[0]||"")+'</span>'
+  /* 매출등록은 사입출고등록 🛒 코스트코 매출등록 카드에서 확인·등록하고, 여기는 진행 상황만 보인다(2026-11-03 영업2팀 "매출등록은 여기서 확인 등록하면 진행상황을 보여주면") —
+     지금 단계는 자동화 PC가 남기는 saipReq.cc.progress 머리말로 안다: 없음 = PlayMD · 'DSS 송장: ' · '판매현황: ' */
+  var pg=actC&&Rc.state==="처리중"?String(Rc.progress||""):"";
+  var actP=_saipReqActive(Rc)&&Rc.mode==="preview"&&(Rc.mmdd===gmd||(Rc.dates||[]).indexOf(gd)>=0);   /* 매출등록 카드의 확인(중복 검사·미리보기) */
+  var ph=!actC?"":Rc.state==="요청"?"req":/^DSS 송장:/.test(pg)?"dss":/^판매현황:/.test(pg)?"sal":"pm";
+  var pgT=function(){var t=pg.replace(/^(DSS 송장|판매현황):\s*/,"");return t?' '+GRAY+'· '+_escX(t.length>60?t.slice(0,60)+'…':t)+'</span>':'';};
+  var waitTxt=RUN+'⏳ '+(ph==="req"?'요청됨':ph==="pm"?'PlayMD 등록 다음':'차례 기다림')+'</span>';
+  var dTxt=ph==="dss"?RUN+'⏳ 입력 중</span>'+pgT()
+    :DD?(dErr?BAD+'❗ 멈춤</span> '+GRAY+_escX((DD.errors||[])[0]||"")+'</span>'
       :dStill?WAIT+dStill+'건 남음</span>'
       :OK+(dAcc.map(function(a){return _escX(_ccDssNm(a.who))+' '+(a.uploaded||0)+'건';}).join(' · ')||'채울 송장 없음')+'</span>')
-    :actC?runTxt:GRAY+'아직</span>';
-  var cTxt=CSs?(CSs.state==="saved"?OK+(CSs.lines||0)+'줄 · '+(CSs.qty||0)+'개 · '+Number(CSs.amt||0).toLocaleString()+'원</span>'
+    :actC?waitTxt:GRAY+'아직</span>';
+  var cTxt=ph==="sal"?RUN+'⏳ 등록 중</span>'+pgT()
+    :CSs?(CSs.state==="saved"?OK+(CSs.lines||0)+'줄 · '+(CSs.qty||0)+'개 · '+Number(CSs.amt||0).toLocaleString()+'원</span>'
       :CSs.state==="already"?OK+'이미 등록됨</span>'
       :CSs.state==="none"?WAIT+'더할 줄 없음</span> '+GRAY+_escX(CSs.note||"")+'</span>'
       :BAD+'❗ '+(CSs.state==="nomail"?'회신 메일 없음':'멈춤')+'</span> '+GRAY+_escX(CSs.note||"")+'</span>')
-    :actC?runTxt:GRAY+'아직</span>';
-  var goBtn=' <button class="bs" style="padding:2px 8px;font-size:12px" onclick="apOpen(\'ccorder\',\'saipAutoStatus\')">↗ 코스트코 매출등록</button>';
+    :actC?waitTxt:GRAY+'아직</span>';
   var s5=(DD||CSs||actC||LP)?'<div>🚚 DSS 송장 '+dTxt+'</div><div>🗂 코스트코탭 판매현황 '+cTxt+'</div>'
     :gN===0?GRAY+'새 주문 0건이라 없음</span>'
-    :rdy?WAIT+'물류 회신 왔음</span> '+GRAY+'— 사입출고등록 <b>🛒 코스트코 매출등록</b>을 누르면 ⑤·⑥을 같이 합니다</span>'+goBtn
+    :rdy?WAIT+'물류 회신 왔음</span> '+GRAY+'— 사입출고등록 <b>🛒 코스트코 매출등록</b>에서 확인·등록하면 여기에 진행 상황이 나옵니다</span>'
     :!d3?GRAY+'③ 뒤에 — 물류 회신(운송장)이 오면</span>'
     :GRAY+'물류 회신(운송장) 메일을 기다리는 중</span>';
   var s6=LP?OK+_escX(_saipFmtAt(LP.at))+' · '+_escX(_saipWho(LP.by))+(LP.qty!=null?' · '+LP.qty+'개':'')+'</span>'
-    :actC?RUN+'⏳ '+(Rc.state==="요청"?'요청됨':'등록 중')+'</span>'
+    :ph==="req"?RUN+'⏳ 요청됨</span> '+GRAY+'— '+_escX(_saipWho(Rc.by))+' · '+_escX(_saipFmtAt(Rc.at))+'</span>'
+    :ph==="pm"?RUN+'⏳ 등록 중</span>'+pgT()
+    :actC?(itC&&itC.mode==="save"&&itC.status&&itC.status!=="saved"&&new Date(itC.at).getTime()>=tC?BAD+'❗ 멈춤</span> '+GRAY+_escX(String(itC.error||"").split("\n")[0]||(SAIP_ITEM_TXT[itC.status]||[])[1]||itC.status)+'</span>':RUN+'⏳ 결과 확인 중</span>')
+    :actP?RUN+'🔍 확인(미리보기) 중</span>'+(Rc.state==="처리중"&&Rc.progress?' '+GRAY+'· '+_escX(String(Rc.progress).slice(0,60))+'</span>':' '+GRAY+'· 요청됨</span>')
     :LPp?WAIT+'일부만 등록</span>'
-    :itC&&itC.mode==="save"&&itC.status&&itC.status!=="saved"?BAD+'❗ 멈춤</span> '+GRAY+_escX(String(itC.error||"").split("\n")[0]||(SAIP_ITEM_TXT[itC.status]||[])[1]||itC.status)+' — ⑤와 같은 버튼으로 다시</span>'
+    :itC&&itC.mode==="save"&&itC.status&&itC.status!=="saved"?BAD+'❗ 멈춤</span> '+GRAY+_escX(String(itC.error||"").split("\n")[0]||(SAIP_ITEM_TXT[itC.status]||[])[1]||itC.status)+' — 매출등록 카드에서 다시 등록</span>'
+    :itC&&itC.mode==="preview"&&itC.status==="preview"&&!itC.already?WAIT+'확인 끝 · 등록 대기</span> '+GRAY+'— '+(itC.qty||0)+'개 · '+Number(_saipItemAmt("cc",itC)).toLocaleString()+'원, 매출등록 카드에서 [등록]</span>'
     :gN===0?GRAY+'새 주문 0건이라 없음</span>'
-    :rdy?WAIT+'아직</span> '+GRAY+'— ⑤와 같은 버튼(🛒 코스트코 매출등록)</span>'
+    :rdy?WAIT+'아직</span> '+GRAY+'— 매출등록 카드에서 확인·등록</span>'
     :GRAY+'물류 회신 뒤에</span>';
   var d5=dssOk&&salOk,d6=!!LP;
   var k5=d5?"done":gN===0&&!DD&&!CSs?"skip":(actC||rdy||DD||CSs)?"on":"todo";
-  var k6=d6?"done":gN===0&&!actC?"skip":(actC||rdy||LPp)?"on":"todo";
-  var b5=d5?{p:100,t:"완료"}:gN===0&&!DD&&!CSs?{p:100,t:"할 일 없음"}:(dssOk||salOk)?{p:50,t:"1/2"+(actC?" · 도는 중":"")}:actC&&Rc.state!=="요청"?est(Rc.startedAt||Rc.at,360):{p:0,t:actC?"요청됨":"대기"};
-  var b6=d6?{p:100,t:"완료"}:gN===0&&!actC?{p:100,t:"할 일 없음"}:actC&&Rc.state!=="요청"?est(Rc.startedAt||Rc.at,150):{p:0,t:actC?"요청됨":"대기"};
+  var k6=d6?"done":gN===0&&!actC?"skip":(actC||actP||rdy||LPp)?"on":"todo";
+  /* 상태바 — 실제 단계로: PlayMD 중엔 ⑥만 차오르고, 송장 25% · 판매현황 75%(송장이 끝났으면) */
+  var b5=d5?{p:100,t:"완료"}:gN===0&&!DD&&!CSs?{p:100,t:"할 일 없음"}
+    :ph==="dss"?{p:25,t:"송장 입력 중"}:ph==="sal"?{p:dssOk?75:50,t:"판매현황 중"}
+    :(dssOk||salOk)?{p:50,t:"1/2"}:{p:0,t:ph==="req"?"요청됨":ph==="pm"?"PlayMD 다음":"대기"};
+  var b6=d6?{p:100,t:"완료"}:gN===0&&!actC?{p:100,t:"할 일 없음"}
+    :ph==="pm"?est(Rc.startedAt||Rc.at,150):ph==="req"?{p:3,t:"요청됨"}:actP?est(Rc.startedAt||Rc.at,120):{p:0,t:actC?"확인 중":"대기"};
   var bar=function(b,k){var run=b.p>0&&b.p<100,c=b.p>=100?"#16a34a":run?"repeating-linear-gradient(45deg,#f59e0b 0 8px,#fbbf24 8px 16px)":"#cbd5e1";
     return '<div style="display:flex;align-items:center;gap:6px;margin-top:4px"><div style="flex:1;height:8px;border-radius:5px;background:#e2e8f0;overflow:hidden">'
       +'<div style="height:100%;width:'+b.p+'%;border-radius:5px;background:'+c+(run?';background-size:22px 22px;animation:ccProgMove 1s linear infinite':'')+';transition:width .6s"></div></div>'

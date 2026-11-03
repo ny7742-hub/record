@@ -91,7 +91,10 @@
   **⑤ DSS 송장 · 판매현황 · ⑥ PlayMD 사입출고**(2026-11-03 영업2팀 "5단계 DSS 송장 업로드·자비스 코스트코탭 매출등록, 6단계 플레이엠디 사입출고 완료"): 오늘 발주 날짜의 물류 회신(운송장)이 오면
   사입출고등록 🛒 코스트코 매출등록 하나가 차례로 한다(PlayMD 매출등록 → DSS 송장 → 판매현황). ⑤ = `ws/ccDssStatus`(save, 26·31 입력 건수) + **`ws/ccSalesStatus`**
   (`cc-sales-register.mjs`가 끝날 때 남김 — `{mmdd,mode,at,ok,state:saved|already|none|nomail|preview|error,lines,qty,amt,dup,note}`, 백업 `_backup-cc-sales-register-1103-status.mjs`) 둘 다 끝나야 완료(하나면 50%).
-  ⑥ = 등록 기록 `ws/saipLog.cc[날짜]`(멈췄으면 `ccSaipStatus` 그 날짜 오류 첫 줄). 회신이 와 있으면(`saipReady.cc`) 두 칸 다 '지금' + ⑤에 `↗ 코스트코 매출등록`(사입출고등록 탭으로).
+  ⑥ = 등록 기록 `ws/saipLog.cc[날짜]`(멈췄으면 `ccSaipStatus` 그 날짜 오류 첫 줄). 회신이 와 있으면(`saipReady.cc`) 두 칸 다 '지금'.
+  **확인·등록은 사입출고등록 🛒 코스트코 매출등록 카드에서만** 하고 이 두 칸은 진행 상황만 보인다(같은 날 영업2팀 "매출등록은 여기서 확인 등록하면 진행상황을 보여주면") —
+  지금 단계는 `saipReq.cc.progress` 머리말로 안다(없음 = PlayMD → ⑥ 등록 중 · `DSS 송장: ` → ⑤ 송장 입력 중 25% · `판매현황: ` → ⑤ 판매현황 중 75%), 줄 끝에 그 진행 문구.
+  확인(미리보기·중복 검사, mode preview) 중이면 ⑥ `🔍 확인(미리보기) 중`, 끝나고 등록할 게 있으면 `확인 끝 · 등록 대기 N개 · 금액`.
   11/3 이전 판매현황 등록은 이 기록이 없어 '아직'으로 보인다(다음 실행부터 남음).
   **진행 막대**(2026-10-06 영업2팀 — "오래 걸려 발주 중인지 몰라 계속 누르게 된다"): `costco-order.mjs`가 단계마다 `ws/ccOrderStatus`(`running:true`, `steps`, `startedAt`)를 올리고
   자비스 카드가 `_ccProgBar`로 끝난 단계 수만큼 채운 줄무늬 막대 + '3/7 · 도매발주서 중' + 지난 시간(10초마다 `_ccProgTick`)을 그린다.
