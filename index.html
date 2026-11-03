@@ -36036,7 +36036,9 @@ function chParts(P,C,t,evs){
   if(x.t==="홈쇼핑"){var hs=hsIn(P.a,P.b);if(hs.length)parts.push(hs.slice(0,2).join(", "));}
   else{
     var keys={};st.forEach(function(s){var k=storeKey(storeName(s.k));if(k)keys[k]=1;});
-    var ev=evs.filter(function(e){return !e.routine&&KO.test(e.t)&&(x.t==="코스트코"?/코스트코|코코/.test(e.t):Object.keys(keys).some(function(k){return e.t.indexOf(k)>=0;}));})[0];
+    /* 팩토리·아난티·트래블메이트는 일정에 채널 이름이 있어야 한다 — 매장 이름(김포공항·고양)이 백화점 일정과 겹친다(2026-11-03) */
+    var CHW={"팩토리":/팩토리/,"아난티":/아난티/,"트래블메이트":/트래블/}[x.t];
+    var ev=evs.filter(function(e){return !e.routine&&KO.test(e.t)&&(x.t==="코스트코"?/코스트코|코코/.test(e.t):CHW?CHW.test(e.t):Object.keys(keys).some(function(k){return e.t.indexOf(k)>=0;}));})[0];
     if(ev)parts.push(md(ev.d)+" "+ev.t);
   }
   if(!parts.length||x.t==="코스트코"){var tp=topProds(cur,prev,x.t,1)[0];if(tp)parts.push(tp.n+" "+man(tp.c));}
