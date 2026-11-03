@@ -25257,7 +25257,9 @@ function _mvRows(it){
   rows.forEach(function(r){
     var fx=(r.key&&FX[r.key])||{},ed=["code","qty","from","to","rest"].some(function(f){return fx[f]!=null;});
     var off=_mvIsOff(FX,r);
-    var nm=String(r.prod||"").trim().split(/\s+/).pop();
+    /* 모델명/색상 = '/' 앞 마지막 단어 + '/' 뒤 전부 — 마지막 단어만 쓰면 색에 띄어쓰기가 있을 때 '볼캡/세이지 그린'이 '그린'으로 나왔다(2026-11-03 영업2팀 "상품명이 확인이 안됩니다") */
+    var p0=String(r.prod||"").trim(),sl=p0.lastIndexOf("/");
+    var nm=sl>0?(p0.slice(0,sl).trim().split(/\s+/).pop()+"/"+p0.slice(sl+1).trim()):p0.split(/\s+/).pop();
     var full=r.full||r.qty||0,q0=fx.qty||full,code0=String(r.key||"").split("|").pop(),qty0=r.fileQty||full;   /* 파일 원래 값 — 같은 값을 넣으면 고침을 지운다 */
     var st=String(r.store||"").split("→");
     h+='<div style="padding:4px 8px;border-top:1px solid #eef2f6;font-size:13px;line-height:1.4'+(off?';background:#f1f5f9;opacity:.55':r.bad?';background:#fef2f2':ed?';background:#fffbeb':'')+'">'
