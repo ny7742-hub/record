@@ -24963,6 +24963,8 @@ function _saipChkApply(lid,kind,mmdd,on){
   wsSetItem("saipFix",JSON.stringify(saipFix));
   if(typeof renderSaipAuto==="function")renderSaipAuto();
 }
+/* 줄 체크 전체 선택 · 전체 해제(2026-11-03 영업2팀) — 고르기만 바꾼다(저장 없음). 제외는 [🚫 등록 제외]를 눌러야 된다 */
+function _saipChkAll(lid,on){var box=document.getElementById(lid);if(!box)return;[].forEach.call(box.querySelectorAll('input.saipChk'),function(c){c.checked=!!on;});}
 function _saipRowList(kind,rows,maxH,mmdd){
   if(kind==="so")return _soRows(rows);
   var canFix=!!mmdd&&(kind==="hs"||kind==="ds"||kind==="cc"||kind==="xc");   /* 상품코드 고치기 — 매출등록 4종만 */
@@ -24997,6 +24999,8 @@ function _saipRowList(kind,rows,maxH,mmdd){
   h+='</div>';
   if(canFix){
     h+='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px">'
+      +'<button onclick="_saipChkAll(\''+lid+'\',true)" style="font-size:12px;font-weight:700;padding:3px 10px;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:6px;cursor:pointer">☑ 전체 체크</button>'
+      +'<button onclick="_saipChkAll(\''+lid+'\',false)" style="font-size:12px;font-weight:700;padding:3px 10px;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:6px;cursor:pointer">☐ 전체 체크 해제</button>'
       +'<span style="font-size:12px;color:#5b6675">체크한 줄:</span>'
       +'<button onclick="_saipChkApply(\''+lid+'\',\''+kind+'\',\''+_escX(mmdd)+'\',true)" style="font-size:12px;font-weight:700;padding:3px 10px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:6px;cursor:pointer">🚫 등록 제외</button>'
       +'<button onclick="_saipChkApply(\''+lid+'\',\''+kind+'\',\''+_escX(mmdd)+'\',false)" style="font-size:12px;padding:3px 10px;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:6px;cursor:pointer">↩ 제외 해제</button>'
@@ -25159,6 +25163,8 @@ function mvSelSet(el){
   wsSetItem("mvFix",JSON.stringify(mvFix));
   renderSaipAuto();
 }
+/* 전체 체크 · 전체 체크 해제 단추(2026-11-03 영업2팀) — 머리줄 체크와 같은 일(keys 비면 그 날짜 표 전체) */
+function mvSelAll(date,on){mvSelSet({dataset:{date:date,keys:""},checked:!!on});}
 function _mvKeysOf(r){return (r.keys&&r.keys.length?r.keys:[r.key]).filter(Boolean);}
 function _mvAllKeys(it){var o=[];(it.badRows||[]).concat(it.rows||[],it.offRows||[]).forEach(function(r){o=o.concat(_mvKeysOf(r));});return o;}
 function _mvIsOff(FX,r){var ks=_mvKeysOf(r);return ks.length>0&&ks.every(function(k){return FX[k]&&FX[k].del;});}
@@ -25251,7 +25257,9 @@ function _mvRows(it){
   var cb=function(keys,on,title){return '<input type="checkbox" data-date="'+dt+'" data-keys="'+_escX(keys.join("\n"))+'"'+(on?' checked':'')+' onchange="mvSelSet(this)" title="'+title+'" style="width:15px;height:15px;margin:0 5px 0 0;vertical-align:-2px;cursor:pointer;accent-color:#1b6e82">';};
   var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12.5px;font-weight:700;color:'+(sc.off?'#b45309':'#334155')+'">'
     +'<span>☑ 등록할 줄 '+sc.on+'줄'+(sc.off?' · 뺀 줄 '+sc.off+'줄(넣지 않음)':'')+'</span>'
-    +'<span style="font-weight:600;color:#5b6675">체크를 빼면 그 줄만 빼고 등록</span></div>'
+    +'<span style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-weight:600;color:#5b6675">체크를 빼면 그 줄만 빼고 등록'
+    +'<button onclick="mvSelAll(\''+dt+'\',true)" style="font-size:12px;font-weight:700;padding:2px 8px;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:6px;cursor:pointer">☑ 전체 체크</button>'
+    +'<button onclick="mvSelAll(\''+dt+'\',false)" style="font-size:12px;font-weight:700;padding:2px 8px;border:1px solid #fecaca;background:#fff;color:#b91c1c;border-radius:6px;cursor:pointer">☐ 전체 체크 해제</button></span></div>'
     +'<div style="max-height:360px;overflow:auto;margin-top:2px;border:1px solid #e2e8f0;border-radius:6px">'
     +'<div style="'+cols+';padding:3px 8px;background:#f1f5f9;color:#475569;font-size:12px;font-weight:700;position:sticky;top:0;z-index:1"><span><label style="cursor:pointer">'+cb([],!sc.off,"전체 선택 / 전체 빼기")+'</label>상품 · 상품코드</span><span>수량</span><span>수령인</span><span>주문자명</span></div>';
   rows.forEach(function(r){
