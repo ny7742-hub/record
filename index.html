@@ -35987,7 +35987,7 @@ function storeKey(n){
   var s=String(n).replace(/\(.*?\)/g," ").replace(/롯데백화점|현대백화점|신세계백화점|신세계팩토리|롯데아울렛|현대아울렛|롯데몰|커넥트현대|백화점|아울렛|온라인|홈쇼핑|아난티|트래블메이트|코스트코/g," ").trim().split(/\s+/).filter(Boolean);
   var k=(s[s.length-1]||"").replace(/점$/,"");return k.length>=2?k:"";
 }
-function shortProd(n){return String(n).replace(/\[[^\]]*\]\s*/g,"").replace(/^\d{2}(SS|FW|AW|SU|WI)\s*/i,"").trim();}
+function shortProd(n){return String(n).replace(/\[[^\]}]*[\]}]\s*/g,"")   /* '[화이트샌즈 그린라벨}'처럼 괄호가 틀린 상품명도 */.replace(/^\d{2}(SS|FW|AW|SU|WI)\s*/i,"").trim();}
 function storeName(k){return k.slice(k.indexOf("|")+1);}
 function nick(k){var n=storeName(k);return storeKey(n)||n;}
 function reasons(P,C,evs){
@@ -36004,31 +36004,48 @@ function reasons(P,C,evs){
     note.push(mt.join(" · ")+" 미등록(0 처리) · 제외 시 "+sgn(d2)+man(Math.abs(d2))+"("+pctTxt(cur.tot,prev.tot-mv)+")");}
   if(part.length)note.push(part.join(" · ")+"까지 반영");
   if(note.length)L.push("세일즈 매니지먼트 "+note.join(" · "));
-  var KO=/셋팅|세팅|오픈|철수|입점|행사|LIVE|라이브|BTV|프로모션|기획전/i;
   TYPES.map(function(t){return {t:t,c:cur.type[t]||0,p:prev.type[t]||0};}).filter(function(x){return (x.c||x.p)&&miss.indexOf(x.t)<0;})
     .sort(function(x,y){return Math.abs(y.c-y.p)-Math.abs(x.c-x.p);}).forEach(function(x){
-    var dd=x.c-x.p,parts=[],ks={};
-    Object.keys(cur.store).concat(Object.keys(prev.store)).forEach(function(k){if(k.indexOf(x.t+"|")===0)ks[k]=1;});
-    var st=Object.keys(ks).map(function(k){return {k:k,c:cur.store[k]||0,p:prev.store[k]||0};});
-    var gone=st.filter(function(s){return !s.c&&s.p>0;}).sort(function(a,b){return b.p-a.p;}).slice(0,2);
-    var neu=st.filter(function(s){return s.c>0&&!s.p;}).sort(function(a,b){return b.c-a.c;}).slice(0,2);
-    var big=st.filter(function(s){return s.c&&s.p&&Math.abs(s.c-s.p)>=Math.max(100000,Math.abs(dd)*0.15);}).sort(function(a,b){return Math.abs(b.c-b.p)-Math.abs(a.c-a.p);})[0];
-    function sum(a,f){return a.reduce(function(v,s){return v+s[f];},0);}
-    if(gone.length)parts.push(gone.map(function(s){return nick(s.k);}).join("·")+" 미운영 -"+man(sum(gone,"p")));
-    if(neu.length)parts.push(neu.map(function(s){return nick(s.k);}).join("·")+" 신규 +"+man(sum(neu,"c")));
-    if(big)parts.push(nick(big.k)+" "+(big.c>=big.p?"+":"-")+man(Math.abs(big.c-big.p)));
-    if(x.t==="홈쇼핑"){var hs=hsIn(P.a,P.b);if(hs.length)parts.push(hs.slice(0,2).join(", "));}
-    else{
-      var keys={};st.forEach(function(s){var k=storeKey(storeName(s.k));if(k)keys[k]=1;});
-      var ev=evs.filter(function(e){return !e.routine&&KO.test(e.t)&&(x.t==="코스트코"?/코스트코|코코/.test(e.t):Object.keys(keys).some(function(k){return e.t.indexOf(k)>=0;}));})[0];
-      if(ev)parts.push(md(ev.d)+" "+ev.t);
-    }
-    if(!parts.length||x.t==="코스트코"){var tp=topProds(cur,prev,x.t,1)[0];if(tp)parts.push(tp.n+" "+man(tp.c));}
+    var parts=chParts(P,C,x.t,evs),dd=x.c-x.p;
     L.push(x.t+" "+sgn(dd)+man(Math.abs(dd))+"("+pctTxt(x.c,x.p)+")"+(parts.length?": "+parts.join(", "):""));
   });
   var tp2=topProds(cur,prev,null,3);
   if(tp2.length)L.push("베스트: "+tp2.map(function(p){return p.n+" "+man(p.c);}).join("  "));
   return L;
+}
+/* 채널 하나의 증감 근거 — 미운영·신규 매장 · 크게 움직인 매장 · 홈쇼핑 방송 · 공유캘린더 일정 · 대표 상품.
+   증감 사유 칸과 매출 표 비고(2026-11-03 영업2팀 "비고에 왜 감소·증가했는지")가 같이 쓴다 */
+function chParts(P,C,t,evs){
+  var cur=C.cur,prev=C.prev,KO=/셋팅|세팅|오픈|철수|입점|행사|LIVE|라이브|BTV|프로모션|기획전/i;
+  var x={t:t,c:cur.type[t]||0,p:prev.type[t]||0};
+  var dd=x.c-x.p,parts=[],ks={};
+  Object.keys(cur.store).concat(Object.keys(prev.store)).forEach(function(k){if(k.indexOf(x.t+"|")===0)ks[k]=1;});
+  var st=Object.keys(ks).map(function(k){return {k:k,c:cur.store[k]||0,p:prev.store[k]||0};});
+  var gone=st.filter(function(s){return !s.c&&s.p>0;}).sort(function(a,b){return b.p-a.p;}).slice(0,2);
+  var neu=st.filter(function(s){return s.c>0&&!s.p;}).sort(function(a,b){return b.c-a.c;}).slice(0,2);
+  var big=st.filter(function(s){return s.c&&s.p&&Math.abs(s.c-s.p)>=Math.max(100000,Math.abs(dd)*0.15);}).sort(function(a,b){return Math.abs(b.c-b.p)-Math.abs(a.c-a.p);})[0];
+  function sum(a,f){return a.reduce(function(v,s){return v+s[f];},0);}
+  if(gone.length)parts.push(gone.map(function(s){return nick(s.k);}).join("·")+" 미운영 -"+man(sum(gone,"p")));
+  if(neu.length)parts.push(neu.map(function(s){return nick(s.k);}).join("·")+" 신규 +"+man(sum(neu,"c")));
+  if(big)parts.push(nick(big.k)+" "+(big.c>=big.p?"+":"-")+man(Math.abs(big.c-big.p)));
+  if(x.t==="홈쇼핑"){var hs=hsIn(P.a,P.b);if(hs.length)parts.push(hs.slice(0,2).join(", "));}
+  else{
+    var keys={};st.forEach(function(s){var k=storeKey(storeName(s.k));if(k)keys[k]=1;});
+    var ev=evs.filter(function(e){return !e.routine&&KO.test(e.t)&&(x.t==="코스트코"?/코스트코|코코/.test(e.t):Object.keys(keys).some(function(k){return e.t.indexOf(k)>=0;}));})[0];
+    if(ev)parts.push(md(ev.d)+" "+ev.t);
+  }
+  if(!parts.length||x.t==="코스트코"){var tp=topProds(cur,prev,x.t,1)[0];if(tp)parts.push(tp.n+" "+man(tp.c));}
+  return parts;
+}
+/* 표 비고 한 칸 — 세일즈 매니지먼트 미등록이면 그 말만(실제 감소 아님), 아니면 chParts */
+function chNote(c,t){
+  var P=c.P,C=c.C,ld=S.last[t]||"",v=C.cur.type[t]||0,p=C.prev.type[t]||0;
+  if(!ld)return "세일즈 매니지먼트 자료 없음";
+  if(ld<P.a)return p?"세일즈 매니지먼트 "+md(ld)+"까지만 등록 — 미등록이라 0(실제 감소 아님)":"세일즈 매니지먼트 "+md(ld)+"까지";
+  if(!v&&!p)return "";
+  var parts=chParts(P,C,t,c.evs||[]);
+  if(ld<P.b)parts.push("세일즈 매니지먼트 "+md(ld)+"까지 반영");
+  return parts.join(", ");
 }
 function topProds(cur,prev,t,n){
   var by={};
@@ -36081,16 +36098,21 @@ function chRows(cols){ /* cols=[{C,label}] — 채널 × (올해, 전년, 증감
   function line(nm,get,bold,note){
     var r='<tr'+(bold?' style="background:#f8fafc;font-weight:800"':'')+'>'+td(esc(nm),"text-align:left;font-weight:700");
     cols.forEach(function(c){var v=get(c.C.cur),p=get(c.C.prev),d=v-p;r+=td(won(v))+td(won(p),"color:#5b6675")+td(sgn(d)+won(Math.abs(d)),"color:"+diffCol(d))+td(pctTxt(v,p),"color:"+diffCol(d));});
-    return r+td(note||"","text-align:left;font-size:12px;color:#5b6675;white-space:normal")+'</tr>';
+    return r+td(note||"","text-align:left;font-size:12px;color:#374151;white-space:normal;min-width:220px;line-height:1.5;font-weight:400")+'</tr>';
   }
+  /* 비고 = 왜 늘고 줄었는지(chNote). 칸 묶음이 둘(지난달·올해 누계)이면 줄을 나눠 이름을 붙인다 */
+  function notes(f){var L=cols.map(function(c){var n=f(c);return n?(cols.length>1?'<b style="color:#334155">'+esc(c.label)+'</b> ':'')+esc(n):"";}).filter(Boolean);return L.join("<br>");}
   TYPES.forEach(function(t){
-    var note=[],ld=S.last[t]||"";
-    var P0=cols[0].P;
-    if(ld&&ld<P0.b)note.push("세일즈 매니지먼트 "+md(ld)+"까지");
-    if(!ld)note.push("자료 없음");
-    h+=line(t,function(R){return R.type[t]||0;},false,note.join(" · "));
+    h+=line(t,function(R){return R.type[t]||0;},false,notes(function(c){return chNote(c,t);}));
   });
-  h+=line("영업2팀 합계",function(R){return R.tot;},true,"");
+  /* 합계 비고 — 증감을 가장 크게 만든 채널 둘(미등록 채널은 따로) */
+  h+=line("영업2팀 합계",function(R){return R.tot;},true,notes(function(c){
+    var P=c.P,miss=[],L=TYPES.filter(function(t){var ld=S.last[t]||"";if(ld<P.a&&(c.C.prev.type[t]||0)){miss.push(t);return false;}return true;})
+      .map(function(t){return {t:t,d:(c.C.cur.type[t]||0)-(c.C.prev.type[t]||0)};}).filter(function(x){return x.d;})
+      .sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);}).slice(0,2).map(function(x){return x.t+" "+sgn(x.d)+man(Math.abs(x.d));});
+    if(miss.length)L.push(miss.join("·")+" 미등록 0 처리");
+    return L.join(" · ");
+  }));
   return '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:560px">'+h+'</table></div>';
 }
 function kpi(lbl,v,sub,col){return '<div style="flex:1;min-width:150px;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;background:#fff"><div style="font-size:12px;color:#5b6675;font-weight:700">'+esc(lbl)+'</div><div style="font-size:22px;font-weight:800;color:'+(col||"#111827")+';margin-top:2px">'+v+'</div><div style="font-size:12px;color:#5b6675;margin-top:2px">'+sub+'</div></div>';}
@@ -36177,7 +36199,7 @@ function render(){
   if(wk){
     var W=P.week,C=cmp(W),ev=calIn(W.a,W.b),evR=calIn(ymd(addD(pd(W.a),-7)),W.b,W.a);
     var L=reasons(W,C,evR);
-    h+=card("📊 지난주 매출 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">vs 전년 같은 주차(월~일)</span>",kpis(W,C,"지난주 매출","전년 동주")+chRows([{C:C,P:W,label:"지난주",plabel:"전년 동주"}]));
+    h+=card("📊 지난주 매출 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">vs 전년 같은 주차(월~일)</span>",kpis(W,C,"지난주 매출","전년 동주")+chRows([{C:C,P:W,evs:evR,label:"지난주",plabel:"전년 동주"}]));
     h+=card("💬 증감 사유 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">자동 작성 — 매장·상품 증감 + 공유캘린더 + 자비스 홈쇼핑 일정</span>",reasonBox(L));
     h+=card("✅ 지난주 업무 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">공유캘린더 "+md(W.a)+"~"+md(W.b)+"</span>",calBox(W.a,W.b,false));
     h+=card("📅 이번주 예정 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">"+md(P.thisWeek.a)+"~"+md(P.thisWeek.b)+"</span>",calBox(P.thisWeek.a,P.thisWeek.b,false));
@@ -36187,10 +36209,10 @@ function render(){
       +"\n\n■ 이번주 예정\n"+calIn(P.thisWeek.a,P.thisWeek.b).filter(function(e){return !e.routine;}).map(function(e){return "- "+md(e.d)+" "+e.t;}).join("\n");
   }else{
     var M=P.month,Yr=P.year,CM=cmp(M),CY=cmp(Yr),pf=agg(Yr.pfa,Yr.pfb);
-    var LM=reasons(M,CM,calIn(ymd(addD(pd(M.a),-7)),M.b,M.a)),LY=reasons(Yr,CY,[]).filter(function(l){return !/^베스트|^주요 일정/.test(l);});
+    var evM=calIn(ymd(addD(pd(M.a),-7)),M.b,M.a),LM=reasons(M,CM,evM),LY=reasons(Yr,CY,[]).filter(function(l){return !/^베스트|^주요 일정/.test(l);});
     h+=card("📊 지난달 · 올해 누계 매출",kpis(M,CM,"지난달 ("+M.label+")","전년 동월")+kpis(Yr,CY,"올해 누계","전년 동기간")
       +'<div style="font-size:12.5px;color:#5b6675;margin:-4px 0 10px">전년 연간 합계 '+man(pf.tot)+'원 · 올해 진도율 '+(pf.tot?(CY.cur.tot/pf.tot*100).toFixed(1):"-")+'%</div>'
-      +chRows([{C:CM,P:M,label:"지난달",plabel:"전년 동월"},{C:CY,P:Yr,label:"올해 누계",plabel:"전년 동기"}]));
+      +chRows([{C:CM,P:M,evs:evM,label:"지난달",plabel:"전년 동월"},{C:CY,P:Yr,evs:[],label:"올해 누계",plabel:"전년 동기"}]));
     /* 월별 추이 */
     var y=new Date().getFullYear(),mt='<tr><th '+TH.replace("right","left")+'>월</th><th '+TH+'>'+y+'</th><th '+TH+'>'+(y-1)+'</th><th '+TH+'>증감</th><th '+TH+'>증감률</th><th '+TH+'>누계 '+y+'</th><th '+TH+'>누계 '+(y-1)+'</th></tr>',ac=0,ap=0;
     for(var m=1;m<=12;m++){
