@@ -35908,7 +35908,7 @@ function loadSales(){
   var ws=[];for(var k=0;k<6;k++)ws.push(next());
   Promise.all(ws).then(function(){
     var last={};rows.forEach(function(r){if(!last[r[1]]||r[0]>last[r[1]])last[r[1]]=r[0];});
-    S.rows=rows;S.last=last;S.from=from;S.st="ok";S.at=Date.now();render();
+    S.rows=rows;S.last=last;S.from=from;S.st="ok";S.at=Date.now();S._deptKeys=null;S._hsKeys=null;render();
   }).catch(function(e){S.st="err";S.err=String(e&&e.message||e);render();});
   render();
 }
@@ -35979,7 +35979,8 @@ function hsIn(a,b){
   if(typeof homeshoppingDB==="undefined"||!Array.isArray(homeshoppingDB))return [];
   return homeshoppingDB.filter(function(r){var d=String(r&&r.date||"");return /^\d{4}-\d{2}-\d{2}$/.test(d)&&d>=a&&d<=b&&r.stage!=="탈락"&&!/제안|검토/.test(r.stage||"");})
     .sort(function(x,y){return x.date<y.date?-1:1;})
-    .map(function(r){var nm=String(r.name||"").trim().split(/\s+/).pop();return md(r.date)+" "+String(r.company||"").replace(/쇼핑$/,"").trim()+" "+nm+(r.sold?" "+Number(r.sold).toLocaleString()+"개":"");});
+    .map(function(r){var nm=String(r.name||"").trim().split(/\s+/).pop(),num=function(v){return Number(String(v==null?"":v).replace(/[^0-9.-]/g,""))||0;},q=num(r.sold),a=q*num(r.price);
+      return md(r.date)+" "+String(r.company||"").replace(/쇼핑$/,"").trim()+" "+nm+(q?" "+q.toLocaleString()+"개":"")+(a?" "+man(a)+"원":"");});   /* 금액 = 판매가 × 판매수량(2026-11-03 영업2팀) */
 }
 
 /* ── 증감 사유 자동 작성 ── */
@@ -35993,17 +35994,9 @@ function nick(k){var n=storeName(k);return storeKey(n)||n;}
 function reasons(P,C,evs){
   var cur=C.cur,prev=C.prev,L=[],d=cur.tot-prev.tot;
   L.push("전체 "+man(cur.tot)+"원 (전년 "+man(prev.tot)+"원 대비 "+sgn(d)+man(Math.abs(d))+", "+pctTxt(cur.tot,prev.tot)+")");
-  var miss=[],mt=[],part=[];
-  TYPES.forEach(function(t){
-    var ld=S.last[t]||"";
-    if(ld<P.a&&prev.type[t]){miss.push(t);mt.push(t+(ld?" "+md(ld)+"까지":""));}
-    else if(ld>=P.a&&ld<P.b)part.push(t+" "+md(ld));
-  });
-  var note=[];
-  if(miss.length){var mv=0;miss.forEach(function(t){mv+=prev.type[t]||0;});var d2=cur.tot-(prev.tot-mv);
-    note.push(mt.join(" · ")+" 미등록(0 처리) · 제외 시 "+sgn(d2)+man(Math.abs(d2))+"("+pctTxt(cur.tot,prev.tot-mv)+")");}
-  if(part.length)note.push(part.join(" · ")+"까지 반영");
-  if(note.length)L.push("세일즈 매니지먼트 "+note.join(" · "));
+  /* 세일즈 매니지먼트에 올해 자료가 아직 없는 채널은 사유에서 뺀다 — 반영일자 줄은 적지 않는다(2026-11-03 영업2팀 "그런 내용은 필요 없다, 동기간 증감 사유만") */
+  var miss=[];
+  TYPES.forEach(function(t){if((S.last[t]||"")<P.a&&prev.type[t])miss.push(t);});
   TYPES.map(function(t){return {t:t,c:cur.type[t]||0,p:prev.type[t]||0};}).filter(function(x){return (x.c||x.p)&&miss.indexOf(x.t)<0;})
     .sort(function(x,y){return Math.abs(y.c-y.p)-Math.abs(x.c-x.p);}).forEach(function(x){
     var parts=chParts(P,C,x.t,evs),dd=x.c-x.p;
@@ -36040,12 +36033,8 @@ function chParts(P,C,t,evs){
 /* 표 비고 한 칸 — 세일즈 매니지먼트 미등록이면 그 말만(실제 감소 아님), 아니면 chParts */
 function chNote(c,t){
   var P=c.P,C=c.C,ld=S.last[t]||"",v=C.cur.type[t]||0,p=C.prev.type[t]||0;
-  if(!ld)return "세일즈 매니지먼트 자료 없음";
-  if(ld<P.a)return p?"세일즈 매니지먼트 "+md(ld)+"까지만 등록 — 미등록이라 0(실제 감소 아님)":"세일즈 매니지먼트 "+md(ld)+"까지";
-  if(!v&&!p)return "";
-  var parts=chParts(P,C,t,c.evs||[]);
-  if(ld<P.b)parts.push("세일즈 매니지먼트 "+md(ld)+"까지 반영");
-  return parts.join(", ");
+  if(!ld||ld<P.a||(!v&&!p))return "";   /* 올해 자료가 아직 안 올라온 채널은 비워 둔다(반영일자는 적지 않음) */
+  return chParts(P,C,t,c.evs||[]).join(", ");
 }
 function topProds(cur,prev,t,n){
   var by={};
@@ -36107,10 +36096,9 @@ function chRows(cols){ /* cols=[{C,label}] — 채널 × (올해, 전년, 증감
   });
   /* 합계 비고 — 증감을 가장 크게 만든 채널 둘(미등록 채널은 따로) */
   h+=line("영업2팀 합계",function(R){return R.tot;},true,notes(function(c){
-    var P=c.P,miss=[],L=TYPES.filter(function(t){var ld=S.last[t]||"";if(ld<P.a&&(c.C.prev.type[t]||0)){miss.push(t);return false;}return true;})
+    var P=c.P,L=TYPES.filter(function(t){var ld=S.last[t]||"";return !(ld<P.a&&(c.C.prev.type[t]||0));})
       .map(function(t){return {t:t,d:(c.C.cur.type[t]||0)-(c.C.prev.type[t]||0)};}).filter(function(x){return x.d;})
       .sort(function(a,b){return Math.abs(b.d)-Math.abs(a.d);}).slice(0,2).map(function(x){return x.t+" "+sgn(x.d)+man(Math.abs(x.d));});
-    if(miss.length)L.push(miss.join("·")+" 미등록 0 처리");
     return L.join(" · ");
   }));
   return '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:560px">'+h+'</table></div>';
@@ -36137,6 +36125,40 @@ function calBox(a,b,keyOnly){
   return '<div class="wkm-cal">'+h+'</div><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button '+BTN.replace("13px","12px")+' onclick="wkmSet(\'routine\')">'+(S.showRoutine?"반복 업무 숨기기":"반복 업무 "+nR+"건"+(keyOnly?"·기타 일정":"")+" 보기")+'</button>'
     +(nD?'<button '+BTN.replace("13px","12px")+' onclick="wkmUndel(\''+a+'\',\''+b+'\')">삭제한 '+nD+'줄 되돌리기</button>':'')
     +'<span style="font-size:12px;color:#111827">끌어 고르면 진하게(다시 고르면 해제) · 줄 끝 ×로 삭제 · 팀 공유</span></div>';
+}
+/* ── 매체별 업무(2026-11-03 영업2팀 "일자별이 아니라 백화점·홈쇼핑·코스트코 매체별로") — 일정 글자로 나눈다.
+   홈쇼핑을 먼저 본다(롯데홈쇼핑·현대홈쇼핑이 '롯데'·'현대'로 백화점에 걸리지 않게). 백화점은 세일즈 매니지먼트 백화점·팩토리 매장 이름(storeKey)도 본다 */
+var MEDIA=[["백화점","🏬"],["홈쇼핑","📺"],["코스트코","🛒"],["아난티·트래블메이트","🧳"],["기타","📌"]];
+function mediaOf(t){
+  if(/홈쇼핑|홈앤|GS ?샵|GS|CJ|KT ?알파|신세계라이브|쇼핑엔티|공영|BTV|방송|녹화/i.test(t))return "홈쇼핑";
+  if(/코스트코|코코|RRP|DSS/i.test(t))return "코스트코";
+  if(/아난티|트래블메이트|면세/.test(t))return "아난티·트래블메이트";
+  /* 홈쇼핑 탭 방송 상품 이름(오비크·그라스·루시에·살루잇…)이 든 일정도 홈쇼핑 */
+  if(!S._hsKeys){var hk={};if(typeof homeshoppingDB!=="undefined"&&Array.isArray(homeshoppingDB))homeshoppingDB.forEach(function(r){var w=String(r&&r.name||"").trim().split(/\s+/).pop();if(w&&w.length>=2&&!/^[A-Za-z]{1,3}$/.test(w))hk[w]=1;});S._hsKeys=Object.keys(hk);}
+  if(S._hsKeys.some(function(k){return t.indexOf(k)>=0;}))return "홈쇼핑";
+  if(/백화점|아울렛|롯데몰|롯데온|더현대|커넥트|신세계|팩토리|롯데|현대|팝업|EDI|동대문|목동|본점|잠실|청량리|센텀|김포|평촌|천호|고양|동부산|서울역|미아|동래|포항|의정부|송도|판교|무역센터/.test(t))return "백화점";
+  if(!S._deptKeys){var ks={};(S.rows||[]).forEach(function(r){if(r[1]==="백화점"||r[1]==="팩토리"){var k=storeKey(r[2]);if(k)ks[k]=1;}});S._deptKeys=Object.keys(ks);}
+  return S._deptKeys.some(function(k){return t.indexOf(k)>=0;})?"백화점":"기타";
+}
+function nextMonth(M){var a=new Date(M.y,M.m,1),b=new Date(M.y,M.m+1,0);return {a:ymd(a),b:ymd(b),label:a.getFullYear()+"년 "+(a.getMonth()+1)+"월"};}
+function mediaGroups(a,b,withRoutine){
+  var by={};calIn(a,b).forEach(function(e){if(e.routine&&!withRoutine)return;(by[mediaOf(e.t)]=by[mediaOf(e.t)]||[]).push(e);});return by;
+}
+function mediaBox(a,b){
+  if(S.calSt==="load"||S.calSt==="idle")return '<div style="font-size:13px;color:#5b6675">공유캘린더 불러오는 중…</div>';
+  if(S.calSt==="err")return '<div style="font-size:13px;color:#dc2626">'+esc(S.calErr)+'</div>';
+  var by=mediaGroups(a,b,S.showRoutine),nR=calIn(a,b).filter(function(e){return e.routine;}).length,nD=calIn(a,b,null,true).filter(function(e){return e.del;}).length;
+  var h=MEDIA.filter(function(m){return by[m[0]];}).map(function(m){
+    return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed #e5e7eb"><b style="flex:none;width:118px;font-size:13px;color:#111827">'+m[1]+' '+esc(m[0])+' <span style="color:#5b6675;font-weight:600">'+by[m[0]].length+'</span></b><div style="font-size:13px;line-height:1.6;color:#111827;flex:1">'
+      +by[m[0]].map(function(e){return '<div class="wkm-it" data-k="'+e.k+'" style="font-weight:'+(e.b?800:400)+'"><span style="color:#5b6675;display:inline-block;min-width:66px">'+mdw(e.d)+'</span>'+(e.done?'✓ ':'')+esc(e.t)+'<button type="button" class="wkm-x" title="이 줄 삭제(팀 전체)" onclick="wkmMark([\''+e.k+'\'],\'d\',true)">×</button></div>';}).join("")+'</div></div>';}).join("");
+  if(!h)h='<div style="font-size:13px;color:#5b6675">이 기간 일정 없음</div>';
+  return '<div class="wkm-cal">'+h+'</div><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button '+BTN.replace("13px","12px")+' onclick="wkmSet(\'routine\')">'+(S.showRoutine?"반복 업무 숨기기":"반복 업무 "+nR+"건 보기")+'</button>'
+    +(nD?'<button '+BTN.replace("13px","12px")+' onclick="wkmUndel(\''+a+'\',\''+b+'\')">삭제한 '+nD+'줄 되돌리기</button>':'')
+    +'<span style="font-size:12px;color:#111827">끌어 고르면 진하게(다시 고르면 해제) · 줄 끝 ×로 삭제 · 팀 공유</span></div>';
+}
+function mediaText(a,b){
+  var by=mediaGroups(a,b,false);
+  return MEDIA.filter(function(m){return by[m[0]];}).map(function(m){return "["+m[0]+"]\n"+by[m[0]].map(function(e){return "- "+md(e.d)+" "+e.t;}).join("\n");}).join("\n")||"- 일정 없음";
 }
 window.wkmMark=function(keys,f,val){
   if(_authState!=="member"&&_authState!=="open"){alert("로그인 후 바꿀 수 있습니다.");return;}
@@ -36224,13 +36246,14 @@ function render(){
     h+=card("📈 월별 추이 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">세일즈 매니지먼트 기준</span>",'<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:520px">'+mt+'</table></div>');
     h+=card("💬 지난달 증감 사유 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">자동 작성</span>",reasonBox(LM));
     h+=card("💬 올해 누계 증감 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">채널별</span>",reasonBox(LY));
-    var td2=(S.cal&&S.cal.todo[M.a.slice(0,7)])||[];
-    h+=card("✅ 지난달 주요 업무 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">공유캘린더 "+esc(M.label)+"</span>",calBox(M.a,M.b,true)
+    var td2=(S.cal&&S.cal.todo[M.a.slice(0,7)])||[],NM=nextMonth(M);
+    h+=card("✅ 지난달 주요 업무 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">매체별 · 공유캘린더 "+esc(M.label)+"</span>",mediaBox(M.a,M.b)
       +(td2.length?'<div style="margin-top:10px;font-size:13px"><b>TO-DO</b>'+td2.map(function(t){return '<div>· '+esc(t)+'</div>';}).join("")+'</div>':''));
+    h+=card("📅 이번달 계획 <span style=\"font-size:12px;font-weight:600;color:#5b6675\">매체별 · 공유캘린더 "+esc(NM.label)+"</span>",mediaBox(NM.a,NM.b));
     h+=memoCard(M.key,LM.join("\n")+"\n\n[올해 누계]\n"+LY.join("\n"));
     copy="[영업2팀 전체회의] "+M.label+"\n"+plainTable(CM,M,"■ 지난달 매출")+"\n"+plainTable(CY,Yr,"■ 올해 누계")+"- 전년 연간 "+won(pf.tot)+"원\n\n■ 지난달 증감 사유\n"+LM.map(function(l){return "- "+l;}).join("\n")
       +"\n\n■ 올해 누계\n"+LY.map(function(l){return "- "+l;}).join("\n")
-      +"\n\n■ 지난달 주요 업무\n"+calIn(M.a,M.b).filter(function(e){return e.key&&!e.routine;}).map(function(e){return "- "+md(e.d)+" "+e.t;}).join("\n");
+      +"\n\n■ 지난달 주요 업무\n"+mediaText(M.a,M.b)+"\n\n■ 이번달 계획 ("+NM.label+")\n"+mediaText(NM.a,NM.b);
   }
   window._wkmCopyText=copy;
   var ota=document.getElementById("wkmMemo"),keep=ota&&{k:ota.dataset.key,v:ota.value,f:document.activeElement===ota,start:ota.selectionStart,end:ota.selectionEnd};
