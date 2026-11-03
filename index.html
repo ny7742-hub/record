@@ -24447,6 +24447,13 @@ function _ccPrevLine(it,dv,opt,active,fresh){
   if(D)(D.errors||[]).forEach(function(e){h+='<div style="font-size:12px;color:#b91c1c">DSS: '+_escX(e)+'</div>';});
   /* 매출이 이미 있는 날짜 — 체크하면 다음부터 안 띄운다(saipAck, 2026-10-29 "이미 등록된 건은 체크하면 다음부터 보이지 않도록"). DSS 오류가 남아 있어도 사람이 확인했으면 */
   if(!(opt&&opt.noRows))h+=_saipAckBox("cc",it);
+  /* 등록 버튼은 내역(줄 목록) **위**에 — 목록이 길어 맨 아래 버튼이 안 보였다(2026-11-03 영업2팀 "등록 버튼 만들어주세요 · 모든 등록건은 동일하게"). 8줄 넘으면 아래에도 하나 더.
+     확인(미리보기)이 도는 동안은 꺼진 버튼으로 자리와 까닭을 보인다(코스트코는 PlayMD 검사 뒤 DSS 송장 중복 확인까지 돈다) */
+  var reg="";
+  if(saleTodo&&!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&fresh)
+    reg=active?'<div style="margin-top:4px"><button class="bs" disabled style="font-size:14px;font-weight:800;padding:5px 12px;opacity:.6;cursor:wait">⏳ '+imd+' 이대로 등록</button> <span style="font-size:12px;color:#5b6675">확인 마무리 중(DSS 송장 중복 확인) — 끝나면 바로 눌러집니다</span></div>'
+      :'<div style="margin-top:4px"><button class="bs" onclick="saipAutoGo(\'cc\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:5px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+imd+' 이대로 등록</button></div>';
+  h+=reg;
   /* 내역 · 상품코드 고치기(2026-10-22 영업2팀 "코스트코 매출등록도 내역 보여주고, 수정할 수 있도록") — 홈쇼핑·백화점몰과 같은 줄 목록(_saipRowList, ws/saipFix).
      10/14 "13줄·17줄 내용은 필요없습니다"라 접어 두고, 고른 날짜·멈춘 줄·고친 코드가 있는 날만 펼친다. 확정 창은 위에 줄 목록이 따로 있어 뺀다(noRows) */
   if(it.rows&&it.rows.length&&!(opt&&opt.noRows)){
@@ -24456,12 +24463,8 @@ function _ccPrevLine(it,dv,opt,active,fresh){
     h+='<details'+_saipOpenAttr(ok0,it.date===dv||nBad||nFx)+' style="margin-top:4px"><summary onclick="_saipOpenClick(this,\''+ok0+'\')" style="cursor:pointer;font-size:12.5px;font-weight:700;color:#334155">📋 내역 '+it.rows.length+'줄 · '+(it.qty||0)+'개 · '+Number(_saipItemAmt("cc",it)).toLocaleString()+'원'
       +(nBad?' <span style="color:#b91c1c">· ⛔ '+nBad+'줄 확인</span>':'')+(nFx?' <span style="color:#b45309">· ✏️ '+nFx+'줄 고침</span>':'')+' — 상품코드·판매가 고치기</summary>'
       +_saipRowList("cc",it.rows,"300px",it.mmdd)+'</details>';
+    if(it.rows.length>8)h+=reg;
   }
-  /* 확인(미리보기)은 PlayMD 검사 뒤 같은 요청 안에서 DSS 송장 중복 확인까지 돈다 — 그동안 버튼이 숨어 '등록 버튼이 없다'고 보였다(2026-11-03 영업2팀). 꺼진 버튼으로 자리와 까닭을 보인다 */
-  if(saleTodo&&!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&active&&fresh)
-    h+='<div style="margin-top:4px"><button class="bs" disabled style="font-size:13px;font-weight:800;padding:4px 12px;opacity:.6;cursor:wait">⏳ '+imd+' 이대로 등록</button> <span style="font-size:12px;color:#5b6675">확인 마무리 중(DSS 송장 중복 확인) — 끝나면 바로 눌러집니다</span></div>';
-  if(saleTodo&&!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&!active&&fresh)
-    h+='<div style="margin-top:4px"><button class="bs" onclick="saipAutoGo(\'cc\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:13px;font-weight:800;padding:4px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+imd+' 이대로 등록</button></div>';
   return h+'</div>';
 }
 /* 코스트코 카드 맨 아래 — DSS 송장 입력 결과(2026-10-01 영업2팀). 아이디(ckr.…)마다 올린 주문 수, 남은 주문, 오류 */
@@ -25371,7 +25374,7 @@ function saipPreviewDate(kind,date){
   if(!_saipWatchOk())alert("확인 요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다 — 자동화 PC가 켜지면 처리됩니다.");
 }
 /* 날짜 칸 아래 버튼 — [✅ M/D 등록](그 날짜 하나만 저장) · [🔍 M/D 다시 확인] */
-function _saipDateBtns(kind,it,active,fresh){
+function _saipDateBtns(kind,it,active,fresh,compact){
   if(!it.date||_saipLogOf(kind,it.date))return "";
   var md=(+it.date.slice(5,7))+"/"+(+it.date.slice(8,10)),dq=_escX(it.date);
   var stale=_saipFixStaleOf(kind,it);
@@ -25381,19 +25384,25 @@ function _saipDateBtns(kind,it,active,fresh){
   /* 창고간이동 — 체크한 줄만 등록(2026-10-20). 뺀 줄이 있으면 버튼이 '선택한 N줄 등록', 하나도 안 골랐으면 버튼 없음 */
   var sc=kind==="mv"?_mvSelCount(it):null,P=_saipPartialOf(kind,it.date);
   var h='';
-  if(P)h+='<div style="margin-top:6px;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;padding:3px 8px;font-size:12.5px;color:#9a3412;font-weight:700">◐ '+md+' 일부 등록됨 · '+(P.rows||0)+'줄 '+(P.qty||0)+'개 · '+_escX(_saipFmtAt(P.at))+' · '+_escX(_saipWho(P.by))
+  if(P&&!compact)h+='<div style="margin-top:6px;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;padding:3px 8px;font-size:12.5px;color:#9a3412;font-weight:700">◐ '+md+' 일부 등록됨 · '+(P.rows||0)+'줄 '+(P.qty||0)+'개 · '+_escX(_saipFmtAt(P.at))+' · '+_escX(_saipWho(P.by))
     +' — 뺀 줄 '+(P.off||0)+'줄이 남아 있습니다(체크하고 등록하면 남은 줄만 넣습니다)</div>';
   var Mo=_saipMoreOf(kind,it.date);
-  if(Mo)h+='<div style="margin-top:6px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:3px 8px;font-size:12.5px;color:#1e40af;font-weight:700">➕ '+md+' 등록됨 · '+_escX(_saipFmtAt(Mo.log.at))+' · '+_escX(_saipWho(Mo.log.by))
+  if(Mo&&!compact)h+='<div style="margin-top:6px;background:#eff6ff;border:1px solid #93c5fd;border-radius:6px;padding:3px 8px;font-size:12.5px;color:#1e40af;font-weight:700">➕ '+md+' 등록됨 · '+_escX(_saipFmtAt(Mo.log.at))+' · '+_escX(_saipWho(Mo.log.by))
     +' — 그 뒤 '+(kind==="cc"?"새 회신 메일":"파일")+'이 바뀌었습니다('+_escX(_saipFmtAt(Mo.modified))+'). 등록하면 PlayMD에 없는 추가분만 넣습니다</div>';
   if(sc&&canReg&&!sc.on){canReg=false;h+='<div style="margin-top:6px;font-size:12.5px;color:#b45309;font-weight:700">등록할 줄을 체크해 주세요</div>';}
   h+='<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">';
   /* 확인(미리보기)이 아직 도는 중 — 코스트코는 PlayMD 검사 뒤 같은 요청 안에서 DSS 송장 중복 확인까지 해 그동안 버튼이 통째로 숨어 '등록 버튼이 없다'고 보였다(2026-11-03 영업2팀). 꺼진 버튼으로 자리와 까닭을 보인다 */
   if(active&&((saipReq||{})[kind]||{}).mode==="preview"&&it.status==="preview"&&(kind==="mv"||!it.already))h+='<button class="bs" disabled style="font-size:14px;font-weight:800;padding:5px 12px;opacity:.55;cursor:wait">⏳ '+md+' 등록</button><span style="font-size:12px;color:#5b6675">확인이 끝나면 눌러집니다'+(kind==="cc"?'(지금 DSS 송장 중복 확인 중)':'')+'</span>';
+  /* 지금 못 누르는 날짜도 같은 자리에 꺼진 [등록] + 까닭(2026-11-03 영업2팀 "모든 등록건은 동일하게") — 예: 창고간이동 PlayMD 업로드 에러리스트(상품코드오류) */
+  else if(!canReg&&!active&&!(sc&&!sc.on)){
+    var why=it.status==="preview"&&it.already?'플레이엠디에 이미 있음':it.status==="error"||it.status==="unmatched"||(it.badRows&&it.badRows.length)?'멈춘 줄을 고친 뒤 [다시 확인]'+(it.error?' — '+String(it.error).split("\n")[0]:''):'먼저 [다시 확인]';
+    h+='<button class="bs" disabled title="'+_escX(why)+'" style="font-size:14px;font-weight:800;padding:5px 12px;opacity:.55;cursor:not-allowed">⛔ '+md+' 등록</button><span style="font-size:12px;color:#b45309;font-weight:700">'+_escX(why)+'</span>';
+  }
   if(canReg)h+='<button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+dq+'\',merge:true,expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:5px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+md+(sc&&sc.off?' 선택한 '+sc.on+'줄 등록':' 등록')+'</button>';
   if(!active)h+='<button class="bs" onclick="saipPreviewDate(\''+kind+'\',\''+dq+'\')" style="font-size:13px;font-weight:700;padding:5px 10px">🔍 '+md+' 다시 확인</button>';
   h+='</div>';
-  if(stale&&canReg)h+='<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:2px">고친 값·고른 줄이 있습니다 — 등록을 누르면 그대로 다시 검사한 뒤 미리보기에서 확정합니다</div>';
+  if(compact){}
+  else if(stale&&canReg)h+='<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:2px">고친 값·고른 줄이 있습니다 — 등록을 누르면 그대로 다시 검사한 뒤 미리보기에서 확정합니다</div>';
   else if(canReg)h+='<div style="font-size:12px;color:#5b6675;margin-top:2px">'+md+'만 저장합니다 · 누르면 '+(fresh?'':'다시 검사 → ')+'미리보기 → 확정</div>';
   return h;
 }
@@ -25465,6 +25474,9 @@ function _saipCardBody(kind,opt){
     if(it.more)h+='<div style="color:#1d4ed8;font-weight:700">➕ '+_escX(it.more)+'</div>';
     if(it.already&&!soDone)h+='<div style="color:#b45309;font-weight:700">⚠ '+_escX(it.already)+'</div>'+(it.date===dv?'':_saipAckBox(kind,it));   /* 고른 날짜는 맨 위 검수 줄에 있다 */
     var iMode=it.mode||S.mode,iFresh=(it.at||S.at)&&Date.now()-new Date(it.at||S.at).getTime()<2*3600*1000;   /* 날짜 하나만 다시 돌린 결과는 그 날짜의 at·mode(saip-watch mergeStatus) */
+    /* 날짜별 [등록]·[다시 확인]은 줄 목록 **위**에(2026-11-03 영업2팀 "등록 버튼 만들어주세요 · 모든 등록건은 동일하게") — 목록이 길면 맨 아래 버튼이 안 보였다. 8줄 넘으면 아래에도 버튼 줄만 */
+    var dBtn=iMode==="preview"&&it.status!=="nofile";
+    if(dBtn)h+=_saipDateBtns(kind,it,active,iFresh);
     if(kind==="so"&&iMode!=="preview"&&it.rows&&it.rows.length)h+=_soRows(it.rows);
     /* 창고간이동 — 멈춘 줄(창고코드 모름 등)도 표에 실려 와 고칠 수 있다(2026-10-19) */
     if(kind==="mv"&&iMode==="preview"&&((it.rows&&it.rows.length)||(it.badRows&&it.badRows.length)))h+=_mvRows(it);
@@ -25474,7 +25486,7 @@ function _saipCardBody(kind,opt){
     }
     /* 날짜별 — 이대로 등록 · 이 날짜만 다시 확인(2026-10-19 영업2팀 "날짜별로 개별 등록도 가능하게").
        자동화 탭(noReg)에서도 날짜마다 등록할 수 있다 — 예전엔 자동화 탭은 미리보기만(2026-10-12). 저장은 그 날짜 하나만, 결과는 카드의 그 날짜에만 끼운다(merge) */
-    if(iMode==="preview"&&it.status!=="nofile")h+=_saipDateBtns(kind,it,active,iFresh);
+    if(dBtn&&((it.rows||[]).length+(it.badRows||[]).length)>8)h+=_saipDateBtns(kind,it,active,iFresh,true);
     h+=multi?'</details>':'</div>';
   });
   if(doneDays.length)h+=_seenWrap("done|"+kind+"|"+doneDays.join(","),'<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0;color:#047857;font-size:13px;font-weight:700">✅ 완료: '+doneDays.join(", ")+' <span style="color:#5b6675;font-weight:600">— 등록할 건 없음</span></div>');
