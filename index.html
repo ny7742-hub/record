@@ -16376,9 +16376,12 @@ function icAutoRender(){
   var TH='padding:5px 10px;background:#eef6f7;border:1px solid #d7e5e8;font-size:12px;text-align:center',TD='padding:4px 10px;border:1px solid #e5edef;text-align:right;font-size:12.5px';
   var dw=["일","월","화","수","목","금","토"];
   var h='<div style="display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px">'
-    +'<div><span style="font-size:12px;color:#5b6675;font-weight:700">'+(+ym.slice(5,7))+'월 송장건수</span> <b style="font-size:20px;color:#0f766e">'+(sw+sc).toLocaleString()+'건</b></div>'
-    +'<div style="font-size:13px">도매 <b>'+sw.toLocaleString()+'</b> · 코스트코 <b>'+sc.toLocaleString()+'</b></div>'
-    +(TR&&days.length?'<div style="font-size:13px">'+(sm||su?'⚠️':'✅')+' 출고완료 <b style="color:#15803d">'+so.toLocaleString()+'</b> / '+(sw+sc).toLocaleString()
+    /* 큰 숫자는 월 엑셀 송장건수 시트와 같게 — 출고 확인된 집계면 출고완료만(도매 outWs · 코스트코 outCc) */
+    +(function(){var ok=TR&&days.some(function(d){return D[d].outWs!=null||D[d].outCc!=null;}),w=0,c=0;
+      days.forEach(function(d){w+=ok?(D[d].outWs||0):D[d].ws;c+=ok?(D[d].outCc||0):D[d].cc;});
+      return '<div><span style="font-size:12px;color:#5b6675;font-weight:700">'+(+ym.slice(5,7))+'월 송장건수'+(ok?' (출고완료)':'')+'</span> <b style="font-size:20px;color:#0f766e">'+(w+c).toLocaleString()+'건</b></div>'
+        +'<div style="font-size:13px">도매 <b>'+w.toLocaleString()+'</b> · 코스트코 <b>'+c.toLocaleString()+'</b></div>';})()
+    +(TR&&days.length?'<div style="font-size:13px">'+(sm||su?'⚠️':'✅')+' 회신 '+(sw+sc).toLocaleString()+'건 중 출고완료 <b style="color:#15803d">'+so.toLocaleString()+'</b>'
       +(sm?' · <b style="color:#b91c1c">미출고 '+sm+'</b>':'')+(sa?' · <span style="color:#b45309">집화 대기 '+sa+'</span>':'')+(su?' · <span style="color:#b91c1c">조회 실패 '+su+'</span>':'')+'</div>':'')
     +'<div style="font-size:11.5px;color:#5b6675;margin-left:auto">마지막 집계 '+_escX(_saipFmtAt(invCount.at))+(invCount.err&&invCount.errAt>invCount.at?' · <span style="color:#b91c1c">'+_escX(invCount.err)+'</span>':'')+'</div></div>';
   if(!days.length)h+='<div style="font-size:12.5px;color:#5b6675">이 달에 받은 회신이 아직 없습니다.</div>';
@@ -16420,8 +16423,11 @@ function icAutoDownload(){
   if(!invCount||!invCount.days||!ym){alert("집계 자료가 없습니다.");return;}
   var D=invCount.days,days=Object.keys(D).filter(function(d){return d.slice(0,7)===ym;}).sort();
   if(!days.length){alert("이 달에 받은 회신이 없습니다.");return;}
+  /* 출고 확인이 된 집계면 양식 시트는 **출고완료 송장만** 센다(2026-11-04 영업2팀 "출고완료 495건으로 나와야") — 회신 기준 숫자는 출고확인 시트에 */
+  var TRK=!!(invCount.track&&days.some(function(d){return D[d].outWs!=null||D[d].outCc!=null;}));
+  var nW=function(v){return TRK?(v.outWs||0):v.ws;},nC=function(v){return TRK?(v.outCc||0):v.cc;};
   var m0=[["날짜","송장건수","","합계"],["","도매","코스트코",""]],sw=0,sc=0;
-  days.forEach(function(d){m0.push([null,D[d].ws,D[d].cc,D[d].ws+D[d].cc]);sw+=D[d].ws;sc+=D[d].cc;});
+  days.forEach(function(d){var w=nW(D[d]),c=nC(D[d]);m0.push([null,w,c,w+c]);sw+=w;sc+=c;});
   m0.push(["합계",sw,sc,sw+sc]);
   var wsM=XLSX.utils.aoa_to_sheet(m0);
   days.forEach(function(d,i){
@@ -16437,8 +16443,10 @@ function icAutoDownload(){
   XLSX.utils.book_append_sheet(wb,w1,"회신파일별");
   /* 출고 확인(2026-11-04) — 날짜별 출고완료·미출고 + 출고 안 된 운송장 목록 */
   if(invCount.track){
-    var f2=[["날짜","합계","출고완료","미출고","집화 대기","조회 실패"]];
+    var f2=[["날짜","회신 송장","출고완료","미출고","집화 대기","조회 실패"]];
     days.forEach(function(d){var v=D[d];f2.push([d,v.ws+v.cc,v.out||0,v.miss||0,v.wait||0,v.unk||0]);});
+    f2.push(["합계"].concat([0,1,2,3,4].map(function(i){return f2.slice(1).reduce(function(a,r){return a+r[i+1];},0);})));
+    f2.push([],["송장건수 시트는 출고완료 송장만 셉니다(회신에 있어도 CJ대한통운 집화 기록이 없으면 빠짐)."]);
     f2.push([],["출고 안 된 운송장 (CJ대한통운 집화 기록 없음)"],["날짜","구분","운송장번호","상태","회신 파일"]);
     var SN={miss:"미출고",wait:"집화 대기",unk:"조회 실패"};
     (invCount.noOut||[]).filter(function(x){return x.date.slice(0,7)===ym;}).forEach(function(x){f2.push([x.date,x.k==="cc"?"코스트코":"도매",x.inv,SN[x.st]||x.st,x.file||""]);});
