@@ -16371,24 +16371,46 @@ function icAutoRender(){
   sel.value=ms.indexOf(keep)>=0?keep:ms[0];
   if(!invCount||!invCount.days){box.innerHTML='<div style="font-size:12.5px;color:#5b6675">아직 집계가 없습니다 — 자동화 PC가 켜져 있으면 30분 안에 채워집니다.</div>';return;}
   var ym=sel.value,D=invCount.days,days=Object.keys(D).filter(function(d){return d.slice(0,7)===ym;}).sort();
-  var sw=0,sc=0;days.forEach(function(d){sw+=D[d].ws;sc+=D[d].cc;});
+  var sw=0,sc=0,so=0,sm=0,sa=0,su=0;days.forEach(function(d){var v=D[d];sw+=v.ws;sc+=v.cc;so+=v.out||0;sm+=v.miss||0;sa+=v.wait||0;su+=v.unk||0;});
+  var TR=invCount.track;   /* 운송장마다 출고완료 확인(2026-11-04) — 이 집계에 track이 없으면 확인 전 */
   var TH='padding:5px 10px;background:#eef6f7;border:1px solid #d7e5e8;font-size:12px;text-align:center',TD='padding:4px 10px;border:1px solid #e5edef;text-align:right;font-size:12.5px';
   var dw=["일","월","화","수","목","금","토"];
   var h='<div style="display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;margin-bottom:6px">'
     +'<div><span style="font-size:12px;color:#5b6675;font-weight:700">'+(+ym.slice(5,7))+'월 송장건수</span> <b style="font-size:20px;color:#0f766e">'+(sw+sc).toLocaleString()+'건</b></div>'
     +'<div style="font-size:13px">도매 <b>'+sw.toLocaleString()+'</b> · 코스트코 <b>'+sc.toLocaleString()+'</b></div>'
+    +(TR&&days.length?'<div style="font-size:13px">'+(sm||su?'⚠️':'✅')+' 출고완료 <b style="color:#15803d">'+so.toLocaleString()+'</b> / '+(sw+sc).toLocaleString()
+      +(sm?' · <b style="color:#b91c1c">미출고 '+sm+'</b>':'')+(sa?' · <span style="color:#b45309">집화 대기 '+sa+'</span>':'')+(su?' · <span style="color:#b91c1c">조회 실패 '+su+'</span>':'')+'</div>':'')
     +'<div style="font-size:11.5px;color:#5b6675;margin-left:auto">마지막 집계 '+_escX(_saipFmtAt(invCount.at))+(invCount.err&&invCount.errAt>invCount.at?' · <span style="color:#b91c1c">'+_escX(invCount.err)+'</span>':'')+'</div></div>';
   if(!days.length)h+='<div style="font-size:12.5px;color:#5b6675">이 달에 받은 회신이 아직 없습니다.</div>';
   else{
-    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:360px"><thead><tr><th style="'+TH+'">날짜</th><th style="'+TH+'">도매</th><th style="'+TH+'">코스트코</th><th style="'+TH+'">합계</th><th style="'+TH+'">회신 파일</th></tr></thead><tbody>';
+    h+='<div style="overflow-x:auto"><table style="border-collapse:collapse;min-width:360px"><thead><tr><th style="'+TH+'">날짜</th><th style="'+TH+'">도매</th><th style="'+TH+'">코스트코</th><th style="'+TH+'">합계</th>'
+      +(TR?'<th style="'+TH+'" title="CJ대한통운 배송조회에 집화 기록이 있는 운송장">출고완료</th><th style="'+TH+'" title="CJ에 기록 없음 — 회신 다음 영업일까지는 집화 대기, 그 뒤는 미출고">미출고</th>':'')
+      +'<th style="'+TH+'">회신 파일</th></tr></thead><tbody>';
     days.forEach(function(d){
       var v=D[d],dt=new Date(d+"T00:00:00");
       var fs=(invCount.files||[]).filter(function(f){return f.date===d;});
       var ft=fs.map(function(f){return f.name+" — 도매 "+f.ws+" · 코스트코 "+f.cc+(f.dup?" · 중복 제외 "+f.dup:"")+(f.err?" · ⚠ "+f.err:"");}).join("\n");
-      h+='<tr><td style="'+TD+';text-align:center">'+(+d.slice(5,7))+'/'+(+d.slice(8,10))+'('+dw[dt.getDay()]+')</td><td style="'+TD+'">'+v.ws+'</td><td style="'+TD+'">'+v.cc+'</td><td style="'+TD+';font-weight:700">'+(v.ws+v.cc)+'</td>'
+      var bad=(v.miss||0)+(v.unk||0);
+      h+='<tr'+(bad?' style="background:#fef2f2"':'')+'><td style="'+TD+';text-align:center">'+(+d.slice(5,7))+'/'+(+d.slice(8,10))+'('+dw[dt.getDay()]+')</td><td style="'+TD+'">'+v.ws+'</td><td style="'+TD+'">'+v.cc+'</td><td style="'+TD+';font-weight:700">'+(v.ws+v.cc)+'</td>'
+        +(TR?'<td style="'+TD+';color:#15803d">'+(v.out||0)+'</td><td style="'+TD+'">'+(bad?'<b style="color:#b91c1c">'+bad+'</b>':'')+(v.wait?' <span style="color:#b45309" title="집화 대기">('+v.wait+' 대기)</span>':'')+(!bad&&!v.wait?'<span style="color:#15803d">✓</span>':'')+'</td>':'')
         +'<td style="'+TD+';text-align:left;color:#5b6675;font-size:11.5px" title="'+_escX(ft)+'">'+fs.length+'개'+(fs.some(function(f){return f.err;})?' <span style="color:#b91c1c">⚠</span>':'')+'</td></tr>';
     });
-    h+='<tr style="background:#f0fdfa;font-weight:800"><td style="'+TD+';text-align:center">합계</td><td style="'+TD+'">'+sw+'</td><td style="'+TD+'">'+sc+'</td><td style="'+TD+'">'+(sw+sc)+'</td><td style="'+TD+'"></td></tr></tbody></table></div>';
+    h+='<tr style="background:#f0fdfa;font-weight:800"><td style="'+TD+';text-align:center">합계</td><td style="'+TD+'">'+sw+'</td><td style="'+TD+'">'+sc+'</td><td style="'+TD+'">'+(sw+sc)+'</td>'
+      +(TR?'<td style="'+TD+';color:#15803d">'+so+'</td><td style="'+TD+';color:#b91c1c">'+((sm+su)||'')+(sa?' <span style="color:#b45309">('+sa+' 대기)</span>':'')+'</td>':'')+'<td style="'+TD+'"></td></tr></tbody></table></div>';
+    /* 출고 안 된 운송장 목록 — 운송장번호를 누르면 CJ 배송조회 */
+    var NO=(invCount.noOut||[]).filter(function(x){return x.date.slice(0,7)===ym;});
+    if(TR&&NO.length){
+      var SN={miss:'<b style="color:#b91c1c">미출고</b>',wait:'<span style="color:#b45309">집화 대기</span>',unk:'<span style="color:#b91c1c">조회 실패</span>'};
+      h+='<div style="margin-top:10px;font-size:12.5px;font-weight:700;color:#b91c1c">출고 안 된 운송장 '+NO.length+'건 <span style="font-weight:400;color:#5b6675">— CJ대한통운에 집화 기록이 없습니다(운송장만 출력됐거나 다른 번호로 다시 나간 건일 수 있음)</span></div>'
+        +'<div style="overflow-x:auto"><table style="border-collapse:collapse;margin-top:4px"><thead><tr><th style="'+TH+'">날짜</th><th style="'+TH+'">구분</th><th style="'+TH+'">운송장번호</th><th style="'+TH+'">상태</th><th style="'+TH+'">회신 파일</th></tr></thead><tbody>';
+      NO.forEach(function(x){
+        h+='<tr><td style="'+TD+';text-align:center">'+(+x.date.slice(5,7))+'/'+(+x.date.slice(8,10))+'</td><td style="'+TD+';text-align:center">'+(x.k==='cc'?'코스트코':'도매')+'</td>'
+          +'<td style="'+TD+';text-align:center"><a href="https://trace.cjlogistics.com/next/tracking.html?wblNo='+encodeURIComponent(x.inv)+'" target="_blank" rel="noopener">'+_escX(x.inv)+'</a></td>'
+          +'<td style="'+TD+';text-align:center">'+(SN[x.st]||_escX(x.st))+'</td><td style="'+TD+';text-align:left;color:#5b6675;font-size:11.5px">'+_escX(x.file||'')+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+    }
+    if(TR)h+='<div style="margin-top:6px;font-size:11.5px;color:#5b6675">출고 확인: 집계할 때마다 운송장 하나하나를 CJ대한통운 배송조회로 확인 · 마지막 '+_escX(_saipFmtAt(TR.at))+(TR.err?' · <span style="color:#b91c1c">조회 실패 '+TR.fail+'건 ('+_escX(TR.err)+')</span>':'')+'</div>';
   }
   box.innerHTML=h;
 }
@@ -16413,6 +16435,17 @@ function icAutoDownload(){
   (invCount.files||[]).filter(function(f){return f.date.slice(0,7)===ym;}).forEach(function(f){f1.push([f.date,f.name,_saipFmtAt(f.received),f.ws,f.cc,f.dup||0,f.noInv||0]);});
   var w1=XLSX.utils.aoa_to_sheet(f1);w1["!cols"]=[{wch:11},{wch:48},{wch:16},{wch:7},{wch:9},{wch:9},{wch:13}];
   XLSX.utils.book_append_sheet(wb,w1,"회신파일별");
+  /* 출고 확인(2026-11-04) — 날짜별 출고완료·미출고 + 출고 안 된 운송장 목록 */
+  if(invCount.track){
+    var f2=[["날짜","합계","출고완료","미출고","집화 대기","조회 실패"]];
+    days.forEach(function(d){var v=D[d];f2.push([d,v.ws+v.cc,v.out||0,v.miss||0,v.wait||0,v.unk||0]);});
+    f2.push([],["출고 안 된 운송장 (CJ대한통운 집화 기록 없음)"],["날짜","구분","운송장번호","상태","회신 파일"]);
+    var SN={miss:"미출고",wait:"집화 대기",unk:"조회 실패"};
+    (invCount.noOut||[]).filter(function(x){return x.date.slice(0,7)===ym;}).forEach(function(x){f2.push([x.date,x.k==="cc"?"코스트코":"도매",x.inv,SN[x.st]||x.st,x.file||""]);});
+    f2.push([],["확인 시각",_saipFmtAt(invCount.track.at)]);
+    var w2=XLSX.utils.aoa_to_sheet(f2);w2["!cols"]=[{wch:11},{wch:9},{wch:15},{wch:9},{wch:44},{wch:9}];
+    XLSX.utils.book_append_sheet(wb,w2,"출고확인");
+  }
   XLSX.writeFile(wb,(+ym.slice(5,7))+"월 영업2팀 송장건수.xlsx");
 }
 /* ── 송장건수 (등록 탭) ──
