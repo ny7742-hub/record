@@ -3154,7 +3154,7 @@ var FB_PATH={
   "saipLog":"ws/saipLog","saipFix":"ws/saipFix","saipAck":"ws/saipAck","saipSeen":"ws/saipSeen","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen","unshipSrc":"ws/unshipSrc","usSaipStatus":"ws/usSaipStatus",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix","mvFix":"ws/mvFix","soFix":"ws/soFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre",
-  "pmWhAll":"ws/pmWhAll","ecStkStatus":"ws/ecStkStatus","ecSalStatus":"ws/ecSalStatus"   /* PlayMD 전체 창고재고(사이즈별) · 이카운트 창고 재고 자동 입력 결과(2026-10-29) */
+  "pmWhAll":"ws/pmWhAll","ecStkStatus":"ws/ecStkStatus","ecSalStatus":"ws/ecSalStatus","ecMoveStatus":"ws/ecMoveStatus"   /* PlayMD 전체 창고재고(사이즈별) · 이카운트 창고 재고 자동 입력 결과(2026-10-29) */
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
 
@@ -3923,7 +3923,7 @@ function fbListen(){
   );
   apply("ws/saipReq","saipReq",
     function(d){if(d&&typeof d==="object")saipReq=d;},
-    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();}
+    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();}
   );
   /* PlayMD 전체 창고재고(사이즈별 자사코드) — 창고재고현황을 올릴 때 같이 만든다 · 이카운트 자동 입력 결과(자동화 PC ecount-stock.mjs가 쓴다) */
   apply("ws/pmWhAll","pmWhAll",
@@ -3933,6 +3933,10 @@ function fbListen(){
   apply("ws/ecSalStatus","ecSalStatus",
     function(d){if(d&&typeof d==="object")ecSalStatus=d;},
     function(){if(typeof ecSalAutoRender==="function")ecSalAutoRender();}
+  );
+  apply("ws/ecMoveStatus","ecMoveStatus",
+    function(d){if(d&&typeof d==="object")ecMoveStatus=d;},
+    function(){if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();}
   );
   apply("ws/ecStkStatus","ecStkStatus",
     function(d){if(d&&typeof d==="object")ecStkStatus=d;},
@@ -11000,7 +11004,7 @@ function ecReject(id){
 function ecUndo(id){
   var o=_ecData()[id];if(!o||!_ecAdmin())return;
   if(!confirm("'"+_ecStLab(o.state)+"'을 되돌려 '요청' 상태로 돌립니다."+(o.state==="출고"?"\n\n이카운트에 이미 창고이동을 올렸다면 그 전표도 따로 지워야 합니다.":"")))return;
-  o.state="요청";delete o.okBy;delete o.okAt;delete o.reason;delete o.shipBy;delete o.shipAt;delete o.shipDate;delete _ecSel[id];_ecPut(id,o);
+  o.state="요청";delete o.okBy;delete o.okAt;delete o.reason;delete o.shipBy;delete o.shipAt;delete o.shipDate;delete o.ec;delete _ecSel[id];_ecPut(id,o);
 }
 function ecCancel(id){
   var o=_ecData()[id];if(!o)return;
@@ -11013,19 +11017,25 @@ function _ecPicked(){var D=_ecData();return Object.keys(_ecSel).filter(function(
 function ecPick(id,on){_ecSel[id]=!!on;renderEcount();}
 function ecPickAll(on){var D=_ecData();Object.keys(D).forEach(function(id){if(D[id].state==="승인")_ecSel[id]=!!on;});renderEcount();}
 function _ecShipDate(){var v=(document.getElementById("ecShipDate")||{}).value||_ecToday();return v;}
-function ecDlEcount(){
-  var L=_ecPicked();if(!L.length){alert("승인된 주문을 골라 주세요.");return;}
-  var d=_ecShipDate().replace(/-/g,""),aoa=[["일자","순서","출고창고","입고창고","품목코드","품목명","수량","적요"]];
-  var ret=_ecKind==="ret";
-  /* 반품: 매장 창고 → NH, 불량은 → 불량창고. 같은 주문 안에서 정상·불량은 받는 창고가 달라 전표를 나눈다(순서 번호 따로) */
-  var seq=0;
+/* 고른 승인 주문 → 창고이동 전표(엑셀·자동 입력 같이 씀). 발주: NH → 매장 창고, 주문 1건 = 전표 1장.
+   반품: 매장 창고 → NH, 불량은 → 불량창고. 같은 주문 안에서 정상·불량은 받는 창고가 달라 전표를 나눈다 */
+function _ecMoveSlips(L){
+  var ret=_ecKind==="ret",S=[];
   L.forEach(function(o){
-    if(!ret){seq++;(o.items||[]).forEach(function(x){if(+x.ok>0)aoa.push([d,seq,_ecHq(),_ecWh(o.store),x.code,x.name,+x.ok,o.storeName+" 발주 · "+o.by+(o.memo?" · "+o.memo:"")]);});return;}
+    if(!ret){var it=(o.items||[]).filter(function(x){return +x.ok>0;});if(it.length)S.push({key:o.id,oid:o.id,sn:o.storeName,from:_ecHq(),to:_ecWh(o.store),memo:o.storeName+" 발주 · "+o.by+(o.memo?" · "+o.memo:""),items:it.map(function(x){return {code:x.code,name:x.name,qty:+x.ok};})});return;}
     [false,true].forEach(function(b){
-      var it=(o.items||[]).filter(function(x){return +x.ok>0&&!!x.bad===b;});if(!it.length)return;seq++;
-      it.forEach(function(x){aoa.push([d,seq,_ecWh(o.store),b?_ecBad():_ecHq(),x.code,x.name,+x.ok,o.storeName+" 반품"+(b?"(불량)":"")+" · "+o.by+(o.memo?" · "+o.memo:"")]);});
+      var it=(o.items||[]).filter(function(x){return +x.ok>0&&!!x.bad===b;});if(!it.length)return;
+      S.push({key:o.id+(b?"-b":""),oid:o.id,sn:o.storeName+(b?"(불량)":""),from:_ecWh(o.store),to:b?_ecBad():_ecHq(),memo:o.storeName+" 반품"+(b?"(불량)":"")+" · "+o.by+(o.memo?" · "+o.memo:""),items:it.map(function(x){return {code:x.code,name:x.name,qty:+x.ok};})});
     });
   });
+  return S;
+}
+function ecDlEcount(){
+  var L=_ecPicked();if(!L.length){alert("승인된 주문을 골라 주세요.");return;}
+  var ret=_ecKind==="ret",d=_ecShipDate().replace(/-/g,"");
+  /* 열 = 이카운트 [창고이동입력 › 웹자료올리기] 그대로(2026-11-04 화면에서 읽음) */
+  var aoa=[["일자","순번","담당자","보내는창고","받는창고","품목코드","품목명","수량","적요","생산전표생성"]];
+  _ecMoveSlips(L).forEach(function(s,i){s.items.forEach(function(x){aoa.push([d,i+1,"",s.from,s.to,x.code,x.name,x.qty,s.memo,""]);});});
   var ws=XLSX.utils.aoa_to_sheet(aoa);ws["!cols"]=_xlFitCols(aoa);
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"창고이동");
   XLSX.writeFile(wb,"이카운트_창고이동_"+(ret?"반품_":"")+d+".xlsx");
@@ -11044,6 +11054,43 @@ function ecShip(){
   var d=_ecShipDate();
   if(!confirm(L.length+"건("+L.map(function(o){return o.storeName;}).join(", ")+")을 "+d+" "+_ecT().done+"로 처리합니다.\n\n"+(_ecKind==="ret"?"물류에 실물이 들어온 것을 확인하고 이카운트 창고이동을 올린 뒤 눌러 주세요.":"이카운트 창고이동을 올리고 도매발주서를 물류에 보낸 뒤 눌러 주세요.")))return;
   L.forEach(function(o){o.state="출고";o.shipDate=d;o.shipBy=_saipMe();o.shipAt=new Date().toISOString();delete _ecSel[o.id];_ecPut(o.id,o);});
+}
+/* 🤖 이카운트에 넣기(2026-11-04 영업2팀 "자비스에 이카운트 모두 이카운트에 되게") — 고른 승인 주문을 ws/ecMoveJob/{id}에 올리고 ws/saipReq.em으로 요청
+   → 자동화 PC automation/ecount-move.mjs(창고이동입력 › 웹자료올리기에 붙여넣고 대조 → 저장). 저장되면 주문이 출고(반품은 입고)로 바뀌고 ec {at,by}가 남는다.
+   시험 = 붙여넣고 저장 없이 닫음 */
+var ecMoveStatus=(function(){try{return JSON.parse(localStorage.getItem("ecMoveStatus")||"null");}catch(e){return null;}})();
+function ecMoveAuto(mode){
+  var L=_ecPicked(),save=mode==="save";if(!L.length){alert("승인된 주문을 골라 주세요.");return;}
+  var cur=(saipReq||{}).em;
+  if(_saipReqActive(cur)){alert("이카운트 창고이동 넣기가 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+").");return;}
+  if(WS_LOCAL_ONLY||!(_authState==="member"||_authState==="open")){alert("팀 공유에 로그인해야 자동화 PC에 요청할 수 있습니다.");return;}
+  var re=L.filter(function(o){return o.ec;});
+  if(save&&re.length){alert("이미 이카운트에 넣은 주문 "+re.length+"건이 골라져 있습니다 — 빼고 다시 눌러 주세요.");return;}
+  var S=_ecMoveSlips(L),d=_ecShipDate(),n=S.reduce(function(a,s){return a+s.items.length;},0),ret=_ecKind==="ret";
+  if(save&&!confirm("자동화 PC가 이카운트 [창고이동입력 › 웹자료올리기]에 "+d+" 전표 "+S.length+"장("+n+"줄)을 넣고 저장합니다.\n\n"+L.map(function(o){return o.storeName;}).join(", ")+"\n\n저장되면 "+L.length+"건이 "+_ecT().done+"로 바뀝니다."+(ret?"":"\n도매발주서(물류)는 따로 받아 보내 주세요.")))return;
+  var id="em"+Date.now().toString(36),by=_saipMe();
+  try{fbDB.ref("ws/ecMoveJob/"+id).set({id:id,by:by,at:new Date().toISOString(),kind:ret?"ret":"ord",date:d,slips:S});}catch(e){alert("전표를 팀 공유에 올리지 못했습니다: "+e.message);return;}
+  _saipReqSet("em",{id:id,by:by,at:new Date().toISOString(),state:"요청",mode:save?"save":"test",n:S.length});
+  ecMoveAutoRender();
+}
+function ecMoveAutoRender(){
+  var box=document.getElementById("ecMoveAutoBox");if(!box)return;
+  var R=(saipReq||{}).em,act=_saipReqActive(R),S=ecMoveStatus,on=saipWatch&&Date.now()-new Date(saipWatch.at).getTime()<5*60*1000;
+  var h='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+    +'<button onclick="ecMoveAuto(\'save\')"'+(act?' disabled':'')+' style="padding:6px 14px;font-size:13px;font-weight:800;background:#1b6e82;color:#fff;border:0;border-radius:8px;cursor:pointer">🤖 이카운트에 넣고 '+_ecT().done+'(자동화 PC)</button>'
+    +'<button class="bs" onclick="ecMoveAuto(\'test\')"'+(act?' disabled':'')+' style="padding:5px 12px;font-size:12.5px;font-weight:700">시험 입력(저장 안 함)</button>'
+    +'<span style="font-size:12px;color:'+(on?'#047857':'#b45309')+'">자동화 PC '+(on?'켜짐':'꺼짐·응답 없음')+'</span>'
+    +(act?'<span style="font-size:12.5px;font-weight:700;color:#1b6e82">⏳ '+_escX(R.state)+' · '+_escX(R.by||"")+(R.progress?' — '+_escX(R.progress):'')+'</span>':'')+'</div>';
+  if(S&&S.slips){
+    var cnt={};S.slips.forEach(function(x){cnt[x.res]=(cnt[x.res]||0)+1;});
+    var col=function(k){return k==="넣음"||k==="시험 OK"?"#047857":k==="실패"?"#b91c1c":"#334155";};
+    h+='<div style="margin-top:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:6px 8px;font-size:12.5px">'
+      +'<b>'+(S.kind==="ret"?"반품 ":"발주 ")+(S.mode==="save"?"넣기":"시험")+' 결과</b> <span style="color:#5b6675">'+_escX(_saipFmtAt(S.at))+' · '+_escX(S.by||"")+' · '+_escX(S.state||"")+' · 붙여넣음 '+(S.pasted||0)+'/'+(S.rows||0)+'줄</span> '
+      +Object.keys(cnt).map(function(k){return '<span style="margin-left:6px;font-weight:700;color:'+col(k)+'">'+_escX(k)+' '+cnt[k]+'</span>';}).join("")
+      +(S.msg?'<div style="color:'+(S.state==="끝"?'#334155':'#b45309')+';margin-top:3px">'+_escX(S.msg)+'</div>':'')
+      +'<div style="max-height:160px;overflow-y:auto;margin-top:4px">'+S.slips.map(function(x){return '<div style="border-top:1px solid #eef2f7;padding:2px 0">'+_escX(x.sn||"")+' <span style="color:#5b6675">'+_escX(x.from||"")+' → '+_escX(x.to||"")+' · '+(x.n||0)+'품목 '+(x.qty||0)+'개</span> <b style="color:'+col(x.res)+'">'+_escX(x.res||"")+'</b>'+(x.why?' <span style="color:#b45309">'+_escX(x.why)+'</span>':'')+'</div>';}).join("")+'</div></div>';
+  }
+  box.innerHTML=h;
 }
 /* ── 📥 창고 재고 등록(2026-10-29 영업2팀 "이카운트 창고에 재고 등록할 수 있게" · "창고는 전체") ──
    전체 창고(본사·불량·모든 매장·이카운트 재고현황에 있는 창고)의 품목·수량을 한 목록에 담는다 — 줄마다 창고(wh).
@@ -11419,7 +11466,7 @@ function _ecSalRows(s,memo){
 }
 /* 🤖 이카운트에 넣기(자동화 PC) — 고른 전표를 ws/ecSalJob/{id}에 올리고 ws/saipReq.es로 요청 → automation/ecount-sales.mjs
    (판매입력 › 웹자료올리기 창에 붙여넣고 다시 읽어 대조). 시험 = 붙여넣고 저장 없이 닫음. 실제 넣기는 EC_SAL_AUTO_SAVE를 켜야 보인다(2026-11-02 영업2팀 "테스트만") */
-var EC_SAL_AUTO_SAVE=false;
+var EC_SAL_AUTO_SAVE=true;   /* 2026-11-04 영업2팀 "모두 이카운트에 되게" — 넣기 단추를 켬 */
 var ecSalStatus=(function(){try{return JSON.parse(localStorage.getItem("ecSalStatus")||"null");}catch(e){return null;}})();
 function ecSalAuto(mode){
   var S=_ecSalSlips().filter(_ecSalPicked),save=mode==="save";
@@ -11795,6 +11842,7 @@ function renderEcount(){
         +'<span>'+(o.items||[]).length+'품목 · 요청 '+_ecSum(o)+'개'+(ret&&(o.items||[]).some(function(x){return x.bad;})?' · <span style="color:#b91c1c;font-weight:700">불량 '+(o.items||[]).filter(function(x){return x.bad;}).length+'품목</span>':'')+((o.items||[]).some(function(x){return x.hq;})?' · <span style="color:#7c3aed;font-weight:700">본사 추가 '+(o.items||[]).filter(function(x){return x.hq;}).length+'품목</span>':'')+(o.state!=="요청"&&o.state!=="반려"?' · <b>승인 '+_ecSum(o,"ok")+'개</b>':'')+'</span>'
         +(o.okBy?'<span style="color:#5b6675">'+(o.state==="반려"?'반려':'승인')+' '+_escX(o.okBy)+' '+_escX(_saipFmtAt(o.okAt))+'</span>':'')
         +(o.shipDate?'<span style="color:#166534">'+T.done+' '+_escX(o.shipDate)+' · '+_escX(o.shipBy||"")+'</span>':'')
+        +(o.ec?'<span style="background:#ede9fe;color:#6d28d9;font-weight:700;border-radius:5px;padding:1px 6px;font-size:11.5px">이카운트 등록 '+_escX(_saipFmtAt(o.ec.at))+'</span>':'')
         +'<span style="margin-left:auto;display:flex;gap:4px">'
         +'<button class="bs" style="padding:2px 9px;font-size:12px" onclick="ecToggle(\''+o.id+'\')">'+(open?'접기':'상품 보기')+'</button>'
         +(o.state==="요청"&&adm?'<button onclick="ecApprove(\''+o.id+'\')" style="padding:2px 11px;font-size:12px;font-weight:800;background:#1d4ed8;color:#fff;border:0;border-radius:6px;cursor:pointer">✔ 승인</button><button class="bs" style="padding:2px 9px;font-size:12px;color:#b91c1c" onclick="ecReject(\''+o.id+'\')">반려</button>':'')
@@ -11831,13 +11879,14 @@ function renderEcount(){
         +'<button class="bs" style="padding:4px 10px;font-size:12px" onclick="ecPickAll(true)">승인 '+nOk+'건 모두 고르기</button><button class="bs" style="padding:4px 10px;font-size:12px" onclick="ecPickAll(false)">고르기 풀기</button>'
         +'<span>고른 주문 <b>'+P.length+'건</b> · '+P.reduce(function(a,o){return a+_ecSum(o,"ok");},0)+'개</span>'
         +'<label style="margin-left:8px">'+T.dateLab+' <input type="date" id="ecShipDate" value="'+dv+'" style="padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px"></label></div>'
-        +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
-        +'<button onclick="ecDlEcount()" style="padding:6px 14px;font-size:13px;font-weight:800;background:#7c3aed;color:#fff;border:0;border-radius:8px;cursor:pointer">⬇ 이카운트 창고이동 엑셀</button>'
-        +(ret?'':'<button onclick="ecDlWholesale()" style="padding:6px 14px;font-size:13px;font-weight:800;background:#0f766e;color:#fff;border:0;border-radius:8px;cursor:pointer">⬇ 도매발주서(물류)</button>')
-        +'<button onclick="ecShip()" style="padding:6px 14px;font-size:13px;font-weight:800;background:#166534;color:#fff;border:0;border-radius:8px;cursor:pointer">'+T.doneBtn+'</button></div>'
-        +'<div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.6">창고이동 엑셀은 이카운트 <b>재고Ⅰ › 기타이동 › 창고이동</b>의 웹자료올리기에 열 순서를 맞춰 붙여넣습니다(일자·순서·출고창고·입고창고·품목코드·품목명·수량·적요, 같은 주문은 같은 순서 번호 = 전표 1장). '
-        +(ret?'반품은 <b>매장 창고 → NH</b>(불량 체크한 줄은 → 불량창고 '+_escX(_ecBad())+', 전표를 따로 나눔)로 나갑니다. 물류 입고를 확인한 뒤 <b>입고 처리</b>를 누르세요.</div>'
-          :'도매발주서는 지금 발주 메일과 같은 양식입니다. 둘 다 끝낸 뒤 <b>출고 처리</b>를 누르면 목록에서 출고로 넘어갑니다.</div>');
+        +'<div id="ecMoveAutoBox" style="margin-top:8px"></div>'
+        +'<div style="font-size:12px;color:#5b6675;margin-top:6px;line-height:1.6"><b>🤖 이카운트에 넣기</b>는 자동화 PC가 이카운트 <b>재고Ⅰ › 기타이동 › 창고이동입력</b>에 전표를 바로 저장하고(주문 1건 = 전표 1장, '+(ret?'<b>매장 창고 → NH</b>, 불량 체크한 줄은 → 불량창고 '+_escX(_ecBad())+'로 전표를 나눔':'<b>NH → 매장 창고</b>')+') 고른 주문을 '+T.done+'로 바꿉니다. 넣은 전표는 이카운트 <b>창고이동조회</b>에서 보입니다. 자동화 창에 이카운트가 로그인돼 있어야 합니다.'
+        +(ret?' 물류에 실물이 들어온 것을 확인한 뒤 누르세요.':' 도매발주서(물류)는 아래에서 받아 보내 주세요.')+'</div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center"><span style="font-size:12px;color:#5b6675">손으로 할 때:</span>'
+        +(ret?'':'<button onclick="ecDlWholesale()" style="padding:5px 12px;font-size:12.5px;font-weight:800;background:#0f766e;color:#fff;border:0;border-radius:8px;cursor:pointer">⬇ 도매발주서(물류)</button>')
+        +'<button class="bs" onclick="ecDlEcount()" style="padding:5px 12px;font-size:12.5px;font-weight:700">⬇ 이카운트 창고이동 엑셀</button>'
+        +'<button class="bs" onclick="ecShip()" style="padding:5px 12px;font-size:12.5px;font-weight:700">'+T.doneBtn+'만(이카운트는 손으로)</button></div>';
+      ecMoveAutoRender();
     }
   }
   /* 창고코드 */
