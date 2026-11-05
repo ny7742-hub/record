@@ -3145,7 +3145,7 @@ var FB_PATH={
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload","wssalesChk":"ws/wssalesChk",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","allStoreDB":"ws/allStore","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","pdfTeamDB":"ws/pdfTeam","ccPropDB":"ws/ccProp","msDB":"ws/msSimple","cdDB":"ws/ccDirect",
-  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","mallMixDB":"ws/mallMix","wcSpecDB":"ws/wcSpec","wsProdDB":"ws/wsProd","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
+  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","mallMixDB":"ws/mallMix","wcSpecDB":"ws/wcSpec","pmMixDB":"ws/pmMix","wsProdDB":"ws/wsProd","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -4001,6 +4001,11 @@ function fbListen(){
   /* 콘텐츠 제작(wscontent) 스펙의 소재 — 공홈 혼용률을 두 곳에서 맞춰 볼 때 쓴다(2026-11-05) */
   apply("ws/wcSpec","wcSpecDB",
     function(d){if(d&&typeof d==="object")wcSpecDB=d;},
+    function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
+  );
+  /* PlayMD 혼용률 백업(자동화 PC pm-backup.mjs — PlayMD는 2026-11-09까지, 상품데이터에 혼용률이 빠져도 카드가 여기서 읽는다) */
+  apply("ws/pmMix","pmMixDB",
+    function(d){if(d&&typeof d==="object")pmMixDB=d;},
     function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
   );
   apply("ws/bestImg","bestImgDB",
@@ -19685,6 +19690,7 @@ var mallLinkDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallLinkDB
 var MALL="https://whitesands.co.kr";
 var mallMixDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallMixDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 var wcSpecDB=(function(){try{var d=JSON.parse(localStorage.getItem("wcSpecDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+var pmMixDB=(function(){try{var d=JSON.parse(localStorage.getItem("pmMixDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 /* 혼용률 글을 부위별 '소재+%' 묶음으로 — 띄어쓰기·쉼표·줄바꿈·'울/모(울)'·'코튼/면' 차이는 같게 본다. 부위 이름(겉감·배색 등)도 맞아야 같은 것 */
 function _mixSig(s){
   var FN={"울":"모(울)","모":"모(울)","코튼":"면","폴리에스테르":"폴리에스터","폴리":"폴리에스터"};
@@ -19828,7 +19834,20 @@ function hpsNvRender(){
   box.innerHTML='<div style="margin-top:10px;padding:10px 12px;border:1.5px solid #6ee7b7;border-radius:10px;background:#f0fdf4">'+head+body+'</div>';
 }
 function _hpsWon(n){return n?Number(n).toLocaleString()+"원":"—";}
-/* 혼용률(2026-11-05 영업2팀) — 상품코드리스트 '혼용률' 열. 컬러마다 다르면 '컬러: 값'으로 나눠 보인다 */
+/* 혼용률(2026-11-05 영업2팀) — ① 콘텐츠 제작(wscontent) 스펙 소재 ② 없으면 PlayMD 상품코드리스트 '혼용률' 열(상품데이터 → 백업 ws/pmMix)
+   (영업2팀 "콘텐츠 제작과 PlayMD가 다르면 콘텐츠 제작, 콘텐츠 제작에 없으면 PlayMD"). PlayMD 값이 컬러마다 다르면 '컬러: 값'으로 나눠 보인다.
+   공홈(자사몰 상세 이미지 글자 인식, ws/mallMix)은 콘텐츠 제작과 맞춰 볼 때만 쓰고 카드에 바로 올리지 않는다 */
+function _wcFmt(s){
+  var parts=[];
+  String(s||"").split(/\n/).forEach(function(l){
+    l=l.replace(/\s+/g," ").trim();if(!l)return;
+    var m=l.match(/^([가-힣 ]{1,6}?\s?\d?)\s*:\s*(.*)$/);
+    if(m)parts.push({l:m[1].replace(/\s/g,""),v:[m[2]].filter(Boolean)});
+    else if(parts.length)parts[parts.length-1].v.push(l);
+    else parts.push({l:"",v:[l]});
+  });
+  return parts.map(function(p){return (p.l?p.l+": ":"")+p.v.join(", ");}).join(" / ");
+}
 function _hpsMix(code){
   var by={},order=[];
   (typeof DB!=="undefined"?DB:[]).forEach(function(d){
@@ -19837,17 +19856,21 @@ function _hpsMix(code){
     if(!by[v]){by[v]=[];order.push(v);}
     var c=String(d["칼라명"]||"").trim();if(c&&by[v].indexOf(c)<0)by[v].push(c);
   });
-  if(!order.length){
-    /* PlayMD가 비었으면 공홈(자사몰 상세 이미지)에서 읽은 값 — 글자 인식이라 '(공홈)'을 붙이고 누르면 자사몰 상세로 */
-    var W=((mallMixDB||{}).codes||{})[code],C=((wcSpecDB||{}).codes||{})[code];
-    /* 공홈 값은 콘텐츠 제작 소재와 같을 때만 올린다(2026-11-05 영업2팀 "상세페이지와 콘텐츠 제작 두 곳에서 검증하고 올려주세요") */
-    if(W&&W.t&&!(C&&_mixSig(C)===_mixSig(W.t)))
-      return '<span style="color:#5b6675" title="'+(C?'상세페이지('+_escX(W.t)+')와 콘텐츠 제작('+_escX(String(C).replace(/\s*\n+\s*/g," / "))+') 값이 달라 올리지 않았습니다':'콘텐츠 제작에 이 상품 스펙이 없어 상세페이지 값('+_escX(W.t)+')을 확인하지 못했습니다')+'">혼용률 — <span style="font-size:12px">('+(C?'상세페이지·콘텐츠 제작 다름':'확인 전')+')</span></span>';
-    if(W&&W.t)return '<span style="overflow-wrap:anywhere">혼용률 <b>'+_escX(W.t)+'</b> <a href="'+MALL+'/product/detail.html?product_no='+encodeURIComponent(W.no)+'" target="_blank" rel="noopener" title="PlayMD 상품코드리스트에 혼용률이 없어 자사몰 상세 이미지에서 읽었고('+_escX(String(W.at||"").slice(0,10))+'), 콘텐츠 제작 스펙의 소재와 같은 것을 확인했습니다" style="font-size:12.5px;color:#1b6e82;font-weight:700;text-decoration:none">(공홈)</a></span>';
-    return '<span style="color:#5b6675" title="PlayMD 상품코드리스트에 혼용률이 없고, 자사몰 상세 이미지에서도 못 읽었습니다">혼용률 —</span>';
+  var bk=false;
+  if(!order.length){   /* 상품데이터에 혼용률이 없으면 PlayMD 백업(ws/pmMix — PlayMD는 2026-11-09까지) */
+    var P=((typeof pmMixDB!=="undefined"&&pmMixDB||{}).codes||{})[code]||{};
+    Object.keys(P).forEach(function(c){var v=String(P[c]||"").replace(/(\s*\/)+\s*$/,"").trim();if(!v)return;if(!by[v]){by[v]=[];order.push(v);}if(c!=="-"&&by[v].indexOf(c)<0)by[v].push(c);});
+    bk=order.length>0;
   }
-  var t=order.length===1?_escX(order[0]):order.map(function(v){return _escX(by[v].join("·"))+': '+_escX(v);}).join(' / ');
-  return '<span style="overflow-wrap:anywhere">혼용률 <b>'+t+'</b></span>';
+  var pm=order.length===1?order[0]:order.map(function(v){return by[v].join("·")+': '+v;}).join(' / ');
+  var C=((wcSpecDB||{}).codes||{})[code];
+  if(C&&String(C).trim()){
+    var t=_wcFmt(C);
+    return '<span style="overflow-wrap:anywhere" title="콘텐츠 제작 스펙의 소재'+(pm?' (콘텐츠 제작이 먼저 — PlayMD'+(bk?' 백업':'')+' 값: '+_escX(pm)+')':'')+'">혼용률 <b>'+_escX(t)+'</b></span>';
+  }
+  if(pm)return '<span style="overflow-wrap:anywhere" title="PlayMD 상품코드리스트'+(bk?'(백업)':'')+' — 콘텐츠 제작에 이 상품 스펙이 없습니다">혼용률 <b>'+_escX(pm)+'</b></span>';
+  var W=((mallMixDB||{}).codes||{})[code];
+  return '<span style="color:#5b6675" title="콘텐츠 제작에도 PlayMD에도 혼용률이 없습니다'+(W&&W.t?' — 자사몰 상세페이지에는 '+_escX(W.t)+'로 보이지만 확인할 곳이 없어 올리지 않았습니다':'')+'">혼용률 —</span>';
 }
 function _hpsCard(o){
   var M=((mallLinkDB||{}).codes||{})[o.code]||null;
@@ -28452,8 +28475,40 @@ function openSaleModal(){
 }
 function closeSaleModal(){
   document.getElementById("ccSaleModal").style.display="none";
+  _ccSaleEditIdx=null;
+}
+/* 등록한 세일 수정(2026-11-05 영업2팀 "등록한 세일 정보를 수정할 수 있게") — 목록 [✏️ 수정]이나 판매현황 위 세일 칩을 누르면
+   아래 입력칸(시작일·종료일·인라인만·상품·할인금액)에 그 세일을 채우고, [수정 저장]이면 그 세일을 바꾼다(새로 하나 더 만들지 않음) */
+var _ccSaleEditIdx=null;
+function ccSaleEdit(i){
+  var sp=costcoDB.salePeriods[i];if(!sp)return;
+  var m=document.getElementById("ccSaleModal");if(m&&m.style.display!=="block")m.style.display="block";
+  renderSaleModal();
+  _ccSaleEditIdx=i;
+  var st=document.getElementById("ccSaleStart"),en=document.getElementById("ccSaleEnd"),io=document.getElementById("ccSaleInlineOnly");
+  if(st)st.value=sp.start||"";if(en)en.value=sp.end||"";if(io)io.checked=!!sp.inlineOnly;
+  Object.keys(sp.items||{}).forEach(function(n){
+    var pi=costcoDB.products.findIndex(function(x){return x.name===n;});if(pi<0)return;
+    var p=costcoDB.products[pi],base=Number(p.price)||0,cb=document.getElementById("ccScb_"+n),inp=document.getElementById("ccSprice_"+n);
+    if(cb)cb.checked=true;
+    if(inp&&base&&base>Number(sp.items[n]))inp.value=base-Number(sp.items[n]);
+    _ccSaleCalc(pi);
+  });
+  _ccSaleFormMode();
+  var f=document.getElementById("ccSaleForm");if(f&&f.scrollIntoView)f.scrollIntoView({block:"start",behavior:"smooth"});
+}
+function ccSaleEditCancel(){_ccSaleEditIdx=null;renderSaleModal();}
+function _ccSaleFormMode(){
+  var ed=_ccSaleEditIdx!=null&&costcoDB.salePeriods[_ccSaleEditIdx];
+  var t=document.getElementById("ccSaleFormTitle"),b=document.getElementById("ccSaleAddBtn"),c=document.getElementById("ccSaleCancelBtn"),f=document.getElementById("ccSaleForm");
+  var lb="";if(ed){var a=_ccYMD(ed.start),z=_ccYMD(ed.end);lb=(a.getMonth()+1)+"/"+a.getDate()+"~"+(z.getMonth()+1)+"/"+z.getDate();}
+  if(t)t.textContent=ed?"✏️ 세일 수정 — "+lb+" ("+Object.keys(ed.items||{}).join(", ")+")":"새 세일 추가";
+  if(b)b.textContent=ed?"수정 저장":"추가";
+  if(c)c.style.display=ed?"":"none";
+  if(f)f.style.borderColor=ed?"#f59e0b":"#d1d5db";
 }
 function renderSaleModal(){
+  _ccSaleEditIdx=null;
   /* 기존 세일 목록 — **끝난 세일은 여기서 감춘다**(진행중·예정만).
      자료는 지우지 않는다: 지난 달 표의 세일가와 판매현황 위 세일 배지가 그대로 나와야 하기 때문. */
   var listEl=document.getElementById("ccSaleList");
@@ -28489,7 +28544,9 @@ function renderSaleModal(){
       lh+='<br><span style="font-size:11px;color:#475569">기간 고치기 <input type="date" value="'+_escX(sp.start)+'" onchange="ccSaleSetDate('+i+',\'start\',this.value)" style="'+dIn+'"> ~ '
         +'<input type="date" value="'+_escX(sp.end)+'" onchange="ccSaleSetDate('+i+',\'end\',this.value)" style="'+dIn+'"></span>';
       lh+='<br><span style="font-size:11px;color:#475569">'+prods+'</span></div>';
-      lh+='<button onclick="deleteSalePeriod('+i+')" style="background:none;border:1px solid '+border+';color:'+txt+';border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">삭제</button>';
+      lh+='<div style="display:flex;flex-direction:column;gap:4px">'
+        +'<button onclick="ccSaleEdit('+i+')" style="background:#fff;border:1px solid '+border+';color:'+txt+';border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">✏️ 수정</button>'
+        +'<button onclick="deleteSalePeriod('+i+')" style="background:none;border:1px solid '+border+';color:'+txt+';border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">삭제</button></div>';
       lh+='</div>';
     });
     if(_endedN)lh+='<p style="font-size:11px;color:#5b6675;margin:2px 0 10px">끝난 세일 '+_endedN+'건은 목록에서 감췄습니다 — 판매현황 위 세일 표시와 지난 달 세일가는 그대로 나옵니다.</p>';
@@ -28522,6 +28579,7 @@ function renderSaleModal(){
     });
     prodsEl.innerHTML=ph;
   }
+  _ccSaleFormMode();
 }
 /* 세일 모달: 할인금액을 적으면 세일가를 바로 보여 주고, 상품 체크도 켠다 */
 function _ccSaleCalc(i){
@@ -28562,6 +28620,17 @@ function addSalePeriodFromModal(){
   if(bad.length){alert("할인금액이 정상가보다 크거나 같거나, 정상가가 없는 상품이 있습니다:\n\n"+bad.join("\n"));return;}
   if(!Object.keys(items).length){alert("세일 상품을 하나 이상 선택하고 할인금액을 입력해주세요.");return;}
   if(endVal<startEl.value){alert("종료일이 시작일보다 앞입니다.");return;}
+  /* 수정 중 — 그 세일을 바꾼다. 상품목록에 없거나 정상가가 없어 입력칸이 꺼진 상품의 세일가는 그대로 둔다 */
+  if(_ccSaleEditIdx!=null&&costcoDB.salePeriods[_ccSaleEditIdx]){
+    var old=costcoDB.salePeriods[_ccSaleEditIdx];
+    Object.keys(old.items||{}).forEach(function(n){var pp=costcoDB.products.find(function(x){return x.name===n;});if(!pp||!(Number(pp.price)>0))items[n]=old.items[n];});
+    var io1=document.getElementById("ccSaleInlineOnly");
+    var nsp={start:startEl.value,end:endVal,items:items};if(io1&&io1.checked)nsp.inlineOnly=true;
+    costcoDB.salePeriods[_ccSaleEditIdx]=nsp;
+    costcoDB.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});
+    saveCostcoDB();_ccSaleEditIdx=null;startEl.value="";if(endEl)endEl.value="";if(io1)io1.checked=false;
+    renderSaleModal();renderCostcoPage();return;
+  }
   /* 같은 시작일에 같은 상품 세일이 이미 있으면 새로 하나 더 만들지 않고 그 세일을 고친다(2026-11-05 영업2팀 — 10/19~11/1이 남아 11/8로 다시 넣어도 예전 기간이 보였다) */
   var same=costcoDB.salePeriods.filter(function(x){return x.start===startEl.value&&Object.keys(items).some(function(n){return x.items&&x.items[n]!=null;});})[0];
   if(same){
@@ -28729,7 +28798,7 @@ function renderCcSaleSummary(){
       h+='<span style="background:#fce7f3;color:#9d174d;border:1px solid #f9a8d4;border-radius:12px;padding:3px 10px;font-size:12px;font-weight:700">'+cfg.name+' '+label+' ('+cfg.price.toLocaleString()+'원)</span>';
     }
   });
-  (costcoDB.salePeriods||[]).forEach(function(sp){
+  (costcoDB.salePeriods||[]).forEach(function(sp,spi){
     if(mStart<=_ccYMD(sp.end)&&mEnd>=_ccYMD(sp.start)){
       var sd=_ccYMD(sp.start),ed=_ccYMD(sp.end);
       var label=(sd.getMonth()+1)+"/"+(sd.getDate())+"~"+(ed.getMonth()+1)+"/"+(ed.getDate());
@@ -28739,7 +28808,8 @@ function renderCcSaleSummary(){
       var bg,txt,border,tag;
       if(sp.inlineOnly){bg="#fed7aa";txt="#7c2d12";border="#fdba74";tag="🏬 인라인만 · ";}
       else{bg="#fee2e2";txt="#dc2626";border="#fca5a5";tag="";}
-      h+='<span style="background:'+bg+';color:'+txt+';border:1px solid '+border+';border-radius:12px;padding:3px 10px;font-size:12px;font-weight:600">'+tag+names.join(", ")+' '+label+'</span>';
+      var price=names.map(function(n){return Number(sp.items[n]).toLocaleString();}).filter(function(v,k,a){return a.indexOf(v)===k;}).join("/");
+      h+='<span onclick="ccSaleEdit('+spi+')" title="눌러서 수정 — 세일가 '+price+'원" style="cursor:pointer;background:'+bg+';color:'+txt+';border:1px solid '+border+';border-radius:12px;padding:3px 10px;font-size:12px;font-weight:600">'+tag+names.join(", ")+' '+label+' <span style="font-weight:800">'+price+'원</span> ✏️</span>';
     }
   });
   el.innerHTML=h;
@@ -31039,8 +31109,8 @@ function initTransferTab(){tfDropInit();tfAutoFill();tfRenderChips();tfRender();
     <!-- 기존 세일 목록 -->
     <div id="ccSaleList" style="margin-bottom:16px"></div>
     <!-- 새 세일 추가 -->
-    <div style="border:1.5px dashed #d1d5db;border-radius:10px;padding:14px">
-      <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px">새 세일 추가</div>
+    <div id="ccSaleForm" style="border:1.5px dashed #d1d5db;border-radius:10px;padding:14px">
+      <div id="ccSaleFormTitle" style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px">새 세일 추가</div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
         <span style="font-size:12px;color:#475569;font-weight:600">시작일</span>
         <input type="date" id="ccSaleStart" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:7px;font-size:12px">
@@ -31055,7 +31125,8 @@ function initTransferTab(){tfDropInit();tfAutoFill();tfRenderChips();tfRender();
       </div>
       <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">세일 상품 및 할인금액 <span style="font-weight:500;color:#5b6675">(정상가에서 빼는 금액 — 예: 15,990원에 4,000원 → 11,990원)</span></div>
       <div id="ccSaleNewProds" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
-      <button onclick="addSalePeriodFromModal()" style="width:100%;padding:9px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">추가</button>
+      <div style="display:flex;gap:6px"><button id="ccSaleAddBtn" onclick="addSalePeriodFromModal()" style="flex:1;padding:9px;background:#dc2626;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">추가</button>
+      <button id="ccSaleCancelBtn" onclick="ccSaleEditCancel()" style="display:none;padding:9px 14px;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">수정 취소</button></div>
     </div>
   </div>
 </div>
