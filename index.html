@@ -2892,6 +2892,7 @@ label{font-size:14px!important}
       <span style="flex:1"></span>
       <select id="fpSaved" onchange="fpLoad()" style="padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;max-width:170px"></select>
       <button onclick="fpSave()" style="padding:5px 14px;background:#15803d;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">💾 저장</button>
+      <button onclick="fpPrevSaved()" title="고른 저장 배치를 덮어쓰기 전 모습으로 불러옵니다(누를 때마다 한 번 더 전으로, 최근 5개)" style="padding:5px 10px;background:#f8fafc;color:#1d4ed8;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">↶ 이전 저장본</button>
       <button onclick="fpDelSaved()" style="padding:5px 10px;background:#f8fafc;color:#9a3412;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">삭제</button>
     </div>
     <div id="fpMsg" style="font-size:12.5px;color:#5b6675;margin-top:8px;line-height:1.5"></div>
@@ -2977,6 +2978,7 @@ label{font-size:14px!important}
       <span style="flex:1"></span>
       <select id="fp2Saved" onchange="fp2Load()" style="padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;max-width:170px"></select>
       <button onclick="fp2Save()" style="padding:5px 14px;background:#15803d;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">💾 저장</button>
+      <button onclick="fp2PrevSaved()" title="고른 저장 배치를 덮어쓰기 전 모습으로 불러옵니다(누를 때마다 한 번 더 전으로, 최근 5개)" style="padding:5px 10px;background:#f8fafc;color:#1d4ed8;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">↶ 이전 저장본</button>
       <button onclick="fp2DelSaved()" style="padding:5px 10px;background:#f8fafc;color:#9a3412;border:1px solid #cbd5e1;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">삭제</button>
     </div>
     <div id="fp2Msg" style="font-size:12.5px;color:#5b6675;margin-top:8px;line-height:1.5"></div>
@@ -32074,14 +32076,32 @@ window.fpSize=function(){
   autoIfOn();
 };
 window.fpSave=function(){
-  var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다)","");
+  var cur=$("fpSaved")&&$("fpSaved").value||"";
+  var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다 — 덮어쓰기 전 모습은 '↶ 이전 저장본'으로 되돌릴 수 있습니다)",cur);
   if(!name)return;name=name.trim();if(!name)return;
-  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
+  var all=savedAll(),old=all[name],prev=[];
+  if(old){prev=(old.prev||[]).slice();var o2={};Object.keys(old).forEach(function(k){if(k!=="prev")o2[k]=old[k];});prev.push(o2);if(prev.length>5)prev=prev.slice(prev.length-5);}   /* 덮어쓰기 전 모습을 최근 5개까지 남김(2026-11-05 영업2팀) */
+  all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};}),at:new Date().toISOString()};
+  if(prev.length)all[name].prev=prev;
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){msg("저장하지 못했습니다(브라우저 저장공간).",true);return;}
-  share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
+  PREV_I[name]=0;
+  share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(old?" 덮어쓰기 전 모습은 '↶ 이전 저장본'으로 되돌릴 수 있습니다.":"")+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
+};
+var PREV_I={};
+window.fpPrevSaved=function(){
+  var v=$("fpSaved").value;if(!v){msg("되돌릴 저장 배치를 먼저 고르세요.",true);return;}
+  var o=savedAll()[v];if(!o)return;
+  var pv=o.prev||[];if(!pv.length){msg("'"+v+"'에는 이전 저장본이 없습니다(이 기능 전에 저장했거나 한 번만 저장한 배치).",true);return;}
+  var i=(PREV_I[v]||0)+1;if(i>pv.length)i=1;PREV_I[v]=i;
+  var p=pv[pv.length-i];
+  ST.autoOn=false;saveOpt();renderUse();
+  setState(p.W,p.D,p.items||[]);shapeFrom(p);T3.rad=Math.max(p.W,p.D)/1000*1.5+2;renderShape();
+  var when=p.at?new Date(p.at).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+  msg("'"+v+"'의 "+i+"번 전 저장본"+(when?"("+when+" 저장)":"")+"을 불러왔습니다 — 전체 "+pv.length+"개. 이대로 쓰려면 💾 저장을 누르세요."+(i<pv.length?" 한 번 더 누르면 더 전으로.":" 한 번 더 누르면 가장 최근 것부터 다시."));changed();
 };
 window.fpLoad=function(){
   var v=$("fpSaved").value;if(!v)return;
+  PREV_I[v]=0;
   var o=savedAll()[v];if(!o)return;
   ST.autoOn=false;saveOpt();renderUse();
   setState(o.W,o.D,o.items||[]);shapeFrom(o);T3.rad=Math.max(o.W,o.D)/1000*1.5+2;renderShape();
@@ -34454,14 +34474,32 @@ window.fp2Size=function(){
   autoIfOn();
 };
 window.fp2Save=function(){
-  var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다)","");
+  var cur=$("fp2Saved")&&$("fp2Saved").value||"";
+  var name=window.prompt("저장할 이름 (같은 이름이면 덮어씁니다 — 덮어쓰기 전 모습은 '↶ 이전 저장본'으로 되돌릴 수 있습니다)",cur);
   if(!name)return;name=name.trim();if(!name)return;
-  var all=savedAll();all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};})};
+  var all=savedAll(),old=all[name],prev=[];
+  if(old){prev=(old.prev||[]).slice();var o2={};Object.keys(old).forEach(function(k){if(k!=="prev")o2[k]=old[k];});prev.push(o2);if(prev.length>5)prev=prev.slice(prev.length-5);}   /* 덮어쓰기 전 모습을 최근 5개까지 남김(2026-11-05 영업2팀) */
+  all[name]={W:ST.W,D:ST.D,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly,items:ST.items.map(function(o){return {t:o.t,x:o.x,z:o.z,r:o.r,f:o.f};}),at:new Date().toISOString()};
+  if(prev.length)all[name].prev=prev;
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){msg("저장하지 못했습니다(브라우저 저장공간).",true);return;}
-  share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
+  PREV_I[name]=0;
+  share("plans");fillSaved(name);msg("'"+name+"' 배치를 저장했습니다."+(old?" 덮어쓰기 전 모습은 '↶ 이전 저장본'으로 되돌릴 수 있습니다.":"")+(SH.on?" 팀 모두가 불러올 수 있습니다.":" (팀 공유 전이라 이 브라우저에만)"));
+};
+var PREV_I={};
+window.fp2PrevSaved=function(){
+  var v=$("fp2Saved").value;if(!v){msg("되돌릴 저장 배치를 먼저 고르세요.",true);return;}
+  var o=savedAll()[v];if(!o)return;
+  var pv=o.prev||[];if(!pv.length){msg("'"+v+"'에는 이전 저장본이 없습니다(이 기능 전에 저장했거나 한 번만 저장한 배치).",true);return;}
+  var i=(PREV_I[v]||0)+1;if(i>pv.length)i=1;PREV_I[v]=i;
+  var p=pv[pv.length-i];
+  ST.autoOn=false;saveOpt();renderUse();
+  setState(p.W,p.D,p.items||[]);shapeFrom(p);T3.rad=Math.max(p.W,p.D)/1000*1.5+2;renderShape();
+  var when=p.at?new Date(p.at).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+  msg("'"+v+"'의 "+i+"번 전 저장본"+(when?"("+when+" 저장)":"")+"을 불러왔습니다 — 전체 "+pv.length+"개. 이대로 쓰려면 💾 저장을 누르세요."+(i<pv.length?" 한 번 더 누르면 더 전으로.":" 한 번 더 누르면 가장 최근 것부터 다시."));changed();
 };
 window.fp2Load=function(){
   var v=$("fp2Saved").value;if(!v)return;
+  PREV_I[v]=0;
   var o=savedAll()[v];if(!o)return;
   ST.autoOn=false;saveOpt();renderUse();
   setState(o.W,o.D,o.items||[]);shapeFrom(o);T3.rad=Math.max(o.W,o.D)/1000*1.5+2;renderShape();
