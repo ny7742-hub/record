@@ -3145,7 +3145,7 @@ var FB_PATH={
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload","wssalesChk":"ws/wssalesChk",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","allStoreDB":"ws/allStore","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","pdfTeamDB":"ws/pdfTeam","ccPropDB":"ws/ccProp","msDB":"ws/msSimple","cdDB":"ws/ccDirect",
-  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","mallMixDB":"ws/mallMix","wsProdDB":"ws/wsProd","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
+  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","mallMixDB":"ws/mallMix","wcSpecDB":"ws/wcSpec","wsProdDB":"ws/wsProd","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -3996,6 +3996,11 @@ function fbListen(){
   /* 공홈 혼용률(자동화 PC mall-mix.mjs가 자사몰 상세 이미지를 글자 인식으로 읽음, 2026-11-05) */
   apply("ws/mallMix","mallMixDB",
     function(d){if(d&&typeof d==="object")mallMixDB=d;},
+    function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
+  );
+  /* 콘텐츠 제작(wscontent) 스펙의 소재 — 공홈 혼용률을 두 곳에서 맞춰 볼 때 쓴다(2026-11-05) */
+  apply("ws/wcSpec","wcSpecDB",
+    function(d){if(d&&typeof d==="object")wcSpecDB=d;},
     function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
   );
   apply("ws/bestImg","bestImgDB",
@@ -19679,6 +19684,18 @@ var wsProdDB=(function(){try{var d=JSON.parse(localStorage.getItem("wsProdDB")||
 var mallLinkDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallLinkDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 var MALL="https://whitesands.co.kr";
 var mallMixDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallMixDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+var wcSpecDB=(function(){try{var d=JSON.parse(localStorage.getItem("wcSpecDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+/* 혼용률 글을 부위별 '소재+%' 묶음으로 — 띄어쓰기·쉼표·줄바꿈·'울/모(울)'·'코튼/면' 차이는 같게 본다. 부위 이름(겉감·배색 등)도 맞아야 같은 것 */
+function _mixSig(s){
+  var FN={"울":"모(울)","모":"모(울)","코튼":"면","폴리에스테르":"폴리에스터","폴리":"폴리에스터"};
+  s=String(s||"").replace(/\s+/g," ").replace(/모\s*\(\s*울\s*\)/g,"모(울)");
+  return s.split(/(?=(?:겉\s?감\s?\d?|안\s?감\s?\d?|배\s?색\s?\d?|핀대|차양막|밴드|챙|소재)\s*:)/).map(function(t){
+    var m=t.match(/^\s*([가-힣 ]+?\d?)\s*:([\s\S]*)$/),l=m?m[1].replace(/\s/g,""):"",b=m?m[2]:t,f=[],x,re=/(모\(울\)|[가-힣A-Za-z]+)\s*(\d{1,3})\s*%?/g;
+    while((x=re.exec(b)))f.push((FN[x[1]]||x[1])+x[2]);
+    if(!f.length&&b.replace(/[\s\/]/g,""))f.push(b.replace(/[\s\/]/g,""));
+    return f.length?l+"="+f.sort().join(","):"";
+  }).filter(Boolean).join("|");
+}
 var _hpsIdx=null,_hpsT=null;
 function hpsSearchSoon(){clearTimeout(_hpsT);_hpsT=setTimeout(hpsSearch,180);}
 function _hpsIndex(){
@@ -19822,8 +19839,11 @@ function _hpsMix(code){
   });
   if(!order.length){
     /* PlayMD가 비었으면 공홈(자사몰 상세 이미지)에서 읽은 값 — 글자 인식이라 '(공홈)'을 붙이고 누르면 자사몰 상세로 */
-    var W=((mallMixDB||{}).codes||{})[code];
-    if(W&&W.t)return '<span style="overflow-wrap:anywhere">혼용률 <b>'+_escX(W.t)+'</b> <a href="'+MALL+'/product/detail.html?product_no='+encodeURIComponent(W.no)+'" target="_blank" rel="noopener" title="PlayMD 상품코드리스트에 혼용률이 없어 자사몰 상세 이미지에서 글자 인식으로 읽었습니다('+_escX(String(W.at||"").slice(0,10))+') — 틀릴 수 있으니 중요할 땐 자사몰에서 확인하세요" style="font-size:12.5px;color:#1b6e82;font-weight:700;text-decoration:none">(공홈)</a></span>';
+    var W=((mallMixDB||{}).codes||{})[code],C=((wcSpecDB||{}).codes||{})[code];
+    /* 공홈 값은 콘텐츠 제작 소재와 같을 때만 올린다(2026-11-05 영업2팀 "상세페이지와 콘텐츠 제작 두 곳에서 검증하고 올려주세요") */
+    if(W&&W.t&&!(C&&_mixSig(C)===_mixSig(W.t)))
+      return '<span style="color:#5b6675" title="'+(C?'상세페이지('+_escX(W.t)+')와 콘텐츠 제작('+_escX(String(C).replace(/\s*\n+\s*/g," / "))+') 값이 달라 올리지 않았습니다':'콘텐츠 제작에 이 상품 스펙이 없어 상세페이지 값('+_escX(W.t)+')을 확인하지 못했습니다')+'">혼용률 — <span style="font-size:12px">('+(C?'상세페이지·콘텐츠 제작 다름':'확인 전')+')</span></span>';
+    if(W&&W.t)return '<span style="overflow-wrap:anywhere">혼용률 <b>'+_escX(W.t)+'</b> <a href="'+MALL+'/product/detail.html?product_no='+encodeURIComponent(W.no)+'" target="_blank" rel="noopener" title="PlayMD 상품코드리스트에 혼용률이 없어 자사몰 상세 이미지에서 읽었고('+_escX(String(W.at||"").slice(0,10))+'), 콘텐츠 제작 스펙의 소재와 같은 것을 확인했습니다" style="font-size:12.5px;color:#1b6e82;font-weight:700;text-decoration:none">(공홈)</a></span>';
     return '<span style="color:#5b6675" title="PlayMD 상품코드리스트에 혼용률이 없고, 자사몰 상세 이미지에서도 못 읽었습니다">혼용률 —</span>';
   }
   var t=order.length===1?_escX(order[0]):order.map(function(v){return _escX(by[v].join("·"))+': '+_escX(v);}).join(' / ');
