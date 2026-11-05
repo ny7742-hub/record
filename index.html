@@ -28460,7 +28460,8 @@ function renderSaleModal(){
     var _endedN=0;
     var sorted=(costcoDB.salePeriods||[]).map(function(sp,i){return {sp:sp,i:i};})
       .filter(function(r){
-        if(_ccYMD(r.sp.end)>=today)return true;
+        /* 끝난 지 30일 안의 세일은 목록에 남긴다 — 기간을 고칠 수 있게(2026-11-05 영업2팀 "10/19~11/8로 기재해도 2주로 표시") */
+        if(_ccYMD(r.sp.end)>=new Date(today.getTime()-30*864e5))return true;
         _endedN++;return false;
       })
       .sort(function(a,b){return _ccYMD(b.sp.start)-_ccYMD(a.sp.start);});
@@ -28480,6 +28481,10 @@ function renderSaleModal(){
       lh+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:'+bg+';border:1px solid '+border+';border-radius:8px;margin-bottom:6px;gap:8px">';
       lh+='<div><span style="font-size:11px;font-weight:800;color:'+txt+';background:'+border+'33;border-radius:8px;padding:1px 7px;margin-right:5px">'+state+'</span>'+inlineTag;
       lh+='<span style="font-size:12px;font-weight:700;color:'+txt+'">'+label+'</span>';
+      /* 기간 고치기(2026-11-05) — 시작일·종료일을 바로 바꾼다 */
+      var dIn='padding:1px 4px;border:1px solid #d1d5db;border-radius:5px;font-size:11px;width:auto';
+      lh+='<br><span style="font-size:11px;color:#475569">기간 고치기 <input type="date" value="'+_escX(sp.start)+'" onchange="ccSaleSetDate('+i+',\'start\',this.value)" style="'+dIn+'"> ~ '
+        +'<input type="date" value="'+_escX(sp.end)+'" onchange="ccSaleSetDate('+i+',\'end\',this.value)" style="'+dIn+'"></span>';
       lh+='<br><span style="font-size:11px;color:#475569">'+prods+'</span></div>';
       lh+='<button onclick="deleteSalePeriod('+i+')" style="background:none;border:1px solid '+border+';color:'+txt+';border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">삭제</button>';
       lh+='</div>';
@@ -28536,6 +28541,8 @@ function addSalePeriodFromModal(){
   }else{
     var ed=new Date(startEl.value); ed.setDate(ed.getDate()+13);
     endVal=ed.toISOString().slice(0,10);
+    /* 종료일 칸을 다 채우지 않으면(연·월·일 중 하나라도 비면) 값이 비어 조용히 2주로 들어갔다 — 묻고 넣는다(2026-11-05) */
+    if(!confirm("종료일이 비어 있어 2주("+(ed.getMonth()+1)+"/"+ed.getDate()+"까지)로 넣습니다.\n\n종료일을 따로 정하려면 [취소]를 누르고 종료일 칸의 연·월·일을 모두 채워 주세요."))return;
   }
   /* 입력은 할인금액, 저장은 세일가(= 정상가 − 할인금액) — 판매현황 표·세일 배지·지난 달 세일가가 모두 세일가를 읽는다 */
   var items={},bad=[];
@@ -28551,6 +28558,16 @@ function addSalePeriodFromModal(){
   });
   if(bad.length){alert("할인금액이 정상가보다 크거나 같거나, 정상가가 없는 상품이 있습니다:\n\n"+bad.join("\n"));return;}
   if(!Object.keys(items).length){alert("세일 상품을 하나 이상 선택하고 할인금액을 입력해주세요.");return;}
+  if(endVal<startEl.value){alert("종료일이 시작일보다 앞입니다.");return;}
+  /* 같은 시작일에 같은 상품 세일이 이미 있으면 새로 하나 더 만들지 않고 그 세일을 고친다(2026-11-05 영업2팀 — 10/19~11/1이 남아 11/8로 다시 넣어도 예전 기간이 보였다) */
+  var same=costcoDB.salePeriods.filter(function(x){return x.start===startEl.value&&Object.keys(items).some(function(n){return x.items&&x.items[n]!=null;});})[0];
+  if(same){
+    var sd0=_ccYMD(same.start),ed0=_ccYMD(same.end);
+    if(!confirm("같은 시작일의 세일이 이미 있습니다("+(sd0.getMonth()+1)+"/"+sd0.getDate()+"~"+(ed0.getMonth()+1)+"/"+ed0.getDate()+", "+Object.keys(same.items||{}).join(", ")+").\n\n그 세일의 종료일·세일가를 이번 입력값으로 바꿀까요?"))return;
+    same.end=endVal;Object.keys(items).forEach(function(n){same.items[n]=items[n];});
+    var io0=document.getElementById("ccSaleInlineOnly");if(io0&&io0.checked)same.inlineOnly=true;
+    saveCostcoDB();startEl.value="";if(endEl)endEl.value="";renderSaleModal();renderCostcoPage();return;
+  }
   var inlineOnlyEl=document.getElementById("ccSaleInlineOnly");
   var sp={start:startEl.value,end:endVal,items:items};
   if(inlineOnlyEl&&inlineOnlyEl.checked)sp.inlineOnly=true;
@@ -28566,6 +28583,15 @@ function addSalePeriodFromModal(){
 function deleteSalePeriod(i){
   if(!confirm("이 세일 기간을 삭제할까요?"))return;
   costcoDB.salePeriods.splice(i,1);
+  saveCostcoDB();renderSaleModal();renderCostcoPage();
+}
+/* 세일 기간 고치기(2026-11-05 영업2팀 "10/19~11/8로 기재해도 2주로 표시") — 목록의 날짜 칸에서 바로 */
+function ccSaleSetDate(i,which,val){
+  var sp=costcoDB.salePeriods[i];if(!sp||!/^\d{4}-\d{2}-\d{2}$/.test(val||"")){renderSaleModal();return;}
+  var s=which==="start"?val:sp.start,e=which==="end"?val:sp.end;
+  if(e<s){alert("종료일이 시작일보다 앞입니다.");renderSaleModal();return;}
+  sp.start=s;sp.end=e;
+  costcoDB.salePeriods.sort(function(a,b){return a.start.localeCompare(b.start);});
   saveCostcoDB();renderSaleModal();renderCostcoPage();
 }
 /* ── 상품관리 모달 (상품번호 수정) ── */
