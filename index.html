@@ -1562,7 +1562,7 @@ label{font-size:14px!important}
         </div>
         <div style="background:#eef4f6;border:1px solid #cfe0e5;border-radius:6px;padding:8px;font-size:12.5px;color:#334155;line-height:1.5">
           <b>처리완료부터 결제가까지</b> 복사<br>
-          <span style="color:#15803d;font-weight:700">처리완료 + 입고일·처리일·해체일<br>이 있는 건만 등록 대상</span><br>
+          <span style="color:#15803d;font-weight:700">처리완료 + 입고일·처리일<br>이 있는 건만 등록 대상(쇼핑몰 코스트코·코코)</span><br>
           <span style="color:#b45309;font-weight:700">처리보류 · 확인요청 · 출고예정은 자동 제외</span>
           <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #cfe0e5;color:#0369a1">쇼핑몰·날짜·상품명·수량·결제가만 읽습니다<br>(수취인·연락처·주소는 저장하지 않습니다)</div>
         </div>
@@ -22626,16 +22626,19 @@ var CCR_SKIP=["처리보류","확인요청","출고예정"];
    입고일이 비면 처리일·해체일로 물러선다. */
 function _ccrRowDate(r){return r["in"]||r.proc||r.open||null;}
 /* 다운로드 대상·정렬 모두 **물류입고일** 기준이다(반품일자도 입고일). */
-/* 등록 조건(2026-09-23 영업2팀 재지정): **처리완료 + 입고일·처리일·해체일 모두**.
+/* 등록 조건(2026-09-23 영업2팀 재지정 → 2026-11-05 다시): 아래 _ccrWhyNot 참고.
    **민트색 음영은 더 이상 보지 않는다** — 셀 색은 Sheets API가 켜져 있어야 읽히는데 실제로는 못 읽는 때가 많았고,
    영업2팀이 "음영 건이 아니어도 된다"고 정했다. */
+/* 2026-11-05 영업2팀 다시 지정: **A열 처리완료 + B열 입고일 + C열 처리일**(해체일은 안 본다 — 해체일 빈 줄이 많아 12줄 중 1줄만 잡혔다) */
 function _ccrWhyNot(r){
-  if(r.status&&r.status!=="처리완료")return "처리완료가 아님("+r.status+")";
-  var miss=[];if(!r["in"])miss.push("입고일");if(!r.proc)miss.push("처리일");if(!r.open)miss.push("해체일");
+  if(r.status!=="처리완료")return "처리완료가 아님("+(r.status||"빈칸")+")";
+  var miss=[];if(!r["in"])miss.push("입고일");if(!r.proc)miss.push("처리일");
   if(miss.length)return miss.join("·")+" 없음";
   return "";
 }
 function _ccrReady(r){return !_ccrWhyNot(r);}
+/* 코스트코 반품 쇼핑몰(E열) — 코스트코 · 코코 · 코스트코온라인 · 코스트코 온라인(2026-11-05 영업2팀). 띄어쓰기는 무시 */
+function _ccrIsCcShop(s){var t=String(s||"").replace(/\s+/g,"");return /코스트코/.test(t)||/^코코(온라인)?$/.test(t);}
 /* 입고일 오름차순 — 파일이 날짜순으로 정리돼 나오게 */
 function _ccrSortByIn(rows){
   return rows.slice().sort(function(a,b){
@@ -22667,6 +22670,15 @@ function _ccrMapRow(c){
     if(/[0-9]{6,}\s*-\s*[0-9]/.test(v))sc-=100;            /* 주문번호가 앞에 붙은 메모 */
     if(sc>best){best=sc;prod=i;}
   }
+  /* 상품명에 '화이트샌즈'가 없는 줄(예: '울 니트 보닛햇 바르셀_코스트코 (핑크&크림)베이지') — 예전엔 null로 조용히 빠졌다(2026-11-05 영업2팀 시트 9/22·10/27 2줄).
+     상품명 = 바로 뒤 칸이 수량(1~3자리)이고 그다음 칸이 결제가(숫자)인 글자 칸. 못 찾은 코드는 뒤에서 '상품컬러코드 없음'으로 멈춰 알린다 */
+  if(prod<0){
+    for(var i2=0;i2+2<c.length;i2++){
+      var v2=String(c[i2]==null?"":c[i2]).trim(),q2=String(c[i2+1]==null?"":c[i2+1]).trim(),p2=String(c[i2+2]==null?"":c[i2+2]).trim();
+      if(v2.length<4||/^[0-9,.\-+eE\s]+$/.test(v2)||_hsrParseDate(v2)||/^0\d{1,2}-\d{3,4}-\d{4}$/.test(v2))continue;
+      if(/^[0-9]{1,3}$/.test(q2)&&/^[0-9][0-9,]{2,}$/.test(p2)){prod=i2;break;}
+    }
+  }
   if(prod<0)return null;
   var status="";
   for(var j=0;j<c.length;j++){
@@ -22679,7 +22691,7 @@ function _ccrMapRow(c){
   for(var m=0;m<prod;m++){
     var sv=String(c[m]==null?"":c[m]).trim();
     if(!sv||_hsrParseDate(sv))continue;
-    if(/코스트코|홈쇼핑|홈앤|쇼핑|면세|온라인|몰$|GS|CJ|SSG/i.test(sv)){shop=sv;shopIdx=m;break;}
+    if(/코스트코|^코코|홈쇼핑|홈앤|쇼핑|면세|온라인|몰$|GS|CJ|SSG/i.test(sv)){shop=sv;shopIdx=m;break;}
   }
   /* 날짜는 **자리로** 읽는다 — 쇼핑몰 바로 앞 세 칸이 입고일·처리일·해체일.
      날짜가 있는 칸만 모아서 순서대로 넣으면, 해체일이 비었을 때 처리일을 해체일로 잘못 읽는다. */
@@ -22878,7 +22890,7 @@ function _ccrSummary(){
   var badN=ccrRows.filter(function(r){return r.bad;}).length;
   el.innerHTML=ccrRows.length+'건'
     +(badN?' · <span style="color:#b45309;font-weight:700">불량 '+badN+'건</span>':'')
-    +(noOpen?' · <span style="color:#5b6675" title="처리완료 + 입고일·처리일·해체일이 모두 있어야 등록">등록 조건 미충족 '+noOpen+'건 제외</span>':'')
+    +(noOpen?' · <span style="color:#5b6675" title="A열 처리완료 + 입고일·처리일이 있어야 등록">등록 조건 미충족 '+noOpen+'건 제외</span>':'')
     +(noCode?' · <span style="color:#dc2626;font-weight:700">미매칭 '+noCode+'건</span>':' · <span style="color:#15803d;font-weight:700">코드 매칭 완료</span>')
     +(noPrice?' · <span style="color:#dc2626;font-weight:700">공급가 없음 '+noPrice+'건</span>':'')
     +(noDate?' · <span style="color:#dc2626;font-weight:700">날짜 없음 '+noDate+'건</span>':'');
@@ -22890,7 +22902,7 @@ function ccrDownload(){
     /* 왜 한 건도 못 나왔는지 사유별로 적어 준다 — 예전엔 '입고일이 없습니다'로만 떠서 원인을 알 수 없었다(2026-09-23) */
     var why={};
     ccrRows.forEach(function(r){var w=_ccrWhyNot(r);if(w)why[w]=(why[w]||0)+1;});
-    alert("등록할 수 있는 행이 없습니다."+"\n\n"+"등록 조건: 처리완료 + 입고일·처리일·해체일"+"\n\n"
+    alert("등록할 수 있는 행이 없습니다."+"\n\n"+"등록 조건: A열 처리완료 + B열 입고일 + C열 처리일"+"\n\n"
       +Object.keys(why).map(function(k){return "· "+k+" : "+why[k]+"건";}).join("\n"));
     return;
   }
@@ -23191,7 +23203,7 @@ function ccrLoadSheet(){
       var add=function(k){skip[k]=(skip[k]||0)+1;};
       rows.slice(1).forEach(function(r,i){
         var m=_ccrMapRow(r);if(!m)return;
-        if(!/코스트코/.test(m.shop))return;
+        if(!_ccrIsCcShop(m.shop))return;
         var why=_ccrWhyNot(m);
         if(why){add(/처리완료/.test(why)?"미완료":"날짜 빠짐");return;}
         pick.push({line:r.join("\t"),shade:undefined});
@@ -23346,7 +23358,7 @@ function _retCollect(kind){
     var add=function(k){skip[k]=(skip[k]||0)+1;};
     if(kind==="hr"){var kk=_hsrSheetKeep(rows);skip=kk.skip;list=kk.keep.length>1?_hsrMapRows(kk.keep):[];}
     else rows.slice(1).forEach(function(r){
-      var m=_ccrMapRow(r);if(!m||!/코스트코/.test(m.shop))return;
+      var m=_ccrMapRow(r);if(!m||!_ccrIsCcShop(m.shop))return;
       var why=_ccrWhyNot(m);if(why){add(/처리완료/.test(why)?"미완료":"날짜 빠짐");return;}
       list.push(_ccrMatchRow(m));
     });
@@ -23423,7 +23435,7 @@ function retPreviewGo(kind){
   var K=RET_KINDS[kind],cur=(saipReq||{})[kind];
   if(_saipReqBusy(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
   var P=_retPendingOf(kind);
-  if(P&&!P.length&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n"+(kind==="hr"?"(반품리스트 홈쇼핑 탭에 해체일이 적힌 건 중 아직 등록 안 한 것 — 처리보류는 뺌)":"(반품리스트에 처리완료 + 입고일·처리일·해체일이 모두 적힌 건 중 아직 등록 안 한 것)"));return;}
+  if(P&&!P.length&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n"+(kind==="hr"?"(반품리스트 홈쇼핑 탭에 해체일이 적힌 건 중 아직 등록 안 한 것 — 처리보류는 뺌)":"(반품리스트 온라인 탭에 쇼핑몰 코스트코·코코 · A열 처리완료 · 입고일·처리일이 적힌 건 중 아직 등록 안 한 것)"));return;}
   _retRequest(kind,{mode:"preview"});
 }
 function retAutoGo(kind,opt){
@@ -23431,7 +23443,7 @@ function retAutoGo(kind,opt){
   var K=RET_KINDS[kind],cur=(saipReq||{})[kind];
   if(_saipReqBusy(cur)){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
   var P=_retPendingOf(kind);
-  if(P&&!P.length&&!opt.expect&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n"+(kind==="hr"?"(반품리스트 홈쇼핑 탭에 해체일이 적힌 건 중 아직 등록 안 한 것 — 처리보류는 뺌)":"(반품리스트에 처리완료 + 입고일·처리일·해체일이 모두 적힌 건 중 아직 등록 안 한 것)"));return;}
+  if(P&&!P.length&&!opt.expect&&!_retMovesPending(kind).length&&!_retLeftInSheet(kind).length){alert("등록할 "+K.label+"이 없습니다.\n\n"+(kind==="hr"?"(반품리스트 홈쇼핑 탭에 해체일이 적힌 건 중 아직 등록 안 한 것 — 처리보류는 뺌)":"(반품리스트 온라인 탭에 쇼핑몰 코스트코·코코 · A열 처리완료 · 입고일·처리일이 적힌 건 중 아직 등록 안 한 것)"));return;}
   var msg=K.label+(P?" "+P.length+"건":"")+"을 자동화 PC가 플레이엠디 [EX]사입매장출고반품등록(작업구분 사입반품 · 시트명 사입반품양식)에 저장합니다.\n"
     +"저장하면 되돌리기 어렵습니다.\n\n"
     +"코드·공급가가 빈 줄이 있거나, 같은 날 같은 매장·상품 반품이 플레이엠디에 일부만 있으면 저장하지 않고 멈춥니다.\n"
