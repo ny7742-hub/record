@@ -24352,6 +24352,8 @@ var hsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("hsSaipS
 var dsSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("dsSaipStatus")||"null");}catch(e){return null;}})();
 var ccSaipStatus=(function(){try{return JSON.parse(localStorage.getItem("ccSaipStatus")||"null");}catch(e){return null;}})();
 var ccDssStatus=(function(){try{return JSON.parse(localStorage.getItem("ccDssStatus")||"null");}catch(e){return null;}})();
+/* 그 날짜 DSS 송장 올리기(save) 결과 — 뒤이은 미리보기(자동 중복 검수)가 문서를 덮어도 saves[날짜]에 남아 있다(2026-11-05 영업2팀) */
+function _ccDssSaveOf(mmdd){var D=ccDssStatus;if(!D)return null;if(D.mmdd===mmdd&&D.mode==="save")return D;return (D.saves&&D.saves[mmdd])||null;}
 /* 코스트코 판매현황(코스트코 탭) 자동 등록 결과 — automation/cc-sales-register.mjs가 남긴다(2026-11-03, 자동 발주 카드 ⑤) */
 var ccSalesStatus=(function(){try{return JSON.parse(localStorage.getItem("ccSalesStatus")||"null");}catch(e){return null;}})();
 var ccOrderStatus=(function(){try{return JSON.parse(localStorage.getItem("ccOrderStatus")||"null");}catch(e){return null;}})();
@@ -24483,7 +24485,7 @@ function ccAutoRender(){
      송장 = ws/ccDssStatus(save) · 판매현황 = ws/ccSalesStatus(cc-sales-register) · PlayMD = 등록 기록 ws/saipLog.cc */
   var Rc=(saipReq||{}).cc,actC=_saipReqActive(Rc)&&Rc.mmdd===gmd&&Rc.mode!=="preview",tC=actC?new Date(Rc.startedAt||Rc.at).getTime():0;
   var aft=function(X){return X&&X.mmdd===gmd&&X.at&&!(actC&&new Date(X.at).getTime()<tC);};   /* 지금 도는 요청보다 앞선 결과는 안 쓴다 */
-  var DD=aft(ccDssStatus)&&ccDssStatus.mode!=="preview"?ccDssStatus:null,CSs=aft(ccSalesStatus)&&ccSalesStatus.mode==="save"?ccSalesStatus:null;
+  var DD=aft(ccDssStatus)&&ccDssStatus.mode!=="preview"?ccDssStatus:(function(x){return aft(x)?x:null;})(_ccDssSaveOf(gmd)),CSs=aft(ccSalesStatus)&&ccSalesStatus.mode==="save"?ccSalesStatus:null;
   var LP=_saipLogOf("cc",gd),LPp=_saipPartialOf("cc",gd),itC=_saipItemOf("cc",gd);
   var rdy=_saipReadyOf("cc").some(function(x){return x.date===gd;});
   var dAcc=DD?(DD.accounts||[]).filter(function(a){return !a.same;}):[];
@@ -24685,6 +24687,7 @@ function _saipItemDone(kind,it){
 }
 function _ccDssLine(){
   var D=ccDssStatus;if(!D||!D.at)return "";
+  if(D.mode==="preview"&&D.saves){var sv=Object.keys(D.saves).map(function(k){return D.saves[k];}).sort(function(a,b){return String(b.at||"").localeCompare(String(a.at||""));})[0];if(sv)D=sv;}   /* 미리보기가 덮었으면 가장 최근 올리기 결과 */
   /* DSS 미리보기 결과는 띄우지 않는다 — 날짜별 중복 확인 줄(DSS26·DSS31 건수)로 충분하다(2026-10-14 영업2팀 "DSS송장 10/13 미리보기 전체 내용 필요없습니다").
      실제 송장 입력(save) 결과만 */
   if(D.mode==="preview")return "";
@@ -25039,7 +25042,8 @@ function saipAutoGo(kind,opt){
   var L=_saipLogOf(kind,v);
   /* 코스트코는 매출등록 뒤에 DSS 송장 입력이 이어서 돈다. 매출은 이미 등록됐는데 그날 DSS 송장이 안 끝났으면
      (로그인 풀림 등) '송장 입력만' 다시 요청할 수 있게 한다(mode:'dss' — 자동화 PC가 매출등록은 건너뛴다) */
-  if(L&&kind==="cc"&&!(ccDssStatus&&ccDssStatus.mmdd===mmdd&&ccDssStatus.mode==="save"&&ccDssStatus.ok)){
+  var DSv=_ccDssSaveOf(mmdd);
+  if(L&&kind==="cc"&&!(DSv&&DSv.ok)){
     var cur0=(saipReq||{}).cc;
     if(_saipReqBusy(cur0)){alert("코스트코 작업이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
     if(!confirm("코스트코 "+md+" 매출은 이미 등록되었습니다("+_saipFmtAt(L.at)+" · "+(L.by||"?")+").\n\n"
@@ -25821,7 +25825,7 @@ function renderSaipAuto(){
    버튼 하나가 둘을 차례로 한다(saip-watch: playmd-hs-saip → dss-invoice). 매출은 등록 기록(ws/saipLog.cc), 송장은 ws/ccDssStatus 기준 */
 function _ccTwoSteps(v){
   var mm=v.slice(5,7)+v.slice(8,10),R=(saipReq||{}).cc,act=_saipReqActive(R)&&R.mmdd===mm,pv=act&&R.mode==="preview";
-  var L=_saipLogOf("cc",v),S=ccSaipStatus,D=ccDssStatus,started=act&&R.startedAt?new Date(R.startedAt).getTime():0;
+  var L=_saipLogOf("cc",v),S=ccSaipStatus,D=ccDssStatus&&ccDssStatus.mmdd===mm?ccDssStatus:_ccDssSaveOf(mm),started=act&&R.startedAt?new Date(R.startedAt).getTime():0;
   var line=function(icon,lab,txt,col,sub){return '<div style="margin-top:2px;font-weight:700;color:'+col+'">'+icon+' '+lab+' '+txt+(sub?' <span style="font-weight:500;color:#5b6675">· '+_escX(sub)+'</span>':'')+'</div>';};
   /* 📒 매출등록 */
   var a,it=S&&S.mode==="save"&&(S.items||[]).filter(function(x){return x.mmdd===mm;})[0];
