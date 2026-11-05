@@ -25153,6 +25153,35 @@ function _saipChkAll(lid,on){var box=document.getElementById(lid);if(!box)return
 /* 체크한 줄 기억(2026-11-05 영업2팀 "체크하면 체크가 사라지는데?") — 미리보기·등록이 도는 동안 진행 문구가 몇 초마다 카드를 다시 그려
    체크가 지워졌다. 종류|날짜별로 체크한 열쇠를 들고 있다가 다시 그릴 때 되살린다. [등록 제외]/[제외 해제]를 누르면 비운다 */
 var _saipChkSel={};
+/* [✅ 체크한 줄 등록](2026-11-05 영업2팀 "체크하고 등록버튼을 누르면 등록되게") — 매출등록 4종(hs·ds·cc·xc).
+   체크한 줄은 제외를 풀고, 체크 안 한 줄은 등록 제외(saipFix skip)로 저장한 뒤 그 날짜를 다시 검사 → 미리보기 창 → [확정]으로 저장.
+   (예전엔 멈춘 줄을 체크 → 🚫 등록 제외 → 🔍 다시 확인 → 등록 네 번 눌러야 했다) */
+function _saipChkReg(kind,date){
+  var K=SAIP_KINDS[kind],mmdd=date.slice(5,7)+date.slice(8,10),md=(+date.slice(5,7))+"/"+(+date.slice(8,10)),g=kind+"|"+mmdd;
+  if(_saipLogOf(kind,date)){alert(K.label+" "+md+"는 이미 등록되었습니다.");return;}
+  if(_saipReqBusy((saipReq||{})[kind])){alert(K.label+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+  var all={};[].forEach.call(document.querySelectorAll('input.saipChk'),function(c){if(c.dataset.grp===g&&c.dataset.key)all[c.dataset.key]=1;});
+  var keys=Object.keys(all),S=_saipChkSel[g]||{},on=keys.filter(function(k){return S[k];}),off=keys.filter(function(k){return !S[k];});
+  if(!on.length){alert("등록할 줄을 먼저 체크해 주세요.");return;}
+  if(!confirm(K.label+" "+md+" — 체크한 "+on.length+"줄만 등록합니다."+(off.length?"\n체크 안 한 "+off.length+"줄은 등록에서 제외합니다(플레이엠디에 올리지 않음).":"")
+    +"\n\n자동화 PC가 다시 확인한 뒤 미리보기 창이 뜹니다. 그 창에서 [확정]을 누르면 저장됩니다.\n\n진행할까요?"))return;
+  if(!saipFix||typeof saipFix!=="object")saipFix={};
+  var KF=saipFix[kind]=saipFix[kind]||{},D=KF[mmdd]=KF[mmdd]||{},who=_saipMe(),now=new Date().toISOString();
+  keys.forEach(function(key){var cur=Object.assign({},D[key]||{});
+    if(S[key])delete cur.skip;else cur.skip=true;
+    if(cur.code==null&&cur.unit==null&&cur.promo==null&&!cur.skip)delete D[key];else{cur.by=who;cur.at=now;D[key]=cur;}
+  });
+  if(!Object.keys(D).length)delete KF[mmdd];
+  wsSetItem("saipFix",JSON.stringify(saipFix));
+  var el=_saipDateEl(kind);if(el){el.value=date;_saipTouched[kind]=true;}
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:date,dates:[date],by:who,at:now,state:"요청",mode:"preview",merge:true};
+  if(!saipReq||typeof saipReq!=="object")saipReq={};
+  _saipReqSet(kind,R);
+  _saipCfWait[kind]={id:R.id,date:date,at:Date.now()};
+  renderSaipAuto();
+  _saipCfShow(kind,date,{wait:true});
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다 — 자동화 PC가 켜지면 처리됩니다.");
+}
 function _saipChkMark(c){var g=c.dataset.grp||"",k=c.dataset.key||"";if(!g||!k)return;var S=_saipChkSel[g]=_saipChkSel[g]||{};if(c.checked)S[k]=1;else delete S[k];}
 function _saipRowList(kind,rows,maxH,mmdd){
   if(kind==="so")return _soRows(rows);
@@ -25521,6 +25550,9 @@ function _saipDateBtns(kind,it,active,fresh,compact){
     h+='<button class="bs" disabled title="'+_escX(why)+'" style="font-size:14px;font-weight:800;padding:5px 12px;opacity:.55;cursor:not-allowed">⛔ '+md+' 등록</button><span style="font-size:12px;color:#b45309;font-weight:700">'+_escX(why)+'</span>';
   }
   if(canReg)h+='<button class="bs" onclick="saipAutoGo(\''+kind+'\',{date:\''+dq+'\',merge:true,expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:5px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+md+(sc&&sc.off?' 선택한 '+sc.on+'줄 등록':' 등록')+'</button>';
+  /* 체크한 줄만 등록(2026-11-05) — 매출등록 4종, 플레이엠디에 이미 다 있는 날은 빼고 */
+  if(!active&&(kind==="hs"||kind==="ds"||kind==="cc"||kind==="xc")&&!(it.status==="preview"&&it.already)&&(it.rows||[]).length)
+    h+='<button class="bs" onclick="_saipChkReg(\''+kind+'\',\''+dq+'\')" title="체크한 줄만 등록 — 체크 안 한 줄은 등록 제외" style="font-size:13px;font-weight:800;padding:5px 10px;background:#ecfdf5;color:#047857;border-color:#6ee7b7">✅ 체크한 줄 등록</button>';
   if(!active)h+='<button class="bs" onclick="saipPreviewDate(\''+kind+'\',\''+dq+'\')" style="font-size:13px;font-weight:700;padding:5px 10px">🔍 '+md+' 다시 확인</button>';
   h+='</div>';
   if(compact){}
