@@ -24630,10 +24630,13 @@ function _ccPrevLine(it,dv,opt,active,fresh){
   if(!(opt&&opt.noRows))h+=_saipAckBox("cc",it);
   /* 등록 버튼은 내역(줄 목록) **위**에 — 목록이 길어 맨 아래 버튼이 안 보였다(2026-11-03 영업2팀 "등록 버튼 만들어주세요 · 모든 등록건은 동일하게"). 8줄 넘으면 아래에도 하나 더.
      확인(미리보기)이 도는 동안은 꺼진 버튼으로 자리와 까닭을 보인다(코스트코는 PlayMD 검사 뒤 DSS 송장 중복 확인까지 돈다) */
-  var reg="";
-  if(saleTodo&&!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&fresh)
-    reg=active?'<div style="margin-top:4px"><button class="bs" disabled style="font-size:14px;font-weight:800;padding:5px 12px;opacity:.6;cursor:wait">⏳ '+imd+' 이대로 등록</button> <span style="font-size:12px;color:#5b6675">확인 마무리 중(DSS 송장 중복 확인) — 끝나면 바로 눌러집니다</span></div>'
-      :'<div style="margin-top:4px"><button class="bs" onclick="saipAutoGo(\'cc\',{date:\''+it.date+'\',expect:\''+_escX((it.src&&it.src.modified)||"")+'\'})" style="font-size:14px;font-weight:800;padding:5px 12px;background:#1b6e82;color:#fff;border-color:#1b6e82">✅ '+imd+' 이대로 등록</button></div>';
+  /* 다른 매출등록 3종과 같은 버튼 줄(_saipDateBtns: [등록] · [✅ 체크한 줄 등록] · [🔍 다시 확인]) — 2026-11-05 영업2팀 "등록버튼이 없는데? 모든건에 등록버튼".
+     예전엔 검사 2시간 안(fresh)일 때만 [이대로 등록]이 떠서, 2시간이 지나면 버튼이 하나도 없었다(체크한 줄 등록도 코스트코엔 없었다).
+     지금은 2시간이 지나도 [등록]을 누르면 다시 검사 → 미리보기 → 확정 */
+  var reg="",regC="";
+  if(!(opt&&opt.noReg)&&!_saipLogOf("cc",it.date)&&it.status!=="nofile"&&!_saipItemDone("cc",it)){
+    reg=_saipDateBtns("cc",it,active,fresh);regC=_saipDateBtns("cc",it,active,fresh,true);
+  }
   h+=reg;
   /* 내역 · 상품코드 고치기(2026-10-22 영업2팀 "코스트코 매출등록도 내역 보여주고, 수정할 수 있도록") — 홈쇼핑·백화점몰과 같은 줄 목록(_saipRowList, ws/saipFix).
      10/14 "13줄·17줄 내용은 필요없습니다"라 접어 두고, 고른 날짜·멈춘 줄·고친 코드가 있는 날만 펼친다. 확정 창은 위에 줄 목록이 따로 있어 뺀다(noRows) */
@@ -24644,7 +24647,7 @@ function _ccPrevLine(it,dv,opt,active,fresh){
     h+='<details'+_saipOpenAttr(ok0,it.date===dv||nBad||nFx)+' style="margin-top:4px"><summary onclick="_saipOpenClick(this,\''+ok0+'\')" style="cursor:pointer;font-size:12.5px;font-weight:700;color:#334155">📋 내역 '+it.rows.length+'줄 · '+(it.qty||0)+'개 · '+Number(_saipItemAmt("cc",it)).toLocaleString()+'원'
       +(nBad?' <span style="color:#b91c1c">· ⛔ '+nBad+'줄 확인</span>':'')+(nFx?' <span style="color:#b45309">· ✏️ '+nFx+'줄 고침</span>':'')+' — 상품코드·판매가 고치기</summary>'
       +_saipRowList("cc",it.rows,"300px",it.mmdd)+'</details>';
-    if(it.rows.length>8)h+=reg;
+    if(it.rows.length>8)h+=regC;
   }
   return h+'</div>';
 }
