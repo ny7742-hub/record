@@ -31310,7 +31310,11 @@ function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));loca
 function saveOpt(){try{localStorage.setItem(KEY_OPT,JSON.stringify({autoOn:ST.autoOn,photoFloor:ST.photoFloor,op:ST.photoOp}));}catch(e){}}
 function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly}));}catch(e){}
   SH.pendingCur=null;share("cur");}   /* 끄는 사이 들어온 남의 배치는 버리고 내 것을 올린다(마지막에 쓴 사람이 이긴다) */
-function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
+/* 기본으로 들어 있는 저장 배치(2026-11-05 영업2팀 집기 이미지) — 목록에 없으면 넣는다. 지우면 다시 안 넣음(KEY_SAVED+"Gone") */
+var PRESET={"📷 집기1 이미지 배치":{"W":3800,"D":3200,"blocks":[],"wallOn":true,"wallSides":"LBR","wallH":2800,"poly":null,"items":[{"t":"gShelf10","x":900,"z":160,"r":0,"f":false},{"t":"gShelf10","x":1900,"z":160,"r":0,"f":false},{"t":"gShelf10","x":2900,"z":160,"r":0,"f":false},{"t":"stdMir","x":650,"z":600,"r":30,"f":false},{"t":"wooyang","x":750,"z":1350,"r":45,"f":false},{"t":"wooyang","x":3050,"z":1350,"r":315,"f":false},{"t":"tbl900","x":1900,"z":1500,"r":0,"f":false},{"t":"tbl700","x":1900,"z":1800,"r":0,"f":false},{"t":"pedestal","x":380,"z":2350,"r":0,"f":false},{"t":"ped300","x":850,"z":2650,"r":0,"f":false},{"t":"pedestal","x":3450,"z":2200,"r":0,"f":false},{"t":"ped500","x":3050,"z":2600,"r":0,"f":false}]}};
+function savedAll(){var o;try{o=JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){o={};}
+  var gone={};try{gone=JSON.parse(localStorage.getItem(KEY_SAVED+"Gone")||"{}")||{};}catch(e){}
+  Object.keys(PRESET).forEach(function(k){if(!o[k]&&!gone[k])o[k]=JSON.parse(JSON.stringify(PRESET[k]));});return o;}
 
 function problems(){
   var bad={},over=0,oob=0,i,j,a,b;
@@ -32111,6 +32115,7 @@ window.fpDelSaved=function(){
   var v=$("fpSaved").value;if(!v){msg("삭제할 저장 배치를 먼저 고르세요.",true);return;}
   if(!window.confirm("'"+v+"' 저장 배치를 삭제할까요?"))return;
   var all=savedAll();delete all[v];
+  if(PRESET[v]){try{var g=JSON.parse(localStorage.getItem(KEY_SAVED+"Gone")||"{}")||{};g[v]=1;localStorage.setItem(KEY_SAVED+"Gone",JSON.stringify(g));}catch(e){}}
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){}
   share("plans");fillSaved("");msg("삭제했습니다.");
 };
@@ -33708,7 +33713,11 @@ function saveUse(){try{localStorage.setItem(KEY_USE,JSON.stringify(ST.use));loca
 function saveOpt(){try{localStorage.setItem(KEY_OPT,JSON.stringify({autoOn:ST.autoOn,photoFloor:ST.photoFloor,op:ST.photoOp}));}catch(e){}}
 function persist(){undoTake();try{localStorage.setItem(KEY_CUR,JSON.stringify({W:ST.W,D:ST.D,items:ST.items,next:ST.next,blocks:ST.blocks,wallOn:ST.wallOn,wallSides:ST.wallSides,wallH:ST.wallH,poly:ST.poly}));}catch(e){}
   SH.pendingCur=null;share("cur");}   /* 끄는 사이 들어온 남의 배치는 버리고 내 것을 올린다(마지막에 쓴 사람이 이긴다) */
-function savedAll(){try{return JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){return {};}}
+/* 기본으로 들어 있는 저장 배치(2026-11-05 영업2팀 집기 이미지) — 목록에 없으면 넣는다. 지우면 다시 안 넣음(KEY_SAVED+"Gone") */
+var PRESET={"📷 집기2 이미지 배치":{"W":3800,"D":3200,"blocks":[],"wallOn":true,"wallSides":"LBR","wallH":2800,"poly":null,"items":[{"t":"gShelf10","x":900,"z":160,"r":0,"f":false},{"t":"gShelf10","x":1900,"z":160,"r":0,"f":false},{"t":"gShelf10","x":2900,"z":160,"r":0,"f":false},{"t":"cjTable","x":550,"z":2000,"r":90,"f":false},{"t":"cjCubeW","x":1650,"z":2150,"r":0,"f":false},{"t":"cjCubeM","x":2300,"z":2000,"r":0,"f":false},{"t":"stdMir","x":3500,"z":550,"r":330,"f":false},{"t":"cjRound","x":3450,"z":2000,"r":270,"f":false}]}};
+function savedAll(){var o;try{o=JSON.parse(localStorage.getItem(KEY_SAVED)||"null")||{};}catch(e){o={};}
+  var gone={};try{gone=JSON.parse(localStorage.getItem(KEY_SAVED+"Gone")||"{}")||{};}catch(e){}
+  Object.keys(PRESET).forEach(function(k){if(!o[k]&&!gone[k])o[k]=JSON.parse(JSON.stringify(PRESET[k]));});return o;}
 
 function problems(){
   var bad={},over=0,oob=0,i,j,a,b;
@@ -34509,6 +34518,7 @@ window.fp2DelSaved=function(){
   var v=$("fp2Saved").value;if(!v){msg("삭제할 저장 배치를 먼저 고르세요.",true);return;}
   if(!window.confirm("'"+v+"' 저장 배치를 삭제할까요?"))return;
   var all=savedAll();delete all[v];
+  if(PRESET[v]){try{var g=JSON.parse(localStorage.getItem(KEY_SAVED+"Gone")||"{}")||{};g[v]=1;localStorage.setItem(KEY_SAVED+"Gone",JSON.stringify(g));}catch(e){}}
   try{localStorage.setItem(KEY_SAVED,JSON.stringify(all));}catch(e){}
   share("plans");fillSaved("");msg("삭제했습니다.");
 };
