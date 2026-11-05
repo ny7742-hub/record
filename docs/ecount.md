@@ -4,30 +4,27 @@
 이카운트 [재고Ⅰ › 기타이동 › 창고이동]의 '미확인 → 확인' 흐름을 자비스에서 먼저 돌리고, 결과를 엑셀로 이카운트·물류에 넘긴다.
 
 - **① 발주 요청(누구나)**: 매장(`_ecStores` — `ORDER_STORES`에서 아난티·트래블메이트·백화점몰·CX 제외) + 상품 + 수량 → `ecSubmit`.
+  2026-11-05 **현대아울렛 동대문점 `HDDM`** 추가(`ORDER_STORES` · `STORE_MAP` 키 `동대문`) — 수령인·연락처·주소는 아직 비어 있다(도매발주서에 나가려면 채워야 함).
   **상품 검색은 수기발주와 같은 방식**(2026-10-13 영업2팀): `#ecSearch`에 상품명·칼라·자사코드 낱말 → 상품명 칩(`ecPickChip`)으로 좁히기 → 결과 클릭·↑↓·Enter(`ecAddResult`)로 담기, 수량 칸 비우면 1개. 결과 줄에 창고재고.
   검색칸·결과는 처음 한 번만 만들고(`#ecSr`) 담은 목록만 `#ecDraftBox`에 다시 그린다 — 다른 사람이 저장해 화면이 갱신돼도 입력이 안 날아가게.
   담을 때 주희물류 창고재고(`whQty`)를 보여 주고 `WH_MIN_ORDER` 이하면 경고만 한다.
 - **저장**: 주문마다 `ws/ecOrders/{id}`에 **객체로** 따로 쓴다(`_ecPut`) — 여러 매장이 동시에 요청·승인해도 서로 덮지 않게(다른 팀 자료처럼 통째 문자열로 쓰지 않음).
   리스너는 `apply` 대신 직접 `on("value")` — 다 지워졌을 때도 비우려고. 필드: store·storeName·by·at·memo·state(요청/승인/반려/출고)·items[{code,name,qty,ok}]·okBy/okAt·reason·shipDate/shipBy/shipAt.
-- **② 승인(관리자 `_authIsAdmin`, 승인제 전 `open`도)**: 요청 줄마다 승인 수량(`ok`) 조정 → `ecApprove` / `ecReject`(사유). 요청자·관리자는 요청 상태에서 취소(삭제). 관리자는 되돌리기(→ 요청).
-  **본사 추가**(2026-10-12 영업2팀 "발주요청은 매장에서, 거기에 본사에서도 추가"): 요청·승인 상태 주문을 펼치면 관리자에게 `＋ 본사 추가` 칸(`ecAddTo`) —
-  `{qty:0, ok:N, hq:true}`로 붙어 요청 칸에 '본사 추가'로 보이고 창고이동·도매발주서에 같이 나간다. 같은 상품이 있으면 승인 수량에 더한다. `ecDelHq`로 뺀다.
-  탭 이름에 승인 대기 건수 `🧮 이카운트 (N)`.
-  **상품 추가·빼기·수량 조정은 `EC_EDITORS` 다섯 명만**(2026-11-05 영업2팀: 강민준·이다겸·김민희·이유진·권민정, 회원 이름 `_saipMe`와 맞춤, `_ecEditor`) — 관리자라도 명단에 없으면 못 고친다. 승인·반려·출고·되돌리기는 그대로 관리자.
-  요청·승인 상태에서: 수량 칸(`ecSetOk`) — 요청 상태는 요청 수량·승인 수량을 같이, 승인 상태는 승인 수량만 고침 · `빼기`(`ecDelHq`)는 매장 요청 줄도 뺀다 · `＋ 본사 추가`(`ecAddTo`). 고치면 `editBy/editAt` → 목록 머리에 `수정 이름 시각`. 발주·반품 같이 쓴다.
-- **③ 출고(관리자)**: 승인 주문을 체크 → 이동일자 →
-  `⬇ 이카운트 창고이동 엑셀`(`이카운트_창고이동_YYYYMMDD.xlsx`, 열: 일자·순서·출고창고·입고창고·품목코드·품목명·수량·적요 — 같은 주문 = 같은 순서 = 전표 1장, 웹자료올리기에 붙여넣기) ·
-  `⬇ 도매발주서(물류)`(`_wholesaleWorkbook`, 발주 메일과 같은 양식) → `✔ 출고 처리`.
-- **🤖 이카운트에 넣기**(2026-11-04 영업2팀 "이카운트를 간편하게 쓰려고 만든 것 — 모두 이카운트에 되게"): ③ 맨 위 `#ecMoveAutoBox`(`ecMoveAutoRender`) —
-  `🤖 이카운트에 넣고 출고 처리(자동화 PC)`(`ecMoveAuto('save')`, 반품은 '입고 처리') · `시험 입력(저장 안 함)`(`'test'`). 발주·반품 같이 쓴다.
-  고른 승인 주문을 `_ecMoveSlips`(엑셀과 같은 전표 묶음 — 발주 NH→매장, 반품 매장→NH·불량→BAD 전표 나눔)로 `ws/ecMoveJob/{id}` {id,by,at,kind(ord|ret),date,slips:[{key,oid,sn,from,to,memo,items:[{code,name,qty}]}]}에 올리고 `_saipReqSet('em', …)` →
-  자동화 PC `saip-watch.mjs`(kind `em`, 도매 줄 · PlayMD 안 씀) → **`automation/ecount-move.mjs --id [--save]`**.
-  스크립트: 로그인된 이카운트 탭에서 hash로 **창고이동입력**(`menuSeq=MENUTREE_000539&groupSeq=MENUTREE_000033&prgId=E040501`) → `웹자료올리기` 창 → 첫 줄 `td[data-columnid="IO_DATE"]` 클릭 → TSV paste 이벤트 → 다시 읽어 일자·순번·보내는/받는창고·품목코드·수량 대조.
-  저장이면 `저장(F8)` → 알림·창 닫힘 확인 → 주문을 PATCH로 `state:'출고'`·shipDate/By/At·**`ec {at,by,auto,job}`**(목록에 보라 `이카운트 등록` 표). 저장 직전 주문을 다시 읽어 `ec`가 있거나 승인 상태가 아니면 건너뛴다(두 번 안 넣음). 되돌리기(`ecUndo`)는 `ec`도 지운다(이카운트 전표는 손으로 지울 것).
-  결과 `ws/ecMoveStatus` {id,at,by,mode,kind,state,rows,pasted,slips:[{key,oid,sn,from,to,n,qty,res,why}],msg}.
-  **웹자료올리기 열(2026-11-04 화면에서 읽음)**: 일자·순번·담당자·보내는창고·받는창고·품목코드·품목명·수량·적요·생산전표생성 — `ecDlEcount` 엑셀도 이 열로 바꿨다(예전 8칸엔 담당자 칸이 없어 한 칸씩 밀렸다).
-  11/4 시험(NH→AVE 2줄 · NH→LJS 1줄)을 직접 실행·saipReq 요청 두 번 모두 3/3줄 대조 OK, 저장 없이 닫음. **실제 저장은 아직 안 해 봤다**(첫 저장은 창고이동조회에서 확인할 것).
-  손으로 할 때 단추(`⬇ 도매발주서(물류)` · `⬇ 이카운트 창고이동 엑셀` · `출고 처리만`)는 아래 줄에 남겼다. 도매발주서는 자동 넣기와 따로다.
+- **② 목록·승인**(2026-11-05 영업2팀 "의미없는 버튼 삭제 · 발주가 들어오면 요청에 색 · 요청 누르면 내역 · 승인 누르면 이카운트 창고이동등록"):
+  단추는 `요청 N`(들어오면 노란색, 기본) · `이카운트 대기 N`(승인했는데 아직 안 들어간 것 — 있을 때만, 빨간색) · `완료`(=출고) · `반려`. 예전 진행 중·승인·전체 단추와 ③ 출고 카드(`#ecCard3`)는 뺐다(숨김).
+  요청·이카운트 대기 주문은 늘 펼쳐 보인다. 상태 글자 `_ecStLab`: 출고 → **완료**, 승인 → **이카운트 대기**.
+  **상품 추가·빼기·수량 조정은 `EC_EDITORS` 다섯 명만**(강민준·이다겸·김민희·이유진·권민정, 회원 이름 `_saipMe`와 맞춤, `_ecEditor`) — 관리자라도 명단에 없으면 못 고친다.
+  요청 상태(또는 이카운트 대기인데 등록 중이 아닐 때): 수량 칸(`ecSetOk`) — 요청 상태는 요청·승인 수량을 같이, 승인 상태는 승인 수량만 · `빼기`(`ecDelHq`)는 매장 요청 줄도 · `＋ 본사 추가`(`ecAddTo`, `{qty:0, ok:N, hq:true}`). 고치면 `editBy/editAt` → `수정 이름 시각`.
+  **승인·반려는 관리자 + EC_EDITORS**(`_ecCanOk`). 요청자·관리자는 요청 상태에서 취소(삭제). 관리자는 되돌리기(→ 요청, 이카운트 전표는 손으로 지울 것).
+  탭 이름에 요청 건수 `🧮 이카운트 (N)`.
+- **승인 = 이카운트 창고이동 등록**(`ecApprove`): 다른 em 요청이 돌고 있으면 막음 → 확인창(전표 장수·창고) → state `승인` → `_ecMoveSend([o], true)` —
+  `_ecMoveSlips`(발주 NH→매장, 반품 매장→NH·불량→BAD 전표 나눔)를 `ws/ecMoveJob/{id}` {id,by,at,kind(ord|ret),date(오늘),slips:[{key,oid,sn,from,to,memo,items:[{code,name,qty}]}]}에 올리고 `_saipReqSet(em, {…, mode:save, oids})` →
+  자동화 PC `saip-watch.mjs`(kind `em`) → **`automation/ecount-move.mjs --id --save`**: 로그인된 이카운트 탭에서 **창고이동입력**(`menuSeq=MENUTREE_000539&groupSeq=MENUTREE_000033&prgId=E040501`) → `웹자료올리기` → 첫 줄 `td[data-columnid="IO_DATE"]` 클릭 → TSV paste → 일자·순번·창고·품목코드·수량 대조 →
+  `저장(F8)` → 주문을 PATCH로 `state:출고`·shipDate/By/At·**`ec {at,by,auto,job}`**(보라 `이카운트 등록` 표). 저장 직전 주문을 다시 읽어 `ec`가 있거나 승인 상태가 아니면 건너뛴다.
+  결과 `ws/ecMoveStatus` {id,at,by,mode,kind,state,rows,pasted,slips:[{key,oid,sn,from,to,n,qty,res,why}],msg}. 주문별 상태는 `_ecMoveOf(id)`(run · fail), 목록 위 `#ecMoveAutoBox`에 자동화 PC 켜짐 여부·마지막 결과.
+  안 들어간 주문(이카운트 대기)에는 `🤖 이카운트 다시 등록`(`ecMoveRetry`) · `⬇ 엑셀`(`ecDlEcount(id)`, 웹자료올리기 열: 일자·순번·담당자·보내는창고·받는창고·품목코드·품목명·수량·적요·생산전표생성) · `손으로 올렸음`(`ecShip(id)` — 상태만 완료).
+  **도매발주서(물류)**: 완료 목록에서 주문마다 `⬇ 도매발주서`(`ecDlWholesale(id)`) · 위 `⬇ 오늘 완료분 도매발주서`(`ecDlWholesale(today)`, shipDate = 오늘). 반품에는 없다.
+  11/4 시험(NH→AVE 2줄 · NH→LJS 1줄) 3/3줄 대조 OK, 저장 없이 닫음. **실제 저장은 아직 안 해 봤다**(첫 저장은 창고이동조회에서 확인할 것).
 - **창고코드(`ws/ecConfig` {hq, stores}, 관리자만)**: 본사 출고 창고 기본 **NH(주희창고)**(`_ecHq`, 2026-10-12 영업2팀). 매장 창고코드 = PlayMD 매장코드(영업2팀 확인 2026-10-12 — 이카운트 창고코드도 같다). 품목코드 = 자사코드 그대로.
 - 이카운트 Open API 키는 없다 — 자동 넣기는 사람이 로그인한 자동화 창 화면으로 한다(위 🤖).
 
