@@ -25144,11 +25144,16 @@ function _saipChkApply(lid,kind,mmdd,on){
     else{cur.by=_saipMe();cur.at=new Date().toISOString();D[key]=cur;}
   });
   if(!Object.keys(D).length)delete K[mmdd];
+  delete _saipChkSel[kind+"|"+mmdd];                                 /* 적용했으면 고르기는 비운다 */
   wsSetItem("saipFix",JSON.stringify(saipFix));
   if(typeof renderSaipAuto==="function")renderSaipAuto();
 }
 /* 줄 체크 전체 선택 · 전체 해제(2026-11-03 영업2팀) — 고르기만 바꾼다(저장 없음). 제외는 [🚫 등록 제외]를 눌러야 된다 */
-function _saipChkAll(lid,on){var box=document.getElementById(lid);if(!box)return;[].forEach.call(box.querySelectorAll('input.saipChk'),function(c){c.checked=!!on;});}
+function _saipChkAll(lid,on){var box=document.getElementById(lid);if(!box)return;[].forEach.call(box.querySelectorAll('input.saipChk'),function(c){c.checked=!!on;_saipChkMark(c);});}
+/* 체크한 줄 기억(2026-11-05 영업2팀 "체크하면 체크가 사라지는데?") — 미리보기·등록이 도는 동안 진행 문구가 몇 초마다 카드를 다시 그려
+   체크가 지워졌다. 종류|날짜별로 체크한 열쇠를 들고 있다가 다시 그릴 때 되살린다. [등록 제외]/[제외 해제]를 누르면 비운다 */
+var _saipChkSel={};
+function _saipChkMark(c){var g=c.dataset.grp||"",k=c.dataset.key||"";if(!g||!k)return;var S=_saipChkSel[g]=_saipChkSel[g]||{};if(c.checked)S[k]=1;else delete S[k];}
 function _saipRowList(kind,rows,maxH,mmdd){
   if(kind==="so")return _soRows(rows);
   var canFix=!!mmdd&&(kind==="hs"||kind==="ds"||kind==="cc"||kind==="xc");   /* 상품코드 고치기 — 매출등록 4종만 */
@@ -25173,7 +25178,7 @@ function _saipRowList(kind,rows,maxH,mmdd){
     if(un||!/→/.test(r.store||""))parts.push(Number((un||0)*(r.qty||0)).toLocaleString()+'원'+((r.qty||0)>1||sale!=null?' <span style="color:#5b6675;font-size:12px">('+((r.qty||0)>1?'개당 '+Number(un||0).toLocaleString():'')+(sale!=null?((r.qty||0)>1?' · ':'')+'판매가 '+Number(U.list).toLocaleString()+(U.promo?' · <b style="color:#be123c">행사가 '+Number(U.promo).toLocaleString()+'</b>':'')+' × '+CC_PM_RATE:'')+')</span>':''));
     parts.push(_escX(_saipStoreNm(r.store)));
     h+='<div title="'+_escX((r.prod||"")+" · "+(r.code||""))+'" style="padding:3px 8px'+(ix?';border-top:1px solid #eef2f6':'')+';overflow-wrap:anywhere'+(skipped?';background:#fafafa':'')+'">'
-      +(canFix?'<input type="checkbox" class="saipChk" data-key="'+_escX(rkey)+'" title="선택 — 아래 [등록 제외]/[제외 해제] 버튼" style="width:15px;height:15px;padding:0;margin:0 6px 0 0;flex:none;vertical-align:-2px;cursor:pointer">':'')
+      +(canFix?'<input type="checkbox" class="saipChk" data-grp="'+_escX(kind+"|"+mmdd)+'" data-key="'+_escX(rkey)+'"'+(((_saipChkSel[kind+"|"+mmdd]||{})[rkey])?' checked':'')+' onchange="_saipChkMark(this)" title="선택 — 아래 [등록 제외]/[제외 해제] 버튼" style="width:15px;height:15px;padding:0;margin:0 6px 0 0;flex:none;vertical-align:-2px;cursor:pointer">':'')
       +'<span'+(skipped?' style="color:#64748b;text-decoration:line-through"':'')+'>'+parts.join(', ')+'</span>'+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+(r.free?' <span style="color:#5b6675;font-size:11px">무상</span>':'')
       +(skipped?' <span style="color:#b91c1c;font-size:11px;font-weight:700">🚫 등록 제외</span>':'')
       /* 상품코드리스트 대조 메모(2026-10-21) — 고쳐 넣은 코드·색상/상품명 다름 */
