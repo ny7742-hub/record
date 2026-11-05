@@ -24,7 +24,9 @@
   결과 `ws/ecMoveStatus` {id,at,by,mode,kind,state,rows,pasted,slips:[{key,oid,sn,from,to,n,qty,res,why}],msg}. 주문별 상태는 `_ecMoveOf(id)`(run · fail), 목록 위 `#ecMoveAutoBox`에 자동화 PC 켜짐 여부·마지막 결과.
   안 들어간 주문(이카운트 대기)에는 `🤖 이카운트 다시 등록`(`ecMoveRetry`) · `⬇ 엑셀`(`ecDlEcount(id)`, 웹자료올리기 열: 일자·순번·담당자·보내는창고·받는창고·품목코드·품목명·수량·적요·생산전표생성) · `손으로 올렸음`(`ecShip(id)` — 상태만 완료).
   **도매발주서(물류)**: 완료 목록에서 주문마다 `⬇ 도매발주서`(`ecDlWholesale(id)`) · 위 `⬇ 오늘 완료분 도매발주서`(`ecDlWholesale(today)`, shipDate = 오늘). 반품에는 없다.
-  11/4 시험(NH→AVE 2줄 · NH→LJS 1줄) 3/3줄 대조 OK, 저장 없이 닫음. **실제 저장은 아직 안 해 봤다**(첫 저장은 창고이동조회에서 확인할 것).
+  11/4 시험(NH→AVE 2줄 · NH→LJS 1줄) 3/3줄 대조 OK. **11/5 첫 실제 저장**(청량리 2줄, 강민준 승인): 이카운트는 저장해도 **창을 닫지 않고** 줄마다 `결과`(`td[data-columnid="checkSuccess"]`)에 `[전표묶음0]OK`를 찍는다 —
+  예전 스크립트는 창 닫힘·알림만 기다려 60초 뒤 실패로 끝났다(전표는 들어갔고 이카운트 재고에 AVE 2칸이 생김). 이제 결과 칸이 모두 OK면 성공 → 창 닫기 → 주문 출고·ec. OK 아닌 글이 있으면 그 글로 실패(창은 둠).
+  저장 전 결과 칸이 이미 차 있으면 결과 칸으로 판단하지 않는다. 그 주문(ecmw1tza7lsmf)은 손으로 출고·ec 처리했다. 백업 `automation/_backup-ecount-move-1105-result.mjs`.
 - **창고코드(`ws/ecConfig` {hq, stores}, 관리자만)**: 본사 출고 창고 기본 **NH(주희창고)**(`_ecHq`, 2026-10-12 영업2팀). 매장 창고코드 = PlayMD 매장코드(영업2팀 확인 2026-10-12 — 이카운트 창고코드도 같다). 품목코드 = 자사코드 그대로.
 - **`🔑 이카운트 접속`**(2026-11-05 영업2팀, 재고 줄 `#ecStockBar` 오른쪽): `qcPortalOpen(event,'ecount')` — 자동화 창 모드를 켠 PC는 자동화 크롬 창에(`portalopen:ecount`), 아니면 새 탭으로 `login.ecount.com`. 마지막 받기가 실패했으면 빨간색.
   자동 로그인(비밀번호 저장·입력)은 만들지 않는다 — 로그인은 사람이 자동화 창에서 한다.
