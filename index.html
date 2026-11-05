@@ -3145,7 +3145,7 @@ var FB_PATH={
   "dailySalesDB":"ws/dailySales","stockCheckLog":"ws/stockCheck","stockCheckResults":"ws/stockCheckResults","hsStockMarks":"ws/hsStockMarks",
   "onlineStockDB":"ws/onlineStock","onsStockMarks":"ws/onsStockMarks","invCount":"ws/invCount","wssalesUpload":"ws/wssalesUpload","wssalesChk":"ws/wssalesChk",
   "extSalesDB":"ws/extSales","allSalesDB":"ws/allSales","allStoreDB":"ws/allStore","hsProdListDB":"ws/hsProdList","ccsMallDB":"ws/ccsMall","mgSealDB":"ws/mgSeal","pdfTeamDB":"ws/pdfTeam","ccPropDB":"ws/ccProp","msDB":"ws/msSimple","cdDB":"ws/ccDirect",
-  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","wsProdDB":"ws/wsProd","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
+  "uploadLog":"ws/uploadLog","whRaw":"ws/whRaw","siRaw":"ws/siRaw","bestImgDB":"ws/bestImg","mallLinkDB":"ws/mallLink","mallMixDB":"ws/mallMix","wsProdDB":"ws/wsProd","naverReq":"ws/naverReq","naverPriceDB":"ws/naverPrice",   /* 네이버 최저가 요청·결과(자동화 PC naver-price.mjs, 2026-10-20) */   /* mallLink = 자사몰 상품번호·이미지(자동화 PC mall-links.mjs가 쓴다, 2026-10-20) */
   "ccrShare":"ws/ccrShare","hsrShare":"ws/hsrShare",
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
@@ -3991,6 +3991,11 @@ function fbListen(){
   );
   apply("ws/mallLink","mallLinkDB",
     function(d){if(d&&typeof d==="object")mallLinkDB=d;},
+    function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
+  );
+  /* 공홈 혼용률(자동화 PC mall-mix.mjs가 자사몰 상세 이미지를 글자 인식으로 읽음, 2026-11-05) */
+  apply("ws/mallMix","mallMixDB",
+    function(d){if(d&&typeof d==="object")mallMixDB=d;},
     function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
   );
   apply("ws/bestImg","bestImgDB",
@@ -19673,6 +19678,7 @@ function _msStockRow(r,i){
 var wsProdDB=(function(){try{var d=JSON.parse(localStorage.getItem("wsProdDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 var mallLinkDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallLinkDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 var MALL="https://whitesands.co.kr";
+var mallMixDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallMixDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 var _hpsIdx=null,_hpsT=null;
 function hpsSearchSoon(){clearTimeout(_hpsT);_hpsT=setTimeout(hpsSearch,180);}
 function _hpsIndex(){
@@ -19814,7 +19820,12 @@ function _hpsMix(code){
     if(!by[v]){by[v]=[];order.push(v);}
     var c=String(d["칼라명"]||"").trim();if(c&&by[v].indexOf(c)<0)by[v].push(c);
   });
-  if(!order.length)return '<span style="color:#5b6675" title="상품코드리스트에 혼용률이 없거나, 혼용률이 든 상품데이터가 아직 안 올라왔습니다">혼용률 —</span>';
+  if(!order.length){
+    /* PlayMD가 비었으면 공홈(자사몰 상세 이미지)에서 읽은 값 — 글자 인식이라 '(공홈)'을 붙이고 누르면 자사몰 상세로 */
+    var W=((mallMixDB||{}).codes||{})[code];
+    if(W&&W.t)return '<span style="overflow-wrap:anywhere">혼용률 <b>'+_escX(W.t)+'</b> <a href="'+MALL+'/product/detail.html?product_no='+encodeURIComponent(W.no)+'" target="_blank" rel="noopener" title="PlayMD 상품코드리스트에 혼용률이 없어 자사몰 상세 이미지에서 글자 인식으로 읽었습니다('+_escX(String(W.at||"").slice(0,10))+') — 틀릴 수 있으니 중요할 땐 자사몰에서 확인하세요" style="font-size:12.5px;color:#1b6e82;font-weight:700;text-decoration:none">(공홈)</a></span>';
+    return '<span style="color:#5b6675" title="PlayMD 상품코드리스트에 혼용률이 없고, 자사몰 상세 이미지에서도 못 읽었습니다">혼용률 —</span>';
+  }
   var t=order.length===1?_escX(order[0]):order.map(function(v){return _escX(by[v].join("·"))+': '+_escX(v);}).join(' / ');
   return '<span style="overflow-wrap:anywhere">혼용률 <b>'+t+'</b></span>';
 }
