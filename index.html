@@ -22854,10 +22854,29 @@ function _ccrMapRow(c){
   };
 }
 /* 상품명 → 상품컬러코드, 공급가 = 결제가 ÷ 수량 — 붙여넣기와 자동 반품등록(_retCollect)이 같이 쓴다 */
+/* 코스트코 이름이 상품데이터와 달라 못 찾는 상품 → 상품코드(2026-11-06 영업2팀 "버터옐로우, 라이트그레이 (693315) 나오게").
+   600 AIR 우양산(코스트코 693315 '우양산 2종') = GLM90Z9Z — 버터옐로우 BTY · 딥 그린 DGE · 라이트그레이 LGY. 850 장우산(GLM104Z9Z)은 빼고 본다.
+   색은 상품명 어디에 있든(띄어쓰기 무시) 찾고, 못 찾으면 옐로우·그린·그레이 한 낱말로 한 번 더 */
+var CCR_PROD_ALIAS=[
+  {test:function(n){return /600\s*air|우양산\s*2종|693315/i.test(n)||(/parasol|우양산/i.test(n)&&!/850/.test(n));},prod:"GLM90Z9Z",loose:{"옐로우":"BTY","그린":"DGE","그레이":"LGY"}}
+];
+function _ccrAliasCode(prod){
+  var n=String(prod||""),nz=n.replace(/\s+/g,"");
+  for(var i=0;i<CCR_PROD_ALIAS.length;i++){
+    var A=CCR_PROD_ALIAS[i];if(!A.test(n))continue;
+    var rows=_hsProdRows().filter(function(r){return r&&r[1]===A.prod&&r[7];});
+    var hit=rows.filter(function(r){var c=String(r[4]||"").replace(/\s+/g,"");return c&&nz.indexOf(c)>=0;});
+    if(hit.length===1)return hit[0][7];
+    var lk=Object.keys(A.loose||{}).filter(function(k){return nz.indexOf(k)>=0;});
+    if(lk.length===1){var cc=A.loose[lk[0]],r2=rows.filter(function(r){return r[3]===cc;})[0];return r2?r2[7]:A.prod+cc+"X";}
+  }
+  return "";
+}
 function _ccrMatchRow(m){
   m.colorCode="";m.price="";m.matched=false;
   var hit=(typeof _hsFindMatchFromDefaultData==="function")?_hsFindMatchFromDefaultData(m.prod):null;
   if(hit&&hit.colorCode){m.colorCode=hit.colorCode;m.matched=true;}
+  if(!m.colorCode){var ac=_ccrAliasCode(m.prod);if(ac){m.colorCode=ac;m.matched=true;}}
   if(m.pay!==""&&m.qty)m.price=Math.round(m.pay/m.qty);
   return m;
 }
