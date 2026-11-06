@@ -3920,7 +3920,7 @@ function fbListen(){
   );
   apply("ws/saipReq","saipReq",
     function(d){if(d&&typeof d==="object")saipReq=d;},
-    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();}
+    function(){if(typeof ccNhPaint==="function")ccNhPaint();if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();}
   );
   /* PlayMD 전체 창고재고(사이즈별 자사코드) — 창고재고현황을 올릴 때 같이 만든다 · 이카운트 자동 입력 결과(자동화 PC ecount-stock.mjs가 쓴다) */
   apply("ws/pmWhAll","pmWhAll",
@@ -3958,7 +3958,7 @@ function fbListen(){
   );
   apply("ws/saipWatch","saipWatch",
     function(d){if(d&&typeof d==="object")saipWatch=d;},
-    function(){if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();}
+    function(){if(typeof ccNhPaint==="function")ccNhPaint();if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();}
   );
   /* 홈 자동 업로드 기록 (팀 공유) */
   apply("ws/uploadLog","uploadLog",
@@ -28923,6 +28923,23 @@ function _ccStkCell(prod,color,seen,kind){
   var min=(typeof ccsOutMin==="function")?ccsOutMin():30;
   return td(q<=0?"cc-stk-out":(q<min?"cc-stk-low":""),fmtCC(q)||"0",tip);
 }
+/* 주희물류 재고 [🔄 최신](2026-11-06 영업2팀 "버튼 누르면 최신재고로") — 자동화 PC에 ws/saipReq.pmw 요청 →
+   saip-watch가 playmd-daily.mjs --only=wh(오늘 날짜 창고재고현황만 받아 자비스에 올림, 약 1분) → ws/whRaw가 바뀌면 모든 화면의 표가 다시 그려진다 */
+function _ccNhBtnHtml(){
+  var R=(typeof saipReq!=="undefined"&&saipReq)?saipReq.pmw:null;
+  var st='font-size:10.5px;font-weight:700;margin-top:3px;white-space:nowrap';
+  if(_saipReqActive(R))return '<span style="'+st+';color:#fde68a" title="'+_escX((R.by||"")+" · "+(R.progress||""))+'">⏳ '+(R.state==="요청"?"대기":"받는 중")+'</span>';
+  var fail=R&&R.state==="실패"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<30*60*1000;
+  return '<button onclick="ccNhRefresh()" title="플레이엠디 창고재고현황(오늘)을 자동화 PC가 새로 받아 올립니다(약 1분)'+(fail?' — 지난번 실패: '+_escX(R.error||R.progress||"")+'':'')+'" style="'+st+';border:1px solid '+(fail?'#fca5a5':'#94a3b8')+';background:#fff;color:'+(fail?'#b91c1c':'#1b6e82')+';border-radius:4px;padding:1px 5px;cursor:pointer">🔄 '+(fail?'다시':'최신')+'</button>';
+}
+function ccNhPaint(){var el=document.getElementById("ccNhRefresh");if(el)el.innerHTML=_ccNhBtnHtml();}
+function ccNhRefresh(){
+  var cur=(saipReq||{}).pmw;
+  if(_saipReqActive(cur)){alert("주희물류 재고를 이미 받고 있습니다("+(cur.by||"?")+").");return;}
+  _saipReqSet("pmw",{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청"});
+  ccNhPaint();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다 — 자동화 PC가 켜지면 처리됩니다.");
+}
 /* 코스트코 탭 'DSS 재고'(2026-10-13 영업2팀) — DSS 작업 > 재고 업데이트의 DELTA QTY(= 수량 − 발송완료 − ORDERED, 아직 안 나간 주문을 뺀 값).
    자동화 PC `automation/dss-stock.mjs`가 두 아이디 창에서 표를 읽어 ws/ccDssStock {at, accounts:{ckr.…:{at, rows:{'696151-DG':{q,s,o,d,n}}}}}에 올린다.
    코스트코 코드(prod.code) + 색: DSS 설명 끝 ' - 블랙'의 색 이름을 먼저 맞추고, 안 되면 SKU 끝 색코드(_ccPdfColor)를 창고 칼라코드와 맞춘다.
@@ -28990,7 +29007,7 @@ function renderCostcoPage(){
   monthKeys.forEach(function(k){var t=ccPeriodTotal(k);monthTotQty+=t.qty;monthTotAmt+=t.amount;});
 
   var h='<table class="cc-tbl"><colgroup>';
-  h+='<col style="width:54px"><col style="width:1px"><col style="width:1px"><col style="width:1px"><col style="width:1px"><col style="width:1px"><col style="width:1px">';
+  h+='<col style="width:54px"><col style="width:1px"><col style="width:1px"><col style="width:1px"><col style="width:1px"><col style="width:1px">';
   if(monthKeys.length){
     monthKeys.forEach(function(){h+='<col style="width:56px"><col style="width:88px">';});
     h+='<col style="width:60px"><col style="width:90px">';
@@ -29007,8 +29024,8 @@ function renderCostcoPage(){
   h+='<th rowspan="2" class="cc-sticky-1">구분 <button onclick="ccToggleFilterMenu(event)" title="상품 숨김/표시" style="border:1px solid #94a3b8;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;padding:0 4px;color:#1b6e82;vertical-align:middle">👁</button>'
     +(_hidN?'<div style="font-size:10.5px;font-weight:700;color:#fcd34d;margin-top:2px;white-space:nowrap;cursor:pointer" onclick="ccToggleFilterMenu(event)" title="숨긴 상품 보기">숨김 '+_hidN+'</div>':'')+'</th>';
   h+='<th rowspan="2" class="cc-sticky-3">색상</th>';
-  h+='<th rowspan="2" class="cc-sticky-7" title="플레이엠디 창고재고현황 [NH] 주희물류 재고(컬러별) — 코스트코 창고로 보낼 수 있는 물량" style="white-space:nowrap">주희물류<br>재고'+(ccsWh&&ccsWh.date?'<div style="font-size:10px;font-weight:400;color:#cbd5e1">'+ccsWh.date.slice(5).replace("-","/")+'</div>':'')+'</th>';
-  h+='<th rowspan="2" class="cc-sticky-5" title="플레이엠디 창고재고현황 [CSTC] 코스트코 창고 재고(컬러별)" style="white-space:nowrap">코스트코<br>재고'+(ccsWh&&ccsWh.date?'<div style="font-size:10px;font-weight:400;color:#cbd5e1">'+ccsWh.date.slice(5).replace("-","/")+'</div>':'')+'</th>';
+  h+='<th rowspan="2" class="cc-sticky-7" title="플레이엠디 창고재고현황 [NH] 주희물류 재고(컬러별) — 코스트코 창고로 보낼 수 있는 물량" style="white-space:nowrap">주희물류<br>재고'+(ccsWh&&ccsWh.date?'<div style="font-size:10px;font-weight:400;color:#cbd5e1">'+ccsWh.date.slice(5).replace("-","/")+'</div>':'')+'<div id="ccNhRefresh">'+_ccNhBtnHtml()+'</div></th>';
+  /* '코스트코 재고'(CSTC) 열은 2026-11-06 영업2팀 요청으로 뺐다 — _ccStkCell의 CSTC 쪽은 남겨 둠(다시 넣을 때) */
   h+='<th rowspan="2" class="cc-sticky-6" title="코스트코 DSS 작업 > 재고 업데이트의 DELTA QTY(수량 − 발송완료 − 미발송 주문)" style="white-space:nowrap">DSS<br>재고'+_ccDssHeadTime()+'</th>';
   h+='<th rowspan="2" class="cc-sticky-4">단종</th>';
   if(monthKeys.length){
@@ -29038,7 +29055,6 @@ function renderCostcoPage(){
   h+='<td class="cc-sticky-1" style="background:#e8eaf0;font-size:16px;font-weight:700">누계</td>';
   h+='<td class="cc-sticky-3" style="background:#e8eaf0;font-size:16px;color:#475569">컬러</td>';
   h+='<td class="cc-sticky-7 cc-stk-cell" id="ccNhTotal" style="background:#e8eaf0"></td>';
-  h+='<td class="cc-sticky-5 cc-stk-cell" id="ccStkTotal" style="background:#e8eaf0"></td>';
   h+='<td class="cc-sticky-6 cc-stk-cell" id="ccDssTotal" style="background:#e8eaf0"></td>';
   h+='<td class="cc-sticky-4" style="background:#e8eaf0"></td>';
   if(monthKeys.length){
@@ -29101,7 +29117,6 @@ function renderCostcoPage(){
       }
       h+='<td class="cc-color-cell cc-sticky-3">'+color+'</td>';
       h+=_ccStkCell(prod,color,_nhSeen,"nh");
-      h+=_ccStkCell(prod,color,_stkSeen);
       h+=_ccDssCell(prod,color,_dssSeen);
       h+='<td class="cc-disc-cell cc-sticky-4" onclick="ccToggleDisc(\''+prod.name+'\',\''+color+'\')" title="클릭하여 단종 표시 전환">'+(isDisc?'<span style="color:#dc2626;font-weight:700;font-size:14px">단종</span>':'<span style="color:#cbd5e1;font-size:12px">–</span>')+'</td>';
       if(monthKeys.length){
@@ -29134,7 +29149,6 @@ function renderCostcoPage(){
   h+='</tbody></table>';
   if(_nhSeen.any)h=h.replace('<td class="cc-sticky-7 cc-stk-cell" id="ccNhTotal" style="background:#e8eaf0"></td>','<td class="cc-sticky-7 cc-stk-cell" id="ccNhTotal" style="background:#e8eaf0">'+fmtCC(_nhSeen.sum)+'</td>');
   if(_dssSeen.any)h=h.replace('<td class="cc-sticky-6 cc-stk-cell" id="ccDssTotal" style="background:#e8eaf0"></td>','<td class="cc-sticky-6 cc-stk-cell" id="ccDssTotal" style="background:#e8eaf0">'+fmtCC(_dssSeen.sum)+'</td>');
-  if(_stkSeen.any)h=h.replace('<td class="cc-sticky-5 cc-stk-cell" id="ccStkTotal" style="background:#e8eaf0"></td>','<td class="cc-sticky-5 cc-stk-cell" id="ccStkTotal" style="background:#e8eaf0">'+fmtCC(_stkSeen.sum)+'</td>');
   /* 상품 숨김/표시 패널 (구분 헤더의 👁) — 숨긴 상품도 목록에 남아야 다시 켤 수 있다 */
   var allNames=prods.map(function(p){return p.name;});
   var _hidNames=allNames.filter(function(nm){return _hidden[nm];});
