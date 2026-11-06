@@ -84,6 +84,8 @@
   JSA·QC·BT처럼 이카운트에 짝이 없는 창고는 사람이 고른다.
 - **`🤖 이카운트에 넣기(자동화 PC)`**(`ecStkAuto('save')`) · `🔍 미리보기`(`'preview'`): 담은 목록 전체를 `ws/ecStkJob/{id}`(객체)에 올리고 `ws/saipReq.ek` {id, by, at, state, mode, n}로 요청.
   자동화 PC `automation/saip-watch.mjs`(kind `ek`, 도매 줄 · PlayMD 안 씀) → **`automation/ecount-stock.mjs --id [--save]`**.
+  **대기 요청 취소**(2026-11-06 영업2팀 "3번이 안됩니다" — 강민준 요청이 `요청`에 머물러 `_saipReqActive` 45분 동안 단추가 회색으로 잠겼다): `요청`(아직 자동화가 안 가져감)이면 요청 시각과 `✕ 요청 취소`(`_saipReqCancel('ek')`) —
+  팀 공유에서 같은 id·`요청`일 때만 transaction으로 `취소`(+endedAt·cancelBy), 그사이 `처리중`이 됐으면 안 건드린다. 기다리는 까닭도 한 줄: 신호 없음 / `saipWatch.busy`(다른 일 중) / 곧 가져감.
 - **담은 수량 = 그 창고의 맞출 재고**(이카운트 간편재고조정 방식). 이미 같으면 건너뛴다 → 두 번 눌러도 두 번 늘지 않는다. (재고조정 엑셀은 '차이', 이쪽은 '맞출 수량'.)
 - `ecount-stock.mjs`: 자동화 창(9333)의 **로그인된 이카운트 탭**(`ecount.com/ec*/view/erp?…ec_req_sid=`)에서 hash로 간편재고조정(`prgId=E040635`) → 금일 · 재고수량0품목포함으로 검색
   (검색·빠른 검색마다 '등록되어 있는 모든 품목이 검색됩니다' 확인창 → 확인) → 품목마다 빠른 검색칸 `입력 후 [Enter]`에 품목코드 → 줄의 `td[data-columnid=창고코드]`에서 지금 수량 →
