@@ -3201,20 +3201,57 @@ function _authRenderOut(){
 /* Google 로그인 (2026-09-29 영업2팀) — 무료 요금제는 로그인 링크 메일이 **하루 5통**뿐이라(프로젝트 전체)
    팀원이 한꺼번에 들어오지 못했다. Google 로그인은 메일을 보내지 않아 한도가 없다(콘솔에서 이미 켜 둠).
    누가 들어와도 승인은 지금처럼 관리자가 access/members로 한다. 팝업이 막히면 페이지 이동 방식으로 한 번 더 한다. */
+/* 2026-11-06 영업2팀(휴대폰 "구글로그인이 안됩니다 — 눌러도 반응을 안함"): 휴대폰 브라우저(삼성 인터넷 등)는 팝업이 소리 없이 막히거나
+   새 탭으로 열려 결과가 안 돌아오는 일이 있어, 누르면 단추를 '여는 중'으로 바꾸고 3초 뒤 '이 창에서 Google 로그인'(페이지 이동 방식) 단추를 띄운다.
+   페이지 이동 방식에서 돌아왔는데 로그인 정보가 없거나 오류면(getRedirectResult) 그 이유를 보여 준다 — 예전엔 조용히 로그인 화면으로 돌아왔다 */
+var AUTH_GREDIR_KEY="authGoogleRedirAt";
+function _authGoogleProvider(){var p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:"select_account"});return p;}
+function authGoogleRedirect(){
+  _authErr("");
+  try{sessionStorage.setItem(AUTH_GREDIR_KEY,String(Date.now()));}catch(e){}
+  var b=document.getElementById("authGoogleBtn");if(b){b.disabled=true;b.innerHTML="⏳ Google 로그인 화면으로 이동 중…";}
+  firebase.auth().signInWithRedirect(_authGoogleProvider()).catch(function(e){_authGoogleFail(e);});
+}
+function _authGoogleBtnReset(){var b=document.getElementById("authGoogleBtn");if(b){b.disabled=false;b.innerHTML='<span style="font-weight:800;color:#4285f4">G</span>&nbsp; Google 계정으로 로그인';}}
+function _authGoogleFail(e){
+  _authGoogleBtnReset();
+  var c=e&&e.code||"";
+  if(c==="auth/account-exists-with-different-credential")_authErr("이 이메일은 이미 로그인 링크로 가입돼 있습니다. 이메일 로그인 링크로 들어와 주세요.");
+  else if(c==="auth/unauthorized-domain")_authErr("이 주소("+location.hostname+")가 Firebase 허용 도메인에 없습니다. 관리자에게 알려주세요.");
+  else if(c==="auth/operation-not-allowed")_authErr("Firebase에서 Google 로그인이 꺼져 있습니다. 관리자에게 알려주세요.");
+  else if(c==="auth/web-storage-unsupported")_authErr("이 브라우저가 로그인 정보 저장을 막고 있습니다(쿠키·사이트 데이터 차단). 위의 이메일 로그인 링크로 들어오거나 크롬으로 열어 주세요.");
+  else _authErr("Google 로그인 실패: "+(e&&e.message||c));
+}
 function authGoogle(){
   _authErr("");
-  var p=new firebase.auth.GoogleAuthProvider();
-  p.setCustomParameters({prompt:"select_account"});
-  firebase.auth().signInWithPopup(p).then(function(){authStartSetup();}).catch(function(e){
+  var p=_authGoogleProvider();
+  var b=document.getElementById("authGoogleBtn");if(b){b.disabled=true;b.innerHTML="⏳ Google 로그인 창 여는 중…";}
+  var alt=setTimeout(function(){
+    if(_authState!=="out"||document.getElementById("authGoogleAlt"))return;
+    var bb=document.getElementById("authGoogleBtn");if(!bb)return;
+    bb.insertAdjacentHTML("afterend",'<div id="authGoogleAlt" style="font-size:12px;color:#5b6675;margin-top:8px;line-height:1.6">Google 창이 안 보이거나 로그인 뒤에도 그대로면 ↓'
+      +'<button onclick="authGoogleRedirect()" style="'+AUTH_BTN+';margin-top:6px;background:#4285f4;color:#fff">이 창에서 Google 로그인</button></div>');
+    _authGoogleBtnReset();
+  },3000);
+  firebase.auth().signInWithPopup(p).then(function(){clearTimeout(alt);authStartSetup();}).catch(function(e){
+    clearTimeout(alt);
     var c=e&&e.code||"";
-    if(c==="auth/popup-blocked"||c==="auth/operation-not-supported-in-this-environment"){firebase.auth().signInWithRedirect(p);return;}
-    if(c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request")return;
-    if(c==="auth/account-exists-with-different-credential")_authErr("이 이메일은 이미 로그인 링크로 가입돼 있습니다. 이메일 로그인 링크로 들어와 주세요.");
-    else if(c==="auth/unauthorized-domain")_authErr("이 주소("+location.hostname+")가 Firebase 허용 도메인에 없습니다. 관리자에게 알려주세요.");
-    else if(c==="auth/operation-not-allowed")_authErr("Firebase에서 Google 로그인이 꺼져 있습니다. 관리자에게 알려주세요.");
-    else _authErr("Google 로그인 실패: "+(e&&e.message||c));
+    if(c==="auth/popup-blocked"||c==="auth/operation-not-supported-in-this-environment"){authGoogleRedirect();return;}
+    if(c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request"){_authGoogleBtnReset();return;}
+    _authGoogleFail(e);
   });
 }
+/* 페이지 이동 방식에서 돌아왔을 때 — 오류나 '돌아왔는데 로그인 안 됨'을 로그인 화면에 적는다(10분 안에 이동한 경우만) */
+function _authGoogleRedirectCheck(){
+  var at=0;try{at=+sessionStorage.getItem(AUTH_GREDIR_KEY)||0;sessionStorage.removeItem(AUTH_GREDIR_KEY);}catch(e){}
+  if(!at||Date.now()-at>10*60*1000)return;
+  var show=function(t){var n=0,iv=setInterval(function(){if(++n>40){clearInterval(iv);return;}if(_authState==="out"&&document.getElementById("authErr")){_authErr(t);clearInterval(iv);}},250);};
+  firebase.auth().getRedirectResult().then(function(r){
+    if(r&&r.user)return;
+    show("Google에서 돌아왔지만 로그인 정보를 받지 못했습니다. 계정을 끝까지 골랐는데도 이렇다면 이 브라우저가 다른 사이트 쿠키를 막는 것 같습니다(삼성 인터넷의 '스마트 안티 트래킹' 등) — 위의 ✉️ 로그인 링크로 들어오거나 크롬으로 열어 주세요.");
+  }).catch(function(e){var c=e&&e.code||"";show(c==="auth/account-exists-with-different-credential"?"이 이메일은 이미 로그인 링크로 가입돼 있습니다. 이메일 로그인 링크로 들어와 주세요.":"Google 로그인 실패: "+(e&&e.message||c));});
+}
+_authGoogleRedirectCheck();
 function _authValidEmail(v){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);}
 function _authLinkUrl(){return location.origin+location.pathname;}
 function authSendLink(){

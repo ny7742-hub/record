@@ -13,7 +13,11 @@
 - **로그인 링크 메일은 무료(Spark) 요금제에서 프로젝트 전체 하루 5통뿐이다**(2026-09-29 첫 도입일에 3명 + 자동화 로그인으로 바로 `auth/quota-exceeded`).
   그래서 같은 로그인 화면에 **`Google 계정으로 로그인`**(`authGoogle`, `signInWithPopup` → 팝업이 막히면 `signInWithRedirect`)을 같이 둔다 —
   메일을 안 보내 한도가 없다(콘솔 Google 제공업체는 켜져 있음). 승인은 똑같이 관리자가 한다(Google 계정 이메일이 대기 목록에 뜬다).
-  한도 초과 문구도 Google 로그인을 안내한다. 자동화(`jarvis-login.mjs`)는 Google이 자동화 브라우저 로그인을 막으므로 **이메일 링크**로 한다.
+  한도 초과 문구도 Google 로그인을 안내한다.
+  **휴대폰 보완**(2026-11-06 영업2팀 "구글로그인이 안됩니다 — 눌러도 반응을 안함", 삼성 인터넷): 팝업이 소리 없이 막히거나 새 탭으로 열려 결과가 안 돌아오면 아무 반응이 없어 보였다.
+  누르면 단추가 `⏳ Google 로그인 창 여는 중…`으로 바뀌고 3초 뒤 아래에 **`이 창에서 Google 로그인`**(`authGoogleRedirect` — 페이지 이동 방식) 단추가 나온다.
+  페이지 이동 전에 `sessionStorage.authGoogleRedirAt`을 적고, 돌아오면 `_authGoogleRedirectCheck`가 `getRedirectResult`를 봐서 오류나 '돌아왔는데 로그인 정보 없음'을 로그인 화면에 적는다
+  (예전엔 조용히 로그인 화면으로 돌아왔다). 로그인 정보가 없는 흔한 원인: authDomain(`whitesands-sales-team-2.firebaseapp.com`)이 사이트 주소와 달라 다른 사이트 쿠키를 막는 브라우저(삼성 인터넷 스마트 안티 트래킹·사파리)에서는 결과를 못 받는다 → 이메일 링크나 크롬 안내. 자동화(`jarvis-login.mjs`)는 Google이 자동화 브라우저 로그인을 막으므로 **이메일 링크**로 한다.
 - **화면 게이트만으로는 막히지 않는다** — 페이지 코드에 DB 주소가 있어 누구나 REST로 `ws/` 전체(`quickCreds` 포함)를 읽을 수 있었다.
   실제 잠금은 저장소의 **`database.rules.json`** 을 Firebase 콘솔 Realtime Database → 규칙에 붙여넣어야 한다.
   규칙: `ws/`는 `access/members/{uid}`가 있는 사람만 읽기·쓰기, `access/pending/{uid}`는 본인만 요청, 승인·삭제는 `access/admins`만.
