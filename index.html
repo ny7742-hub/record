@@ -10865,6 +10865,10 @@ function _ecStores(){return ORDER_STORES.filter(function(s){return s.code&&s.cod
 /* 본사 출고 창고 — 기본 NH(주희창고, 2026-10-12 영업2팀). 설정에서 바꿀 수 있다 */
 function _ecHq(){return String(ecConfig.hq||"NH");}
 function _ecWh(code){return String((ecConfig.stores||{})[code]||code||"");}
+/* 이카운트 품목코드가 자비스(PlayMD 자사코드)와 다른 품목(2026-11-06 영업2팀) — 이카운트로 보내는 모든 자리(재고 넣기·창고이동·매출, 엑셀 포함)에서 바꾼다.
+   BKA13C3EBEF [블랙샌즈] 25SS 베이직 워싱 로고 볼캡 (핑크&크림)베이지 → 이카운트엔 BKA13C3E로 등록(넣기 결과 '이카운트에 품목 없음') */
+var EC_ITEM_ALIAS={"BKA13C3EBEF":"BKA13C3E"};
+function _ecItem(code){var c=String(code||"").trim();return EC_ITEM_ALIAS[c.toUpperCase()]||c;}
 function _ecPut(id,o){
   var ret=/^er/.test(id),D=ret?ecReturns:ecOrders,key=ret?"ecReturns":"ecOrders";
   if(o)D[id]=o;else delete D[id];
@@ -11065,10 +11069,10 @@ function _ecShipDate(){var v=(document.getElementById("ecShipDate")||{}).value||
 function _ecMoveSlips(L){
   var ret=_ecKind==="ret",S=[];
   L.forEach(function(o){
-    if(!ret){var it=(o.items||[]).filter(function(x){return +x.ok>0;});if(it.length)S.push({key:o.id,oid:o.id,sn:o.storeName,from:_ecHq(),to:_ecWh(o.store),memo:o.storeName+" 발주 · "+o.by+(o.memo?" · "+o.memo:""),items:it.map(function(x){return {code:x.code,name:x.name,qty:+x.ok};})});return;}
+    if(!ret){var it=(o.items||[]).filter(function(x){return +x.ok>0;});if(it.length)S.push({key:o.id,oid:o.id,sn:o.storeName,from:_ecHq(),to:_ecWh(o.store),memo:o.storeName+" 발주 · "+o.by+(o.memo?" · "+o.memo:""),items:it.map(function(x){return {code:_ecItem(x.code),name:x.name,qty:+x.ok};})});return;}
     [false,true].forEach(function(b){
       var it=(o.items||[]).filter(function(x){return +x.ok>0&&!!x.bad===b;});if(!it.length)return;
-      S.push({key:o.id+(b?"-b":""),oid:o.id,sn:o.storeName+(b?"(불량)":""),from:_ecWh(o.store),to:b?_ecBad():_ecHq(),memo:o.storeName+" 반품"+(b?"(불량)":"")+" · "+o.by+(o.memo?" · "+o.memo:""),items:it.map(function(x){return {code:x.code,name:x.name,qty:+x.ok};})});
+      S.push({key:o.id+(b?"-b":""),oid:o.id,sn:o.storeName+(b?"(불량)":""),from:_ecWh(o.store),to:b?_ecBad():_ecHq(),memo:o.storeName+" 반품"+(b?"(불량)":"")+" · "+o.by+(o.memo?" · "+o.memo:""),items:it.map(function(x){return {code:_ecItem(x.code),name:x.name,qty:+x.ok};})});
     });
   });
   return S;
@@ -11279,7 +11283,7 @@ function ecStkDl(kind){
   var tag=W.length===1?_ecWh(W[0]):"전체창고";
   if(kind==="base"){
     aoa=[["창고코드","품목코드","품목명","수량"]];
-    _ecDraft.items.forEach(function(x){if(+x.qty)aoa.push([_ecWh(x.wh),x.code,x.name,+x.qty]);});
+    _ecDraft.items.forEach(function(x){if(+x.qty)aoa.push([_ecWh(x.wh),_ecItem(x.code),x.name,+x.qty]);});
     nm="이카운트_기초재고_"+tag+"_"+d+".xlsx";
   }else{
     var all=!!(document.getElementById("ecStkAll")||{}).checked,note=memo||"재고조정(자비스)",seq=0,noData=[];
@@ -11289,9 +11293,9 @@ function ecStkDl(kind){
       var has=_ecStkHas(w),wh=_ecWh(w),seen={},n0=aoa.length;if(!has)noData.push(wh);
       seq++;
       _ecDraft.items.forEach(function(x){if(x.wh!==w)return;
-        seen[String(x.code).toUpperCase()]=1;
-        var cur=has?(+_ecStkCur(x.code,w)||0):0,q=(+x.qty||0)-cur;
-        if(q)aoa.push([d,seq,wh,x.code,x.name,q,note+(has?" · 실재고 "+x.qty+" / 이카 "+cur:"")]);
+        var ec=_ecItem(x.code);seen[String(ec).toUpperCase()]=1;
+        var cur=has?(+_ecStkCur(ec,w)||0):0,q=(+x.qty||0)-cur;
+        if(q)aoa.push([d,seq,wh,ec,x.name,q,note+(has?" · 실재고 "+x.qty+" / 이카 "+cur:"")]);
       });
       /* 전수 실사: 이카운트에 재고가 있는데 담지 않은 품목은 0으로 */
       if(all&&has){var m=ecStock.wh[_ecStockKey(wh)]||{},P=_ocProdList();Object.keys(m).forEach(function(c){
@@ -11369,7 +11373,7 @@ function ecStkAuto(mode){
   var W=_ecStkWhList(),n=_ecDraft.items.length,save=mode==="save";
   if(save&&!confirm("자동화 PC가 이카운트 [간편재고조정]에 넣습니다.\n\n창고 "+W.map(function(w){return _ecWh(w);}).join(", ")+" · "+n+"품목\n담은 수량이 그 창고의 '맞출 재고'가 됩니다(지금 이카운트 재고와 같으면 건너뜀).\n\n품목마다 10초쯤 걸립니다. 넣을까요?"))return;
   var id="ek"+Date.now().toString(36),by=_saipMe();
-  try{fbDB.ref("ws/ecStkJob/"+id).set({id:id,by:by,at:new Date().toISOString(),items:_ecDraft.items.map(function(x){return {wh:_ecWh(x.wh),code:x.code,name:x.name,qty:+x.qty||0};})});}
+  try{fbDB.ref("ws/ecStkJob/"+id).set({id:id,by:by,at:new Date().toISOString(),items:_ecDraft.items.map(function(x){return {wh:_ecWh(x.wh),code:_ecItem(x.code),name:x.name,qty:+x.qty||0};})});}
   catch(e){alert("목록을 팀 공유에 올리지 못했습니다: "+e.message);return;}
   _saipReqSet("ek",{id:id,by:by,at:new Date().toISOString(),state:"요청",mode:save?"save":"preview",n:n});
   ecStkAutoRender();
@@ -11537,7 +11541,7 @@ function _ecSalSup(x){return x.sup!=null?x.sup:Math.round(x.amt/1.1);}
 function _ecSalRows(s,memo){
   return s.items.slice().sort(function(a,b){return a.code<b.code?-1:a.code>b.code?1:b.qty-a.qty;}).map(function(x){
     var sup=_ecSalSup(x);
-    return {code:x.code,name:x.name,qty:x.qty,unit:x.qty?Math.round(x.amt/x.qty):0,sup:sup,vat:Math.round(x.amt)-sup,memo:memo||(_ecSalChLab(s.ch)+" 매출(자비스)")};
+    return {code:_ecItem(x.code),name:x.name,qty:x.qty,unit:x.qty?Math.round(x.amt/x.qty):0,sup:sup,vat:Math.round(x.amt)-sup,memo:memo||(_ecSalChLab(s.ch)+" 매출(자비스)")};
   });
 }
 /* 🤖 이카운트에 넣기(자동화 PC) — 고른 전표를 ws/ecSalJob/{id}에 올리고 ws/saipReq.es로 요청 → automation/ecount-sales.mjs
