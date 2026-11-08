@@ -185,6 +185,11 @@
   제목 앞 `[DSS26 · 1번 창]` · 로그인 화면(`#username`)에 그 창 아이디를 넣고 크롬이 다른 아이디로 자동완성한 비밀번호는 지움(**비밀번호는 넣지 않는다**, 커서는 비밀번호 칸) ·
   로그인 뒤 다른 아이디면 빨간 띠. 그 창 아이디로 로그인된 걸 8초 보여 주고 끝(초록 띠는 걷음). 띠 글자의 아이디는 `ckr.` 뒤에 `​`를 끼워 portal-status·발주·송장이 화면에서 읽는 `ckr.숫자`에 걸리지 않게 했다.
   **`portalopen:dssboth`** = 두 창 나란히(그 모니터 왼쪽 반 1번 · 오른쪽 반 2번, `tile`) — 자비스 로그인 상태 칸에 둘 중 하나라도 로그인이 아니면 `🔑 DSS 두 창 나란히 열기`.
+  **자동 로그인**(2026-11-09 영업2팀 "버튼 누름 없이 바로 자동으로 로그인까지"): 자동화 PC `automation/dss-cred.json`(`{"ckr.5834226":"…","ckr.5834231":"…"}`, 깃·Firebase에 안 올림, 사장님이 직접 적음)에
+  비밀번호가 있으면 `dss-auto-login.mjs`가 로그인한다 — saip-watch가 1분마다 로그인 상태를 볼 때 DSS1·DSS2가 로그인 화면·탭 없음·창 없음이면 창을 띄우고 그 창 아이디로 로그인,
+  작업 직전 `needLogin`도 먼저 자동 로그인을 해 보고 되면 슬랙으로 사람을 부르지 않는다. `dss-login-guard.mjs`도 비밀번호가 있으면 한 번 넣고 로그인(두 창 단추로 열었을 때).
+  다른 아이디로 로그인된 창(`wrong`)은 건드리지 않는다. **비밀번호가 틀렸다고 나오면 dss-cred.json이 바뀔 때까지 다시 안 한다**(잠김 막기, `logs/dss-auto-login.json`), 다른 실패는 창마다 5분에 한 번,
+  송장·발주 lock 중엔 건너뜀. 결과는 `ws/portalLogin` `sites.dssN.auto {at, ok, msg}` → 자비스 로그인 상태 칸 DSS 카드에 `🤖 자동 로그인 ✅/❌`. 손으로: `node dss-auto-login.mjs [1|2|both]`.
   `logs/portal-open-title.txt`는 한 줄에 창 하나 · UTF-16(BOM) — VBS가 한글 제목을 깨뜨리지 않게(예전 UTF-8을 시스템 기본으로 읽었다). 백업 `_backup-portal-open-1026-dssguard.mjs`·`_backup-portal-open-1026.vbs`.
   한 창 안에 따로 공간(CDP `createBrowserContext`)을 만드는 방법은 Playwright가 그 공간의 탭을 다루지 못해 쓰지 않았다.
   로그인 유지(`portal-keepalive.mjs`)는 두 창을 다 본다.
