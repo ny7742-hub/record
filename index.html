@@ -3242,11 +3242,41 @@ function _authGoogleFail(e){
   if(c==="auth/account-exists-with-different-credential")_authErr("이 이메일은 이미 로그인 링크로 가입돼 있습니다. 이메일 로그인 링크로 들어와 주세요.");
   else if(c==="auth/unauthorized-domain")_authErr("이 주소("+location.hostname+")가 Firebase 허용 도메인에 없습니다. 관리자에게 알려주세요.");
   else if(c==="auth/operation-not-allowed")_authErr("Firebase에서 Google 로그인이 꺼져 있습니다. 관리자에게 알려주세요.");
-  else if(c==="auth/web-storage-unsupported")_authErr("이 브라우저가 로그인 정보 저장을 막고 있습니다(쿠키·사이트 데이터 차단). 위의 이메일 로그인 링크로 들어오거나 크롬으로 열어 주세요.");
+  else if(c==="auth/web-storage-unsupported"||c==="auth/operation-not-supported-in-this-environment")_authInAppHelp(c);
   else _authErr("Google 로그인 실패: "+(e&&e.message||c));
+}
+/* 2026-11-09 영업2팀(휴대폰 "구글 로그인 안됩니다" — 'location.protocol must be http, https… and web storage must be enabled'):
+   카카오톡·네이버·슬랙 등 앱 안에서 링크를 열면(인앱 브라우저) 저장소가 막혀 팝업·페이지 이동 둘 다 이 오류가 나고, Google도 앱 안 로그인을 막는다.
+   그래서 앱 안이면 Google 창을 열지 않고 '크롬/사파리로 열기' 안내를 띄운다(안드로이드는 단추로 바로 크롬, 카카오톡은 카카오톡 외부 브라우저 열기). */
+function _authInApp(){
+  var u=navigator.userAgent||"";
+  var m=u.match(/KAKAOTALK|NAVER\(inapp|Line\/|Instagram|FBAN|FBAV|Slack|DaumApps|everytimeApp|Whale\/[\d.]+ .*inapp|BAND\/|Teams\//i);
+  if(m)return m[0].replace(/[\/(].*$/,"");
+  if(/Android/i.test(u)&&/; wv\)/.test(u))return "앱";
+  return "";
+}
+function _authIsAndroid(){return /Android/i.test(navigator.userAgent||"");}
+function authOpenExternal(){
+  var url=location.href.split("#")[0],u=navigator.userAgent||"";
+  if(/KAKAOTALK/i.test(u)){location.href="kakaotalk://web/openExternal?url="+encodeURIComponent(url);return;}
+  if(_authIsAndroid()){location.href="intent://"+url.replace(/^https?:\/\//,"")+"#Intent;scheme=https;package=com.android.chrome;end";return;}
+  try{navigator.clipboard.writeText(url);}catch(e){}
+  alert("주소를 복사했습니다.\n오른쪽 아래(또는 위) ··· 메뉴에서 'Safari로 열기'를 누르거나, Safari 주소창에 붙여 넣어 주세요.\n\n"+url);
+}
+function _authInAppHelp(code){
+  _authGoogleBtnReset();
+  var e=document.getElementById("authErr");if(!e)return;
+  var app=_authInApp();
+  e.innerHTML='<div style="color:#b91c1c;font-weight:700;margin-bottom:6px">'+(app?app+' 앱 안에서 연 화면이라 Google 로그인이 막혀 있습니다.':'이 브라우저가 로그인 정보 저장을 막고 있어 Google 로그인을 할 수 없습니다.')+'</div>'
+    +'<div style="color:#5b6675;font-size:12px;line-height:1.6;text-align:left">'+(app?'카카오톡·네이버·슬랙 같은 앱 안 화면에서는 Google이 로그인을 막습니다. <b>'+(_authIsAndroid()?'크롬':'사파리')+'</b>으로 열어 주세요.'
+      :'시크릿(비공개) 창이거나 쿠키·사이트 데이터 차단이 켜져 있으면 이렇습니다. 일반 창의 크롬·사파리로 열어 주세요.')
+    +'<br>아니면 위의 <b>✉️ 로그인 링크 받기</b>로 들어와도 됩니다.</div>'
+    +'<button onclick="authOpenExternal()" style="'+AUTH_BTN+';background:#4285f4;color:#fff">'+(_authIsAndroid()?'크롬으로 열기':'주소 복사 → 사파리로 열기')+'</button>'
+    +(code?'<div style="color:#5b6675;font-size:10.5px;margin-top:6px">('+code+')</div>':'');
 }
 function authGoogle(){
   _authErr("");
+  if(_authInApp()){_authInAppHelp("");return;}
   var p=_authGoogleProvider();
   var b=document.getElementById("authGoogleBtn");if(b){b.disabled=true;b.innerHTML="⏳ Google 로그인 창 여는 중…";}
   var alt=setTimeout(function(){

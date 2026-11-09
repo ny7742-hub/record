@@ -18,6 +18,8 @@
   누르면 단추가 `⏳ Google 로그인 창 여는 중…`으로 바뀌고 3초 뒤 아래에 **`이 창에서 Google 로그인`**(`authGoogleRedirect` — 페이지 이동 방식) 단추가 나온다.
   페이지 이동 전에 `sessionStorage.authGoogleRedirAt`을 적고, 돌아오면 `_authGoogleRedirectCheck`가 `getRedirectResult`를 봐서 오류나 '돌아왔는데 로그인 정보 없음'을 로그인 화면에 적는다
   (예전엔 조용히 로그인 화면으로 돌아왔다). 로그인 정보가 없는 흔한 원인: authDomain(`whitesands-sales-team-2.firebaseapp.com`)이 사이트 주소와 달라 다른 사이트 쿠키를 막는 브라우저(삼성 인터넷 스마트 안티 트래킹·사파리)에서는 결과를 못 받는다 → 이메일 링크나 크롬 안내. 자동화(`jarvis-login.mjs`)는 Google이 자동화 브라우저 로그인을 막으므로 **이메일 링크**로 한다.
+  **앱 안 브라우저**(2026-11-09 영업2팀, 휴대폰 `location.protocol must be http, https… web storage must be enabled`): 카카오톡·네이버·슬랙 등에서 링크를 열면 저장소가 막혀 팝업·이동 둘 다 `auth/operation-not-supported-in-this-environment`가 나고 Google도 앱 안 로그인을 막는다.
+  `_authInApp()`(UA로 KAKAOTALK·NAVER(inapp·Line·Instagram·FB·Slack·DaumApps·BAND·Teams, 안드로이드 `; wv)`)이면 Google 창을 열지 않고 `_authInAppHelp`가 안내 + **`크롬으로 열기`**(`authOpenExternal` — 카카오톡은 `kakaotalk://web/openExternal`, 안드로이드는 크롬 `intent://`, 아이폰은 주소 복사 후 사파리 안내)를 띄운다. 그 오류 코드·`web-storage-unsupported`(시크릿 창·쿠키 차단)도 같은 안내.
 - **화면 게이트만으로는 막히지 않는다** — 페이지 코드에 DB 주소가 있어 누구나 REST로 `ws/` 전체(`quickCreds` 포함)를 읽을 수 있었다.
   실제 잠금은 저장소의 **`database.rules.json`** 을 Firebase 콘솔 Realtime Database → 규칙에 붙여넣어야 한다.
   규칙: `ws/`는 `access/members/{uid}`가 있는 사람만 읽기·쓰기, `access/pending/{uid}`는 본인만 요청, 승인·삭제는 `access/admins`만.
