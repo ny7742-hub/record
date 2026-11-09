@@ -56,4 +56,8 @@
   `ws/docLib/pdf/{id}` = PDF dataURL, `ws/docLib/src/{id}` = 원본(PPTX 등) dataURL. 목록만 `fbListen`이 듣고 파일은 열 때 받는다(7MB 한도).
 - 보기는 pdf.js로 쪽마다 캔버스에 그린다(휴대폰에서 iframe PDF가 안 열려서). `⬇ PDF`·`⬇ PPTX` 내려받기, 삭제는 확인창 뒤.
 - `📤 자료 올리기`는 **PDF가 꼭 있어야**(미리 보기용) 하고 원본 한 개를 같이 고르면 함께 올린다. PPT는 PowerPoint › 다른 이름으로 저장 › PDF.
+- **`✏️ 수정`**(같은 날 영업2팀 "수정할 수 있게" — 방식은 물어서 'PDF에 글자·펜'): 자료 PDF를 📄 PDF 탭에 열고(`dlEdit`, PDF 탭에 다른 파일이 있으면 비울지 물음)
+  주황 칸 `#pdfDlBar`를 띄운다. 쓰기 창(글자·펜·형광펜·가리기 — docs/pdf.md)으로 고친 뒤 **`📑 자료에 저장`**(`dlSaveBack` = `_pdfBuild` 전체 쪽)이면
+  `ws/docLib/pdf/{id}`를 바꾸고 바로 전 판을 `ws/docLib/prev/{id}`에 하나 남긴다 → 줄에 `↶ 이전 판`(`dlUndo`). 항목에 `ed`·`edAt`(✏️ 누가·언제), `srcOld`(PPT 원본은 그대로라 `⬇ PPTX(수정 전)`).
+  PDF 탭 `비우기`(`pdfClear`)를 누르면 수정 모드가 끝난다(`dlEditEnd`).
 - 첫 자료: `11~12월 매출 활성화 프로모션`(영업2팀, 15쪽) — 자동화 PC 로그인(`automation/jarvis-rest.mjs` `wsRaw`)으로 넣었다.

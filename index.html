@@ -2605,6 +2605,16 @@ label{font-size:14px!important}
       <div id="pdfMsg" style="font-size:12px;margin-top:6px;min-height:16px"></div>
     </label>
   </div>
+  <!-- 📑 기획안·보고 자료에서 ✏️ 수정으로 열었을 때만 보인다(dlEdit · dlSaveBack — 맨 끝 스크립트) -->
+  <div class="card" id="pdfDlBar" style="display:none;margin-bottom:12px;padding:12px 16px;background:#fff7ed;border:1.5px solid #fdba74">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:700;color:#9a3412">📑 자료 수정 중 — <span id="pdfDlName"></span></span>
+      <button class="bs" onclick="dlSaveBack()" style="padding:7px 16px;font-size:13px;font-weight:700;background:#c2410c;color:#fff;border-color:#c2410c">📑 자료에 저장</button>
+      <button class="bs" onclick="dlEditBack()" style="padding:7px 12px;font-size:12px">↩ 자료로 돌아가기</button>
+      <span id="pdfDlMsg" style="font-size:12px;font-weight:600"></span>
+    </div>
+    <div style="font-size:11px;color:#5b6675;margin-top:4px">쪽을 눌러 글자·펜·형광펜·가리기로 고친 뒤 '자료에 저장'을 누르면 전략회의 탭 자료가 바뀝니다(바로 전 판은 한 번 되돌릴 수 있음)</div>
+  </div>
   <div class="card" style="margin-bottom:12px;padding:14px 16px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
       <div class="sec-title" style="margin:0;font-size:14px">💾 저장</div>
@@ -9859,6 +9869,7 @@ function pdfClear(){
   if(pdfPages.length&&!confirm("올린 PDF와 쓴 것을 모두 비울까요?"))return;
   pdfSrcs.forEach(function(s){try{if(s.js)s.js.destroy();}catch(e){}});
   pdfSrcs=[];pdfPages=[];_pdfMsg("");_pdfSaveMsg("");pdfRender();
+  if(typeof dlEditEnd==="function")dlEditEnd();   /* 📑 자료 수정 중이었으면 끝 */
 }
 /* ── 저장(pdf-lib) ── */
 function _pdfLib(){
@@ -36934,9 +36945,12 @@ function render(){
   box.innerHTML=CSS+ids.map(function(id){
     var it=items[id]||{},on=open===id;
     return '<div class="dl-row"><button class="dl-t" onclick="dlOpen(\''+id+'\')">'+(on?'▼ ':'▶ ')+esc(it.t||'(제목 없음)')+'</button>'+
-      '<span class="dl-m">'+(it.pages?it.pages+'쪽 · ':'')+esc(it.by||'')+(it.at?' · '+esc(String(it.at).slice(0,10)):'')+'</span>'+
-      '<span class="dl-b"><button class="bs" onclick="dlGet(\''+id+'\',\'pdf\')">⬇ PDF</button>'+
-      (it.srcName?'<button class="bs" onclick="dlGet(\''+id+'\',\'src\')">⬇ '+esc(ext(it.srcName))+'</button>':'')+
+      '<span class="dl-m">'+(it.pages?it.pages+'쪽 · ':'')+esc(it.by||'')+(it.at?' · '+esc(String(it.at).slice(0,10)):'')+
+        (it.edAt?' · ✏️ '+esc(it.ed||'')+' '+esc(String(it.edAt).slice(5,10).replace('-','/'))+' 수정':'')+'</span>'+
+      '<span class="dl-b"><button class="bs" style="color:#c2410c;font-weight:700" onclick="dlEdit(\''+id+'\')">✏️ 수정</button>'+
+      (it.prev?'<button class="bs" onclick="dlUndo(\''+id+'\')">↶ 이전 판</button>':'')+
+      '<button class="bs" onclick="dlGet(\''+id+'\',\'pdf\')">⬇ PDF</button>'+
+      (it.srcName?'<button class="bs" onclick="dlGet(\''+id+'\',\'src\')"'+(it.srcOld?' title="PDF에서 고친 내용은 PPT 원본에 들어가지 않습니다"':'')+'>⬇ '+esc(ext(it.srcName))+(it.srcOld?'(수정 전)':'')+'</button>':'')+
       '<button class="bs" style="color:#b91c1c" onclick="dlDel(\''+id+'\')">삭제</button></span></div>'+
       (on?'<div class="dl-view" id="dlView"><div style="font-size:12px;color:#5b6675;padding:10px">불러오는 중…</div></div>':'');
   }).join("");
@@ -36981,7 +36995,7 @@ window.dlDel=function(id){
   var it=items[id]||{};
   if(!confirm("'"+(it.t||"자료")+"'를 팀 공유에서 지울까요? 되돌릴 수 없습니다."))return;
   if(!shared()){msg("로그인한 팀 화면에서만 지울 수 있습니다",true);return;}
-  var up={};up["ws/docLib/items/"+id]=null;up["ws/docLib/pdf/"+id]=null;up["ws/docLib/src/"+id]=null;
+  var up={};up["ws/docLib/items/"+id]=null;up["ws/docLib/pdf/"+id]=null;up["ws/docLib/src/"+id]=null;up["ws/docLib/prev/"+id]=null;
   fbDB.ref().update(up).then(function(){msg("지웠습니다");}).catch(function(e){msg("삭제 실패: "+(e&&e.message||e),true);});
 };
 window.dlPick=function(){var f=document.getElementById("dlFile");if(f)f.click();};
@@ -37012,6 +37026,64 @@ window._dlOnItems=function(v){
   if(pg&&pg.style.display!=="none"&&(gone||!document.getElementById("dlView")))render();   /* 보는 중이면 다시 그리지 않는다(쪽 그림이 처음부터 다시 그려짐) */
 };
 window.renderDocLib=render;
+
+/* ✏️ 수정 — 자료 PDF를 📄 PDF 탭에 열어 글자·펜·형광펜·가리기로 고치고 '📑 자료에 저장'으로 되돌려 넣는다.
+   저장하면 바로 전 판을 ws/docLib/prev/{id}에 하나 남긴다(↶ 이전 판). PPT 원본은 그대로라 '(수정 전)'으로 표시. */
+var edit=null;
+function bar(){
+  var b=document.getElementById("pdfDlBar");if(!b)return;
+  b.style.display=edit?"":"none";
+  var n=document.getElementById("pdfDlName");if(n)n.textContent=edit?edit.t:"";
+  var m=document.getElementById("pdfDlMsg");if(m)m.textContent="";
+}
+function bmsg(t,bad){var e=document.getElementById("pdfDlMsg");if(e){e.textContent=t||"";e.style.color=bad?"#b91c1c":"#047857";}}
+function toUrl(u8){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){ok(r.result);};r.onerror=no;r.readAsDataURL(new Blob([u8],{type:"application/pdf"}));});}
+window.dlEdit=function(id){
+  var it=items[id]||{};
+  if(typeof pdfAddFiles!=="function"){msg("PDF 탭을 찾을 수 없습니다",true);return;}
+  if(pdfPages.length&&!(edit&&edit.id===id)&&!confirm("PDF 탭에 올려 둔 파일이 있습니다. 비우고 이 자료를 열까요?"))return;
+  if(edit&&edit.id===id&&pdfPages.length){switchTab("pdf");bar();return;}   /* 고치던 것 그대로 이어서 */
+  msg("여는 중…");
+  load(id,"pdf").then(function(u){
+    pdfSrcs.forEach(function(s){try{if(s.js)s.js.destroy();}catch(e){}});
+    pdfSrcs=[];pdfPages=[];
+    edit={id:id,t:it.t||"자료"};
+    switchTab("pdf");bar();msg("");
+    return pdfAddFiles([new File([bytes(u)],(it.t||"자료")+".pdf",{type:"application/pdf"})]);
+  }).catch(function(e){msg(e&&e.message||e,true);});
+};
+window.dlEditEnd=function(){edit=null;bar();};
+window.dlEditBack=function(){if(edit)open=edit.id;switchTab("meeting");render();};
+window.dlSaveBack=async function(){
+  if(!edit)return;
+  if(!pdfPages.length){bmsg("쪽이 없습니다",true);return;}
+  if(!shared()){bmsg("로그인한 자비스 화면에서만 저장됩니다",true);return;}
+  if(_pdfBusy)return;
+  var id=edit.id;if(!items[id]){bmsg("자료가 지워졌습니다 — 💾 전체를 한 PDF로 내려받아 두세요",true);return;}
+  _pdfBusy=true;bmsg("만드는 중…");
+  try{
+    var out=await _pdfBuild(pdfPages.slice());
+    if(out.length>MAX)throw new Error("만든 PDF가 7MB를 넘습니다");
+    var u=await toUrl(out),old=await load(id,"pdf"),it=Object.assign({},items[id]);
+    it.pages=pdfPages.length;it.pdfN=out.length;it.ed=me();it.edAt=new Date().toISOString();it.prev=true;if(it.srcName)it.srcOld=true;
+    var up={};up["ws/docLib/prev/"+id]=old;up["ws/docLib/pdf/"+id]=u;up["ws/docLib/items/"+id]=it;
+    await fbDB.ref().update(up);
+    cache["pdf/"+id]=u;cache["prev/"+id]=old;
+    bmsg("✅ 자료에 저장했습니다 — 전략회의 탭에서 바뀐 자료가 보입니다");
+  }catch(e){console.warn("자료 저장",e);bmsg("❌ 저장 실패: "+((e&&e.message)||e),true);}
+  _pdfBusy=false;
+};
+window.dlUndo=function(id){
+  var it=items[id]||{};
+  if(!confirm("'"+(it.t||"자료")+"'를 바로 전 판으로 되돌릴까요? (지금 판은 지워집니다)"))return;
+  if(!shared()){msg("로그인한 자비스 화면에서만 됩니다",true);return;}
+  msg("되돌리는 중…");
+  load(id,"prev").then(function(p){
+    var o=Object.assign({},it);o.prev=false;o.edAt=new Date().toISOString();o.ed=me();
+    var up={};up["ws/docLib/pdf/"+id]=p;up["ws/docLib/prev/"+id]=null;up["ws/docLib/items/"+id]=o;
+    return fbDB.ref().update(up).then(function(){cache["pdf/"+id]=p;delete cache["prev/"+id];msg("되돌렸습니다");if(open===id){open=null;dlOpen(id);}});
+  }).catch(function(e){msg(e&&e.message||e,true);});
+};
 })();
 </script>
 </body>
