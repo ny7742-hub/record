@@ -114,6 +114,8 @@
   파일을 두면 다음 1분 안에 그날 것부터 올린다(이미 손으로 올린 날이면 두 번 올라가니 그날 18시 뒤나 다음 날 아침에 둘 것).
   설정은 이 PC에만 둘 중 하나 — ① 봇 토큰 `automation/slack-bot.json`(`{"token":"xoxb-…","channel":"C…"}`, chat:write · channels:history, 봇 채널 초대):
   CX팀 'M/D(요일) 주문건수 공유' 글이 올라온 **뒤에** 올려 그 밑에 온다(12시까지 없으면 그냥). ② 웹훅 `automation/slack-webhook-cx.json`(`{"url":…}`): 보낸 즉시.
+  **2026-10-15~11-09 한 번도 안 올라갔다** — 주소 앞 `https://hooks.slack.com/services/`가 두 번 들어가 슬랙 안내 웹페이지가 200으로 왔고, 코드가 HTTP 200만 보고 '올림'으로 기록했다(자비스 ④ 칸도 '완료').
+  주소를 고치고 이제 응답 본문이 `ok`일 때만 올린 것으로 친다(slack-notify와 같은 기준). 웹훅 주소를 넣을 때 `https://hooks…`를 한 번만.
   올린 뒤 `slackAt`(·`slackTs`). 하이웍스 임시보관함에서 직접 보낸 날은 `sent`가 안 돼 올리지 않는다.
   **발주 메일 받는 사람**: 받는 사람 `gnkim72@daum.net`(김구남 센터장) · 참조 `offline@whitesands.co.kr`(영업2팀) · **`cs@whitesands.co.kr`(CX팀) — 꼭 참조**(2026-10-12 영업2팀, `costco-order.mjs` `TO`/`CC`).
   초안·보내기 모두 쓰기 화면의 받는 사람·참조 칸에 다 들어갔는지 읽어 보고 하나라도 빠지면 보내지 않는다.
