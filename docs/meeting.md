@@ -49,3 +49,11 @@
 
 ## 회의 메모
 팀 공유 `ws/wkMtg/<키>` = `{text, by, at}` — 키는 주간 `W2026-10-26`(월요일), 전체 `M2026-10`. `⤵ 자동 사유 붙여넣기`가 자동 사유를 메모 끝에 붙이고 저장한다.
+
+## 📑 기획안·보고 자료 (📋 전략회의 탭 맨 위 칸, 2026-11-09 영업2팀 "자비스에서 볼 수 있게")
+- 결재·보고용 PPT 등을 팀이 자비스에서 보게 하는 칸(`#docLibCard`, 코드는 index.html 맨 끝 스크립트 `/* ══ 📑 기획안·보고 자료`).
+- **GitHub 저장소가 공개라 자료 파일은 저장소에 넣지 않는다** — 팀 공유 `ws/docLib/items/{id}` = `{t, by, at, pages, pdfN, srcName, srcN}`,
+  `ws/docLib/pdf/{id}` = PDF dataURL, `ws/docLib/src/{id}` = 원본(PPTX 등) dataURL. 목록만 `fbListen`이 듣고 파일은 열 때 받는다(7MB 한도).
+- 보기는 pdf.js로 쪽마다 캔버스에 그린다(휴대폰에서 iframe PDF가 안 열려서). `⬇ PDF`·`⬇ PPTX` 내려받기, 삭제는 확인창 뒤.
+- `📤 자료 올리기`는 **PDF가 꼭 있어야**(미리 보기용) 하고 원본 한 개를 같이 고르면 함께 올린다. PPT는 PowerPoint › 다른 이름으로 저장 › PDF.
+- 첫 자료: `11~12월 매출 활성화 프로모션`(영업2팀, 15쪽) — 자동화 PC 로그인(`automation/jarvis-rest.mjs` `wsRaw`)으로 넣었다.

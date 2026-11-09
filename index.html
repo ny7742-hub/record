@@ -1285,6 +1285,19 @@ label{font-size:14px!important}
 <!-- ===== 전략회의 페이지 ===== -->
 <div id="page-meeting" style="display:none">
 <div class="main">
+  <!-- 📑 기획안·보고 자료(2026-11-09 영업2팀) — 파일은 팀 공유 ws/docLib, 코드는 파일 맨 끝 스크립트 · docs/meeting.md -->
+  <div class="card" style="margin-bottom:14px" id="docLibCard">
+    <div class="ri">
+      <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none">📑 기획안·보고 자료</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span id="dlMsg" style="font-size:11px;font-weight:600"></span>
+        <button class="bs" onclick="dlPick()">📤 자료 올리기</button>
+        <input type="file" id="dlFile" accept=".pdf,.ppt,.pptx,.xlsx,.xls,.docx" multiple style="display:none" onchange="dlUpload(this)">
+      </div>
+    </div>
+    <div style="font-size:11px;color:#5b6675;margin:4px 0 6px">PDF(미리 보기)와 원본 PPT를 같이 고르면 둘 다 올라갑니다 · 파일은 팀 공유에 저장됩니다(GitHub에는 올라가지 않음)</div>
+    <div id="dlList"></div>
+  </div>
   <div class="card" style="margin-bottom:14px">
     <div class="ri">
       <div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none">📋 회의일지</div>
@@ -3844,6 +3857,11 @@ function fbListen(){
     try{localStorage.setItem("hgRrpItems",JSON.stringify(hgItems));}catch(e){}
     /* 한 박자 늦게 — 제목 칸에서 메모 칸을 누르면 포커스가 옮겨 간 뒤에 그려야 renderHiggs가 그 칸을 되살린다 */
     setTimeout(function(){try{if(document.getElementById("page-higgs").style.display!=="none")renderHiggs();}catch(e){}},0);
+  });
+  /* 📑 기획안·보고 자료(2026-11-09) — 목록만 듣고, 파일(ws/docLib/pdf·src/{id})은 열 때 받는다 */
+  fbDB.ref("ws/docLib/items").on("value",function(snap){
+    if(WS_LOCAL_ONLY)return;
+    try{if(typeof _dlOnItems==="function")_dlOnItems(snap.val());}catch(e){}
   });
   /* 힉스필드 만들기 요청·자동화 PC 신호(2026-10-22) — 결과 이미지는 위 ws/hgRrp로 들어온다 */
   fbDB.ref("ws/hgGen").on("value",function(snap){hgGen=snap.val()||{};try{_hgJobsRender();}catch(e){}});
@@ -9528,7 +9546,7 @@ function switchTab(tab){
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   document.getElementById("tab-lossreport").classList.toggle("active",tab==="lossreport");
   if(tab==="home") renderHomeDashboard();
-  if(tab==="meeting") renderMeetingGrid();
+  if(tab==="meeting"){ renderMeetingGrid(); if(typeof renderDocLib==="function")renderDocLib(); }
   if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="daily") renderDaily();
   if(tab==="costco"){ renderCostcoPage(); ccDropZoneInit(); }
@@ -36890,6 +36908,110 @@ function render(){
   var nta=document.getElementById("wkmMemo");if(keep&&nta&&nta.dataset.key===keep.k){if(keep.v!==((S.memo[keep.k]||{}).text||""))nta.value=keep.v;if(keep.f){nta.focus();nta.setSelectionRange(keep.start,keep.end);}}
 }
 window.renderWkMtg=render;
+})();
+</script>
+<script>
+/* ══ 📑 기획안·보고 자료(2026-11-09 영업2팀 "자비스에서 볼 수 있게") — 전략회의 탭 맨 위 칸 · docs/meeting.md
+   GitHub 저장소가 공개라 자료 파일은 저장소에 넣지 않고 팀 공유(Firebase ws/)에 둔다:
+   ws/docLib/items/{id} = {t 제목, by, at, pages, pdfN, srcName, srcN} · ws/docLib/pdf/{id} = PDF dataURL · ws/docLib/src/{id} = 원본(PPTX 등) dataURL.
+   목록만 fbListen이 듣고 파일은 열 때 받는다. 보기는 pdf.js로 쪽마다 그림을 그린다(휴대폰에서도 보이게 — iframe PDF는 휴대폰에서 안 열림). */
+(function(){
+var items={},cache={},open=null,MAX=7000000;
+function shared(){return !WS_LOCAL_ONLY&&(_authState==="member"||_authState==="open");}
+function me(){try{return (typeof _hgMe==="function"&&_hgMe())||"";}catch(e){return "";}}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function msg(t,bad){var e=document.getElementById("dlMsg");if(e){e.textContent=t||"";e.style.color=bad?"#b91c1c":"#047857";}}
+function bytes(u){var b=atob(String(u).split(",")[1]||"");var a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
+function ext(n){var m=/\.([a-z0-9]+)$/i.exec(n||"");return m?m[1].toUpperCase():"원본";}
+var CSS='<style>#dlList .dl-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 4px;border-top:1px solid #eef2f7}'+
+  '#dlList .dl-t{background:none;border:none;font-size:14px;font-weight:700;color:#1f2a44;cursor:pointer;text-align:left;padding:0}'+
+  '#dlList .dl-m{font-size:11px;color:#5b6675}#dlList .dl-b{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}'+
+  '#dlList .dl-b .bs{padding:4px 10px;font-size:11px}#dlList .dl-view{padding:8px 0 4px}</style>';
+function render(){
+  var box=document.getElementById("dlList");if(!box)return;
+  var ids=Object.keys(items).filter(function(k){return items[k];}).sort(function(a,b){return String(items[b].at||"").localeCompare(String(items[a].at||""));});
+  if(!ids.length){box.innerHTML=CSS+'<div style="font-size:12px;color:#5b6675;padding:6px 2px">'+(shared()?'아직 올린 자료가 없습니다.':'로그인한 팀 화면에서 자료가 보입니다.')+'</div>';return;}
+  box.innerHTML=CSS+ids.map(function(id){
+    var it=items[id]||{},on=open===id;
+    return '<div class="dl-row"><button class="dl-t" onclick="dlOpen(\''+id+'\')">'+(on?'▼ ':'▶ ')+esc(it.t||'(제목 없음)')+'</button>'+
+      '<span class="dl-m">'+(it.pages?it.pages+'쪽 · ':'')+esc(it.by||'')+(it.at?' · '+esc(String(it.at).slice(0,10)):'')+'</span>'+
+      '<span class="dl-b"><button class="bs" onclick="dlGet(\''+id+'\',\'pdf\')">⬇ PDF</button>'+
+      (it.srcName?'<button class="bs" onclick="dlGet(\''+id+'\',\'src\')">⬇ '+esc(ext(it.srcName))+'</button>':'')+
+      '<button class="bs" style="color:#b91c1c" onclick="dlDel(\''+id+'\')">삭제</button></span></div>'+
+      (on?'<div class="dl-view" id="dlView"><div style="font-size:12px;color:#5b6675;padding:10px">불러오는 중…</div></div>':'');
+  }).join("");
+  if(open)paint(open);
+}
+function load(id,kind){
+  var k=kind+"/"+id;
+  if(cache[k])return Promise.resolve(cache[k]);
+  if(!shared())return Promise.reject(new Error("로그인한 팀 화면에서만 볼 수 있습니다"));
+  return fbDB.ref("ws/docLib/"+kind+"/"+id).once("value").then(function(s){var v=s.val();if(!v)throw new Error("파일이 없습니다");cache[k]=v;return v;});
+}
+var _seq=0;
+async function paint(id){
+  var my=++_seq,v=document.getElementById("dlView");if(!v)return;
+  try{
+    if(!window.pdfjsLib)throw new Error("PDF 보기 도구(pdf.js)를 못 불러왔습니다 — 새로고침해 주세요");
+    var u=await load(id,"pdf");
+    var doc=await pdfjsLib.getDocument({data:bytes(u)}).promise;
+    v=document.getElementById("dlView");if(my!==_seq||!v)return;
+    v.innerHTML="";
+    var w=Math.min(v.clientWidth||900,1100),dpr=Math.min(window.devicePixelRatio||1,2);
+    for(var p=1;p<=doc.numPages;p++){
+      var pg=await doc.getPage(p),vp1=pg.getViewport({scale:1}),vp=pg.getViewport({scale:w/vp1.width*dpr});
+      if(my!==_seq||!document.getElementById("dlView"))return;
+      var c=document.createElement("canvas");c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+      c.style.cssText="width:100%;max-width:"+w+"px;display:block;margin:0 auto 10px;border:1px solid #e2e8f0;border-radius:6px;background:#fff";
+      v.appendChild(c);
+      await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+    }
+  }catch(e){v=document.getElementById("dlView");if(v&&my===_seq)v.innerHTML='<div style="font-size:12px;color:#b91c1c;padding:10px">'+esc(e&&e.message||e)+'</div>';}
+}
+window.dlOpen=function(id){open=open===id?null:id;render();};
+window.dlGet=function(id,kind){
+  var it=items[id]||{};msg("받는 중…");
+  load(id,kind).then(function(u){return fetch(u).then(function(r){return r.blob();});}).then(function(b){
+    var a=document.createElement("a"),url=URL.createObjectURL(b);a.href=url;
+    a.download=kind==="pdf"?(it.t||"자료")+".pdf":(it.srcName||"원본");
+    document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},60000);msg("");
+  }).catch(function(e){msg(e&&e.message||e,true);});
+};
+window.dlDel=function(id){
+  var it=items[id]||{};
+  if(!confirm("'"+(it.t||"자료")+"'를 팀 공유에서 지울까요? 되돌릴 수 없습니다."))return;
+  if(!shared()){msg("로그인한 팀 화면에서만 지울 수 있습니다",true);return;}
+  var up={};up["ws/docLib/items/"+id]=null;up["ws/docLib/pdf/"+id]=null;up["ws/docLib/src/"+id]=null;
+  fbDB.ref().update(up).then(function(){msg("지웠습니다");}).catch(function(e){msg("삭제 실패: "+(e&&e.message||e),true);});
+};
+window.dlPick=function(){var f=document.getElementById("dlFile");if(f)f.click();};
+window.dlUpload=async function(inp){
+  var fs=[].slice.call(inp.files||[]);inp.value="";if(!fs.length)return;
+  if(!shared()){msg("팀 공유는 로그인한 자비스 화면에서만 됩니다",true);return;}
+  var pdf=fs.filter(function(f){return /\.pdf$/i.test(f.name);})[0],src=fs.filter(function(f){return !/\.pdf$/i.test(f.name);})[0];
+  if(!pdf){msg("미리 보기용 PDF를 같이 골라 주세요 (PowerPoint › 다른 이름으로 저장 › PDF)",true);return;}
+  if(pdf.size>MAX||(src&&src.size>MAX)){msg("파일 하나가 7MB를 넘어 올릴 수 없습니다",true);return;}
+  var t=prompt("자료 제목",pdf.name.replace(/\.pdf$/i,""));if(t===null)return;
+  msg("올리는 중…");
+  function rd(f){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){ok(r.result);};r.onerror=no;r.readAsDataURL(f);});}
+  try{
+    var pu=await rd(pdf),su=src?await rd(src):null,pages=0;
+    try{pages=(await pdfjsLib.getDocument({data:bytes(pu)}).promise).numPages;}catch(e){}
+    var id="d"+Date.now().toString(36);
+    var o={t:String(t).trim()||pdf.name,by:me(),at:new Date().toISOString(),pages:pages,pdfN:pdf.size};
+    if(src){o.srcName=src.name;o.srcN=src.size;}
+    var up={};up["ws/docLib/items/"+id]=o;up["ws/docLib/pdf/"+id]=pu;if(su)up["ws/docLib/src/"+id]=su;
+    cache["pdf/"+id]=pu;if(su)cache["src/"+id]=su;
+    await fbDB.ref().update(up);
+    open=id;msg("올렸습니다");render();
+  }catch(e){msg("저장 실패: "+(e&&e.message||e),true);}
+};
+window._dlOnItems=function(v){
+  items=v||{};var gone=open&&!items[open];if(gone)open=null;
+  var pg=document.getElementById("page-meeting");
+  if(pg&&pg.style.display!=="none"&&(gone||!document.getElementById("dlView")))render();   /* 보는 중이면 다시 그리지 않는다(쪽 그림이 처음부터 다시 그려짐) */
+};
+window.renderDocLib=render;
 })();
 </script>
 </body>
