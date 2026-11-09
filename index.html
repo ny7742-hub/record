@@ -4042,6 +4042,11 @@ function fbListen(){
     function(d){if(d&&typeof d==="object")pmMixDB=d;},
     function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
   );
+  /* PlayMD 생산국가 백업(자동화 PC pm-backup.mjs, 2026-11-09 — 상품데이터에 생산국가가 없어도 카드가 여기서 읽는다) */
+  apply("ws/pmCountry","pmCountryDB",
+    function(d){if(d&&typeof d==="object")pmCountryDB=d;},
+    function(){if(typeof hpsSearch==="function"&&String((document.getElementById("homePsIn")||{}).value||"").trim())hpsSearch();}
+  );
   apply("ws/bestImg","bestImgDB",
     function(d){if(d&&typeof d==="object")bestImgDB=d;},
     function(){var pg=document.getElementById("page-dept");if(pg&&pg.style.display!=="none")renderDeptAllStores();}
@@ -4243,7 +4248,7 @@ var RAW = (function(){
   return _fixCostcoOnlyPrice(DEFAULT_DATA);
 })();
 
-var COLS=["No","상품코드","상품명","칼라코드","칼라명","사이즈코드","사이즈명","자사코드","바코드1","바코드2","TAG가","현재가","사전원가","혼용률"];   /* 혼용률 = 맨 뒤 14번째(2026-11-05 영업2팀 "상품검색에 혼용률도") — 앞 열 번호를 쓰는 곳이 많아 끝에 붙인다 */
+var COLS=["No","상품코드","상품명","칼라코드","칼라명","사이즈코드","사이즈명","자사코드","바코드1","바코드2","TAG가","현재가","사전원가","혼용률","생산국가"];   /* 생산국가 = 15번째(2026-11-09 영업2팀 "플레이엠디에서 제조국도") · 혼용률 = 14번째(2026-11-05 영업2팀 "상품검색에 혼용률도") — 앞 열 번호를 쓰는 곳이 많아 끝에 붙인다 */
 var DB=RAW.map(function(r){var o={};COLS.forEach(function(c,i){o[c]=r[i];});return o;});
 
 /* 저장된 날짜 표시 */
@@ -4400,12 +4405,13 @@ function processFile(file){
       var headerNorm=header.map(_hnorm);
 
       var idxMap={};
-      ["No","상품코드","상품명","칼라코드","칼라명","사이즈코드","사이즈명","자사코드","바코드1","바코드2","TAG가","현재가","사전원가","혼용률"].forEach(function(col){
+      ["No","상품코드","상품명","칼라코드","칼라명","사이즈코드","사이즈명","자사코드","바코드1","바코드2","TAG가","현재가","사전원가","혼용률","생산국가"].forEach(function(col){
         var ix=header.indexOf(col);
         if(ix<0)ix=headerNorm.indexOf(_hnorm(col)); /* 공백/줄바꿈 차이 허용 */
         idxMap[col]=ix;
       });
       if(idxMap["혼용률"]<0)idxMap["혼용률"]=headerNorm.indexOf("혼용율");   /* 플레이엠디 상품코드리스트 열 이름은 '혼용율' */
+      ["제조국","원산지","생산국"].forEach(function(a){if(idxMap["생산국가"]<0)idxMap["생산국가"]=headerNorm.indexOf(a);});   /* 플레이엠디는 '생산국가' */
 
       var newData=[];
       for(var i=1;i<json.length;i++){
@@ -4425,6 +4431,7 @@ function processFile(file){
           String(parseInt(row[idxMap["현재가"]])||"0"),
           String(parseInt(row[idxMap["사전원가"]])||"0"),   /* 마진계산에서 사전원가로 사용 */
           idxMap["혼용률"]>=0?String(row[idxMap["혼용률"]]==null?"":row[idxMap["혼용률"]]).trim().replace(/[ \t]*\r?\n\s*/g," / "):"",   /* 상품검색 카드에 표시 — 끝에 붙은 빈 줄은 지우고 여러 줄은 ' / '로 */
+          idxMap["생산국가"]>=0?String(row[idxMap["생산국가"]]==null?"":row[idxMap["생산국가"]]).trim():"",   /* 상품검색 카드 '제조국' */
         ]);
       }
 
@@ -19783,6 +19790,7 @@ var mallLinkDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallLinkDB
 var MALL="https://whitesands.co.kr";
 var mallMixDB=(function(){try{var d=JSON.parse(localStorage.getItem("mallMixDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 var wcSpecDB=(function(){try{var d=JSON.parse(localStorage.getItem("wcSpecDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
+var pmCountryDB=(function(){try{var d=JSON.parse(localStorage.getItem("pmCountryDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 var pmMixDB=(function(){try{var d=JSON.parse(localStorage.getItem("pmMixDB")||"null");if(d&&typeof d==="object")return d;}catch(e){}return {};})();
 /* 혼용률 글을 부위별 '소재+%' 묶음으로 — 띄어쓰기·쉼표·줄바꿈·'울/모(울)'·'코튼/면' 차이는 같게 본다. 부위 이름(겉감·배색 등)도 맞아야 같은 것 */
 function _mixSig(s){
@@ -19965,6 +19973,21 @@ function _hpsMix(code){
   var W=((mallMixDB||{}).codes||{})[code];
   return '<span style="color:#5b6675" title="콘텐츠 제작에도 PlayMD에도 혼용률이 없습니다'+(W&&W.t?' — 자사몰 상세페이지에는 '+_escX(W.t)+'로 보이지만 확인할 곳이 없어 올리지 않았습니다':'')+'">혼용률 —</span>';
 }
+/* 제조국(2026-11-09 영업2팀 "플레이엠디에서 제조국 정보도") — PlayMD 상품코드리스트 '생산국가' 열(상품데이터 15번째 → 없으면 백업 ws/pmCountry).
+   상품코드마다 한 나라('MADE IN ITALY'처럼 영어로 적힌 건 한글로) */
+var _HPS_CTRY={"ITALY":"이탈리아","CHINA":"중국","KOREA":"한국","VIETNAM":"베트남","BANGLADESH":"방글라데시","JAPAN":"일본"};
+function _hpsCtryName(v){v=String(v||"").trim();var m=v.toUpperCase().match(/^MADE\s*IN\s*([A-Z ]+)$/);if(m){var k=m[1].trim();return _HPS_CTRY[k]||v;}return v;}
+function _hpsCountry(code){
+  var seen=[];
+  (typeof DB!=="undefined"?DB:[]).forEach(function(d){
+    if(String(d["상품코드"]||"").trim()!==code)return;
+    var v=_hpsCtryName(d["생산국가"]);if(v&&seen.indexOf(v)<0)seen.push(v);
+  });
+  var bk=false;
+  if(!seen.length){var P=((typeof pmCountryDB!=="undefined"&&pmCountryDB||{}).codes||{})[code];var v=_hpsCtryName(P);if(v){seen.push(v);bk=true;}}
+  if(!seen.length)return '<span style="color:#5b6675" title="PlayMD 상품코드리스트에 생산국가가 없습니다">제조국 —</span>';
+  return '<span title="PlayMD 상품코드리스트 생산국가'+(bk?'(백업)':'')+'">제조국 <b>'+_escX(seen.join(" / "))+'</b></span>';
+}
 function _hpsCard(o){
   var M=((mallLinkDB||{}).codes||{})[o.code]||null;
   var img=M&&M.i?MALL+"/web/product/medium/"+M.i:(typeof _bestImgFor==="function"?_bestImgFor(o.code,o.name):"");
@@ -20022,6 +20045,7 @@ function _hpsCard(o){
         +'<span>TAG가 <b>'+_hpsWon(o.tag)+'</b></span>'
         +'<span>사전원가 <b>'+_hpsWon(o.cost)+'</b>'+(cr?' <span style="color:#5b6675">('+cr+'%)</span>':'')+'</span>'
         +_hpsMix(o.code)
+        +_hpsCountry(o.code)
       +'</div>'
       +'<div style="font-size:15px;margin-bottom:10px">'+mall
         +(!NAVER_INAPP?' <a href="'+_escX(_hpsNaverUrl(_hpsNaverQuery(o.name)))+'" target="_blank" rel="noopener" title="네이버쇼핑 낮은 가격순: '+_escX(_hpsNaverQuery(o.name))+'" style="margin-left:6px;color:#03a14c;font-weight:800;text-decoration:none;white-space:nowrap">💰 네이버 최저가 ↗</a></div>':'')
