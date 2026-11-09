@@ -192,6 +192,10 @@
   작업 직전 `needLogin`도 먼저 자동 로그인을 해 보고 되면 슬랙으로 사람을 부르지 않는다. `dss-login-guard.mjs`도 비밀번호가 있으면 한 번 넣고 로그인(두 창 단추로 열었을 때).
   다른 아이디로 로그인된 창(`wrong`)은 건드리지 않는다. **비밀번호가 틀렸다고 나오면 dss-cred.json이 바뀔 때까지 다시 안 한다**(잠김 막기, `logs/dss-auto-login.json`), 다른 실패는 창마다 5분에 한 번,
   송장·발주 lock 중엔 건너뜀. 결과는 `ws/portalLogin` `sites.dssN.auto {at, ok, msg}` → 자비스 로그인 상태 칸 DSS 카드에 `🤖 자동 로그인 ✅/❌`. 손으로: `node dss-auto-login.mjs [1|2|both]`.
+  **DSS 칸의 `🔑 로그인하러 가기` 단추는 뺐다**(2026-11-10 영업2팀) — 대신 `🤖 자동화 PC가 1분 안에 자동 로그인합니다`. 두 창 나란히 열기 단추는 비상용으로 남김.
+  **롯데 EDI·현대 EDI·메일(하이웍스)도 자동 로그인**(2026-11-10 영업2팀): `automation/portal-auto-login.mjs` + `portal-cred.json`(`{"lotte":{"id","pw"},"hyundai":{…},"hiworks":{…}}`, id 비면 화면에 저장된 아이디).
+  1번 창(9333)에서 그 탭을 찾거나 열어 넥사크로 칸(롯데 `edt_LoginId/edt_LoginPassword/btn_Login` · 현대 `edtUid/edtPwd/btnLogin`)에 키보드로 치고, 하이웍스는 아이디 → 다음 → 비밀번호.
+  비밀번호 틀림·추가 인증(문자·OTP 등)이 나오면 `portal-cred.json`이 바뀔 때까지 멈춤, 그 밖의 실패는 5분에 한 번. 결과는 `sites.<사이트>.auto` → 카드에 `🤖 자동 로그인`. 롯데·현대·메일 칸의 단추는 남겨 둠. 손으로: `node portal-auto-login.mjs [lotte|hyundai|hiworks|all]`.
   `logs/portal-open-title.txt`는 한 줄에 창 하나 · UTF-16(BOM) — VBS가 한글 제목을 깨뜨리지 않게(예전 UTF-8을 시스템 기본으로 읽었다). 백업 `_backup-portal-open-1026-dssguard.mjs`·`_backup-portal-open-1026.vbs`.
   한 창 안에 따로 공간(CDP `createBrowserContext`)을 만드는 방법은 Playwright가 그 공간의 탭을 다루지 못해 쓰지 않았다.
   로그인 유지(`portal-keepalive.mjs`)는 두 창을 다 본다.
