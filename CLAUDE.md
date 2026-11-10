@@ -34,7 +34,7 @@
 - [`docs/margin.md`](docs/margin.md) — 행사 마진 계산서, 제안 상품 손익계산서, 코스트코·백화점 공문, 행사약정서 PDF
 - [`docs/returns.md`](docs/returns.md) — 홈쇼핑·코스트코 반품등록(시트 불러오기 · 코드매칭 · 창고간이동)
 - [`docs/auth.md`](docs/auth.md) — 회원 승인제(이메일 링크 로그인 · 승인 · Firebase 규칙)
-- [`docs/ecount.md`](docs/ecount.md) — 🧮 이카운트 탭: 매장 발주 요청 → 본사 승인 → 창고이동 엑셀·도매발주서 · 창고 재고 등록 · 💰 매출 등록(판매일보 6채널 → 판매입력 엑셀)
+- [`docs/ecount.md`](docs/ecount.md) — 🧮 이카운트 탭: 매장 발주 요청 → 본사 승인 → 창고이동 엑셀·도매발주서 · 창고 재고 등록 · 🧾 매장 판매등록(매장이 판매·반품·할인 입력 → `ws/ecStoreSales`) · 💰 매출 등록(판매일보 6채널 + 매장 판매등록 → 판매입력 엑셀)
 - [`docs/floorplan.md`](docs/floorplan.md) — 🧊 3D 집기 탭: 집기 목록(그림·사이즈·수량) · 예상 팝업 자리 이미지 · 자동 배치 · 평면도/3D 끌어 옮기기 · 집기리스트 이미지
 - [`docs/higgsfield.md`](docs/higgsfield.md) — 🎨 힉스필드 탭: 힉스필드 새 창 열기 · 코스트코 RRP 디자인 시안 모음(올리기·Ctrl+V · 채택 · 팀 공유 `ws/hgRrp`) · ✨ 문구·참고 이미지로 만들기(자동화 PC `higgs-gen.mjs`가 API로, `ws/hgGen`)
 - [`docs/pdf.md`](docs/pdf.md) — 📄 PDF 탭: 합치기·나누기(순서·돌리기·빼기·묶음 저장) · 글자·서명·도장·펜·형광펜·가리기 쓰기 · 양식 칸 채우기(브라우저 안에서만, pdf-lib, 글자는 한글 글꼴 넣어 벡터)

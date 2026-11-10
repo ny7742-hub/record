@@ -2503,7 +2503,7 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
       <div class="sec-title" style="margin:0;font-size:14px" id="ecTitle">🧮 이카운트 매장 발주</div>
-      <span style="display:inline-flex;gap:4px"><button class="bs" id="ecKindOrd" onclick="ecKind('ord')" style="padding:4px 12px;font-size:12.5px;font-weight:700">📦 매장 발주</button><button class="bs" id="ecKindRet" onclick="ecKind('ret')" style="padding:4px 12px;font-size:12.5px;font-weight:700">↩ 매장 반품</button><button class="bs" id="ecKindStk" onclick="ecKind('stk')" style="padding:4px 12px;font-size:12.5px;font-weight:700">📥 창고 재고 등록</button><button class="bs" id="ecKindSal" onclick="ecKind('sal')" style="padding:4px 12px;font-size:12.5px;font-weight:700">💰 매출 등록</button></span>
+      <span style="display:inline-flex;gap:4px"><button class="bs" id="ecKindOrd" onclick="ecKind('ord')" style="padding:4px 12px;font-size:12.5px;font-weight:700">📦 매장 발주</button><button class="bs" id="ecKindRet" onclick="ecKind('ret')" style="padding:4px 12px;font-size:12.5px;font-weight:700">↩ 매장 반품</button><button class="bs" id="ecKindStk" onclick="ecKind('stk')" style="padding:4px 12px;font-size:12.5px;font-weight:700">📥 창고 재고 등록</button><button class="bs" id="ecKindSl" onclick="ecKind('sl')" style="padding:4px 12px;font-size:12.5px;font-weight:700">🧾 매장 판매등록</button><button class="bs" id="ecKindSal" onclick="ecKind('sal')" style="padding:4px 12px;font-size:12.5px;font-weight:700">💰 매출 등록</button></span>
       <span id="ecSummary" style="font-size:12px;color:#5b6675;font-weight:600"></span>
     </div>
     <div style="font-size:12px;color:#5b6675;margin-bottom:10px;line-height:1.6" id="ecDesc"></div>
@@ -3912,7 +3912,14 @@ function fbListen(){
     try{renderEcount();}catch(e){}
   });
   fbDB.ref("ws/ecSalSrc").on("value",function(snap){ecSalSrc=snap.val()||{};try{if(_ecKind==="sal")renderEcount();}catch(e){}});
-  fbDB.ref("ws/ecSalLog").on("value",function(snap){ecSalLog=snap.val()||{};try{if(_ecKind==="sal")renderEcount();}catch(e){}});
+  fbDB.ref("ws/ecSalLog").on("value",function(snap){ecSalLog=snap.val()||{};try{if(_ecKind==="sal"||_ecKind==="sl")renderEcount();}catch(e){}});
+  /* 🧾 매장 판매등록(2026-11-10) — 저장마다 ws/ecStoreSales/{id} 객체 */
+  fbDB.ref("ws/ecStoreSales").on("value",function(snap){
+    if(WS_LOCAL_ONLY)return;
+    ecStoreSales=snap.val()||{};
+    try{localStorage.setItem("ecStoreSales",JSON.stringify(ecStoreSales));}catch(e){}
+    try{if(_ecKind==="sal"||_ecKind==="sl")renderEcount();}catch(e){}
+  });
   apply("ws/ecConfig","ecConfig",
     function(d){if(d&&typeof d==="object"){ecConfig=d;if(!ecConfig.stores)ecConfig.stores={};}},
     function(){if(typeof renderEcount==="function")renderEcount();}
@@ -10936,7 +10943,8 @@ function _ecEcHtml(code,whCode){
 }
 var _ecKind="ord",_ecDrafts={ord:{store:"",items:[],memo:""},ret:{store:"",items:[],memo:""},
   stk:(function(){try{var d=JSON.parse(localStorage.getItem("ecStkDraft")||"null");return d&&d.items?d:null;}catch(e){return null;}})()||{store:"",items:[],memo:""},
-  sal:{store:"",items:[],memo:""}};
+  sal:{store:"",items:[],memo:""},
+  sl:(function(){try{var d=JSON.parse(localStorage.getItem("ecSlDraft")||"null");return d&&d.items?d:null;}catch(e){return null;}})()||{store:"",items:[],memo:""}};
 var EC_TXT={
   ord:{title:"🧮 이카운트 매장 발주",what:"발주",sec1:"① 발주 요청",sec2:"② 발주 목록 · 승인",sec3:"③ 출고 — 이카운트 창고이동 · 도매발주서",btn:"📨 발주 요청",memo:"메모(선택) — 예: 주말 행사분",
     desc:'① 매장이 상품을 담아 <b>발주 요청</b> → ② <b>요청</b>을 눌러 내역을 보고 상품 추가·빼기·수량 조정 → <b>승인</b>을 누르면 자동화 PC가 이카운트 <b>창고이동</b>(NH → 매장 창고)에 바로 등록하고 <b>완료</b>로 바뀝니다. 도매발주서(물류)는 완료 목록에서 받습니다.',
@@ -10949,13 +10957,18 @@ var EC_TXT={
     done:"",doneBtn:"",dateLab:"일자"},
   sal:{title:"🧮 이카운트 매출 등록",what:"매출",sec1:"",sec2:"",sec3:"",btn:"",memo:"",
     desc:'백화점 · 신세계팩토리 · 코스트코 · 홈쇼핑 · 아난티 매출은 <b>PlayMD 매장판매일보</b>에서, 트래블메이트는 <b>발주 표</b>에서 가져와 '
-      +'일자+매장마다 전표 1장으로 묶어 이카운트 <b>판매입력 웹자료올리기</b> 엑셀을 만듭니다. 받은 전표는 팀에 기록돼 두 번 올리지 않게 막습니다.',
-    done:"",doneBtn:"",dateLab:"일자"}
+      +'일자+매장마다 전표 1장으로 묶어 이카운트 <b>판매입력 웹자료올리기</b> 엑셀을 만듭니다. 받은 전표는 팀에 기록돼 두 번 올리지 않게 막습니다. '
+      +'매장이 <b>🧾 매장 판매등록</b>에 넣은 판매도 여기 <b>매장 판매등록</b> 채널로 들어옵니다(같은 날·매장의 판매일보 줄 대신).',
+    done:"",doneBtn:"",dateLab:"일자"},
+  sl:{title:"🧾 이카운트 매장 판매등록",what:"판매",sec1:"① 매장 · 판매일자 고르고 판 상품 담기",sec2:"",sec3:"",btn:"💾 판매 저장",memo:"메모(선택) — 예: 주말 행사",
+    desc:'매장에서 판 물건과 손님이 돌려준 물건(<b>반품</b> 체크 → 수량 −)을 담고, 할인했으면 <b>할인율</b>이나 <b>받은 돈(단가)</b>을 적어 <b>저장</b>합니다. '
+      +'저장한 판매는 <b>💰 매출 등록</b>에서 이카운트 <b>판매입력</b>(출고창고 = 매장 창고 · 거래처 = 매장, 온라인 백화점몰은 출고창고 NH)으로 들어갑니다.',
+    done:"",doneBtn:"",dateLab:"판매일자"}
 };
 function _ecT(){return EC_TXT[_ecKind];}
-function _ecData(){return _ecKind==="ret"?ecReturns:_ecKind==="stk"?{}:ecOrders;}
+function _ecData(){return _ecKind==="ret"?ecReturns:_ecKind==="stk"||_ecKind==="sl"?{}:ecOrders;}
 function _ecStLab(st){return st==="출고"?"완료":st==="승인"?"이카운트 대기":st;}
-function ecKind(k){_ecDrafts[_ecKind]=_ecDraft;_ecKind=k==="ret"||k==="stk"||k==="sal"?k:"ord";_ecDraft=_ecDrafts[_ecKind];renderEcount();}
+function ecKind(k){_ecDrafts[_ecKind]=_ecDraft;_ecKind=k==="ret"||k==="stk"||k==="sal"||k==="sl"?k:"ord";_ecDraft=_ecDrafts[_ecKind];renderEcount();}
 /* 불량 입고 창고 — 기본 BAD(PlayMD 불량창고와 같은 코드, 설정에서 바꿈) */
 function _ecBad(){return String(ecConfig.bad||"BAD");}
 var ecConfig=(function(){try{return JSON.parse(localStorage.getItem("ecConfig")||"null")||{hq:"",stores:{}};}catch(e){return {hq:"",stores:{}};}})();
@@ -11035,7 +11048,7 @@ function ecRenderSearch(){
     h+='<div id="ecSr_'+k+'" onclick="ecResultClick('+k+')" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\''+(on?"#dbeafe":"")+'\'" style="padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;align-items:center;background:'+(on?"#dbeafe":"")+'">'
       +'<span style="color:#1f2937">'+_escX(d["상품명"]||"")+'</span>'+colorChip(d["칼라명"])
       +'<span style="margin-left:auto;color:#6366f1;font-family:monospace">'+_escX(code)+'</span>'
-      +(_ecKind==="stk"?(ecStock&&(document.getElementById("ecStore")||{}).value?'<span style="min-width:62px;text-align:right">'+_ecStock(code,null,(document.getElementById("ecStore")||{}).value)+'</span>':''):_ecKind==="ret"?(ecStock&&(document.getElementById("ecStore")||{}).value?'<span style="min-width:62px;text-align:right">매장 '+_ecEcHtml(code,(document.getElementById("ecStore")||{}).value)+'</span>':''):'<span style="min-width:62px;text-align:right">재고 '+_ecStock(code)+'</span>')+'</div>';
+      +(_ecKind==="sl"?'<span style="min-width:80px;text-align:right;color:#334155">'+(_ecSlTag(d)?_ecSlTag(d).toLocaleString()+'원':'가격 없음')+'</span>':_ecKind==="stk"?(ecStock&&(document.getElementById("ecStore")||{}).value?'<span style="min-width:62px;text-align:right">'+_ecStock(code,null,(document.getElementById("ecStore")||{}).value)+'</span>':''):_ecKind==="ret"?(ecStock&&(document.getElementById("ecStore")||{}).value?'<span style="min-width:62px;text-align:right">매장 '+_ecEcHtml(code,(document.getElementById("ecStore")||{}).value)+'</span>':''):'<span style="min-width:62px;text-align:right">재고 '+_ecStock(code)+'</span>')+'</div>';
   });
   box.innerHTML=h+'</div>';
   var el=document.getElementById("ecSr_"+_ecResSel);if(el)el.scrollIntoView({block:"nearest"});
@@ -11056,6 +11069,16 @@ function ecAddResult(k){
   if(!(q>0)&&!(_ecKind==="stk"&&qs!==""&&!isNaN(q))){say("수량을 확인해 주세요","#b91c1c");return;}
   _ecDraft.store=(document.getElementById("ecStore")||{}).value||_ecDraft.store;
   var code=String(d["자사코드"]||"").trim(),label=(String(d["상품명"]||"")+" "+String(d["칼라명"]||"")).trim();
+  if(_ecKind==="sl"){
+    /* 매장 판매등록 — 반품 체크면 수량 −. 단가 기본 = 현재가(정상가보다 낮게 정해져 있으면) 아니면 정상가(TAG가) */
+    var rt=!!(document.getElementById("ecSlRet")||{}).checked,sq=rt?-q:q,tag=_ecSlTag(d),cur=parseInt(d["현재가"],10)||0,unit=cur>0&&(!tag||cur<=tag)?cur:tag;
+    var sm=_ecDraft.items.filter(function(x){return x.code===code&&(x.qty<0)===rt;})[0];
+    if(sm)sm.qty+=sq;else _ecDraft.items.push({code:code,name:label,qty:sq,tag:tag,unit:unit});
+    var qi1=document.getElementById("ecQty");if(qi1)qi1.value="";
+    _ecSlSaveDraft();renderEcount();
+    say("✔ "+label+" "+sq+"개 담음"+(rt?" (반품)":"")+(tag?"":" — 정상가가 없어 단가를 직접 적어 주세요"),tag?"#047857":"#b45309");
+    var si1=document.getElementById("ecSearch");if(si1)si1.focus();return;
+  }
   if(_ecKind==="stk"){
     if(!_ecDraft.store){say("담을 창고를 골라 주세요","#b91c1c");return;}
     _ecStkPut(code,label,q,true,_ecDraft.store);
@@ -11074,7 +11097,7 @@ function ecAddResult(k){
   else say("✔ "+label+" "+q+"개 담음"+(bad?" (불량)":""),"#047857");
   var si=document.getElementById("ecSearch");if(si)si.focus();
 }
-function ecDelItem(i){_ecDraft.items.splice(i,1);if(_ecKind==="stk")_ecStkSave();renderEcount();}
+function ecDelItem(i){_ecDraft.items.splice(i,1);if(_ecKind==="stk")_ecStkSave();if(_ecKind==="sl")_ecSlSaveDraft();renderEcount();}
 function ecSubmit(){
   var sc=(document.getElementById("ecStore")||{}).value||"";
   if(!sc){alert("매장을 골라 주세요.");return;}
@@ -11502,6 +11525,11 @@ function ecStkAutoRender(){
 }
 /* 창고 고르기 칸 — 발주·반품은 매장만, 재고 등록은 전체 창고 */
 function _ecStoreOpts(){
+  if(_ecKind==="sl"){
+    var o=function(s){return '<option value="'+_escX(s.code)+'">'+_escX(s.name+" ("+s.code+")")+'</option>';};
+    return '<option value="">매장 선택</option><optgroup label="오프라인 매장">'+_ecStores().map(o).join("")+'</optgroup>'
+      +'<optgroup label="온라인 (백화점몰)">'+_ecSlOnline().map(o).join("")+'</optgroup>';
+  }
   var L=_ecKind==="stk"?_ecStkWhs():_ecStores();
   return '<option value="">'+(_ecKind==="stk"?"담을 창고 선택":"매장 선택")+'</option>'+L.map(function(s){return '<option value="'+_escX(s.code)+'">'+_escX(s.name+" ("+_ecWh(s.code)+")")+'</option>';}).join("");
 }
@@ -11511,11 +11539,12 @@ function _ecStoreOpts(){
    일자·매장·자사코드로 묶어 팀 공유 ws/ecSalSrc/{YYYY-MM}에 둔다 {at, file, d:{DD:{매장코드:{n,c,i:{자사코드(반품 줄은 ~r):[수량,판매금액]}}}}, nm:{자사코드:품목명}}.
    트래블메이트는 판매일보에 없어서(출고 = 매출) 발주 표의 트래블메이트 줄을 명세표 단가(_tmUnitPrice·_tmSupply)로 담는다(이 PC에만).
    엑셀은 이카운트 [판매입력] 웹자료올리기용 — 일자+매장 = 전표 1장(순서). 받은 전표는 ws/ecSalLog/{YYYY-MM-DD_매장코드} {by,at,n,qty,amt}로 남겨 두 번 올리지 않게 한다. */
-var EC_SAL_CH=["백화점","팩토리","코스트코","홈쇼핑","아난티","트래블메이트"];
-var EC_SAL_LAB={"팩토리":"신세계팩토리"};
+var EC_SAL_CH=["매장판매","백화점","팩토리","코스트코","홈쇼핑","아난티","트래블메이트"];
+var EC_SAL_LAB={"팩토리":"신세계팩토리","매장판매":"매장 판매등록"};
 var ecSalSrc={},ecSalLog={};
 var _ecSal=(function(){try{return JSON.parse(localStorage.getItem("ecSalUi")||"null")||{};}catch(e){return {};}})();
 if(!_ecSal.ch)_ecSal.ch={"백화점":1,"팩토리":1,"코스트코":1,"홈쇼핑":1,"아난티":1,"트래블메이트":1};
+if(!("매장판매" in _ecSal.ch))_ecSal.ch["매장판매"]=1;
 if(!_ecSal.extra)_ecSal.extra=[];
 var _ecSalPick={},_ecSalOpen={};
 function _ecSalUiSave(){try{localStorage.setItem("ecSalUi",JSON.stringify(_ecSal));}catch(e){}}
@@ -11587,12 +11616,20 @@ function _ecSalRange(){
 /* 기간·채널에 든 줄 */
 function _ecSalLines(){
   var R=_ecSalRange(),P=_ocProdList().by,out=[];
+  /* 🧾 매장 판매등록 — 매장이 넣은 날·매장은 판매일보 줄 대신 이것을 쓴다(두 번 더하지 않게) */
+  var man={};
+  Object.keys(ecStoreSales).forEach(function(id){
+    var o=ecStoreSales[id];if(!o||!o.day||o.day<R[0]||o.day>R[1])return;
+    man[o.day+"_"+o.sc]=1;
+    if(!_ecSal.ch["매장판매"])return;
+    (o.items||[]).forEach(function(x){out.push({day:o.day,ch:"매장판매",sc:o.sc,sn:o.sn||o.sc,code:x.code,name:x.name||x.code,qty:+x.qty||0,amt:+x.amt||0});});
+  });
   Object.keys(ecSalSrc).forEach(function(ym){
     var M=ecSalSrc[ym];if(!M||!M.d)return;
     Object.keys(M.d).forEach(function(dd){
       var day=ym+"-"+dd;if(day<R[0]||day>R[1])return;
       Object.keys(M.d[dd]).forEach(function(sc){
-        var S=M.d[dd][sc];if(!S||!_ecSal.ch[S.c])return;
+        var S=M.d[dd][sc];if(!S||!_ecSal.ch[S.c]||man[day+"_"+sc])return;
         Object.keys(S.i||{}).forEach(function(k){
           var v=S.i[k],code=k.replace(/~r$/,""),it=P[code];
           out.push({day:day,ch:S.c,sc:sc,sn:S.n||sc,code:it?it.code:code,name:it?it.label:((M.nm||{})[code]||code),qty:+v[0]||0,amt:+v[1]||0});
@@ -11836,6 +11873,7 @@ function ecSalRender(){
   var stores={};
   Object.keys(ecSalSrc).forEach(function(ym){var M=ecSalSrc[ym];Object.keys(M.d||{}).forEach(function(dd){Object.keys(M.d[dd]).forEach(function(sc){var x=M.d[dd][sc];stores[sc]={sc:sc,sn:x.n,ch:x.c};});});});
   _ecSal.extra.forEach(function(x){stores[x.sc]={sc:x.sc,sn:x.sn,ch:x.ch};});
+  Object.keys(ecStoreSales).forEach(function(id){var o=ecStoreSales[id];if(o&&o.sc&&!stores[o.sc])stores[o.sc]={sc:o.sc,sn:o.sn||o.sc,ch:"매장판매"};});
   var SL=Object.keys(stores).map(function(k){return stores[k];}).sort(function(a,b){return EC_SAL_CH.indexOf(a.ch)-EC_SAL_CH.indexOf(b.ch)||(a.sn<b.sn?-1:1);}),ro=adm?'':' disabled',cfg=_ecSalCfg();
   h+='<details style="margin-top:12px;border-top:1px dashed #cbd5e1;padding-top:8px"'+(_ecSal.cfgOpen?' open':'')+' ontoggle="_ecSal.cfgOpen=this.open;_ecSalUiSave()"><summary style="cursor:pointer;font-size:13px;font-weight:700">⚙ 거래처코드 · 출하창고 ('+SL.length+'곳)</summary>'
     +'<div style="font-size:12px;color:#5b6675;margin:6px 0">기본: 거래처코드 = PlayMD 매장코드 · 출하창고 = 매장 창고(이카운트 창고 목록에 있으면) 아니면 본사 창고 '+_escX(_ecHq())+'. 이카운트 [거래처등록]의 코드와 다르면 고쳐 주세요(관리자).</div>'
@@ -11848,6 +11886,145 @@ function ecSalRender(){
   box.innerHTML=h;
   if(keepMemo)document.getElementById("ecSalMemo").value=keepMemo;
   ecSalAutoRender();
+}
+/* ── 🧾 매장 판매등록(2026-11-10 영업2팀 "자비스 이카운트에 매장 판매등록") ──
+   PlayMD 판매일보가 11/9로 끝나서 매장이 판매·판매반품을 자비스에 직접 넣는다. 저장마다 ws/ecStoreSales/{id}
+   {id, day, sc, sn, on(온라인 백화점몰), by, at, memo, items:[{code,name,qty(반품 −),tag(정상가),unit(단가 vat포함),amt}]}.
+   💰 매출 등록(_ecSalLines)이 '매장판매' 채널로 읽어 이카운트 판매입력 엑셀·자동 입력으로 보낸다 — 같은 날·매장의 판매일보 줄은 빼고.
+   출고창고·거래처는 매출 등록과 같은 규칙(_ecSalWh·_ecSalCust): 오프라인 = 매장 창고·매장, 온라인(백화점몰)은 이카운트에 창고가 없어 본사 창고(NH). */
+var ecStoreSales=(function(){try{return JSON.parse(localStorage.getItem("ecStoreSales")||"null")||{};}catch(e){return {};}})();
+var _ecSlOpen={};
+function _ecSlTag(d){return parseInt(d&&d["TAG가"],10)||0;}
+function _ecSlOnline(){return ORDER_STORES.filter(function(s){return s.code&&/^\(백\)/.test(s.name);});}
+function _ecSlIsOn(sc){return _ecSlOnline().some(function(s){return s.code===sc;});}
+function _ecSlSaveDraft(){if(_ecKind==="sl")_ecDrafts.sl=_ecDraft;try{localStorage.setItem("ecSlDraft",JSON.stringify(_ecDrafts.sl));}catch(e){}}
+function _ecSlDay(){return _ecDraft.day||_ecToday();}
+function _ecSlRate(x){return x.tag>0?Math.round((1-x.unit/x.tag)*1000)/10:null;}
+function _ecSlAmt(x){return Math.round((+x.unit||0)*(+x.qty||0));}
+function ecSlSet(i,f,v){
+  var x=_ecDraft.items[i];if(!x)return;
+  var s=String(v).replace(/[^0-9.\-]/g,""),n=parseFloat(s);
+  if(f==="qty"){n=parseInt(s,10);if(!n){alert("수량은 0이 될 수 없습니다 — 빼려면 '빼기'를 눌러 주세요.");renderEcount();return;}x.qty=n;}
+  else if(f==="unit"){x.unit=isNaN(n)||n<0?0:Math.round(n);}
+  else if(f==="rate"){if(!(x.tag>0)){renderEcount();return;}n=isNaN(n)?0:Math.min(100,Math.max(0,n));x.unit=Math.round(x.tag*(100-n)/100);}
+  _ecSlSaveDraft();renderEcount();
+}
+function ecSlRateAll(){
+  var v=parseFloat(String((document.getElementById("ecSlRateAll")||{}).value||"").replace(/[^0-9.]/g,""));
+  if(isNaN(v)||v<0||v>100){alert("할인율(0~100)을 넣어 주세요.");return;}
+  var n=0;_ecDraft.items.forEach(function(x){if(x.tag>0){x.unit=Math.round(x.tag*(100-v)/100);n++;}});
+  _ecSlSaveDraft();renderEcount();
+  var m=document.getElementById("ecMsg");if(m){m.style.color="#047857";m.textContent="✔ "+n+"품목에 "+v+"% 할인 적용";}
+}
+function ecSlDaySet(v){_ecDraft.day=v||_ecToday();_ecSlSaveDraft();renderEcount();}
+function ecSlSave(){
+  var sc=(document.getElementById("ecStore")||{}).value||_ecDraft.store||"",day=_ecSlDay();
+  if(!sc){alert("매장을 골라 주세요.");return;}
+  if(!_ecDraft.items.length){alert("담은 상품이 없습니다.");return;}
+  if(day>_ecToday()){alert("판매일자가 오늘보다 뒤입니다.");return;}
+  var st=_ordStoreByCode(sc)||{},memo=String((document.getElementById("ecMemo")||{}).value||"").trim();
+  var items=_ecDraft.items.map(function(x){return {code:x.code,name:x.name,qty:x.qty,tag:x.tag||0,unit:+x.unit||0,amt:_ecSlAmt(x)};});
+  var zero=items.filter(function(x){return !x.unit;}).length,qty=items.reduce(function(a,x){return a+x.qty;},0),amt=items.reduce(function(a,x){return a+x.amt;},0);
+  var lg=ecSalLog[day+"_"+sc];
+  if(!confirm(st.name+" "+day+" 판매를 저장합니다.\n\n"+items.length+"품목 · "+qty+"개 · "+amt.toLocaleString()+"원"
+    +(zero?"\n\n⚠ 단가 0원 줄이 "+zero+"개 있습니다(증정이면 그대로 저장).":"")
+    +(lg?"\n\n⚠ 이 날·매장은 이미 이카운트로 보냈습니다("+_saipFmtAt(lg.at)+" "+(lg.by||"")+"). 저장하면 본사에 알려 이카운트 전표를 고쳐야 합니다.":"")
+    +"\n\n저장한 판매는 본사가 💰 매출 등록에서 이카운트 판매입력으로 보냅니다."))return;
+  var id="sl"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  var o={id:id,day:day,sc:sc,sn:st.name||sc,on:_ecSlIsOn(sc),by:_saipMe(),at:new Date().toISOString(),memo:memo,items:items};
+  ecStoreSales[id]=o;
+  try{localStorage.setItem("ecStoreSales",JSON.stringify(ecStoreSales));}catch(e){}
+  if(!WS_LOCAL_ONLY&&(_authState==="member"||_authState==="open")){try{fbDB.ref("ws/ecStoreSales/"+id).set(o);}catch(e){console.warn("매장 판매 저장 오류",e);}}
+  _ecDraft=_ecDrafts.sl={store:sc,day:day,items:[],memo:""};_ecSlSaveDraft();
+  var m=document.getElementById("ecMemo");if(m)m.value="";
+  renderEcount();
+  var mm=document.getElementById("ecMsg");if(mm){mm.style.color="#047857";mm.textContent="✔ "+(st.name||sc)+" "+day+" 판매 저장 ("+items.length+"품목 · "+amt.toLocaleString()+"원)";}
+}
+function _ecSlCanDel(o){return !!o&&!ecSalLog[o.day+"_"+o.sc]&&(o.by===_saipMe()||_ecAdmin());}
+function ecSlDel(id){
+  var o=ecStoreSales[id];if(!o)return;
+  if(!_ecSlCanDel(o)){alert(ecSalLog[o.day+"_"+o.sc]?"이미 이카운트로 보낸 판매라 지울 수 없습니다 — 본사에 말해 주세요.":"저장한 사람이나 관리자만 지울 수 있습니다.");return;}
+  if(!confirm(o.sn+" "+o.day+" 판매("+(o.items||[]).length+"품목)를 지웁니다."))return;
+  delete ecStoreSales[id];
+  try{localStorage.setItem("ecStoreSales",JSON.stringify(ecStoreSales));}catch(e){}
+  if(!WS_LOCAL_ONLY&&(_authState==="member"||_authState==="open")){try{fbDB.ref("ws/ecStoreSales/"+id).set(null);}catch(e){}}
+  renderEcount();
+}
+/* 다시 담기 — 저장한 판매를 담는 칸으로 불러와 고친 뒤 새로 저장(원래 것은 지움) */
+function ecSlEdit(id){
+  var o=ecStoreSales[id];if(!o)return;
+  if(!_ecSlCanDel(o)){alert("이미 이카운트로 보냈거나 다른 사람이 저장한 판매라 고칠 수 없습니다.");return;}
+  if(_ecDraft.items.length&&!confirm("담는 칸에 있는 상품을 비우고 이 판매를 불러옵니다."))return;
+  _ecDraft=_ecDrafts.sl={store:o.sc,day:o.day,items:(o.items||[]).map(function(x){return {code:x.code,name:x.name,qty:x.qty,tag:x.tag||0,unit:x.unit||0};}),memo:o.memo||""};
+  delete ecStoreSales[id];
+  try{localStorage.setItem("ecStoreSales",JSON.stringify(ecStoreSales));}catch(e){}
+  if(!WS_LOCAL_ONLY&&(_authState==="member"||_authState==="open")){try{fbDB.ref("ws/ecStoreSales/"+id).set(null);}catch(e){}}
+  _ecSlSaveDraft();
+  var stSel=document.getElementById("ecStore");if(stSel)stSel.value=o.sc;
+  renderEcount();
+  var m=document.getElementById("ecMemo");if(m)m.value=o.memo||"";
+  var mm=document.getElementById("ecMsg");if(mm){mm.style.color="#b45309";mm.textContent="불러왔습니다 — 고친 뒤 '판매 저장'을 다시 눌러 주세요(안 누르면 저장한 판매가 없어집니다)";}
+}
+function ecSlToggle(id){_ecSlOpen[id]=!_ecSlOpen[id];renderEcount();}
+function _ecSlRender(){
+  var sc=(document.getElementById("ecStore")||{}).value||_ecDraft.store||"",day=_ecSlDay(),it=_ecDraft.items;
+  var inp='padding:3px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px';
+  var h='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:13px">'
+    +'<label style="display:flex;align-items:center;gap:4px;margin:0;font-weight:700;white-space:nowrap">판매일자 <input type="date" id="ecSlDay" value="'+_escX(day)+'" max="'+_ecToday()+'" onchange="ecSlDaySet(this.value)" style="'+inp+'"></label>';
+  if(sc){
+    var on=_ecSlIsOn(sc),wh=_ecSalWh(sc),cu=_ecSalCust(sc);
+    h+='<span style="padding:2px 10px;border-radius:12px;font-weight:700;font-size:12px;'+(on?'background:#dbeafe;color:#1e40af':'background:#dcfce7;color:#166534')+'">'+(on?'온라인 (백화점몰)':'오프라인 매장')+'</span>'
+      +'<span style="color:#334155">이카운트 출고창고 <b>'+_escX(wh)+'</b> · 거래처 <b>'+_escX(cu)+'</b></span>'
+      +(!on&&wh===_ecHq()?'<span style="color:#b45309;font-size:12px">⚠ 이카운트에 이 매장 창고가 아직 없어 '+_escX(_ecHq())+'에서 나간 것으로 들어갑니다 — 본사에 창고 등록을 요청해 주세요</span>':'');
+  }else h+='<span style="color:#5b6675">매장을 고르면 이카운트 출고창고·거래처가 보입니다</span>';
+  h+='</div>';
+  if(it.length){
+    var td='padding:3px 6px',num=td+';text-align:right',ip='width:72px;text-align:right;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px';
+    var sQ=0,sA=0,rQ=0,rA=0;
+    h+='<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;min-width:640px;border-collapse:collapse;font-size:12.5px"><tr style="background:#f1f5f9">'
+      +'<th style="'+td+';text-align:left">상품</th><th style="'+td+'">자사코드</th><th style="'+num+'">수량</th><th style="'+num+'">정상가</th><th style="'+num+'">할인율 %</th><th style="'+num+'" title="손님이 실제로 낸 돈(1개, 부가세 포함)">단가(vat포함)</th><th style="'+num+'">금액</th><th></th></tr>'
+      +it.map(function(x,i){
+        var a=_ecSlAmt(x),r=_ecSlRate(x),rt=x.qty<0;if(rt){rQ+=x.qty;rA+=a;}else{sQ+=x.qty;sA+=a;}
+        return '<tr style="border-top:1px solid #e2e8f0;'+(rt?'background:#fef2f2':'')+'"><td style="'+td+'">'+(rt?'<b style="color:#b91c1c">반품</b> ':'')+_escX(x.name)+'</td><td style="'+td+';color:#5b6675">'+_escX(x.code)+'</td>'
+          +'<td style="'+num+'"><input value="'+x.qty+'" onchange="ecSlSet('+i+',\'qty\',this.value)" style="'+ip+';width:56px;font-weight:700;color:'+(rt?'#b91c1c':'inherit')+'"></td>'
+          +'<td style="'+num+';color:#5b6675">'+(x.tag?x.tag.toLocaleString():'–')+'</td>'
+          +'<td style="'+num+'"><input value="'+(r===null?'':r)+'"'+(x.tag?'':' disabled title="정상가가 없어 단가를 직접 적어 주세요"')+' onchange="ecSlSet('+i+',\'rate\',this.value)" style="'+ip+';width:52px"></td>'
+          +'<td style="'+num+'"><input value="'+(+x.unit||0)+'" onchange="ecSlSet('+i+',\'unit\',this.value)" style="'+ip+';font-weight:700;'+(x.unit?'':'background:#fef3c7')+'"></td>'
+          +'<td style="'+num+';font-weight:700;color:'+(a<0?'#b91c1c':'inherit')+'">'+a.toLocaleString()+'</td>'
+          +'<td style="'+num+'"><button class="bs" style="padding:2px 8px;font-size:11.5px;color:#b91c1c" onclick="ecDelItem('+i+')">빼기</button></td></tr>';
+      }).join("")
+      +'<tr style="border-top:2px solid #cbd5e1;font-weight:700"><td style="'+td+'" colspan="2">판매 '+sQ+'개 · '+sA.toLocaleString()+'원'+(rQ?' &nbsp; <span style="color:#b91c1c">반품 '+rQ+'개 · '+rA.toLocaleString()+'원</span>':'')+'</td>'
+      +'<td style="'+num+'">'+(sQ+rQ)+'</td><td></td><td></td><td></td><td style="'+num+';font-size:13.5px">'+(sA+rA).toLocaleString()+'</td><td></td></tr></table></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12.5px"><span style="color:#334155">모든 상품 할인율</span>'
+      +'<input id="ecSlRateAll" inputmode="decimal" placeholder="예: 30" style="'+inp+';width:70px;text-align:right">%'
+      +'<button class="bs" onclick="ecSlRateAll()" style="padding:3px 10px;font-size:12px;font-weight:700">적용</button>'
+      +'<span style="color:#5b6675">할인했으면 할인율이나 단가 칸에 손님이 실제로 낸 돈을 적어요(예: 49,000원 30% → 34,300원). 손님이 돌려준 물건은 위 <b>반품</b>에 체크하고 담아요.</span></div>';
+  }else h+='<div style="color:#5b6675;font-size:12.5px;margin-top:8px">위에서 상품을 찾아 담아 주세요. 손님이 돌려준 물건은 <b>반품</b>에 체크하고 담으면 수량이 −로 들어갑니다.</div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px"><input id="ecMemo" placeholder="'+_escX(_ecT().memo)+'" style="flex:1;min-width:220px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">'
+    +'<button onclick="ecSlSave()" style="padding:6px 16px;font-size:13.5px;font-weight:800;background:#1b6e82;color:#fff;border:0;border-radius:8px;cursor:pointer"'+(it.length?'':' disabled')+'>💾 판매 저장'+(it.length?' ('+it.length+'품목 · '+it.reduce(function(a,x){return a+_ecSlAmt(x);},0).toLocaleString()+'원)':'')+'</button></div>';
+  /* 저장한 판매 — 고른 날짜(매장을 골랐으면 그 매장만) */
+  var L=Object.keys(ecStoreSales).map(function(k){return ecStoreSales[k];}).filter(function(o){return o&&o.day===day&&(!sc||o.sc===sc);})
+    .sort(function(a,b){return String(a.sn).localeCompare(String(b.sn))||String(a.at).localeCompare(String(b.at));});
+  h+='<div style="margin-top:14px;padding-top:10px;border-top:1px dashed #cbd5e1"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><b style="font-size:13.5px">② 저장한 판매 — '+_escX(day)+(sc?' · '+_escX((_ordStoreByCode(sc)||{}).name||sc):' · 모든 매장')+'</b>'
+    +'<span style="font-size:12px;color:#5b6675">본사가 <b>💰 매출 등록</b>에서 이카운트로 보내면 ‘이카운트 보냄’으로 바뀌고 더는 고칠 수 없어요</span></div>';
+  if(!L.length)h+='<div style="color:#5b6675;font-size:12.5px">아직 저장한 판매가 없습니다.</div>';
+  else{
+    var td2='padding:4px 6px';
+    h+='<div style="overflow-x:auto"><table style="width:100%;min-width:560px;border-collapse:collapse;font-size:12.5px"><tr style="background:#f1f5f9"><th style="'+td2+';text-align:left">매장</th><th style="'+td2+';text-align:right">품목</th><th style="'+td2+';text-align:right">수량</th><th style="'+td2+';text-align:right">금액</th><th style="'+td2+';text-align:left">저장</th><th style="'+td2+';text-align:left">상태</th><th></th></tr>';
+    L.forEach(function(o){
+      var I=o.items||[],q=I.reduce(function(a,x){return a+(+x.qty||0);},0),a=I.reduce(function(a2,x){return a2+(+x.amt||0);},0),lg=ecSalLog[o.day+"_"+o.sc],cd=_ecSlCanDel(o),id=_escX(o.id);
+      h+='<tr style="border-top:1px solid #e2e8f0"><td style="'+td2+'">'+_escX(o.sn)+(o.on?' <span style="font-size:11px;color:#1e40af">온라인</span>':'')+(o.memo?' <span style="color:#5b6675">· '+_escX(o.memo)+'</span>':'')+'</td>'
+        +'<td style="'+td2+';text-align:right">'+I.length+'</td><td style="'+td2+';text-align:right;font-weight:700;color:'+(q<0?'#b91c1c':'inherit')+'">'+q+'</td><td style="'+td2+';text-align:right;font-weight:700">'+a.toLocaleString()+'</td>'
+        +'<td style="'+td2+';color:#5b6675;white-space:nowrap">'+_escX(o.by||"")+' '+_escX(_saipFmtAt(o.at))+'</td>'
+        +'<td style="'+td2+';white-space:nowrap">'+(lg?'<span style="color:#047857;font-weight:700">✅ 이카운트 보냄</span>':'<span style="color:#b45309;font-weight:700">본사 대기</span>')+'</td>'
+        +'<td style="'+td2+';text-align:right;white-space:nowrap"><button class="bs" style="padding:1px 8px;font-size:11.5px" onclick="ecSlToggle(\''+id+'\')">'+(_ecSlOpen[o.id]?'접기':'보기')+'</button>'
+        +(cd?' <button class="bs" style="padding:1px 8px;font-size:11.5px" onclick="ecSlEdit(\''+id+'\')">고치기</button> <button class="bs" style="padding:1px 8px;font-size:11.5px;color:#b91c1c" onclick="ecSlDel(\''+id+'\')">지우기</button>':'')+'</td></tr>';
+      if(_ecSlOpen[o.id])h+='<tr><td colspan="7" style="padding:2px 6px 8px"><table style="width:100%;border-collapse:collapse;font-size:12px;background:#f8fafc">'
+        +I.map(function(x){var r=x.tag>0?Math.round((1-x.unit/x.tag)*1000)/10:null;return '<tr style="border-top:1px solid #eef2f7"><td style="padding:2px 6px">'+(x.qty<0?'<b style="color:#b91c1c">반품</b> ':'')+_escX(x.name)+'</td><td style="padding:2px 6px;color:#5b6675">'+_escX(x.code)+'</td><td style="padding:2px 6px;text-align:right">'+x.qty+'개</td><td style="padding:2px 6px;text-align:right">'+(+x.unit||0).toLocaleString()+'원'+(r?' <span style="color:#5b6675">('+r+'% 할인)</span>':'')+'</td><td style="padding:2px 6px;text-align:right;font-weight:700">'+(+x.amt||0).toLocaleString()+'원</td></tr>';}).join("")+'</table></td></tr>';
+    });
+    h+='</table></div>';
+  }
+  return h+'</div>';
 }
 function ecSaveConf(){
   if(!_ecAdmin()){alert("관리자만 바꿀 수 있습니다.");return;}
@@ -11890,15 +12067,15 @@ function renderEcount(){
       +'<button class="bs" style="padding:3px 10px;font-size:12px;font-weight:700"'+(rqWait?' disabled':'')+' onclick="ecStockPullGo()" title="자동화 PC가 이카운트 창고별재고현황을 바로 다시 읽습니다(10~20초)">'+(rqWait?'⏳ 받는 중…':'🔄 지금 받기')+'</button>'
       +'<label class="bs" style="cursor:pointer;padding:3px 10px;font-size:12px" title="자동 받기가 안 될 때 — 이카운트 창고별재고현황을 엑셀로 저장해 올립니다">📤 엑셀로 올리기(예비)<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="ecStockLoad(this)"></label>';
   }
-  [["ecKindOrd","ord",rqO],["ecKindRet","ret",rqR],["ecKindStk","stk",0],["ecKindSal","sal",0]].forEach(function(a){var b=document.getElementById(a[0]);if(!b)return;var on=_ecKind===a[1];
-    b.style.background=on?"#1b6e82":"";b.style.color=on?"#fff":"";b.style.borderColor=on?"#1b6e82":"";b.textContent={ord:"📦 매장 발주",ret:"↩ 매장 반품",stk:"📥 창고 재고 등록",sal:"💰 매출 등록"}[a[1]]+(a[2]?" ("+a[2]+")":"");});
-  var stk=_ecKind==="stk",sal=_ecKind==="sal";
-  ["ecCard2","ecCard3"].forEach(function(id){var c=document.getElementById(id);if(c)c.style.display=stk||sal?"none":"";});
-  /* 💰 매출 등록은 ① 칸 대신 자기 화면(#ecSalBox)만 쓴다 */
-  [["ecForm",""],["ecSec1",""],["ecStockBar","flex"]].forEach(function(a){var e=document.getElementById(a[0]);if(e)e.style.display=sal||(stk&&a[0]==="ecSec1")?"none":a[1];});
+  [["ecKindOrd","ord",rqO],["ecKindRet","ret",rqR],["ecKindStk","stk",0],["ecKindSl","sl",0],["ecKindSal","sal",0]].forEach(function(a){var b=document.getElementById(a[0]);if(!b)return;var on=_ecKind===a[1];
+    b.style.background=on?"#1b6e82":"";b.style.color=on?"#fff":"";b.style.borderColor=on?"#1b6e82":"";b.textContent={ord:"📦 매장 발주",ret:"↩ 매장 반품",stk:"📥 창고 재고 등록",sl:"🧾 매장 판매등록",sal:"💰 매출 등록"}[a[1]]+(a[2]?" ("+a[2]+")":"");});
+  var stk=_ecKind==="stk",sal=_ecKind==="sal",sl=_ecKind==="sl";
+  ["ecCard2","ecCard3"].forEach(function(id){var c=document.getElementById(id);if(c)c.style.display=stk||sal||sl?"none":"";});
+  /* 💰 매출 등록은 ① 칸 대신 자기 화면(#ecSalBox)만 쓴다 · 🧾 매장 판매등록은 재고 줄을 숨긴다 */
+  [["ecForm",""],["ecSec1",""],["ecStockBar","flex"]].forEach(function(a){var e=document.getElementById(a[0]);if(e)e.style.display=sal||(stk&&a[0]==="ecSec1")||(sl&&a[0]==="ecStockBar")?"none":a[1];});
   var sbx=document.getElementById("ecSalBox");if(sbx)sbx.style.display=sal?"":"none";
   if(sal)ecSalRender();
-  var sum=document.getElementById("ecSummary");if(sum)sum.textContent=sal?"판매일보 "+Object.keys(ecSalSrc).length+"개월 · 받은 전표 "+Object.keys(ecSalLog).length+"장":stk?"창고 "+_ecStkWhList().length+"곳 · "+_ecDraft.items.length+"줄 · "+_ecSum(_ecDraft)+"개":"승인 대기 "+nReq+"건 · "+T.done+" 대기 "+nOk+"건"+(adm?" · 관리자":"");
+  var sum=document.getElementById("ecSummary");if(sum)sum.textContent=sl?"저장한 판매 "+Object.keys(ecStoreSales).filter(function(k){var o=ecStoreSales[k];return o&&o.day===_ecSlDay();}).length+"건("+_ecSlDay()+") · 담은 "+_ecDraft.items.length+"품목":sal?"판매일보 "+Object.keys(ecSalSrc).length+"개월 · 받은 전표 "+Object.keys(ecSalLog).length+"장":stk?"창고 "+_ecStkWhList().length+"곳 · "+_ecDraft.items.length+"줄 · "+_ecSum(_ecDraft)+"개":"승인 대기 "+nReq+"건 · "+T.done+" 대기 "+nOk+"건"+(adm?" · 관리자":"");
   /* ① 담기 */
   _ecProdDl();
   var f=document.getElementById("ecForm");
@@ -11906,10 +12083,11 @@ function renderEcount(){
     var keep={memo:(document.getElementById("ecMemo")||{}).value};
     if(!document.getElementById("ecSearch")){
       f.innerHTML='<div id="ecSearchRow" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
-        +'<select id="ecStore" onchange="_ecDraft.store=this.value;if(_ecKind===\'stk\'){_ecStkSave();renderEcount();ecRenderSearch();}" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></select>'
+        +'<select id="ecStore" onchange="_ecDraft.store=this.value;if(_ecKind===\'stk\'){_ecStkSave();renderEcount();ecRenderSearch();}if(_ecKind===\'sl\'){_ecSlSaveDraft();renderEcount();}" style="padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></select>'
         +'<input id="ecSearch" oninput="ecSearchInput()" onkeydown="ecSearchKey(event)" autocomplete="off" placeholder="상품명·칼라·자사코드 (예: 루시 베이지)" style="flex:1;min-width:240px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
         +'<input id="ecQty" inputmode="numeric" placeholder="수량(1)" style="width:70px;padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;text-align:right" onkeydown="if(event.key===\'Enter\')ecAddItem()">'
         +'<label id="ecBadLab" style="font-size:12.5px;color:#b91c1c;font-weight:700;display:none;align-items:center;gap:3px"><input type="checkbox" id="ecBad"> 불량</label>'
+        +'<label id="ecSlRetLab" title="손님이 돌려준 물건 — 수량이 −로 담깁니다" style="font-size:12.5px;color:#b91c1c;font-weight:700;display:none;align-items:center;gap:3px;white-space:nowrap;margin:0"><input type="checkbox" id="ecSlRet" style="width:auto;margin:0"> 반품</label>'
         +'<button class="bs" onclick="ecAddItem()" style="padding:5px 14px;font-size:13px;font-weight:700">＋ 담기</button>'
         +'<span id="ecMsg" style="font-size:12px;color:#5b6675"></span></div>'
         +'<div id="ecSr"></div><div id="ecDraftBox"></div><div id="ecStkExtra"></div>';
@@ -11924,8 +12102,12 @@ function renderEcount(){
     if(stSel&&!stSel.value&&_ecDraft.store)stSel.value=_ecDraft.store;
     var qIn=document.getElementById("ecQty");if(qIn)qIn.placeholder=stk?"수량":"수량(1)";
     var bl=document.getElementById("ecBadLab");if(bl)bl.style.display=ret?"flex":"none";
+    var srl=document.getElementById("ecSlRetLab");if(srl)srl.style.display=sl?"flex":"none";
     var h='';
-    if(stk){
+    if(sl){
+      var dbs=document.getElementById("ecDraftBox");if(dbs)dbs.innerHTML=_ecSlRender();
+      var mo=document.getElementById("ecMemo");if(mo)mo.value=keep.memo!=null?keep.memo:(_ecDraft.memo||"");
+    }else if(stk){
       /* 간단하게(2026-11-06 영업2팀 "창고재고등록이 어렵습니다. 간단하게") — ① PlayMD 창고 → 이카운트 창고 담기 ② 목록 확인 ③ 🤖 이카운트에 넣기 세 칸만 보이고,
          검색·엑셀 불러오기·본사 담기·재고조정/기초재고 엑셀은 '다른 방법'(_ecStkMore)으로 접어 둔다. 접힌 칸(#ecSearchRow·#ecSr·#ecStkExtra)은 #ecForm을 세로 flex로 두고 ③ 아래로 보낸다 */
       var W=_ecStkWhList(),has=W.some(_ecStkHas),nIt=_ecDraft.items.length;
