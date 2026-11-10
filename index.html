@@ -24052,6 +24052,24 @@ function _hsFindMatchFromDefaultData(prod){
   if(!colorCode)return null;
   return {colorCode:colorCode,prodCode:cand.prodCode,colorName:split.color};
 }
+/* 매칭표 줄 검사(2026-11-10 영업2팀 "상품코드가 일치하지 않으면 일치하는 코드가 없다고 표시해주고, 등록하지 말아주세요") —
+   11/6 홈앤쇼핑 '울 블렌디드 리본 보닛햇 그라스' 4줄의 코드 칸이 다른 상품(사오린·트레사·나레아)이라 531개가 엉뚱한 코드로 등록됐다.
+   ① 상품코드리스트에서 그 코드의 상품코드가 매칭표 상품코드(prodCode)와 다르면 ② 매칭표 이름 끝 색(브라운 등)이 그 코드의 칼라명과 다르면 → 이유 문구 */
+function _hsMatchCheck(e){
+  var rows=(typeof RAW!=="undefined"&&RAW&&RAW.length)?RAW:(typeof DEFAULT_DATA!=="undefined"?DEFAULT_DATA:[]);
+  if(!rows.length||!e||!e.colorCode)return "";
+  var U=function(v){return String(v==null?"":v).trim().toUpperCase();};
+  var C=function(v){return String(v==null?"":v).replace(/\s/g,"").replace(/챠콜/g,"차콜").replace(/[()&]/g,"");};
+  var cc=U(e.colorCode),row=null;
+  for(var i=0;i<rows.length;i++)if(rows[i]&&U(rows[i][7])===cc){row=rows[i];break;}
+  if(!row)return "";                                   /* 리스트에 없는 코드는 뒤의 상품코드리스트 대조(missing)가 멈춘다 */
+  var nm=String(row[2]||"").trim();
+  if(e.prodCode&&U(row[1])!==U(e.prodCode))return "매칭표 코드 "+cc+"는 '"+nm+"'(상품코드 "+row[1]+")인데 매칭표 상품코드는 "+e.prodCode+(e.prodName?"("+e.prodName+")":"");
+  if(!_hsMatchCheck._colors){var cs={};rows.forEach(function(r){var c=C(r&&r[4]);if(c)cs[c]=1;});_hsMatchCheck._colors=cs;}
+  var toks=String(e.colorName||"").split("/")[0].split(/[\s,]+/).filter(Boolean),last=C(toks[toks.length-1]),lc=C(row[4]);
+  if(last&&lc&&_hsMatchCheck._colors[last]&&last!==lc&&lc.indexOf(last)<0&&last.indexOf(lc)<0)return "주문 색 '"+toks[toks.length-1]+"'인데 매칭표 코드 "+cc+"는 '"+row[4]+"'("+nm+")";
+  return "";
+}
 function _hsFindMatch(shop,prod){
   if(hsCodeMatchDB.length){
     var nProd=_hsCodeNormName(prod),nShop=_hsCodeNormChannel(shop);
@@ -24063,7 +24081,7 @@ function _hsFindMatch(shop,prod){
       if(!generic)generic=e;
     }
     var picked=exact||generic;
-    if(picked)return picked;
+    if(picked){var bad=_hsMatchCheck(picked);if(bad)return {bad:bad,colorCode:"",prodCode:picked.prodCode};return picked;}
   }
   /* 매칭표에 없으면 판매일보 상품데이터에서 한 번 더 찾아본다 */
   return _hsFindMatchFromDefaultData(prod);
@@ -24320,6 +24338,7 @@ function _ccoExtractRows(rows){
     if(vc.code)colorCodeVal=vc.code;
     if(!colorCodeVal){
       var hm=_hsFindMatch(shopVal,prodCell);
+      if(hm&&hm.bad){vc={code:"",chk:"nomatch",note:"일치하는 코드 없음 — "+hm.bad+" · 매칭표를 고친 뒤 다시 불러오세요(등록 안 함)"};hm=null;}
       if(hm){colorCodeVal=hm.colorCode;if(!barcodeVal)barcodeVal=hm.colorCode;matched=true;vin.cc=colorCodeVal;vin.bar="";vc=_ccoVerifyCode(vin);}
     }
     var qtyVal=Number(String(row[cQty]==null?"":row[cQty]).replace(/,/g,""))||0;
@@ -24451,8 +24470,8 @@ function renderCcoTable(){
       +'<td style="border:1px solid #e2e8f0;padding:2px;min-width:110px">'
         +'<input type="text" value="'+_esc(r.colorCode)+'" data-i="'+i+'" onchange="ccoEditColorCode(this)" placeholder="코드 직접입력" style="width:100%;box-sizing:border-box;border:1px solid '+(noCode?'#fca5a5':'#d1d5db')+';border-radius:5px;padding:4px 6px;font-size:12px'+(noCode?';color:#dc2626':'')+'">'
         +(r.matched?'<div style="font-size:10px;color:#16a34a;padding:2px 2px 0">🔎자동매칭</div>':'')
-        +(noCode?'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">❗코드없음</div>':'')
-        +(r.chk==="conflict"||r.chk==="missing"?'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">⛔'+_esc(r.chkNote)+'</div>':(r.chk==="fixed"||r.chkNote)?'<div style="font-size:10px;color:#b45309;padding:2px 2px 0">💡'+_esc(r.chkNote)+'</div>':r.chk==="ok"?'<div style="font-size:10px;color:#16a34a;padding:2px 2px 0">✔상품코드리스트</div>':'')
+        +(noCode&&r.chk!=="nomatch"?'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">❗코드없음</div>':'')
+        +(r.chk==="conflict"||r.chk==="missing"||r.chk==="nomatch"?'<div style="font-size:10px;color:#dc2626;padding:2px 2px 0">⛔'+_esc(r.chkNote)+'</div>':(r.chk==="fixed"||r.chkNote)?'<div style="font-size:10px;color:#b45309;padding:2px 2px 0">💡'+_esc(r.chkNote)+'</div>':r.chk==="ok"?'<div style="font-size:10px;color:#16a34a;padding:2px 2px 0">✔상품코드리스트</div>':'')
       +'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;white-space:nowrap">'+out.ymd+'</td>'
       +'<td style="border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;color:#64748b;white-space:nowrap">'+_esc(r.barcode)+'</td>'
