@@ -1,0 +1,435 @@
+<title>이카운트 매장 매뉴얼</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 레이아웃: 그림책처럼 한 단, 일마다 한 장(카드) — 위 '무엇을 할까요' 버튼판에서 바로 그 장으로 */
+:root{
+  --bg:#f3f8fc; --paper:#ffffff; --ink:#1d2a38; --sub:#4d5c6c; --line:#d6e2ec;
+  --sky:#1f7ae0; --sky-soft:#e3effc; --sun:#ffc53d; --sun-soft:#fff4d6;
+  --leaf:#1c9b67; --leaf-soft:#ddf4ea; --berry:#d9475a; --berry-soft:#fde6e9;
+  --grape:#6a4fd1; --grape-soft:#ece8fc;
+  --display:"Jua","Noto Sans KR",system-ui,sans-serif;
+  --body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1720; --paper:#16212d; --ink:#e8eef5; --sub:#a8b6c4; --line:#2a3a4b;
+  --sky:#5ea8ff; --sky-soft:#17304d; --sun:#ffcf5c; --sun-soft:#3a3016;
+  --leaf:#4fd29b; --leaf-soft:#123a2b; --berry:#ff7a8a; --berry-soft:#43202a;
+  --grape:#a592ff; --grape-soft:#2a2350; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1720; --paper:#16212d; --ink:#e8eef5; --sub:#a8b6c4; --line:#2a3a4b;
+  --sky:#5ea8ff; --sky-soft:#17304d; --sun:#ffcf5c; --sun-soft:#3a3016;
+  --leaf:#4fd29b; --leaf-soft:#123a2b; --berry:#ff7a8a; --berry-soft:#43202a;
+  --grape:#a592ff; --grape-soft:#2a2350; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.75;word-break:keep-all}
+.wrap{max-width:860px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--display);font-weight:400;text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:clamp(30px,6vw,44px)}
+h2{font-size:clamp(24px,4.4vw,30px)}
+h3{font-size:20px}
+p{margin:0}
+b{color:var(--ink)}
+.sub{color:var(--sub)}
+svg.ic{width:28px;height:28px;flex:none}
+
+/* 머리 */
+.hero{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.hero .badge{width:76px;height:76px;border-radius:22px;background:var(--sun);display:grid;place-items:center;flex:none}
+.hero .badge svg{width:46px;height:46px}
+.hero > div{min-width:0;flex:1}
+.hero p{color:var(--sub);margin-top:6px}
+
+/* 버튼판 */
+.board{background:var(--paper);border:2px solid var(--line);border-radius:20px;padding:20px}
+.board h2{font-size:22px;margin-bottom:12px}
+.picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.pick{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:14px;background:var(--sky-soft);color:var(--ink);text-decoration:none;font-weight:700;line-height:1.35;border:2px solid transparent}
+.pick:hover,.pick:focus-visible{border-color:var(--sky);outline:none}
+.pick .n{font-family:var(--display);font-weight:400;font-size:20px;color:var(--sky);width:30px;height:30px;border-radius:50%;background:var(--paper);display:grid;place-items:center;flex:none}
+
+/* 말 사전 */
+.words{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:12px}
+.word{background:var(--bg);border-radius:12px;padding:10px 14px}
+.word dt{font-weight:700}
+.word dd{margin:0;color:var(--sub);font-size:15px}
+code,.key{font-family:ui-monospace,Consolas,monospace;font-size:.92em;background:var(--grape-soft);color:var(--grape);padding:1px 7px;border-radius:6px;font-weight:700;white-space:nowrap}
+
+/* 일 카드 */
+.task{background:var(--paper);border:2px solid var(--line);border-radius:22px;padding:22px;display:flex;flex-direction:column;gap:16px;scroll-margin-top:16px}
+.task-head{display:flex;gap:14px;align-items:center}
+.task-head .num{font-family:var(--display);font-size:26px;width:52px;height:52px;border-radius:16px;background:var(--sky);color:var(--paper);display:grid;place-items:center;flex:none}
+.task-head > div{min-width:0}
+.task-head p{color:var(--sub);font-size:15px}
+.path{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.path span{background:var(--grape-soft);color:var(--grape);font-weight:700;padding:4px 12px;border-radius:999px;font-size:15px}
+.path i{color:var(--sub);font-style:normal}
+.path .lbl{background:none;color:var(--sub);padding:0 4px 0 0;font-weight:500}
+
+ol.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;counter-reset:s}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:36px 1fr;gap:12px;align-items:start}
+ol.steps li::before{content:counter(s);font-family:var(--display);font-size:18px;width:36px;height:36px;border-radius:50%;background:var(--sun);color:#3a2a00;display:grid;place-items:center}
+ol.steps li > div{min-width:0;padding-top:4px}
+
+/* 이야기 그림 (상자가 어디서 어디로) */
+.move{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;background:var(--bg);border-radius:16px;padding:16px}
+.place{background:var(--paper);border:2px solid var(--line);border-radius:14px;padding:10px 14px;text-align:center;min-width:120px}
+.place b{display:block;font-family:var(--display);font-weight:400;font-size:19px}
+.place small{color:var(--sub)}
+.place.hq{border-color:var(--sky)}
+.place.shop{border-color:var(--leaf)}
+.place.bad{border-color:var(--berry)}
+.arrow{display:flex;flex-direction:column;align-items:center;color:var(--sub);font-size:13px;font-weight:700}
+.arrow svg{width:64px;height:24px}
+
+/* 화면 그림 */
+.screen{border:2px solid var(--line);border-radius:14px;overflow:hidden;background:var(--paper)}
+.screen .bar{background:var(--sky-soft);padding:6px 12px;font-size:13px;color:var(--sub);display:flex;gap:6px;align-items:center}
+.screen .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.screen .body{padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.fld{border:1.5px solid var(--line);border-radius:10px;padding:6px 10px;font-size:14px;min-width:0}
+.fld small{display:block;color:var(--sub);font-size:12px}
+.fld.hot{border-color:var(--sun);background:var(--sun-soft)}
+.fld.chk{display:flex;gap:8px;align-items:center}
+.fld.chk .box{width:18px;height:18px;border-radius:5px;background:var(--leaf);color:var(--paper);display:grid;place-items:center;font-size:13px;flex:none}
+
+/* 알림 상자 */
+.note{border-radius:14px;padding:12px 16px;display:flex;gap:12px;align-items:flex-start;font-size:15px}
+.note > div{min-width:0}
+.note svg{width:24px;height:24px;flex:none;margin-top:2px}
+.note.tip{background:var(--leaf-soft)}
+.note.tip svg{color:var(--leaf)}
+.note.warn{background:var(--sun-soft)}
+.note.warn svg{color:#b07a00}
+.note.stop{background:var(--berry-soft)}
+.note.stop svg{color:var(--berry)}
+.note b.t{display:block;font-family:var(--display);font-weight:400;font-size:17px}
+
+/* 표 */
+.tbl{overflow-x:auto;border:2px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;min-width:480px;font-size:15px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--sky-soft);font-weight:700}
+tr:last-child td{border-bottom:none}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* 저금통 식 */
+.sum{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;font-weight:700}
+.sum span{background:var(--bg);border-radius:12px;padding:8px 12px;text-align:center;line-height:1.35}
+.sum span small{display:block;font-weight:500;color:var(--sub);font-size:12px}
+.sum em{font-style:normal;font-family:var(--display);font-size:22px;color:var(--sub)}
+
+/* 할인 세 가지 */
+.ways{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.way{border:2px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.way.best{border-color:var(--leaf);background:var(--leaf-soft)}
+.way .tag{align-self:flex-start;font-size:12px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--leaf);color:var(--paper)}
+.way h3{font-size:18px}
+.way p{font-size:14.5px;color:var(--sub)}
+
+/* 계산기 */
+.calc{background:var(--sun-soft);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.calc .row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.calc label{display:flex;flex-direction:column;font-size:14px;font-weight:700;gap:4px;flex:1;min-width:140px}
+.calc input{font:inherit;font-size:18px;padding:8px 12px;border-radius:10px;border:2px solid var(--line);background:var(--paper);color:var(--ink);width:100%;font-variant-numeric:tabular-nums}
+.calc input:focus-visible{outline:none;border-color:var(--sky)}
+.calc .out{font-size:15px}
+.calc .out b{font-family:var(--display);font-weight:400;font-size:28px;color:var(--sky);font-variant-numeric:tabular-nums}
+
+/* 온·오프 */
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.side{border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.side.off{background:var(--leaf-soft)}
+.side.on{background:var(--sky-soft)}
+.side h3{font-size:19px}
+.side dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:15px}
+.side dt{color:var(--sub)}
+.side dd{margin:0;font-weight:700}
+
+/* 실수 */
+.oops{display:grid;gap:10px}
+.oop{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.oop > div{border-radius:12px;padding:10px 14px;font-size:15px;min-width:0}
+.oop .x{background:var(--berry-soft)}
+.oop .o{background:var(--leaf-soft)}
+.oop small{display:block;font-weight:700;font-size:12px}
+.oop .x small{color:var(--berry)}
+.oop .o small{color:var(--leaf)}
+@media (max-width:560px){.oop{grid-template-columns:1fr}}
+
+.top{align-self:flex-end;font-size:14px;color:var(--sky);text-decoration:none;font-weight:700}
+.top:focus-visible,.pick:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+footer{color:var(--sub);font-size:13px;text-align:center}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-box" viewBox="0 0 48 48"><path d="M6 15 24 6l18 9v18L24 42 6 33z" fill="#fff" stroke="#3a2a00" stroke-width="3" stroke-linejoin="round"/><path d="M6 15l18 9 18-9M24 24v18" fill="none" stroke="#3a2a00" stroke-width="3" stroke-linejoin="round"/><path d="m15 10.5 18 9" stroke="#3a2a00" stroke-width="3"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 64 24"><path d="M2 12h54m-10-8 10 8-10 8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-tip" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.8.6 1.1 1.3 1.1 2.2h5c0-.9.3-1.6 1.1-2.2A6 6 0 0 0 12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4m0 3v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8.5 8.5 7 7m0-7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="wrap" id="top">
+
+  <header class="hero">
+    <div class="badge"><svg><use href="#i-box"/></svg></div>
+    <div>
+      <h1>이카운트 매장 매뉴얼</h1>
+      <p>매장에서 하는 일 7가지를 순서대로 따라 하기만 하면 돼요. 모든 메뉴는 이카운트 맨 위의 <b>재고 I</b> 메뉴에서 시작해요.</p>
+    </div>
+  </header>
+
+  <nav class="board" aria-label="할 일 고르기">
+    <h2>오늘 무엇을 할까요? 눌러서 바로 가기</h2>
+    <div class="picks">
+      <a class="pick" href="#t1"><span class="n">1</span>본사에 물건 주문하기<br>(발주)</a>
+      <a class="pick" href="#t2"><span class="n">2</span>본사로 물건 돌려보내기<br>(반품)</a>
+      <a class="pick" href="#t3"><span class="n">3</span>하루 판매 보기<br>(판매일보)</a>
+      <a class="pick" href="#t4"><span class="n">4</span>상품별 들어오고 나간 것 보기</a>
+      <a class="pick" href="#t5"><span class="n">5</span>우리 매장 재고 보기</a>
+      <a class="pick" href="#t6"><span class="n">6</span>다른 매장·주희물류 재고 보기</a>
+      <a class="pick" href="#t7"><span class="n">7</span>판매·판매반품 넣기<br>(할인·온라인)</a>
+    </div>
+  </nav>
+
+  <section class="board" aria-labelledby="words">
+    <h2 id="words">먼저 알아 둘 말</h2>
+    <p class="sub">이카운트에서는 매장도 하나의 <b>창고</b>예요. 물건이 사는 집이라고 생각하면 쉬워요.</p>
+    <dl class="words">
+      <div class="word"><dt>창고</dt><dd>물건이 있는 곳. 우리 매장, 주희물류 모두 창고예요.</dd></div>
+      <div class="word"><dt>주희물류 <code>NH</code></dt><dd>본사의 큰 창고. 매장에 보내는 물건이 여기서 출발해요.</dd></div>
+      <div class="word"><dt>불량창고 <code>BAD</code></dt><dd>고장 나거나 흠이 있는 물건만 따로 모으는 곳.</dd></div>
+      <div class="word"><dt>품목코드</dt><dd>상품마다 붙은 이름표 번호(자사코드). 바코드로 찍어도 돼요.</dd></div>
+      <div class="word"><dt><span class="key">F8</span></dt><dd>저장하기, 또는 검색하기 단추.</dd></div>
+      <div class="word"><dt><span class="key">F3</span></dt><dd>품목코드를 모를 때 찾아 주는 단추.</dd></div>
+      <div class="word"><dt>미확인 → 확인</dt><dd>매장이 저장하면 ‘미확인’. 본사가 보고 ‘확인’하면 그때 재고가 진짜로 움직여요.</dd></div>
+      <div class="word"><dt>적요</dt><dd>메모 칸. 왜 그렇게 했는지 짧게 적어요.</dd></div>
+    </dl>
+  </section>
+
+  <!-- 1 발주 -->
+  <article class="task" id="t1">
+    <div class="task-head"><div class="num">1</div><div><h2>본사에 물건 주문하기 (발주)</h2><p>주희물류에 있는 물건을 우리 매장으로 옮겨 달라고 적는 거예요.</p></div></div>
+    <div class="path"><span class="lbl">메뉴</span><span>재고 I</span><i>›</i><span>기타이동</span><i>›</i><span>창고이동</span><i>›</i><span>창고이동입력</span></div>
+    <div class="move">
+      <div class="place hq"><b>주희물류</b><small>보내는 창고 · NH</small></div>
+      <div class="arrow"><svg><use href="#i-arrow"/></svg>물건이 와요</div>
+      <div class="place shop"><b>우리 매장</b><small>받는 창고</small></div>
+    </div>
+    <ol class="steps">
+      <li><div><b>일자</b>가 오늘인지 봐요.</div></li>
+      <li><div><b>보내는창고</b>에 <code>주희물류(NH)</code>, <b>받는창고</b>에 <b>우리 매장</b>을 골라요.</div></li>
+      <li><div>아래 표에 <b>품목코드</b>와 <b>수량</b>을 적어요. 코드를 모르면 돋보기나 <span class="key">F3</span>, 바코드가 있으면 <b>[바코드]</b> 단추로 찍어요.</div></li>
+      <li><div><span class="key">F8</span> 눌러 <b>저장</b>. 이제 ‘미확인’ 상태로 본사에 보여요.</div></li>
+      <li><div>본사가 <b>창고이동조회 › 미확인</b>에서 수량을 보고 <b>확인</b>을 누르면 끝이에요.</div></li>
+    </ol>
+    <div class="screen" aria-label="창고이동입력 화면 그림">
+      <div class="bar"><i></i><i></i><i></i>&nbsp;창고이동입력</div>
+      <div class="body">
+        <div class="fld"><small>일자</small>오늘 날짜</div>
+        <div class="fld hot"><small>보내는창고</small>주희물류 (NH)</div>
+        <div class="fld hot"><small>받는창고</small>우리 매장</div>
+        <div class="fld"><small>품목코드 · 수량</small>상품마다 한 줄씩</div>
+      </div>
+    </div>
+    <div class="note warn"><svg><use href="#i-warn"/></svg><div><b class="t">받는창고에 우리 매장이 안 보여요</b>아직 이카운트에 우리 매장 창고가 안 만들어진 거예요. 본사(영업2팀)에 말해 주세요. 창고 만들기는 관리자만 할 수 있어요.</div></div>
+    <div class="note tip"><svg><use href="#i-tip"/></svg><div><b class="t">더 쉬운 길</b>자비스 <b>🧮 이카운트</b> 탭에서 발주를 요청하면, 본사가 승인할 때 이카운트 창고이동이 자동으로 들어가요.</div></div>
+    <a class="top" href="#top">↑ 처음으로</a>
+  </article>
+
+  <!-- 2 반품 -->
+  <article class="task" id="t2">
+    <div class="task-head"><div class="num">2</div><div><h2>본사로 물건 돌려보내기 (반품)</h2><p>발주와 같은 화면이에요. 보내는 곳과 받는 곳만 거꾸로 바꿔요.</p></div></div>
+    <div class="path"><span class="lbl">메뉴</span><span>재고 I</span><i>›</i><span>기타이동</span><i>›</i><span>창고이동</span><i>›</i><span>창고이동입력</span></div>
+    <div class="move">
+      <div class="place shop"><b>우리 매장</b><small>보내는 창고</small></div>
+      <div class="arrow"><svg><use href="#i-arrow"/></svg>멀쩡한 물건</div>
+      <div class="place hq"><b>주희물류</b><small>받는 창고 · NH</small></div>
+    </div>
+    <div class="move">
+      <div class="place shop"><b>우리 매장</b><small>보내는 창고</small></div>
+      <div class="arrow"><svg><use href="#i-arrow"/></svg>흠 있는 물건</div>
+      <div class="place bad"><b>불량창고</b><small>받는 창고 · BAD</small></div>
+    </div>
+    <ol class="steps">
+      <li><div><b>보내는창고</b>에 우리 매장, <b>받는창고</b>에 <code>주희물류(NH)</code>를 골라요.</div></li>
+      <li><div>불량 상품은 섞지 말고 <b>따로 한 장</b> 더 만들어요. 받는창고를 <code>주희물류_불량창고(BAD)</code>로 바꿔요.</div></li>
+      <li><div><b>적요</b> 칸에 이유를 적어요. 예) 시즌 회수, 고객 반품 불량</div></li>
+      <li><div><span class="key">F8</span> 저장. 물건이 물류에 도착하면 본사가 <b>확인</b>해요.</div></li>
+    </ol>
+    <div class="note tip"><svg><use href="#i-tip"/></svg><div>불량 물건을 재고에서 아예 없애야 할 때는 <b>기타이동 › 불량처리 › 불량처리입력</b>을 써요. 보통은 본사가 해요.</div></div>
+    <a class="top" href="#top">↑ 처음으로</a>
+  </article>
+
+  <!-- 3 판매일보 -->
+  <article class="task" id="t3">
+    <div class="task-head"><div class="num">3</div><div><h2>하루 판매 보기 (판매일보)</h2><p>오늘 또는 어제 우리 매장에서 무엇이 얼마나 팔렸는지 봐요.</p></div></div>
+    <div class="path"><span class="lbl">메뉴</span><span>재고 I</span><i>›</i><span>출력물</span><i>›</i><span>영업관리현황</span><i>›</i><span>판매현황</span></div>
+    <ol class="steps">
+      <li><div><b>출고일</b>에서 <b>[금일]</b>(오늘)이나 <b>[전일]</b>(어제)을 눌러요. 다른 날은 날짜를 하루만 골라요.</div></li>
+      <li><div><b>창고</b>에 우리 매장을 골라요.</div></li>
+      <li><div><span class="key">F8</span> <b>검색</b>.</div></li>
+      <li><div>위쪽 탭을 골라 봐요. <b>현황</b> = 한 줄씩 자세히, <b>집계</b> = 상품별로 모아서 합계.</div></li>
+    </ol>
+    <div class="screen" aria-label="판매현황 화면 그림">
+      <div class="bar"><i></i><i></i><i></i>&nbsp;판매현황</div>
+      <div class="body">
+        <div class="fld hot"><small>출고일</small>[금일] · [전일]</div>
+        <div class="fld hot"><small>창고</small>우리 매장</div>
+        <div class="fld"><small>거래구분</small>반품만 보고 싶을 때</div>
+        <div class="fld"><small>비교기간</small>작년·지난달과 비교</div>
+      </div>
+    </div>
+    <div class="note tip"><svg><use href="#i-tip"/></svg><div>들어온 것·나간 것·판 것을 한 장으로 보고 싶으면 <b>출력물 › 재고현황 › 일보</b>(기준일자·창고)를 열어요.</div></div>
+    <a class="top" href="#top">↑ 처음으로</a>
+  </article>
+
+  <!-- 4 입고/반품 -->
+  <article class="task" id="t4">
+    <div class="task-head"><div class="num">4</div><div><h2>상품별 들어오고 나간 것 보기</h2><p>본사에서 받은 물건(입고)과 돌려보낸 물건(반품)을 상품마다 봐요.</p></div></div>
+    <div class="path"><span class="lbl">메뉴</span><span>재고 I</span><i>›</i><span>출력물</span><i>›</i><span>재고현황</span><i>›</i><span>재고변동표</span></div>
+    <ol class="steps">
+      <li><div><b>구분</b>은 <b>일별</b>(또는 월별), <b>기준일자</b>에 보고 싶은 기간을 넣어요.</div></li>
+      <li><div><b>창고</b>에 우리 매장. 한 상품만 보고 싶으면 <b>품목</b>도 골라요.</div></li>
+      <li><div><b>‘생산불출/창고이동포함’에 꼭 체크!</b> 안 하면 본사에서 온 물건이 안 나와요.</div></li>
+      <li><div><span class="key">F8</span> 검색하면 상품마다 숫자 4개가 나와요.</div></li>
+    </ol>
+    <div class="screen" aria-label="재고변동표 화면 그림">
+      <div class="bar"><i></i><i></i><i></i>&nbsp;재고변동표</div>
+      <div class="body">
+        <div class="fld"><small>구분 · 기준일자</small>일별 · 기간</div>
+        <div class="fld hot"><small>창고</small>우리 매장</div>
+        <div class="fld chk hot"><span class="box">✓</span>생산불출/창고이동포함</div>
+      </div>
+    </div>
+    <p><b>숫자 4개 읽는 법</b> — 저금통이랑 똑같아요.</p>
+    <div class="sum" aria-label="기초 더하기 입고 빼기 출고는 기말">
+      <span>기초<small>처음에 있던 것</small></span><em>+</em>
+      <span>입고<small>들어온 것</small></span><em>−</em>
+      <span>출고<small>나간 것(판매·반품)</small></span><em>=</em>
+      <span>기말<small>지금 남은 것</small></span>
+    </div>
+    <div class="note tip"><svg><use href="#i-tip"/></svg><div>
+      한 상품이 날짜마다 어떻게 움직였는지 보려면 <b>재고수불부</b>(여기도 ‘생산불출/창고이동포함’ 체크).<br>
+      입고·반품 전표만 보려면 <b>기타이동현황 › 창고이동현황</b> — 받는창고 = 우리 매장이면 <b>입고</b>, 보내는창고 = 우리 매장이면 <b>반품</b>.
+    </div></div>
+    <a class="top" href="#top">↑ 처음으로</a>
+  </article>
+
+  <!-- 5 매장재고 -->
+  <article class="task" id="t5">
+    <div class="task-head"><div class="num">5</div><div><h2>우리 매장 재고 보기</h2><p>지금 우리 매장에 무엇이 몇 개 있는지 봐요.</p></div></div>
+    <div class="path"><span class="lbl">메뉴</span><span>재고 I</span><i>›</i><span>출력물</span><i>›</i><span>재고현황</span><i>›</i><span>창고별재고현황</span></div>
+    <ol class="steps">
+      <li><div><b>구분</b>은 <b>창고별(횡)</b>, <b>기준일자</b>는 오늘.</div></li>
+      <li><div><b>창고</b>에 우리 매장을 골라요.</div></li>
+      <li><div><span class="key">F8</span> 검색.</div></li>
+      <li><div>0개인 상품까지 보고 싶으면 <b>‘재고수량0품목포함’</b>에 체크해요.</div></li>
+    </ol>
+    <a class="top" href="#top">↑ 처음으로</a>
+  </article>
+
+  <!-- 6 타매장 -->
+  <article class="task" id="t6">
+    <div class="task-head"><div class="num">6</div><div><h2>다른 매장·주희물류 재고 보기</h2><p>5번과 같은 메뉴예요. 창고 칸만 다르게 써요.</p></div></div>
+    <div class="path"><span class="lbl">메뉴</span><span>재고 I</span><i>›</i><span>출력물</span><i>›</i><span>재고현황</span><i>›</i><span>창고별재고현황</span></div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>보고 싶은 것</th><th>창고 칸에</th></tr></thead>
+        <tbody>
+          <tr><td>모든 창고를 한 번에 (주희물류·모든 매장·코스트코 등)</td><td><b>비워 두고</b> 검색</td></tr>
+          <tr><td>주희물류만</td><td><code>주희물류(NH)</code></td></tr>
+          <tr><td>특정 상품만</td><td>위 검색창에 품목코드나 상품명</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note warn"><svg><use href="#i-warn"/></svg><div><b class="t">다른 창고가 안 보여요</b>매장 아이디에 다른 창고를 볼 권한이 없는 거예요. 관리자가 <b>Self-Customizing › 사용자관리</b>에서 열어 줘야 해요. 본사에 말해 주세요.</div></div>
+    <a class="top" href="#top">↑ 처음으로</a>
+  </article>
+
+  <!-- 7 판매 -->
+  <article class="task" id="t7">
+    <div class="task-head"><div class="num">7</div><div><h2>판매·판매반품 넣기</h2><p>판 물건과 손님이 돌려준 물건을 적어요. 할인과 온라인도 여기서 해요.</p></div></div>
+    <div class="path"><span class="lbl">메뉴</span><span>재고 I</span><i>›</i><span>영업관리</span><i>›</i><span>판매</span><i>›</i><span>판매입력</span></div>
+    <ol class="steps">
+      <li><div>위 칸: <b>출고창고코드</b>(우리 매장 창고) · <b>매장코드</b>(거래처) · <b>출고일자</b>.</div></li>
+      <li><div>아래 표: <b>품목</b> · <b>수량</b> · <b>단가(vat포함)</b>. 공급가액과 부가세는 저절로 계산돼요.</div></li>
+      <li><div><span class="key">F8</span> 저장.</div></li>
+    </ol>
+    <div class="screen" aria-label="판매입력 화면 그림">
+      <div class="bar"><i></i><i></i><i></i>&nbsp;판매입력</div>
+      <div class="body">
+        <div class="fld hot"><small>출고창고코드</small>우리 매장 창고</div>
+        <div class="fld hot"><small>매장코드(거래처)</small>우리 매장</div>
+        <div class="fld"><small>출고일자</small>판 날짜</div>
+        <div class="fld"><small>품목 · 수량 · 단가(vat포함)</small>손님이 낸 돈 기준</div>
+      </div>
+    </div>
+
+    <div class="note stop"><svg><use href="#i-stop"/></svg><div><b class="t">손님이 물건을 돌려줬어요 (판매반품)</b>같은 판매입력 화면에서 <b>수량에 빼기(−)</b>를 붙여요. 예) <b>−1</b>. 판매현황에서 거래구분 ‘반품’으로 따로 볼 수 있어요.</div></div>
+
+    <h3>할인해서 팔았을 때 — 셋 중 하나</h3>
+    <div class="ways">
+      <div class="way best"><span class="tag">제일 쉬워요</span><h3>① 받은 돈을 그대로 단가로</h3><p>단가(vat포함) 칸에 손님이 실제로 낸 돈을 적어요. 매장 판매일보 금액과 딱 맞아요.</p></div>
+      <div class="way"><h3>② 정상가 + 할인 금액 따로</h3><p><b>판매입력 II</b>에서 정상가로 적고, <b>금액조정항목</b>(증감구분 ‘차감’)에 할인한 돈을 적어요. 할인한 돈만 <b>판매할인현황</b>에서 모아 볼 수 있어요.</p></div>
+      <div class="way"><h3>③ 행사 가격을 미리 넣어 두기</h3><p>본사가 <b>기초등록 › 단가관리 › 특별단가등록·품목별단가</b>에 매장별 행사가를 넣어 두면 판매입력 때 저절로 들어가요. 이미 넣은 것은 <b>판매단가일괄변경</b>으로 한 번에 고쳐요.</p></div>
+    </div>
+
+    <div class="calc" aria-labelledby="calcT">
+      <h3 id="calcT">①번 단가 계산기</h3>
+      <div class="row">
+        <label for="cPrice">정상가 (원)<input id="cPrice" type="number" inputmode="numeric" min="0" step="100" value="49000"></label>
+        <label for="cRate">할인율 (%)<input id="cRate" type="number" inputmode="numeric" min="0" max="100" step="1" value="30"></label>
+      </div>
+      <p class="out">단가(vat포함) 칸에 적을 돈: <b id="cOut">34,300</b>원 <span class="sub" id="cOff">(할인 14,700원)</span></p>
+    </div>
+
+    <h3>오프라인 매장과 온라인 구별하기</h3>
+    <div class="split">
+      <div class="side off"><h3>오프라인 (매장에서 판매)</h3>
+        <dl><dt>출고창고</dt><dd>그 매장 창고</dd><dt>거래처</dt><dd>그 매장 (매장코드)</dd></dl>
+      </div>
+      <div class="side on"><h3>온라인 (몰에서 판매)</h3>
+        <dl><dt>출고창고</dt><dd>주희물류 (NH)</dd><dt>거래처</dt><dd>그 온라인몰 (롯데온·현대몰·자사몰 등)</dd></dl>
+      </div>
+    </div>
+    <div class="note warn"><svg><use href="#i-warn"/></svg><div><b class="t">이름이 같아도 코드가 달라요</b>같은 롯데본점이라도 매장은 <code>LDA</code>, 백화점몰(온라인)은 <code>LTOA</code>예요. 현대천호도 매장 <code>HCH</code>, 백화점몰 <code>HDOC</code>. 꼭 코드를 보고 골라요.</div></div>
+    <div class="note tip"><svg><use href="#i-tip"/></svg><div>
+      하루치를 엑셀로 한꺼번에 넣을 때는 <b>[웹자료올리기]</b>에 열 순서를 맞춰 붙여넣어요.<br>
+      본사가 <b>기초등록 › 거래처등록</b>에서 거래처를 오프라인/온라인 그룹으로 묶어 두면, 판매현황에서 둘을 바로 나눠 볼 수 있어요.
+    </div></div>
+    <a class="top" href="#top">↑ 처음으로</a>
+  </article>
+
+  <!-- 실수 -->
+  <section class="board" aria-labelledby="oops">
+    <h2 id="oops">자주 하는 실수</h2>
+    <div class="oops">
+      <div class="oop"><div class="x"><small>이렇게 하면 안 돼요</small>발주할 때 보내는창고·받는창고를 거꾸로 골랐어요.</div><div class="o"><small>이렇게 해요</small>발주는 주희물류 → 매장, 반품은 매장 → 주희물류.</div></div>
+      <div class="oop"><div class="x"><small>이렇게 하면 안 돼요</small>멀쩡한 물건과 불량 물건을 한 장에 같이 반품했어요.</div><div class="o"><small>이렇게 해요</small>불량은 받는창고 BAD로 따로 한 장.</div></div>
+      <div class="oop"><div class="x"><small>이렇게 하면 안 돼요</small>재고변동표에 본사에서 온 물건이 안 보여요.</div><div class="o"><small>이렇게 해요</small>‘생산불출/창고이동포함’에 체크.</div></div>
+      <div class="oop"><div class="x"><small>이렇게 하면 안 돼요</small>판매반품을 ‘반품’ 메뉴에서 찾고 있어요.</div><div class="o"><small>이렇게 해요</small>판매입력에서 수량을 −1처럼 빼기로.</div></div>
+      <div class="oop"><div class="x"><small>이렇게 하면 안 돼요</small>저장했는데 재고가 안 바뀌었어요.</div><div class="o"><small>이렇게 해요</small>창고이동은 본사가 ‘확인’해야 바뀌어요. 조금 기다려요.</div></div>
+    </div>
+  </section>
+
+  <footer>메뉴 이름은 (주)엔에이치 그룹 이카운트 화면 기준(2026-11-03 확인)이에요. 창고 만들기·거래처 그룹·사용자 권한은 관리자만 바꿀 수 있어요. 모르는 확인창이 뜨면 누르지 말고 본사에 물어봐요.</footer>
+</div>
+
+<script>
+(function(){
+  var p=document.getElementById('cPrice'), r=document.getElementById('cRate'),
+      o=document.getElementById('cOut'), f=document.getElementById('cOff');
+  function fmt(n){return Math.round(n).toLocaleString('ko-KR');}
+  function calc(){
+    var price=Math.max(0,parseFloat(p.value)||0), rate=Math.min(100,Math.max(0,parseFloat(r.value)||0));
+    var unit=Math.round(price*(100-rate)/100);
+    o.textContent=fmt(unit); f.textContent='(할인 '+fmt(price-unit)+'원)';
+  }
+  p.addEventListener('input',calc); r.addEventListener('input',calc); calc();
+})();
+</script>
