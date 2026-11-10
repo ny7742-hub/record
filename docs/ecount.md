@@ -51,6 +51,8 @@
   [재고 I › 출력물 › 창고별재고현황](E040711)이 부르는 조회를 그대로 부른다 — `/ECAPI/Inventory/MgmtField/GetListColumnsWh`(창고 칸, `S`+창고코드) → `GetListInvByWh`(품목마다 창고별 수량, 오늘 기준). 읽기만, 2초쯤.
   - 몸통 JSON은 **`": "`·`", "` 띄어쓰기 모양**이어야 한다(붙여 쓴 `JSON.stringify` 모양이면 EXP00001 오류). 응답은 base64로 싼 JSON. 합계 줄은 `_ROW_TYPE`.
   - 이카운트 OpenAPI 키는 없어서 이 방식(API 키 없이 사람 로그인 그대로). 로그인이 풀리면 못 받는다(사람이 `node portal-open.mjs ecount`로 다시 로그인).
+  **자동 로그인**(2026-11-10 영업2팀): `automation/portal-auto-login.mjs`의 `ecount` — `portal-cred.json`의 `"ecount": {"com": 회사코드, "id", "pw"}`(com·id 비면 화면에 저장된 값)로
+  `#com_code`·`#id`·`#passwd` → `#save`. 로그인 판단은 `…/ecNN/view/erp` 주소(`portal-status` `ecount`). 자비스 로그인 상태 칸에 이카운트 카드(`PL_SITES`)가 생겼다.
 - 결과는 손 업로드와 같은 칸 **`ws/ecStock`** {at, by, file:'이카운트 창고별재고현황(자동)', n, how:'자동', wh:{창고코드:{품목코드:수량}}(0 뺌), names, items, ms, pullAt, pullErr}.
   못 받으면 재고는 그대로 두고 `pullAt`·`pullErr`만 적는다. 2026-11-04 첫 받기: 2,162품목 · 창고 11곳(재고 있는 창고만 칸이 나옴 — 매장 창고는 아직 없음) · NH 58품목.
 - `saip-watch.mjs` `ecInvTick`: **7~21시 5분마다**(등록이 도는 중에도 — 화면을 안 씀) + 자비스 **`🔄 지금 받기`**(`ecStockPullGo` → `ws/ecStockReq` {id, by, at} → `ecInvReqTick`, doneAt·note).
