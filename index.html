@@ -11601,7 +11601,11 @@ function _ecSalIngest(rows,file){
 }
 /* 거래처코드 · 출하창고 — ecConfig.sal {cust:{매장코드:거래처코드}, wh:{매장코드:창고코드}}(관리자). 기본: 거래처 = 매장코드,
    창고 = 매장 창고(이카운트 창고 목록에 있으면) · 없으면 본사 창고(NH) */
-function _ecSalCfg(){var s=ecConfig.sal||{};return {cust:s.cust||{},wh:s.wh||{}};}
+function _ecSalCfg(){var s=ecConfig.sal||{};return {cust:s.cust||{},wh:s.wh||{},preWh:s.preWh||""};}
+/* 11/9까지(EC_SAL_START 전) 판매 = 재고 미반영 창고 — 금액만 이카운트에 남기고 실제 창고 재고는 건드리지 않게(2026-11-10 영업2팀). 비어 있으면 그 전표는 못 보냄 */
+function _ecSalPreWh(){return String(_ecSalCfg().preWh||"").trim();}
+function _ecSalSlipWh(s){return s.pre?_ecSalPreWh():_ecSalWh(s.sc);}
+function _ecSalSendable(s){return !s.pre||!!_ecSalPreWh();}
 function _ecSalCust(sc){return String(_ecSalCfg().cust[sc]||sc);}
 function _ecSalWh(sc){
   var w=_ecSalCfg().wh[sc];if(w)return String(w);
@@ -11643,6 +11647,7 @@ function _ecSalLines(){
 /* 이카운트 출고 시작일 — 2026-11-09까지 판매는 PlayMD에서 이미 재고(출고)가 차감됐고, 이카운트 재고도 그 뒤 수량으로 맞춰 넣었다.
    그 날짜 판매를 이카운트 판매입력에 넣으면 출고가 두 번 잡히므로 엑셀·자동 입력에서 뺀다(2026-11-10 영업2팀) */
 var EC_SAL_START="2026-11-10";
+var EC_SAL_PRE_MEMO="PlayMD 출고분 매출(재고 미반영·자비스)";
 /* 전표(일자+매장)로 묶기 */
 function _ecSalSlips(){
   var by={};
@@ -11653,11 +11658,12 @@ function _ecSalSlips(){
   return Object.keys(by).map(function(k){var s=by[k];s.log=ecSalLog[k]||null;s.pre=s.day<EC_SAL_START;s.changed=!!(s.log&&(Math.round(s.log.amt)!==Math.round(s.amt)||s.log.qty!==s.qty));return s;})
     .sort(function(a,b){return a.day<b.day?-1:a.day>b.day?1:EC_SAL_CH.indexOf(a.ch)-EC_SAL_CH.indexOf(b.ch)||(a.sn<b.sn?-1:1);});
 }
-function _ecSalPicked(s){if(s.pre)return false;return s.key in _ecSalPick?_ecSalPick[s.key]:!s.log;}
+function _ecSalPicked(s){if(!_ecSalSendable(s))return false;return s.key in _ecSalPick?_ecSalPick[s.key]:!s.log;}
 /* 공급가액·부가세 — 판매금액은 VAT 포함. 트래블메이트는 명세표 규칙(단가÷1.1 버림 × 수량)을 그대로 */
 function _ecSalSup(x){return x.sup!=null?x.sup:Math.round(x.amt/1.1);}
 /* 전표 한 장의 줄(엑셀·자동 입력 같이 씀) — 단가 = 판매금액÷수량(VAT 포함, 이카운트 판매입력 칸이 '단가(vat포함)') */
 function _ecSalRows(s,memo){
+  if(s.pre&&!memo)memo=EC_SAL_PRE_MEMO;
   return s.items.slice().sort(function(a,b){return a.code<b.code?-1:a.code>b.code?1:b.qty-a.qty;}).map(function(x){
     var sup=_ecSalSup(x);
     return {code:x.code,name:x.name,qty:x.qty,unit:x.qty?Math.round(x.amt/x.qty):0,sup:sup,vat:Math.round(x.amt)-sup,memo:memo||(_ecSalChLab(s.ch)+" 매출(자비스)")};
@@ -11668,7 +11674,7 @@ function _ecSalRows(s,memo){
 var EC_SAL_AUTO_SAVE=true;   /* 2026-11-04 영업2팀 "모두 이카운트에 되게" — 넣기 단추를 켬 */
 var ecSalStatus=(function(){try{return JSON.parse(localStorage.getItem("ecSalStatus")||"null");}catch(e){return null;}})();
 function ecSalAuto(mode){
-  var S=_ecSalSlips().filter(function(s){return !s.pre&&_ecSalPicked(s);}),save=mode==="save";
+  var S=_ecSalSlips().filter(function(s){return _ecSalSendable(s)&&_ecSalPicked(s);}),save=mode==="save";
   if(!S.length){alert("고른 전표가 없습니다.");return;}
   if(save&&!EC_SAL_AUTO_SAVE){alert("실제 넣기는 아직 꺼 두었습니다(시험만).");return;}
   var cur=(saipReq||{}).es;
@@ -11679,7 +11685,7 @@ function ecSalAuto(mode){
   var memo=String((document.getElementById("ecSalMemo")||{}).value||"").trim(),n=S.reduce(function(a,s){return a+s.items.length;},0);
   if(save&&!confirm("자동화 PC가 이카운트 [판매입력 › 웹자료올리기]에 전표 "+S.length+"장("+n+"줄)을 넣고 저장합니다. 넣을까요?"))return;
   var id="es"+Date.now().toString(36),by=_saipMe();
-  var job={id:id,by:by,at:new Date().toISOString(),slips:S.map(function(s){return {key:s.key,day:s.day,ch:s.ch,sc:s.sc,sn:s.sn,cust:_ecSalCust(s.sc),wh:_ecSalWh(s.sc),items:_ecSalRows(s,memo)};})};
+  var job={id:id,by:by,at:new Date().toISOString(),slips:S.map(function(s){return {key:s.key,day:s.day,ch:s.ch,sc:s.sc,sn:s.sn,cust:_ecSalCust(s.sc),wh:_ecSalSlipWh(s),items:_ecSalRows(s,memo)};})};
   try{fbDB.ref("ws/ecSalJob/"+id).set(job);}catch(e){alert("전표를 팀 공유에 올리지 못했습니다: "+e.message);return;}
   _saipReqSet("es",{id:id,by:by,at:new Date().toISOString(),state:"요청",mode:save?"save":"test",n:S.length});
   ecSalAutoRender();
@@ -11719,8 +11725,8 @@ function ecSalQuick(w){
   else{d.setDate(0);t=_ecSalYmd(d);d.setDate(1);f=_ecSalYmd(d);}
   _ecSal.from=f;_ecSal.to=t;_ecSalPick={};_ecSalUiSave();ecSalRender();
 }
-function ecSalPick(k,on){if(k.slice(0,10)<EC_SAL_START)return;_ecSalPick[k]=!!on;ecSalRender();}
-function ecSalPickAll(on){_ecSalSlips().forEach(function(s){if(!s.pre)_ecSalPick[s.key]=on===null?!s.log:!!on;});ecSalRender();}
+function ecSalPick(k,on){if(k.slice(0,10)<EC_SAL_START&&!_ecSalPreWh())return;_ecSalPick[k]=!!on;ecSalRender();}
+function ecSalPickAll(on){_ecSalSlips().forEach(function(s){if(_ecSalSendable(s))_ecSalPick[s.key]=on===null?!s.log:!!on;});ecSalRender();}
 function ecSalToggle(k){_ecSalOpen[k]=!_ecSalOpen[k];ecSalRender();}
 /* 판매일보 직접 올리기(이 탭에서) — 홈 업로드와 같은 파일, 이카운트 매출 자료만 바꾼다 */
 function ecSalLoad(inp){
@@ -11764,7 +11770,7 @@ function ecSalFromTm(){
 function ecSalClearTm(){if(!confirm("담아 둔 트래블메이트 줄 "+_ecSal.extra.length+"줄을 모두 지웁니다."))return;_ecSal.extra=[];_ecSalUiSave();ecSalRender();}
 /* ⬇ 이카운트 판매 엑셀 + 받은 기록 */
 function ecSalDl(){
-  var S=_ecSalSlips().filter(function(s){return !s.pre&&_ecSalPicked(s);});
+  var S=_ecSalSlips().filter(function(s){return _ecSalSendable(s)&&_ecSalPicked(s);});
   if(!S.length){alert("고른 전표가 없습니다.");return;}
   var re=S.filter(function(s){return s.log;});
   if(re.length&&!confirm("이미 엑셀로 받은 전표 "+re.length+"장이 들어 있습니다:\n"+re.slice(0,8).map(function(s){return "  "+s.day+" "+s.sn+" — "+_saipFmtAt(s.log.at)+" "+(s.log.by||"");}).join("\n")+(re.length>8?"\n  …":"")
@@ -11776,7 +11782,7 @@ function ecSalDl(){
     seq++;
     _ecSalRows(s,memo).forEach(function(x){
       if(!x.sup&&!x.vat)zero++;
-      aoa.push([s.day.replace(/-/g,""),seq,_ecSalCust(s.sc),s.sn,"","",_ecSalWh(s.sc),"","","","",x.code,x.name,"",x.qty,x.unit,"",x.sup,x.vat,x.memo,""]);
+      aoa.push([s.day.replace(/-/g,""),seq,_ecSalCust(s.sc),s.sn,"","",_ecSalSlipWh(s),"","","","",x.code,x.name,"",x.qty,x.unit,"",x.sup,x.vat,x.memo,""]);
       tq+=x.qty;ta+=x.sup+x.vat;
     });
   });
@@ -11804,7 +11810,7 @@ function ecSalUnlog(k){
 }
 function ecSalSaveCfg(){
   if(!_ecAdmin()){alert("관리자만 바꿀 수 있습니다.");return;}
-  var c={cust:{},wh:{}};
+  var c={cust:{},wh:{},preWh:String((document.getElementById("ecSalPreWh")||{}).value||"").trim().toUpperCase()};
   document.querySelectorAll("[data-ecsal-cust]").forEach(function(e){var sc=e.dataset.ecsalCust,v=e.value.trim();if(v&&v!==sc)c.cust[sc]=v;});
   document.querySelectorAll("[data-ecsal-wh]").forEach(function(e){var v=e.value.trim();if(v)c.wh[e.dataset.ecsalWh]=v;});
   ecConfig.sal=c;wsSetItem("ecConfig",JSON.stringify(ecConfig));
@@ -11837,7 +11843,7 @@ function ecSalRender(){
     +(nTm?'<span style="color:#334155">담은 줄 '+nTm+'개('+_escX(Object.keys(_ecSal.extra.reduce(function(a,x){a[x.day]=1;return a;},{})).sort().join(", "))+')</span><button class="bs" onclick="ecSalClearTm()" style="padding:3px 9px;font-size:12px;color:#b91c1c">비우기</button>':'')
     +'</div>';
   /* 전표 목록 */
-  var nPre=S.filter(function(s){return s.pre;}).length,nNew=S.filter(function(s){return !s.log&&!s.pre;}).length,nChg=S.filter(function(s){return s.changed;}).length,P=S.filter(_ecSalPicked);
+  var nPre=S.filter(function(s){return s.pre;}).length,nNew=S.filter(function(s){return !s.log&&_ecSalSendable(s);}).length,preWh=_ecSalPreWh(),nChg=S.filter(function(s){return s.changed;}).length,P=S.filter(_ecSalPicked);
   var byCh={};S.forEach(function(s){var c=byCh[s.ch]||(byCh[s.ch]={n:0,amt:0});c.n++;c.amt+=s.amt;});
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:12.5px">'
     +'<b>전표 '+S.length+'장</b><span style="color:#5b6675">(일자+매장 = 1장)</span>'
@@ -11851,11 +11857,11 @@ function ecSalRender(){
       +'<th style="'+td+'"></th><th style="'+td+';text-align:left">일자</th><th style="'+td+';text-align:left">채널</th><th style="'+td+';text-align:left">매장(거래처)</th><th style="'+td+'">거래처코드</th><th style="'+td+'">출하창고</th><th style="'+num+'">품목</th><th style="'+num+'">수량</th><th style="'+num+'">판매금액</th><th style="'+td+';text-align:left">상태</th><th></th></tr>';
     S.forEach(function(s){
       var on=_ecSalPicked(s),k=_escX(s.key);
-      h+='<tr style="border-top:1px solid #e2e8f0;'+(on?'':'color:#5b6675')+'"><td style="'+td+'"><input type="checkbox" '+(on?'checked':'')+(s.pre?' disabled title="PlayMD에서 이미 출고 차감 — 보내지 않음"':'')+' onchange="ecSalPick(\''+k+'\',this.checked)"></td>'
+      h+='<tr style="border-top:1px solid #e2e8f0;'+(on?'':'color:#5b6675')+'"><td style="'+td+'"><input type="checkbox" '+(on?'checked':'')+(_ecSalSendable(s)?'':' disabled title="PlayMD에서 이미 출고 차감 — 재고 미반영 창고를 정해야 보낼 수 있음"')+' onchange="ecSalPick(\''+k+'\',this.checked)"></td>'
         +'<td style="'+td+';white-space:nowrap">'+_escX(s.day.slice(5))+'</td><td style="'+td+'">'+_escX(_ecSalChLab(s.ch))+'</td><td style="'+td+'">'+_escX(s.sn)+'</td>'
-        +'<td style="'+td+';text-align:center;color:#334155">'+_escX(_ecSalCust(s.sc))+'</td><td style="'+td+';text-align:center;color:#334155">'+_escX(_ecSalWh(s.sc))+'</td>'
+        +'<td style="'+td+';text-align:center;color:#334155">'+_escX(_ecSalCust(s.sc))+'</td>'+(s.pre?'<td style="'+td+';text-align:center;color:#b91c1c;font-weight:700" title="11/9까지 판매 — 재고 미반영 창고로 보내 실제 창고 재고는 안 빠짐">'+_escX(preWh||"없음")+'</td>':'<td style="'+td+';text-align:center;color:#334155">'+_escX(_ecSalWh(s.sc))+'</td>')
         +'<td style="'+num+'">'+s.items.length+'</td><td style="'+num+';font-weight:700;color:'+(s.qty<0?'#b91c1c':'inherit')+'">'+s.qty.toLocaleString()+'</td><td style="'+num+';font-weight:700">'+Math.round(s.amt).toLocaleString()+'</td>'
-        +'<td style="'+td+';white-space:nowrap">'+(s.pre&&!s.log?'<span style="color:#b91c1c;font-weight:700" title="'+_escX(EC_SAL_START)+' 전 판매는 PlayMD에서 재고가 이미 빠졌습니다 — 이카운트에 넣으면 출고가 두 번 잡힙니다">⛔ PlayMD 출고 차감됨 · 안 보냄</span>':s.log?'<span onclick="ecSalUnlog(\''+k+'\')" title="'+_escX(s.log.n+"줄 · "+s.log.qty+"개 · "+Number(s.log.amt).toLocaleString()+"원으로 받음"+(adm?" — 누르면 기록 지우기":""))+'" style="cursor:'+(adm?'pointer':'default')+';color:'+(s.changed?'#b45309':'#047857')+';font-weight:700">'
+        +'<td style="'+td+';white-space:nowrap">'+(s.pre&&!s.log?(preWh?'<span style="color:#7c3aed;font-weight:700" title="금액만 남기고 실제 창고 재고는 안 뺌">새로 · 금액만(재고 미반영)</span>':'<span style="color:#b91c1c;font-weight:700" title="'+_escX(EC_SAL_START)+' 전 판매는 PlayMD에서 재고가 이미 빠졌습니다">⛔ 재고 미반영 창고 없음 · 못 보냄</span>'):s.log?'<span onclick="ecSalUnlog(\''+k+'\')" title="'+_escX(s.log.n+"줄 · "+s.log.qty+"개 · "+Number(s.log.amt).toLocaleString()+"원으로 받음"+(adm?" — 누르면 기록 지우기":""))+'" style="cursor:'+(adm?'pointer':'default')+';color:'+(s.changed?'#b45309':'#047857')+';font-weight:700">'
             +(s.changed?'⚠ 받은 뒤 바뀜':'✅ 받음')+' '+_escX(_saipFmtAt(s.log.at))+' '+_escX(s.log.by||"")+'</span>':'<span style="color:#1d4ed8;font-weight:700">새로</span>')+'</td>'
         +'<td style="'+td+';text-align:right"><button class="bs" style="padding:1px 8px;font-size:11.5px" onclick="ecSalToggle(\''+k+'\')">'+(_ecSalOpen[s.key]?'접기':'보기')+'</button></td></tr>';
       if(_ecSalOpen[s.key])h+='<tr><td></td><td colspan="10" style="padding:2px 6px 8px"><table style="width:100%;border-collapse:collapse;font-size:12px;background:#f8fafc">'
@@ -11863,7 +11869,8 @@ function ecSalRender(){
     });
     h+='</table></div>';
   }
-  if(nPre)h+='<div style="font-size:12px;color:#b91c1c;margin-top:6px">⛔ '+_escX(EC_SAL_START.slice(5).replace("-","/"))+' 전 전표 '+nPre+'장은 PlayMD에서 이미 출고(재고)가 차감돼 이카운트로 보내지 않습니다(고를 수 없음).</div>';
+  if(nPre)h+=preWh?'<div style="font-size:12px;color:#7c3aed;margin-top:6px">💡 11/9까지 전표 '+nPre+'장은 PlayMD에서 이미 재고가 빠져서 출하창고를 <b>'+_escX(preWh)+'</b>(재고 미반영 창고)로 보냅니다 — 매출 금액만 남고 매장·NH 재고는 안 빠집니다. 적요 기본 「'+_escX(EC_SAL_PRE_MEMO)+'」.</div>'
+    :'<div style="font-size:12px;color:#b91c1c;margin-top:6px">⛔ 11/9까지 전표 '+nPre+'장은 PlayMD에서 이미 재고가 빠졌습니다. 금액만 남기려면 이카운트에 <b>재고 미반영용 창고</b>(예: PMD · PlayMD 마감분)를 만들고 아래 ⚙에 그 코드를 넣어 주세요(관리자) — 그 전까지는 보낼 수 없습니다.</div>';
   if(nChg)h+='<div style="font-size:12px;color:#b45309;margin-top:6px">⚠ 받은 뒤 판매일보가 바뀐 전표 '+nChg+'장 — 이카운트에서 그 전표를 고치거나 지운 뒤(관리자가 상태를 눌러 기록 지우기) 다시 받으세요.</div>';
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">'
     +'<input id="ecSalMemo" placeholder="적요(선택) — 비우면 \'채널 매출(자비스)\'" style="flex:1;min-width:220px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">'
@@ -11881,6 +11888,7 @@ function ecSalRender(){
   var SL=Object.keys(stores).map(function(k){return stores[k];}).sort(function(a,b){return EC_SAL_CH.indexOf(a.ch)-EC_SAL_CH.indexOf(b.ch)||(a.sn<b.sn?-1:1);}),ro=adm?'':' disabled',cfg=_ecSalCfg();
   h+='<details style="margin-top:12px;border-top:1px dashed #cbd5e1;padding-top:8px"'+(_ecSal.cfgOpen?' open':'')+' ontoggle="_ecSal.cfgOpen=this.open;_ecSalUiSave()"><summary style="cursor:pointer;font-size:13px;font-weight:700">⚙ 거래처코드 · 출하창고 ('+SL.length+'곳)</summary>'
     +'<div style="font-size:12px;color:#5b6675;margin:6px 0">기본: 거래처코드 = PlayMD 매장코드 · 출하창고 = 매장 창고(이카운트 창고 목록에 있으면) 아니면 본사 창고 '+_escX(_ecHq())+'. 이카운트 [거래처등록]의 코드와 다르면 고쳐 주세요(관리자).</div>'
+    +'<label style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12.5px;margin:0 0 8px;font-weight:700;color:#7c3aed">11/9까지 판매(재고 미반영) 출하창고 <input id="ecSalPreWh" value="'+_escX(cfg.preWh)+'" placeholder="예: PMD"'+ro+' style="width:80px;'+inp+'"><span style="font-weight:400;color:#5b6675">이카운트 창고등록에 먼저 만든 코드 — 비우면 11/9까지 전표는 못 보냄</span></label>'
     +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:5px">'
     +SL.map(function(s){return '<label style="font-size:12.5px;display:flex;gap:5px;align-items:center;margin:0;font-weight:400"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+_escX(s.sc+" · "+_ecSalChLab(s.ch))+'">'+_escX(s.sn)+' <span style="color:#5b6675">'+_escX(s.sc)+'</span></span>'
       +'<input data-ecsal-cust="'+_escX(s.sc)+'" value="'+_escX(cfg.cust[s.sc]||s.sc)+'" title="거래처코드"'+ro+' style="width:78px;'+inp+'">'
