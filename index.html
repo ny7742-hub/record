@@ -10828,6 +10828,63 @@ function hgGenRetry(id){
   _hgRefRender();
   _hgGenMsg(R.nref?"문구·설정을 다시 넣었습니다 — 참고 이미지는 다시 넣어 주세요":"문구·설정을 다시 넣었습니다");
 }
+/* ── 3D 집기 「🖼 3D 이미지 저장」 = 실사 사진(2026-11-11 영업2팀 "저장본만 실사로") — 화면의 3D는 그대로 두고 저장하는 그림만 힉스필드로 실사처럼 만든다.
+   3D 그림(shot3d)을 참고 이미지로 ws/hgGen에 요청(kind:"fp", Grok Image 2.0 · 2K) → 자동화 PC가 만들어 ws/fpReal/{id}에 두면 받아서 저장하고 지운다
+   (예전 higgs-gen.mjs가 처리해 시안 모음에 넣었으면 거기서 받는다). 로컬 실행·자동화 PC 꺼짐·키 없음·크레딧 부족·실패·10분 넘김이면 예전처럼 3D 그림을 저장한다.
+   fpRealSave(cv 3D 캔버스, base 파일 이름(확장자 없이), msg(t,warn), dl(url,name)) */
+var FP_REAL_PROMPT="Turn this 3D layout render into a photorealistic photograph of the same retail pop-up store, built for real inside an upscale department store. Keep every fixture exactly as in the reference image: the same number of fixtures, the same positions, sizes, proportions, colors and angles, and the same camera viewpoint and framing. Keep every logo and all lettering exactly as shown, in the same places. Do not add, remove or move any fixture, and do not add products, people, signs or text that are not in the reference. Only make it look real: real materials matching the reference colors (matte painted wood, clear acrylic, metal, mirror glass with natural reflections), a polished light stone floor with soft reflections and contact shadows, soft even retail ceiling lighting, and a softly blurred department store interior in the background instead of the flat gray backdrop. Remove the black outline strokes of the render.";
+var _fpRealBusy=false;
+function fpRealSave(cv,base,msg,dl){
+  function plain(why){dl(cv.toDataURL("image/png"),base+".png");msg(why+" — 3D 그림 그대로("+cv.width+"×"+cv.height+") 저장했습니다.",true);}
+  if(_fpRealBusy){msg("실사 이미지를 만드는 중입니다 — 끝나면 저절로 저장됩니다.",true);return;}
+  if(!_hgShared()){plain("로컬 실행은 팀 공유가 꺼져 있어 실사로 만들 수 없습니다");return;}
+  if(!(hgGenWatch&&hgGenWatch.at&&Date.now()-hgGenWatch.at<3*60*1000)){plain("자동화 PC가 꺼져 있어 실사로 만들 수 없습니다");return;}
+  if(!hgGenWatch.key){plain("자동화 PC에 힉스필드 API 키가 없어 실사로 만들 수 없습니다");return;}
+  var r=Math.min(1,1600/Math.max(cv.width,cv.height)),w=Math.round(cv.width*r),h=Math.round(cv.height*r);
+  var c2=document.createElement("canvas");c2.width=w;c2.height=h;var g=c2.getContext("2d");g.fillStyle="#eef1f4";g.fillRect(0,0,w,h);g.imageSmoothingQuality="high";g.drawImage(cv,0,0,w,h);
+  var id="fp"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),ref=fbDB.ref("ws/hgGen/"+id),t0=Date.now(),done=false,hs="요청 보냄",tick=null;
+  var req={state:"요청",kind:"fp",prompt:FP_REAL_PROMPT,model:"grok",ar:"auto",res:"2k",by:_hgMe(),at:t0,nref:1};
+  function sec(){return Math.round((Date.now()-t0)/1000);}
+  function end(){done=true;_fpRealBusy=false;clearInterval(tick);try{ref.off("value",onReq);}catch(e){}}
+  function clean(){var up={};up["ws/fpReal/"+id]=null;up["ws/hgGen/"+id]=null;up["ws/hgGenRef/"+id]=null;fbDB.ref().update(up).catch(function(){});}
+  function save(v){
+    if(!v){plain("실사 이미지를 받지 못했습니다");return;}
+    var ok=function(){msg("✨ 실사 이미지를 저장했습니다(힉스필드 · "+sec()+"초). 화면의 3D는 그대로입니다.");};
+    if(/^https?:/.test(v)){   /* 너무 커서 주소로만 온 결과 */
+      fetch(v).then(function(x){if(!x.ok)throw 0;return x.blob();}).then(function(b){var u=URL.createObjectURL(b);dl(u,base+"_실사.png");setTimeout(function(){URL.revokeObjectURL(u);},60000);ok();})
+        .catch(function(){window.open(v,"_blank","noopener");msg("✨ 실사 이미지를 새 창에 열었습니다 — 그림을 오른쪽 눌러 저장해 주세요.");});
+      return;
+    }
+    dl(v,base+"_실사"+(/^data:image\/jpe?g/.test(v)?".jpg":/^data:image\/webp/.test(v)?".webp":".png"));ok();
+  }
+  function onReq(s){
+    if(done)return;var R=s.val();if(!R)return;
+    if(R.hs)hs=String(R.hs);else if(R.state==="처리중")hs="자동화 PC가 받음";
+    if(R.state==="실패"){
+      end();clean();
+      plain(/not_enough_credits|크레딧/.test(R.error||"")?"힉스필드 API 크레딧이 모자라 실사로 만들지 못했습니다(cloud.higgsfield.ai에서 충전)":"실사로 만들지 못했습니다("+String(R.error||"").slice(0,120)+")");
+    }else if(R.state==="완료"){
+      end();
+      var o=(R.out||[])[0];
+      fbDB.ref("ws/fpReal/"+id).once("value").then(function(x){
+        var v=x.val();if(v||!o)return v;
+        return fbDB.ref("ws/hgRrp/files/"+o).once("value").then(function(y){
+          return y.val()||fbDB.ref("ws/hgRrp/items/"+o+"/u").once("value").then(function(z){return z.val();});
+        });
+      }).then(function(v){save(v);if(v&&!/^https?:/.test(v))clean();}).catch(function(){plain("실사 이미지를 받지 못했습니다");});
+    }
+  }
+  _fpRealBusy=true;msg("✨ 실사로 만드는 중… (보통 1~2분, 끝나면 저절로 저장됩니다)");
+  var up0={};up0["ws/hgGenRef/"+id+"/0"]=c2.toDataURL("image/jpeg",0.9);
+  fbDB.ref().update(up0).then(function(){return ref.set(req);}).then(function(){
+    ref.on("value",onReq);
+    tick=setInterval(function(){
+      if(done)return;
+      if(Date.now()-t0>10*60*1000){end();plain("실사로 만드는 데 10분이 넘게 걸립니다");return;}
+      msg("✨ 실사로 만드는 중… "+sec()+"초 · "+hs+" (끝나면 저절로 저장됩니다)");
+    },1000);
+  }).catch(function(e){end();plain("실사 요청을 보내지 못했습니다("+(e&&e.message||e)+")");});
+}
 function _hgJobsRender(){
   var w=document.getElementById("hgWatch");
   if(w){
@@ -10835,7 +10892,7 @@ function _hgJobsRender(){
     w.innerHTML=!hgGenWatch?'자동화 PC 신호 없음':(on?'🟢 자동화 PC 켜짐':'⚪ 자동화 PC 꺼짐(켜지면 처리)')+(hgGenWatch.key?' · API 키 있음':' · <b style="color:#b91c1c">API 키 없음</b>');
   }
   var b=document.getElementById("hgJobs");if(!b)return;
-  var E=_authEsc,ids=Object.keys(hgGen).sort(function(a,c){return (hgGen[c].at||0)-(hgGen[a].at||0);}).slice(0,8);
+  var E=_authEsc,ids=Object.keys(hgGen).filter(function(k){return !(hgGen[k]&&hgGen[k].kind);}).sort(function(a,c){return (hgGen[c].at||0)-(hgGen[a].at||0);}).slice(0,8);
   b.innerHTML=ids.map(function(id){
     var R=hgGen[id],d=new Date(R.at||0),t=(d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
     var c=R.state==="완료"?"#047857":R.state==="실패"?"#b91c1c":"#1b6e82";
@@ -33766,8 +33823,10 @@ function shot3d(targetW){
 }
 window.fpPng=function(){
   if(!T3.ready){msg("3D 화면이 아직 준비되지 않았습니다.",true);return;}
-  var c=shot3d(3840);
-  download(c.toDataURL("image/png"),"화이트샌즈_3D집기_"+ST.W+"x"+ST.D+".png");
+  var c=shot3d(3840),nm="화이트샌즈_3D집기_"+ST.W+"x"+ST.D;
+  /* 저장본은 실사 사진으로(2026-11-11) — 힉스필드로 못 만들면 fpRealSave가 예전처럼 3D 그림을 저장한다 */
+  if(window.fpRealSave){window.fpRealSave(c,nm,msg,download);return;}
+  download(c.toDataURL("image/png"),nm+".png");
   msg("3D 이미지를 "+c.width+"×"+c.height+" 크기로 저장했습니다.");
 };
 
@@ -36178,8 +36237,10 @@ function shot3d(targetW){
 }
 window.fp2Png=function(){
   if(!T3.ready){msg("3D 화면이 아직 준비되지 않았습니다.",true);return;}
-  var c=shot3d(3840);
-  download(c.toDataURL("image/png"),"화이트샌즈_3D집기_"+ST.W+"x"+ST.D+".png");
+  var c=shot3d(3840),nm="화이트샌즈_3D집기_"+ST.W+"x"+ST.D;
+  /* 저장본은 실사 사진으로(2026-11-11) — 힉스필드로 못 만들면 fpRealSave가 예전처럼 3D 그림을 저장한다 */
+  if(window.fpRealSave){window.fpRealSave(c,nm,msg,download);return;}
+  download(c.toDataURL("image/png"),nm+".png");
   msg("3D 이미지를 "+c.width+"×"+c.height+" 크기로 저장했습니다.");
 };
 
