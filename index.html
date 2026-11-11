@@ -31606,6 +31606,9 @@ function wsLogoImg(cb){var I=window._wsLogoI;if(!I){I=window._wsLogoI=new Image(
 function wsLogoDraw(g,I,x,y,s,col){var t=document.createElement("canvas");t.width=t.height=256;var q=t.getContext("2d");q.drawImage(I,0,0,256,256);q.globalCompositeOperation="source-in";q.fillStyle=col;q.fillRect(0,0,256,256);g.drawImage(t,x,y,s,s);}
 (function(){
 /* 기본 집기 — 규격은 화이트샌즈 집기 목록 기준, est=사진으로 잡은 추정값. k = 3D 모양 */
+/* 집기 실사 그림(2026-11-11 영업2팀) — 3D 그림을 참고로 힉스필드(GPT Image 2.6)에서 만든 640×480 JPEG, fx-img/<열쇠>.jpg. 3D 집기 · 3D 집기2 표·집기리스트 이미지가 같이 쓴다(makeThumbs).
+   집기 모양을 바꾸면 그 열쇠를 여기서 빼거나(3D 그림으로 돌아감) 사진을 새로 만들어 넣고 FX_REAL_V를 올린다. 직접 추가·사진 집기는 해당 없음 */
+if(!window.FX_REAL){window.FX_REAL_V=1;window.FX_REAL={};"shelfImg shelfMir gShelf12 gShelf10 logoTbl t7A1 t7A2 t7B1 t7B2 t7B3 t7C1 t7C2 wooyang counter stdMir curveL curveR pegAcrylic pegWood step2 cjRound cjTable cjCubeW cjCubeM cjCounter cj3Acr evtCart tbl900 tbl700 acrTbl pegStand rrpPallet pedestal ped500 ped300".split(" ").forEach(function(k){window.FX_REAL[k]=1;});}
 var DEF={
   shelfImg:{n:"선반집기 이미지형",s:"선반(이미지)",w:1200,d:600,h:1800,c:"#85B7EB",k:"shelf",p:1,pc:0x85B7EB,inv:8,disp:2,est:false},
   shelfMir:{n:"선반집기 거울형",s:"선반(거울)",w:1200,d:600,h:1800,c:"#A8CBDD",k:"shelf",p:-1,pc:0xcfe3ee,inv:9,disp:1,est:false},
@@ -33792,6 +33795,12 @@ function makeThumbs(){
     var bz=parseFloat(getComputedStyle(document.body).zoom)||1,dpr=Math.min(3,(window.devicePixelRatio||1)*bz),SW=Math.round(72*dpr),SH2=Math.round(54*dpr);
     Object.keys(CAT).forEach(function(k){
       if(THUMB[k])return;
+      /* 실사 그림(2026-11-11 영업2팀 "힉스필드로 실제 집기처럼") — fx-img/<열쇠>.jpg 가 있는 기본 집기는 3D로 찍지 않고 그 사진을 쓴다. 못 열면(FX_BAD) 예전처럼 3D로 찍는다 */
+      if((window.FX_REAL||{})[k]&&!(window.FX_BAD||{})[k]){
+        THUMB[k]="fx-img/"+k+".jpg?v="+window.FX_REAL_V;
+        if(!THUMBIMG[k]||!THUMBIMG[k]._fx){var ri=new Image();ri._fx=1;ri.onerror=function(){(window.FX_BAD=window.FX_BAD||{})[k]=1;delete THUMB[k];delete THUMBIMG[k];try{makeThumbs();renderSum();}catch(e){}};ri.src=THUMB[k];THUMBIMG[k]=ri;}
+        return;
+      }
       var c=CAT[k],g=buildItem({id:0,t:k,x:ST.W/2,z:ST.D/2,r:0,f:false},false);
       TR.scene.add(g);
       var bb=new THREE.Box3().setFromObject(g),ctr=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3()).length()||1;
@@ -34009,6 +34018,9 @@ window.renderFloorPage=function(){
    좌표: x=오른쪽, z=아래(앞쪽 통로). 집기 중심 기준 mm. rot 0=앞면 아래, 90=오른쪽, 180=위, 270=왼쪽. docs/floorplan.md */
 (function(){
 /* 기본 집기 — 규격은 화이트샌즈 집기 목록 기준, est=사진으로 잡은 추정값. k = 3D 모양 */
+/* 집기 실사 그림(2026-11-11 영업2팀) — 3D 그림을 참고로 힉스필드(GPT Image 2.6)에서 만든 640×480 JPEG, fx-img/<열쇠>.jpg. 3D 집기 · 3D 집기2 표·집기리스트 이미지가 같이 쓴다(makeThumbs).
+   집기 모양을 바꾸면 그 열쇠를 여기서 빼거나(3D 그림으로 돌아감) 사진을 새로 만들어 넣고 FX_REAL_V를 올린다. 직접 추가·사진 집기는 해당 없음 */
+if(!window.FX_REAL){window.FX_REAL_V=1;window.FX_REAL={};"shelfImg shelfMir gShelf12 gShelf10 logoTbl t7A1 t7A2 t7B1 t7B2 t7B3 t7C1 t7C2 wooyang counter stdMir curveL curveR pegAcrylic pegWood step2 cjRound cjTable cjCubeW cjCubeM cjCounter cj3Acr evtCart tbl900 tbl700 acrTbl pegStand rrpPallet pedestal ped500 ped300".split(" ").forEach(function(k){window.FX_REAL[k]=1;});}
 var DEF={
   shelfImg:{n:"선반집기 이미지형",s:"선반(이미지)",w:1200,d:600,h:1800,c:"#85B7EB",k:"shelf",p:1,pc:0x85B7EB,inv:8,disp:2,est:false},
   shelfMir:{n:"선반집기 거울형",s:"선반(거울)",w:1200,d:600,h:1800,c:"#A8CBDD",k:"shelf",p:-1,pc:0xcfe3ee,inv:9,disp:1,est:false},
@@ -36195,6 +36207,12 @@ function makeThumbs(){
     var bz=parseFloat(getComputedStyle(document.body).zoom)||1,dpr=Math.min(3,(window.devicePixelRatio||1)*bz),SW=Math.round(72*dpr),SH2=Math.round(54*dpr);
     Object.keys(CAT).forEach(function(k){
       if(THUMB[k])return;
+      /* 실사 그림(2026-11-11 영업2팀 "힉스필드로 실제 집기처럼") — fx-img/<열쇠>.jpg 가 있는 기본 집기는 3D로 찍지 않고 그 사진을 쓴다. 못 열면(FX_BAD) 예전처럼 3D로 찍는다 */
+      if((window.FX_REAL||{})[k]&&!(window.FX_BAD||{})[k]){
+        THUMB[k]="fx-img/"+k+".jpg?v="+window.FX_REAL_V;
+        if(!THUMBIMG[k]||!THUMBIMG[k]._fx){var ri=new Image();ri._fx=1;ri.onerror=function(){(window.FX_BAD=window.FX_BAD||{})[k]=1;delete THUMB[k];delete THUMBIMG[k];try{makeThumbs();renderSum();}catch(e){}};ri.src=THUMB[k];THUMBIMG[k]=ri;}
+        return;
+      }
       var c=CAT[k],g=buildItem({id:0,t:k,x:ST.W/2,z:ST.D/2,r:0,f:false},false);
       TR.scene.add(g);
       var bb=new THREE.Box3().setFromObject(g),ctr=bb.getCenter(new THREE.Vector3()),sz=bb.getSize(new THREE.Vector3()).length()||1;
