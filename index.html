@@ -30234,6 +30234,7 @@ function popupStoreEdit(i,val){
   }
   savePopupDB();
   _popStoreDL();
+  if(r.status==="진행중"||r.status==="진행")_popEnsureStores(r);
 }
 function popupEdit(i,field,val){
   if(popupDB[i])popupDB[i][field]=val;
@@ -30243,6 +30244,66 @@ function popupEdit(i,field,val){
     if(sel)sel.style.color=POPUP_STATUS_COLOR[val]||"#374151";
   }
   savePopupDB();
+  if(field==="status"&&(val==="진행중"||val==="진행"))_popEnsureStores(popupDB[i]);
+}
+/* 진행중 팝업 → 백화점 탭·매장별 일별매출에 매장 자동 추가(2026-11-13 영업2팀).
+   이미 있는 매장은 건드리지 않는다 — 이름은 _dsNormPop(붙임말 뗀 브랜드+지점)으로, 일별매출은 매장코드로도 맞춘다.
+   지점명만으로 찾을 때 후보가 둘 이상이면 '이미 있다'로 보지 않는다(_dsPopRows와 같은 규칙). */
+function _popHasStore(names,store){
+  var k=_dsNormPop(store);if(!k)return true;
+  if(names.some(function(n){return _dsNormPop(_storeNoCode(n))===k||_dsNormPop(n)===k;}))return true;
+  var t=_dsPlaceOf(store);if(!t.place||t.place.length<2)return false;
+  var hit={};
+  names.forEach(function(n){
+    var u=_dsPlaceOf(_storeNoCode(n));
+    if(u.place!==t.place)return;
+    if(t.brand&&u.brand&&t.brand!==u.brand)return;
+    hit[_dsNormPop(_storeNoCode(n))]=1;
+  });
+  return Object.keys(hit).length===1;
+}
+function _popEnsureStores(row){
+  var store=String(row&&row.store||"").replace(/ /g," ").replace(/\s+/g," ").trim();
+  if(!store)return;
+  var period=(row.start||row.end)?(row.start||"")+"~"+(row.end||""):"";
+  var added=[];
+  /* 백화점 탭 */
+  if(typeof deptStores!=="undefined"&&Array.isArray(deptStores)&&!_popHasStore(deptStores,store)){
+    deptStores.push(store);
+    if(!deptStoresMeta[store])deptStoresMeta[store]={popup:true,popupPeriod:period};
+    wsSetItem("deptStores",JSON.stringify(deptStores));
+    wsSetItem("deptStoresMeta",JSON.stringify(deptStoresMeta));
+    added.push("백화점 탭");
+  }
+  /* 매장별 일별매출 — 팝업 시작 달부터 이번 달까지(목록이 이미 있는 달 + 이번 달) */
+  if(typeof dailySalesDB==="object"&&dailySalesDB){
+    if(!dailySalesDB.data)dailySalesDB.data={};
+    var cd=storeNameToCode(store)||"";
+    var now=new Date(),curMk=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+    var a=/^(\d{4})-(\d{2})/.exec(row.start||""),startMk=a?a[1]+"-"+a[2]:curMk;
+    if(startMk>curMk)startMk=curMk;
+    var ms=dailySalesDB.monthStores||{},mks=[],dsAdded=false;
+    for(var d=new Date(+startMk.slice(0,4),+startMk.slice(5,7)-1,1);;d=new Date(d.getFullYear(),d.getMonth()+1,1)){
+      var mk=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+      if(mk>curMk)break;
+      if(ms[mk]||mk===curMk)mks.push(mk);
+    }
+    mks.forEach(function(mk){
+      var list=dsStores(mk);
+      if(cd&&list.some(function(s){return _dsStoreCode(s)===cd;}))return;
+      if(_popHasStore(list.map(function(s){return s.name;}),store))return;
+      list.push({name:store,target:"",prevYear:"",period:period,code:cd});
+      dsAdded=true;
+    });
+    if(dsAdded){
+      if(!dailySalesDB.stores)dailySalesDB.stores=[];
+      if(!dailySalesDB.stores.some(function(s){return s.name===store;}))dailySalesDB.stores.push({name:store,target:"",prevYear:"",period:period,code:cd});
+      if(typeof _dsAutoPlaymd==="function")_dsAutoPlaymd();
+      saveDaily();
+      added.push("매장별 일별매출"+(cd?"("+cd+")":" — 매장코드 없음, 코드 칸에 적어 주세요"));
+    }
+  }
+  if(added.length)alert("「"+store+"」 매장을 추가했습니다:\n· "+added.join("\n· "));
 }
 
 function deletePopupRow(i){
