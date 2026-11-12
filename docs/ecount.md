@@ -34,7 +34,9 @@
 - **PlayMD 매장출고반품현황 → 이카운트 창고이동 한 번에 옮김(2026-11-12 영업2팀)**: `queryStoreMoves`(10/30, 11/9~11/12)로 받은 `xpro4700a` 전표를 전표마다 그 날짜로 `automation/_ecmove-pm.mjs --file=작업.json [--save]`(ecount-move.mjs 복사 — 주문 기록 없이 웹자료올리기만)로 넣었다.
   사이즈 칸: `SGREQT2`=M · `SGREQT3`=L · `SGREQT4`=X(그 상품에 X가 없으면 F). 넣은 것: 서울역 LOS 11/11 초도 919 · 아난티(ANC·ANG·ANT·ANV)·백화점(AVE·LJS·LSC·LGP·HDDM) 11/9~11/12 출고 17장 · 잠실 11/9 온라인 1개(LJS-0007) ·
   10/30 반품 11장(ANT·ANG·SFCT·SFKS·SFS·SFGI·SFG·SKI(=팩토리 킨텍스점, 영업2팀)·SFA·SFT·LSC → NH). 창고이동조회 11/9 −1~−8 · 11/10 −1~−5 · 11/11 −4·−5 · 11/12 −2~−5 · 10/30 −2~−12.
-  **부산본점 LSM 11/12 초도 862개(107줄)는 이카운트에 LSM 창고가 없어 못 넣음**(웹자료올리기는 전표묶음 단위로 성공·실패 — 서울역만 들어감).
+  부산본점 LSM 11/12 초도 862개(107줄)는 처음엔 이카운트에 LSM 창고가 없어 실패(웹자료올리기는 전표묶음 단위로 성공·실패 — 서울역만 들어감) → 영업2팀이 창고 `LSM 롯데백화점 부산본점`을 만든 뒤 같은 날 따로 넣음(11/12 −6).
+  같은 날 **잠실 11/12 판매**: 판매일보를 다시 받아(`playmd-daily.mjs --only=sales`, 17:56 자료보다 1줄 늘어 7줄 9개 281,300원) 판매조회에 11/12 잠실이 없는 것을 보고 `ecount-sales.mjs --id=esc1112ljs --save`(작업 `_mk-ecsal-1112ljs.mjs`) → 판매조회 11/12 −2, 단가까지.
+  잠실 11/10(`ecSalLog`엔 강민준 받음 기록) · 11/11은 판매조회에 없다.
   이카운트 품목코드가 PlayMD와 다른 것: `WLW04A9ZMGRX→MGYX` · `WLW07A9HMGX→MGYX` · `WSPEKF01BRM→BRX` · 뉴 애니멀 와펜 귀비니 `BJF19·21·23·25…F→…X`(품목명이 같음). 이카운트 전체 품목은 품목등록 리스트가 부르는 `/ECAPI/SVC/Inventory/Basic/GetListSale003ProdForSearch`(PARAM 빈칸·PAGE_SIZE 5000)로 받았다(3,692품목).
 
 ## ↩ 매장 반품(2026-10-12 영업2팀 "이카운트 매장 반품등록")
