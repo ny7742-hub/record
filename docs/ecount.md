@@ -31,6 +31,11 @@
 - **`🔑 이카운트 접속`**(2026-11-05 영업2팀, 재고 줄 `#ecStockBar` 오른쪽): `qcPortalOpen(event,'ecount')` — 자동화 창 모드를 켠 PC는 자동화 크롬 창에(`portalopen:ecount`), 아니면 새 탭으로 `login.ecount.com`. 마지막 받기가 실패했으면 빨간색.
   자동 로그인(비밀번호 저장·입력)은 만들지 않는다 — 로그인은 사람이 자동화 창에서 한다.
 - 이카운트 Open API 키는 없다 — 자동 넣기는 사람이 로그인한 자동화 창 화면으로 한다(위 🤖).
+- **PlayMD 매장출고반품현황 → 이카운트 창고이동 한 번에 옮김(2026-11-12 영업2팀)**: `queryStoreMoves`(10/30, 11/9~11/12)로 받은 `xpro4700a` 전표를 전표마다 그 날짜로 `automation/_ecmove-pm.mjs --file=작업.json [--save]`(ecount-move.mjs 복사 — 주문 기록 없이 웹자료올리기만)로 넣었다.
+  사이즈 칸: `SGREQT2`=M · `SGREQT3`=L · `SGREQT4`=X(그 상품에 X가 없으면 F). 넣은 것: 서울역 LOS 11/11 초도 919 · 아난티(ANC·ANG·ANT·ANV)·백화점(AVE·LJS·LSC·LGP·HDDM) 11/9~11/12 출고 17장 · 잠실 11/9 온라인 1개(LJS-0007) ·
+  10/30 반품 11장(ANT·ANG·SFCT·SFKS·SFS·SFGI·SFG·SKI(=팩토리 킨텍스점, 영업2팀)·SFA·SFT·LSC → NH). 창고이동조회 11/9 −1~−8 · 11/10 −1~−5 · 11/11 −4·−5 · 11/12 −2~−5 · 10/30 −2~−12.
+  **부산본점 LSM 11/12 초도 862개(107줄)는 이카운트에 LSM 창고가 없어 못 넣음**(웹자료올리기는 전표묶음 단위로 성공·실패 — 서울역만 들어감).
+  이카운트 품목코드가 PlayMD와 다른 것: `WLW04A9ZMGRX→MGYX` · `WLW07A9HMGX→MGYX` · `WSPEKF01BRM→BRX` · 뉴 애니멀 와펜 귀비니 `BJF19·21·23·25…F→…X`(품목명이 같음). 이카운트 전체 품목은 품목등록 리스트가 부르는 `/ECAPI/SVC/Inventory/Basic/GetListSale003ProdForSearch`(PARAM 빈칸·PAGE_SIZE 5000)로 받았다(3,692품목).
 
 ## ↩ 매장 반품(2026-10-12 영업2팀 "이카운트 매장 반품등록")
 - 같은 탭 위 **`📦 매장 발주 / ↩ 매장 반품`** 전환(`ecKind`, `_ecKind`). 화면·버튼 문구는 `EC_TXT[ord|ret]`. 담는 중인 목록은 종류별로 따로(`_ecDrafts`).
