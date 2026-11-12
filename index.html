@@ -1808,7 +1808,7 @@ label{font-size:14px!important}
         <button class="bs" onclick="ccCountGo()" style="font-size:14px;font-weight:700;padding:6px 12px" title="DSS 두 아이디의 새 주문 수만 지금 읽어 옵니다(DSS 상태는 바뀌지 않음)">🔢 건수 확인</button>
         <button id="ccAutoSaveBtn" onclick="ccAutoGo('save')" style="font-size:14px;font-weight:800;padding:6px 14px;background:#1b6e82;color:#fff;border:1px solid #1b6e82;border-radius:8px;cursor:pointer" title="DSS 출력완료 처리 + 메일 발송까지 합니다">🚚 발주하기</button>
         <button class="bs" onclick="ccAutoGo('preview')" style="font-size:14px;font-weight:700;padding:6px 12px" title="DSS는 읽기만 하고, 도매발주서를 만들어 하이웍스 임시보관함에 메일 초안만 저장합니다">🔍 미리보기(메일 초안)</button>
-        <span style="font-size:13px;color:#5b6675">① 건수 확인 → ② 발주하기(DSS 출력 · 도매발주서 · 메일 초안) → ③ 메일 보내기 → ④ 슬랙 CX팀 → ⑤ DSS 송장 · 판매현황 → ⑥ PlayMD 사입출고 → ⑦ 이카운트 판매등록</span>
+        <span style="font-size:13px;color:#5b6675">① 건수 확인 → ② 발주하기(DSS 출력 · 도매발주서 · 메일 초안) → ③ 메일 보내기 → ④ 슬랙 CX팀 → ⑤ DSS 송장 · 판매현황 → ⑥ PlayMD 사입출고 → ⑦ 이카운트 판매등록(보류)</span>
       </div>
       <div id="ccAutoStatus" style="margin-top:6px;font-size:14px;line-height:1.6"></div>
     </div>
@@ -2470,7 +2470,7 @@ label{font-size:14px!important}
         <button class="ap-btn sub" onclick="switchTab('orderconv')" title="표를 확인·수정한 뒤 그 화면에서 ✉️ 발주 메일 전달을 누르세요">📥 발주서 변환 열기(확인 후 메일 전달)</button></div>
       <div class="oc-add-slot" data-k="auto" style="margin-bottom:6px"></div>
       <div id="autoOcStatus" style="font-size:13px;line-height:1.6"></div></div>
-    <div class="ap-card"><div class="ap-h"><b>🛒 코스트코 자동 발주</b><span class="ap-sub">① 건수 확인 → ② 발주하기 → ③ 메일 보내기 → ④ 슬랙 CX팀 → ⑤ DSS 송장·판매현황 → ⑥ PlayMD 사입출고 → ⑦ 이카운트 판매등록</span><button class="ap-btn sub" style="margin-left:auto" onclick="apOpen('ccpdforder','ccAutoStatus')">↗ 열기</button></div>
+    <div class="ap-card"><div class="ap-h"><b>🛒 코스트코 자동 발주</b><span class="ap-sub">① 건수 확인 → ② 발주하기 → ③ 메일 보내기 → ④ 슬랙 CX팀 → ⑤ DSS 송장·판매현황 → ⑥ PlayMD 사입출고 → ⑦ 이카운트 판매등록(보류)</span><button class="ap-btn sub" style="margin-left:auto" onclick="apOpen('ccpdforder','ccAutoStatus')">↗ 열기</button></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button class="ap-btn sub" onclick="ccCountGo()">🔢 건수 확인</button>
         <button id="autoCcSaveBtn" class="ap-btn" onclick="ccAutoGo('save')">🚚 발주하기</button>
         <button class="ap-btn sub" onclick="ccAutoGo('preview')">🔍 미리보기(메일 초안)</button></div>
@@ -24877,6 +24877,7 @@ function _ccCopySlack(btn){
   var done=function(){var o=btn.textContent;btn.textContent="✔ 복사됨";setTimeout(function(){btn.textContent=o;},1500);};
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,function(){prompt("복사하세요",t);});else prompt("복사하세요",t);
 }
+var CC_EC_HOLD=true;   /* ⑦ 이카운트 판매등록 보류(2026-11-12 영업2팀) — 자동화 PC saip-watch CC_CHAIN.ecOff와 같이 바꾼다 */
 function ccAutoRender(){
   var box=document.getElementById("ccAutoStatus");if(!box)return;
   var h="",R=(saipReq||{}).co,S=ccOrderStatus,L=(ccOrderLog||{})[_ccToday()];
@@ -24971,15 +24972,18 @@ function ccAutoRender(){
   var EK=gd+"_COSO",EL=gd?ecSalLog[EK]:null,Re=(saipReq||{}).es,actE=_saipReqActive(Re)&&Re.chain&&Re.date===gd;
   var ESl=!actE&&ecSalStatus&&ecSalStatus.mode==="save"&&ecSalStatus.state!=="진행 중"&&(ecSalStatus.slips||[]).filter(function(x){return x.key===EK;})[0];
   var ESbad=ESl&&ESl.res!=="넣음"&&ESl.res!=="건너뜀"?ESl:null;
-  var s7=EL?OK+_escX(_saipFmtAt(EL.at))+' · '+_escX(_saipWho(EL.by))+' · '+(EL.qty||0)+'개 · '+Number(EL.amt||0).toLocaleString()+'원</span>'
+  /* 2026-11-12 영업2팀 "이카운트 등록은 일단 보류" — 자동화 PC CC_CHAIN.ecOff=true. 11/12는 끄기 전 이카운트에 저장됐는데(성공 5건) 스크립트가 실패로 읽어 기록이 없다 → 다시 넣지 않게 알린다 */
+  var ESsaved=ESbad&&/성공\s*:\s*[1-9]\d*건/.test(ESbad.why||"")&&/실패\s*:\s*0건/.test(ESbad.why||"");
+  var s7=CC_EC_HOLD&&!EL?(ESsaved?WAIT+'이카운트에 저장됨 · 자비스 기록 없음</span> '+GRAY+'— 다시 넣지 마세요(두 번 들어감)</span>':GRAY+'⏸ 보류 중 — 이카운트 탭 💰 매출 등록에서 직접</span>')
+    :EL?OK+_escX(_saipFmtAt(EL.at))+' · '+_escX(_saipWho(EL.by))+' · '+(EL.qty||0)+'개 · '+Number(EL.amt||0).toLocaleString()+'원</span>'
     :actE?RUN+'⏳ '+(Re.state==="요청"?'요청됨':'넣는 중')+'</span>'+(Re.state==="처리중"&&Re.progress?' '+GRAY+'· '+_escX(String(Re.progress).slice(0,60))+'</span>':'')
     :ESbad?BAD+'❗ 멈춤</span> '+GRAY+_escX(ESbad.why||ecSalStatus.msg||ESbad.res||"")+' — 이카운트 탭 💰 매출 등록에서 다시</span>'
     :gd&&gd<"2026-11-12"?GRAY+'11/12 발주부터 자동</span>'
     :LP?WAIT+'판매일보 기다리는 중</span> '+GRAY+'— ⑥ 등록이 판매일보(매시 받기)에 들어오면 자동</span>'
     :gN===0?GRAY+'새 주문 0건이라 없음</span>'
     :GRAY+'⑥ 뒤에 자동</span>';
-  var k7=EL?"done":gN===0&&!actE?"skip":(actE||LP||ESbad)?"on":"todo";
-  var b7=EL?{p:100,t:"완료"}:gN===0&&!actE?{p:100,t:"할 일 없음"}:actE?(Re.state==="요청"?{p:3,t:"요청됨"}:est(Re.startedAt||Re.at,90)):{p:0,t:LP?"판매일보 대기":"대기"};
+  var k7=EL?"done":CC_EC_HOLD?"skip":gN===0&&!actE?"skip":(actE||LP||ESbad)?"on":"todo";
+  var b7=EL?{p:100,t:"완료"}:CC_EC_HOLD?{p:0,t:"보류"}:gN===0&&!actE?{p:100,t:"할 일 없음"}:actE?(Re.state==="요청"?{p:3,t:"요청됨"}:est(Re.startedAt||Re.at,90)):{p:0,t:LP?"판매일보 대기":"대기"};
   var d5=dssOk&&salOk,d6=!!LP;
   var k5=d5?"done":gN===0&&!DD&&!CSs?"skip":(actC||rdy||DD||CSs)?"on":"todo";
   var k6=d6?"done":gN===0&&!actC?"skip":(actC||actP||rdy||LPp)?"on":"todo";
@@ -25018,7 +25022,7 @@ function ccAutoRender(){
   if(!h)h='<span style="color:#5b6675">아직 실행 기록이 없습니다. 처음에는 <b>미리보기</b>로 메일 초안을 확인해 주세요.</span>';
   /* 평일 8:30 자동 발주(2026-10-06 영업2팀 8:40 → 10-08 8:30 — 자동화 PC saip-watch ccAutoOrder, 로그인이 풀려 있으면 로그인 창·슬랙 요청 뒤 기다림). 메일은 초안까지라 보내기는 사람이 */
   /* 2026-10-12 영업2팀: 8:30 자동 발주를 끄고 버튼으로만 — 누르기 전에 [🔢 건수 확인]으로 건수를 본다 */
-  h='<div style="font-size:12px;color:#5b6675;margin-bottom:3px">① 건수 확인 · ② 발주하기만 누르면 ③~⑦(메일 보내기 · 슬랙 · 회신 오면 송장·판매현황·사입출고 · 이카운트 판매등록)은 자동으로 이어집니다</div>'+h;
+  h='<div style="font-size:12px;color:#5b6675;margin-bottom:3px">① 건수 확인 · ② 발주하기만 누르면 ③~⑥(메일 보내기 · 슬랙 · 회신 오면 송장·판매현황·사입출고)은 자동으로 이어집니다'+(CC_EC_HOLD?' · ⑦ 이카운트 판매등록은 보류 중':'')+'</div>'+h;
   box.innerHTML=h;
   _apCopy("ccAutoStatus","autoCcStatus");
   _ccProgTick();
