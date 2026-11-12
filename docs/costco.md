@@ -92,6 +92,13 @@
   ④ 슬랙은 원래 자동(`slack-cx.mjs`). ⑤⑥ `ccChainTick`(1분마다) — 메일 보낸(`sent`) 날짜의 물류 회신이 `saipReady.cc`에 뜨면 `saipReq.cc` mode `save`(`chain:true`, 서명 sentBy)를 남긴다
   (= 🛒 코스트코 매출등록 [등록]: PlayMD → DSS 송장 → 판매현황, 저장 전 중복·매칭 검사 그대로). 조건: `CC_CHAIN.since`(2026-11-10) 이후 · 최근 4일 · `saipLog.cc` 없음 · 추가분(`more`) 아님 ·
   날짜마다 한 번(`ws/ccChainLog`) — 실패하면 다시 걸지 않고 사람이 카드에서. 끄려면 `CC_CHAIN.off=true`. 백업 `_backup-saip-watch-1110-ccchain.mjs`. 카드 안내·발주 확인창 문구도 자동으로 바꿨다.
+  **2026-11-12 — ⑥ 다시 하기 · ⑦ 이카운트 판매등록**(영업2팀 "6번 플레이엠디 사입출고와 이카운트 판매등록도 같이 되게", 백업 `_backup-saip-watch-1112-ccchain-ec.mjs`):
+  11/11 이어 하기에서 PlayMD 화면이 30초 안에 안 열려(`page.goto Timeout`) ⑥만 실패했고 다시 걸지 않아 사람이 17:21에 등록했다(⑤ 송장·판매현황은 됐음).
+  ⑥ `ccChainPmRetry` — 이어 하기를 건 날짜에 `saipLog.cc`가 없으면 `pmGapMin`(10)분 뒤 **PlayMD만** 다시(`saipReq.cc` `pmOnly:true` → runReq가 DSS 송장·판매현황을 건너뜀), 날짜마다 `pmRetry`(2)번까지(`ccChainLog[날짜].pmTry·pmAt`).
+  ⑦ `ccChainEcount` — ⑥이 끝난 날짜(`saipLog.cc`)의 판매일보 `ws/ecSalSrc` 코스트코 온라인(COSO) 수량·금액이 ⑥ 기록(qty·amt)과 **똑같아지면**(매시 판매일보 받기 뒤)
+  이카운트 탭 💰 매출 등록과 같은 전표 1장(`_ecSalRows` 규칙 — 단가 = 금액÷수량 VAT 포함 · 공급가 = ÷1.1 반올림 · 거래처 `ecConfig.sal.cust.COSO`||COSO · 창고 `sal.wh.COSO`||`hq`||NH · 적요 `코스트코 매출(자비스)`)을
+  `ws/ecSalJob/es…cc`에 만들고 `saipReq.es` mode `save`(`chain:true`, `date`) → `ecount-sales.mjs --save`. `ws/ecSalLog/{날짜}_COSO`가 있으면 안 한다. 날짜마다 한 번(`ccChainLog[날짜].ec`). `ecSince`(2026-11-12) 전 날짜는 안 함 · 끄려면 `CC_CHAIN.ecOff=true`.
+  같은 날 코스트코 반품 등으로 판매일보 COSO가 ⑥과 달라지면 자동으로 넣지 않고 기다린다(이카운트 탭에서 사람이). 자비스 카드에 **⑦ 🧮 이카운트 판매등록** 칸(넣은 기록 `ecSalLog` · 진행 `saipReq.es` · 멈춤 `ecSalStatus`).
   **칸마다 진행 상태바**(2026-10-16): 끝남 100%(초록) · 도는 중 주황 줄무늬 — ② 발주는 실제 단계 수(`_ccProg`, ws/ccOrderStatus steps), ① 건수 확인(~1분)·③ 메일 보내기(~40초)는 보통 걸리는 시간 대비 지난 시간(95%에서 멈춤) · 아직 0%. `_ccProgTick`이 건수 확인 중에도 10초마다 다시 그린다.
   **⑤ DSS 송장 · 판매현황 · ⑥ PlayMD 사입출고**(2026-11-03 영업2팀 "5단계 DSS 송장 업로드·자비스 코스트코탭 매출등록, 6단계 플레이엠디 사입출고 완료"): 오늘 발주 날짜의 물류 회신(운송장)이 오면
   사입출고등록 🛒 코스트코 매출등록 하나가 차례로 한다(PlayMD 매출등록 → DSS 송장 → 판매현황). ⑤ = `ws/ccDssStatus`(save, 26·31 입력 건수) + **`ws/ccSalesStatus`**
