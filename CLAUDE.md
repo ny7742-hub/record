@@ -41,6 +41,10 @@
 - [`docs/meeting.md`](docs/meeting.md) — 🗓️ 주간회의 탭: 세일즈 매니지먼트 영업2팀 지난주·지난달·올해 매출(전년 대비) · 증감 사유 자동 작성 · 공유캘린더 업무 · 회의 메모(`ws/wkMtg`)
 - [`docs/cowork.md`](docs/cowork.md) — **별도 페이지** `cowork.html`: 디자인·생산·웹디자인·영업2팀 코스트코 상품개발 협업(단계·일정·시안·코멘트)
 
+## ⚡ AUTO 탭
+- 홈 바로 옆(`page-auto2`, 2026-11-13 영업2팀) — 로그인 상태 6칸만(renderPortalLogin 끝에서 `#plSites`를 `#auto2PlSites`로 복사, 2칸 격자라 DSS26·DSS31 나란히) +
+  홈쇼핑 칸: `📊 세매 등록` = 세일즈 매니지먼트(https://wssales.pages.dev/) **새 탭 바로가기만**(올리기는 사람이 직접) · `🚚 PlayMD 사입출고등록` = `saipAutoGo('hs')` · OneDrive 판매자료. PlayMD 자료 업로드는 넣지 않는다. 🤖 자동화 탭은 그대로 둔다.
+
 ## 🤖 자동화 탭
 - 홈 다음 탭(`page-auto`, `renderAutoPage`, 2026-10-02 영업2팀) — 로그인 상태 · PlayMD 자료 업로드 4종 · 코스트코 자동 발주 · 도매 발주(주문배분현황) ·
   사입출고등록 4 · 반품등록 2 · 미출고 반영을 한 화면에. **새 카드를 만들지 않고 원래 화면의 카드 함수(`_saipCard`·`_retCard`)를 쓰거나,
