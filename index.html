@@ -11051,6 +11051,48 @@ function ecStockPullGo(){
   wsSetItem("ecStockReq",JSON.stringify(ecStockReq));renderEcount();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 받습니다.");
 }
+/* ⚠ 마이너스 재고(2026-11-13 영업2팀 "마이너스 재고 확인되게") — ws/ecStock(창고별재고현황, 0 뺀 자료)에서 수량이 0보다 작은 줄만.
+   이카운트 재고현황은 품목을 걸어 조회하면 마이너스가 안 보여서, 전 창고·전 품목을 한 창으로 모은다 */
+function _ecNegRows(){
+  var E=ecStock;if(!E||!E.wh)return [];
+  var P=_ocProdList(),R=[];
+  Object.keys(E.wh).forEach(function(w){var m=E.wh[w]||{};Object.keys(m).forEach(function(c){var q=Number(m[c]);if(q<0){var it=P.by[c];R.push({wh:w,whName:(E.names&&E.names[w])||_ecStkName(w),code:c,name:it?it.label:"",qty:q});}});});
+  R.sort(function(a,b){return a.wh<b.wh?-1:a.wh>b.wh?1:a.qty-b.qty;});
+  return R;
+}
+var _ecNegWh="";
+function ecNegShow(wh){
+  if(wh!=null)_ecNegWh=wh;
+  var all=_ecNegRows(),E=ecStock,old=document.getElementById("ecNegPop");if(old)old.remove();
+  var cnt={};all.forEach(function(r){cnt[r.wh]=cnt[r.wh]||{n:0,q:0,name:r.whName};cnt[r.wh].n++;cnt[r.wh].q+=r.qty;});
+  if(_ecNegWh&&!cnt[_ecNegWh])_ecNegWh="";
+  var rows=all.filter(function(r){return !_ecNegWh||r.wh===_ecNegWh;}),tq=rows.reduce(function(s,r){return s+r.qty;},0);
+  var chip=function(k,lab,on){return '<button class="bs" onclick="ecNegShow(\''+k+'\')" style="padding:3px 9px;font-size:12px;'+(on?'background:#b91c1c;color:#fff;border-color:#b91c1c':'')+'">'+lab+'</button>';};
+  var h='<div style="background:#fff;border-radius:10px;max-width:900px;width:calc(100vw - 32px);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3)">'
+    +'<div style="padding:12px 16px;border-bottom:1px solid #eee;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:15px;color:#b91c1c">⚠ 이카운트 마이너스 재고</b>'
+    +'<span style="color:#5b6675;font-size:12px">'+(E?_escX(_saipFmtAt(E.at))+' 기준 · 창고별재고현황':'')+'</span>'
+    +'<button class="bs" style="margin-left:auto;padding:3px 10px;font-size:12px" onclick="ecNegDl()"'+(rows.length?'':' disabled')+'>⬇ 엑셀</button>'
+    +'<button class="bs" style="padding:3px 10px;font-size:12px" onclick="document.getElementById(\'ecNegPop\').remove()">닫기</button></div>'
+    +'<div style="padding:8px 16px;display:flex;gap:6px;flex-wrap:wrap">'+chip("","전체 "+all.length+"줄",!_ecNegWh)
+    +Object.keys(cnt).sort().map(function(k){return chip(k,_escX(k)+' '+_escX(cnt[k].name||"")+' '+cnt[k].n+'줄 · '+cnt[k].q.toLocaleString(),_ecNegWh===k);}).join("")+'</div>'
+    +'<div style="overflow:auto;padding:0 16px 14px">'
+    +(rows.length?'<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#fef2f2;position:sticky;top:0">'
+      +['창고','품목코드','품목명','재고수량'].map(function(t,i){return '<th style="padding:6px;border-bottom:1px solid #fecaca;text-align:'+(i===3?'right':'left')+'">'+t+'</th>';}).join("")+'</tr></thead><tbody>'
+      +rows.map(function(r){return '<tr><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;white-space:nowrap">'+_escX(r.wh)+' <span style="color:#5b6675">'+_escX(r.whName||"")+'</span></td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;font-family:monospace">'+_escX(r.code)+'</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9">'+_escX(r.name||"")+'</td><td style="padding:5px 6px;border-bottom:1px solid #f1f5f9;text-align:right;color:#b91c1c;font-weight:700">'+r.qty.toLocaleString()+'</td></tr>';}).join("")
+      +'<tr style="background:#fafafa;font-weight:700"><td colspan="3" style="padding:6px;text-align:center">합계 '+rows.length+'줄</td><td style="padding:6px;text-align:right;color:#b91c1c">'+tq.toLocaleString()+'</td></tr></tbody></table>'
+      :'<div style="padding:30px;text-align:center;color:#5b6675">'+(E?'마이너스 재고가 없습니다 ✔':'이카운트 재고 자료가 아직 없습니다')+'</div>')
+    +'</div></div>';
+  var d=document.createElement("div");d.id="ecNegPop";
+  d.style.cssText="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:flex;align-items:center;justify-content:center";
+  d.onclick=function(e){if(e.target===d)d.remove();};d.innerHTML=h;document.body.appendChild(d);
+}
+function ecNegDl(){
+  var rows=_ecNegRows().filter(function(r){return !_ecNegWh||r.wh===_ecNegWh;});if(!rows.length)return;
+  var a=[["창고코드","창고명","품목코드","품목명","재고수량"]].concat(rows.map(function(r){return [r.wh,r.whName||"",r.code,r.name||"",r.qty];}));
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),"마이너스재고");
+  var d=new Date(),ymd=d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");
+  XLSX.writeFile(wb,"이카운트_마이너스재고_"+(_ecNegWh||"전체창고")+"_"+ymd+".xlsx");
+}
 function _ecNum(v){var n=Number(String(v==null?"":v).replace(/[^0-9.\-]/g,""));return isNaN(n)?null:n;}
 function ecStockLoad(input){
   var f=input.files&&input.files[0];if(!f)return;input.value="";
@@ -12243,6 +12285,7 @@ function renderEcount(){
     sb.innerHTML='<b style="color:#6d28d9">📦 이카운트 창고재고</b>'
       +(E?'<span style="color:'+(old?'#b45309':'#334155')+'">'+(auto?'<b>자동</b> ':'')+_escX(_saipFmtAt(E.at))+' 기준('+ago+') · '+(auto?'창고별재고현황 '+(E.items||"")+'품목':_escX(E.by||"?")+' 올림')+' · 창고 '+Object.keys(E.wh).length+'곳'+(old?(auto?' · 자동 받기가 멈춘 것 같습니다':' · 하루 넘게 지남'):'')+'</span>'
         +'<span style="color:#5b6675">'+_escX(_ecHq())+' '+(_ecStockKey(_ecHq())?'✔':'<b style="color:#b91c1c">못 찾음</b>')+'</span>'
+        +(function(){var nr=_ecNegRows();return '<button class="bs" onclick="ecNegShow(\'\')" title="이카운트 전 창고에서 재고수량이 0보다 작은 품목을 봅니다" style="padding:3px 10px;font-size:12px;font-weight:700;'+(nr.length?'background:#fef2f2;color:#b91c1c;border-color:#fca5a5':'')+'">⚠ 마이너스 재고 '+nr.length+'</button>';})()
         :'<span style="color:#5b6675">아직 없음 — 자동화 PC가 이카운트에서 받아 오면(7~21시 5분마다) 상품 옆 재고가 이카운트 '+_escX(_ecHq())+' 재고로 바뀝니다</span>')
       +(perr?'<span style="color:#b91c1c;font-weight:700">⚠ 마지막 받기 실패('+_escX(_saipFmtAt(E.pullAt))+'): '+_escX(perr)+'</span>':'')
       +(rq&&rq.doneAt&&rq.note&&Date.now()-new Date(rq.doneAt).getTime()<10*60*1000?'<span style="color:#b91c1c">'+_escX(rq.note)+'</span>':'')
