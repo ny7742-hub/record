@@ -9269,12 +9269,24 @@ function whsRender(){
   else if(fl){
     var F=fl.filled||{};
     b2='<b>'+f(fl.rows)+'줄</b> · 채움 상품컬러코드 '+f(F.cc)+' · 상품코드 '+f(F.pc)+' · 결제금액 '+f(F.amt)+' · 합계 <b>'+f(fl.amount)+'원</b>';
-    var G=(fl.groups||[]).slice().sort(function(a,b){return (a.shop+a.name).localeCompare(b.shop+b.name);});
-    if(G.length){
-      var th='padding:3px 6px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:12px;white-space:nowrap;',td='padding:3px 6px;border-bottom:1px solid #f1f5f9;font-size:12px;';
-      var thL='style="'+th+'text-align:left"',thR='style="'+th+'text-align:right"',tdL='style="'+td+'"',tdC='style="'+td+'font-family:monospace;white-space:nowrap"',tdR='style="'+td+'text-align:right;white-space:nowrap"';
-      b2+='<div style="overflow-x:auto;margin-top:4px"><table style="border-collapse:collapse;width:100%"><tr><th '+thL+'>쇼핑몰</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>단가</th><th '+thR+'>결제금액</th></tr>'
-        +G.map(function(g){return '<tr><td style="'+td+'white-space:nowrap">'+e(g.shop)+'</td><td '+tdL+'>'+e(g.name)+'</td><td '+tdC+'>'+e(g.cc)+'</td><td '+tdC+'>'+e(g.pc)+'</td><td '+tdR+'>'+f(g.qty)+'</td><td '+tdR+'>'+f(g.unit)+'</td><td '+tdR+'>'+f(g.amt)+'</td></tr>';}).join("")+'</table></div>';
+    /* 전체 줄(2026-11-13 영업2팀 "전체 리스트를 보여야 하는데 일부만") — 기본은 원본 줄 그대로, [상품별 합계]로 묶어 보기. 채운 칸은 하늘색 */
+    var LN=fl.lines||[],G=(fl.groups||[]).slice().sort(function(a,b){return (a.shop+a.name).localeCompare(b.shop+b.name);});
+    var view=(window._whsView==="sum"||!LN.length)?"sum":"all";
+    var th='padding:3px 6px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:12px;white-space:nowrap;position:sticky;top:0;z-index:1;',td='padding:3px 6px;border-bottom:1px solid #f1f5f9;font-size:12px;';
+    var thL='style="'+th+'text-align:left"',thR='style="'+th+'text-align:right"',tdL='style="'+td+'"',tdN='style="'+td+'white-space:nowrap"',tdC='font-family:monospace;white-space:nowrap;',tdR='text-align:right;white-space:nowrap;';
+    var FIL='background:#e0f2fe;';
+    var tg=function(k,lab){var on=view===k;return '<button onclick="window._whsView=\''+k+'\';whsRender()" style="font-size:12px;font-weight:700;padding:2px 9px;border-radius:6px;cursor:pointer;border:1px solid #1b6e82;background:'+(on?'#1b6e82':'#fff')+';color:'+(on?'#fff':'#1b6e82')+'">'+lab+'</button>';};
+    if(LN.length||G.length)b2+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px">'+(LN.length?tg("all","전체 줄 "+f(LN.length))+tg("sum","상품별 합계 "+f(G.length)):'')
+      +'<span style="font-size:11.5px;color:#5b6675"><span style="display:inline-block;width:10px;height:10px;background:#e0f2fe;border:1px solid #bae6fd;vertical-align:-1px"></span> 매칭표로 채운 칸</span></div>';
+    if(view==="all"&&LN.length){
+      b2+='<div style="overflow:auto;max-height:520px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thR+'>행</th><th '+thL+'>쇼핑몰</th><th '+thL+'>주문번호</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>결제금액</th></tr>'
+        +LN.map(function(x){var F=x.f||"";return '<tr><td style="'+td+tdR+'color:#5b6675">'+x.r+'</td><td '+tdN+'>'+e(x.shop)+'</td><td style="'+td+tdC+'">'+e(x.ord)+'</td><td '+tdL+'>'+e(x.name)+'</td>'
+          +'<td style="'+td+tdC+(F.indexOf("c")>=0?FIL:'')+'">'+e(x.cc)+'</td><td style="'+td+tdC+(F.indexOf("p")>=0?FIL:'')+'">'+e(x.pc)+'</td>'
+          +'<td style="'+td+tdR+'">'+f(x.qty)+'</td><td style="'+td+tdR+(F.indexOf("a")>=0?FIL:'')+'">'+f(x.amt)+'</td></tr>';}).join("")
+        +'<tr><td colspan="6" style="'+td+'font-weight:800;text-align:right">합계</td><td style="'+td+tdR+'font-weight:800">'+f(LN.reduce(function(a,x){return a+(Number(x.qty)||0);},0))+'</td><td style="'+td+tdR+'font-weight:800">'+f(fl.amount)+'</td></tr></table></div>';
+    }else if(G.length){
+      b2+='<div style="overflow:auto;max-height:520px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thL+'>쇼핑몰</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>단가</th><th '+thR+'>결제금액</th></tr>'
+        +G.map(function(g){return '<tr><td '+tdN+'>'+e(g.shop)+'</td><td '+tdL+'>'+e(g.name)+'</td><td style="'+td+tdC+'">'+e(g.cc)+'</td><td style="'+td+tdC+'">'+e(g.pc)+'</td><td style="'+td+tdR+'">'+f(g.qty)+'</td><td style="'+td+tdR+'">'+f(g.unit)+'</td><td style="'+td+tdR+'">'+f(g.amt)+'</td></tr>';}).join("")+'</table></div>';
     }
     if(fl.bad&&fl.bad.length){s2="bad";b2+='<div style="color:#b91c1c;margin-top:4px;font-weight:700">못 채운 줄 '+f(fl.badN||fl.bad.length)+'개 — 자비스 홈쇼핑 매칭표에 넣은 뒤 다시 눌러 주세요</div>'+fl.bad.slice(0,15).map(function(x){return '<div style="color:#b91c1c;font-size:12px">'+x.row+'행 '+e(x.shop)+' · '+e(x.name)+' · '+x.qty+'개 — '+e(x.why)+'</div>';}).join("");}
     if(fl.saved)b2+='<div style="font-size:12px;color:#5b6675;margin-top:3px">채운 파일: 자동화 PC <code>'+e(String(fl.saved).replace(/^.*automation[\\\/]/,"automation/"))+'</code> (수령인·연락처·주소는 비움)</div>';
