@@ -18894,9 +18894,26 @@ function ocRender(){
   var anWarnN=orderConvRows.filter(function(r){return r.anWarn;}).length;
   var merged=orderConvRows.reduce(function(a,r){return a+((r.cnt||1)-1);},0);
   if(msg)msg.textContent=orderConvRows.length?("✅ "+orderConvRows.length+"줄 변환됨"+(merged?(" · 동일상품 "+merged+"건 합산"):"")+(unmatched?(" · 주소 미매칭 "+unmatched+"건"):"")+(noSku?(" · ❗자사코드 미매칭 "+noSku+"건"):"")+(anWarnN?(" · ⚠아난티 품목명 다름 "+anWarnN+"건"):"")):"";
-  var h='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
+  /* 총 수량(2026-11-16 영업2팀 "총 수량도 확인되게") — 표 위에 전체 합계·매장별 합계, 수량 머리칸에도 합계. 수량을 고치거나 줄을 지우면 ocRender가 다시 그려 같이 바뀐다 */
+  var _qn=function(r){var n=parseInt(String(r.qty||"").replace(/[^0-9]/g,""),10);return n>0?n:0;};
+  var totQty=0,stQty={},stOrd=[];
+  orderConvRows.forEach(function(r){
+    var q=_qn(r),k=r.storeName||r.store||"(매장 없음)";totQty+=q;
+    if(!(k in stQty)){stQty[k]=0;stOrd.push(k);}
+    stQty[k]+=q;
+  });
+  var h='';
+  if(orderConvRows.length){
+    h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:#f0f9fa;border-bottom:1px solid #e7dcc4;font-size:13px;color:#1f2937">'
+      +'<b style="color:#1b6e82">총 수량 '+totQty.toLocaleString()+'개</b><span style="color:#5b6675">('+orderConvRows.length+'줄 · 매장 '+stOrd.length+'곳)</span>';
+    if(stOrd.length>1)stOrd.forEach(function(k){
+      h+='<span style="padding:1px 9px;border-radius:10px;background:#fff;border:1px solid #cfe3e6;font-size:12px;white-space:nowrap">'+_escX(k)+' <b>'+stQty[k].toLocaleString()+'</b></span>';
+    });
+    h+='</div>';
+  }
+  h+='<table style="border-collapse:collapse;font-size:13px;width:100%;white-space:nowrap">';
   h+='<thead><tr>';
-  [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량',''],['창고재고',''],['상품코드',''],['수령인',''],['주소','min-width:280px'],['삭제','']].forEach(function(c){
+  [['#',''],['매장',''],['상품명','min-width:340px'],['상품컬러코드','min-width:130px'],['수량'+(orderConvRows.length?' <span style="font-weight:800;color:#0f172a">(합계 '+totQty.toLocaleString()+')</span>':''),''],['창고재고',''],['상품코드',''],['수령인',''],['주소','min-width:280px'],['삭제','']].forEach(function(c){
     h+='<th style="position:sticky;top:0;z-index:2;background:#e3eeee;border:1px solid #e7dcc4;padding:7px 8px;color:#1b6e82;font-weight:700;'+c[1]+'">'+c[0]+'</th>';
   });
   h+='</tr></thead><tbody>';
