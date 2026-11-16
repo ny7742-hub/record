@@ -206,7 +206,11 @@
   비밀번호가 있으면 `dss-auto-login.mjs`가 로그인한다 — saip-watch가 1분마다 로그인 상태를 볼 때 DSS1·DSS2가 로그인 화면·탭 없음·창 없음이면 창을 띄우고 그 창 아이디로 로그인,
   작업 직전 `needLogin`도 먼저 자동 로그인을 해 보고 되면 슬랙으로 사람을 부르지 않는다. `dss-login-guard.mjs`도 비밀번호가 있으면 한 번 넣고 로그인(두 창 단추로 열었을 때).
   다른 아이디로 로그인된 창(`wrong`)은 건드리지 않는다. **비밀번호가 틀렸다고 나오면 dss-cred.json이 바뀔 때까지 다시 안 한다**(잠김 막기, `logs/dss-auto-login.json`), 다른 실패는 창마다 5분에 한 번,
-  송장·발주 lock 중엔 건너뜀. 결과는 `ws/portalLogin` `sites.dssN.auto {at, ok, msg}` → 자비스 로그인 상태 칸 DSS 카드에 `🤖 자동 로그인 ✅/❌`. 손으로: `node dss-auto-login.mjs [1|2|both]`.
+  송장·발주 lock 중엔 건너뜀.
+  **작업 중 로그인 화면**(2026-11-16): 2번 창 DSS 탭이 10:39부터 응답 없음(`?` — 로그인된 것으로 본다)이라 1분 점검이 6시간 동안 자동 로그인을 안 했고,
+  16:57 송장 입력이 새 탭을 열자 로그인 화면이라 `두 번째 DSS 창 로그인이 필요합니다`로 멈췄다(1번 창 10건만 올라감) →
+  `dss-invoice.mjs`(`dssPage`)·`costco-order.mjs`가 로그인 화면을 만나면 그 탭에서 바로 `dssLoginHere`(dss-auto-login.mjs, lock은 안 보고 비밀번호 틀림 기록은 같이 씀)로 로그인하고 이어 간다.
+  안 되면 그때만 멈추고, 안내 문구도 없어진 `바로가기 [코스트코 DSS 2]` 대신 `로그인 상태 칸의 DSS31(2번 창) [로그인하러 가기]`로 바꿨다. 결과는 `ws/portalLogin` `sites.dssN.auto {at, ok, msg}` → 자비스 로그인 상태 칸 DSS 카드에 `🤖 자동 로그인 ✅/❌`. 손으로: `node dss-auto-login.mjs [1|2|both]`.
   **DSS 칸의 `🔑 로그인하러 가기` 단추는 뺐다**(2026-11-10 영업2팀) — 대신 `🤖 자동화 PC가 1분 안에 자동 로그인합니다`. 두 창 나란히 열기 단추는 비상용으로 남김.
   **롯데 EDI·현대 EDI·메일(하이웍스)도 자동 로그인**(2026-11-10 영업2팀): `automation/portal-auto-login.mjs` + `portal-cred.json`(`{"lotte":{"id","pw"},"hyundai":{…},"hiworks":{…}}`, id 비면 화면에 저장된 아이디).
   1번 창(9333)에서 그 탭을 찾거나 열어 넥사크로 칸(롯데 `edt_LoginId/edt_LoginPassword/btn_Login` · 현대 `edtUid/edtPwd/btnLogin`)에 키보드로 치고, 하이웍스는 아이디 → 다음 → 비밀번호.
