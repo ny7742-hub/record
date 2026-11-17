@@ -9606,6 +9606,23 @@ function _epAllStoresLine(L){
   _epExtraOk().forEach(function(r){var st=_epStore({wh:r.store,date:_epToday()}),k=(st&&st.name)||r.store;m[k]=(m[k]||0)+1;});
   return Object.keys(m).map(function(k){return k+" "+m[k]+"줄";}).join(", ");
 }
+/* 이카운트 창고이동 전표(2026-11-18 영업2팀 "발주는 주희물류 NH에서 출고되어 각 매장창고로 창고이동 · 아난티·트래블메이트·팩토리도 주희에서 각 창고로") —
+   메일이 나간 뒤 자동화 PC(ecount-po.mjs → ecount-move.mjs --save)가 이카운트 창고이동입력에 저장. 받는 창고 = 이카운트 발주서 입고창고 / 추가·아난티 줄은 매장 코드의 이카운트 창고.
+   이카운트 창고 목록(EC_WHS)에 없는 매장(팝업 등)은 창고이동을 넣지 않고 skip에 이름을 돌려준다(메일은 그대로 나감) */
+function _epMoveSlips(L,X){
+  var hq=_ecHq(),M={},skip={},by=_saipMe();
+  var isWh=function(w){return !!w&&w!==hq&&EC_WHS.some(function(x){return x[0]===w;});};
+  var add=function(wh,nm,code,name,qty,tag){
+    if(!code||!(+qty>0))return;
+    if(!isWh(wh)){skip[nm||wh||"?"]=1;return;}
+    var s=M[wh]||(M[wh]={key:"ep-"+wh,sn:nm||wh,from:hq,to:wh,tags:{},items:[]});
+    s.tags[tag]=1;s.items.push({code:code,name:name||"",qty:+qty});
+  };
+  L.forEach(function(s){var st=_epStore(s)||{};(s.lines||[]).forEach(function(x){add(s.wh,st.name||s.wh,x.code,_epItemName(x),x.qty,"발주서 "+_epKeyLab(s));});});
+  (X||[]).forEach(function(r){var st=_epStore({wh:r.store,date:_epToday()})||{};add(_ecWh(r.store),st.name||r.store,r.code,r.name,r.qty,r.an?"아난티":"추가");});
+  var slips=Object.keys(M).map(function(k){var s=M[k];return {key:s.key,sn:s.sn,from:s.from,to:s.to,memo:s.sn+" 발주 · "+Object.keys(s.tags).join(", ")+" · "+by,items:s.items};});
+  return {slips:slips,skip:Object.keys(skip)};
+}
 function epDl(){
   var L=_epPicked(),rows=_epRows(L).concat(_epExtraRows());
   if(!rows.length){alert("도매발주서로 만들 발주서를 체크하거나, ＋ 상품 추가·🏨 아난티 발주로 줄을 넣어 주세요.");return;}
@@ -9620,12 +9637,15 @@ function epMail(){
   var sl=_epAllStoresLine(L),qty=rows.reduce(function(a,r){return a+(+r[12]||0);},0);
   var noAddr={};rows.forEach(function(r){if(!r[4]||!r[7]||!r[9])noAddr[r[3]||r[2]]=1;});noAddr=Object.keys(noAddr);
   var noSku=_epExtra.filter(function(r){return r.noSku;}).length,anW=X.filter(function(r){return r.anWarn;}).length;
+  var MV=_epMoveSlips(L,X),hq=_ecHq();
   var low=X.filter(function(r){var w=typeof whQty==="function"?whQty(r.code):null;return w!==null&&typeof WH_MIN_ORDER!=="undefined"&&w<=WH_MIN_ORDER;}).length;
   var d=new Date(),subj="[도매] 발주서 - "+(d.getMonth()+1)+"/"+d.getDate()+"("+"일월화수목금토".charAt(d.getDay())+")";
   if(!confirm((dup.length?"⚠ 이미 보낸 발주서가 있습니다: "+dup.map(function(x){var y=_epSentOf(x.key);return _epKeyLab(x)+"("+(y.by||"")+" "+_saipFmtAt(y.at)+")";}).join(", ")+"\n자동화 PC는 이미 보낸 발주서가 섞여 있으면 보내지 않습니다 — 취소 후 체크를 빼 주세요.\n\n":"")
     +"김구남 센터장(gnkim72@daum.net)께 도매 발주 메일을 보냅니다.\n\n제목: "+subj+"\n참조: 강민준·이유진·이다겸·김민희\n첨부: "+_wholesaleFileName()+" ("+rows.length+"줄 "+qty+"개 · "+sl+")"
     +(L.length?"\n이카운트 발주서: "+L.map(_epKeyLab).join(", ")+" → 보낸 뒤 '확인'으로 바꿉니다":"")
     +(X.length?"\n＋ 추가·🏨 아난티 줄: "+X.length+"줄":"")+"\n서명: "+_saipMe()
+    +(MV.slips.length?"\n\n보낸 뒤 이카운트 창고이동(오늘)을 저장합니다: "+MV.slips.map(function(s){return hq+" → "+s.to+"("+s.sn+") "+s.items.length+"줄";}).join(", "):"")
+    +(MV.skip.length?"\n⚠ 이카운트 창고가 없어 창고이동을 넣지 않는 매장: "+MV.skip.join(", ")+" — 이카운트에 창고를 만든 뒤 손으로 넣어 주세요.":"")
     +(noAddr.length?"\n\n⚠ 수령인·연락처·주소가 비어 있는 매장: "+noAddr.join(", ")+" — 물류에서 보낼 곳을 모릅니다. 취소 후 매장 정보를 채워 주세요.":"")
     +(noSku?"\n\n⚠ 아난티 바코드를 못 찾은 줄(❗코드없음) "+noSku+"줄은 빼고 보냅니다.":"")
     +(anW?"\n\n⚠ 아난티 품목명과 바코드 상품이 다른 줄이 "+anW+"줄 있습니다. 아난티에 확인했는지 다시 봐 주세요.":"")
@@ -9633,7 +9653,7 @@ function epMail(){
     +"\n\n보낸 메일은 되돌릴 수 없습니다. 보낼까요?"))return;
   var b64=XLSX.write(_wholesaleWorkbook(rows),{type:"base64",bookType:"xlsx"});
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send",
-    keys:L.map(function(x){return x.key;}),fileName:_wholesaleFileName(),b64:b64,lines:rows.length,extra:X.length,stores:sl};
+    keys:L.map(function(x){return x.key;}),fileName:_wholesaleFileName(),b64:b64,lines:rows.length,extra:X.length,stores:sl,mv:MV.slips};
   _saipReqSet("ep",R);
   if(X.length)try{localStorage.setItem("epExtraSent",R.id);}catch(e){}
   epRender();
@@ -9663,7 +9683,8 @@ function _epRender0(){
     var cf=(T.confirm||[]).map(function(c){return c.key.slice(4,6)+'/'+c.key.slice(6,8)+c.key.slice(8)+' '+c.res+(c.err?'('+c.err+')':'');}).join(' · ');
     h+='<div style="margin:4px 0 8px;padding:7px 10px;border-radius:8px;background:'+(T.ok?'#ecfdf5':'#fef2f2')+';color:'+(T.ok?'#047857':'#b91c1c')+';font-weight:700">'
       +(T.ok?'✅ ':'❌ ')+'발주 메일 '+(T.mode==='draft'?'임시저장':'보냄')+(T.ok?'':' 실패')+' · '+E(_saipFmtAt(T.at))+' · '+E(T.by||"")+' · '+E(T.subject||"")+' · '+E(T.lines||0)+'줄 ('+E(T.stores||"")+')'
-      +(T.error?'<div style="font-weight:600">'+E(T.error)+'</div>':'')+(cf?'<div style="font-weight:600;color:#334155">이카운트: '+E(cf)+'</div>':'')+'</div>';
+      +(T.error?'<div style="font-weight:600">'+E(T.error)+'</div>':'')+(cf?'<div style="font-weight:600;color:#334155">이카운트: '+E(cf)+'</div>':'')
+      +(T.move?'<div style="font-weight:600;color:'+(T.move.ok?'#047857':'#b91c1c')+'">이카운트 창고이동 '+_ecHq()+' → 매장: '+(T.move.ok?'✅ 넣음':'❌ 실패')+' · '+E(T.move.n||0)+'장 '+E(T.move.lines||0)+'줄'+(T.move.msg?' — '+E(T.move.msg):'')+(T.move.ok?'':' (이카운트 창고이동조회에서 확인 후 손으로 넣어 주세요)')+'</div>':'')+'</div>';
   }
   h+=_epExtraTable();
   var un=S.filter(function(s){return !_epSentOf(s.key);}),sent=S.filter(function(s){return _epSentOf(s.key);});
