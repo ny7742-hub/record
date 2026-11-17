@@ -3248,7 +3248,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccSalesStatus":"ws/ccSalesStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","ecStockReq":"ws/ecStockReq","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","ecPo":"ws/ecPo","ecPoReq":"ws/ecPoReq","ecPoSent":"ws/ecPoSent","epStatus":"ws/epStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccSalesStatus":"ws/ccSalesStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","ecStockReq":"ws/ecStockReq","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","ecPo":"ws/ecPo","ecPoReq":"ws/ecPoReq","ecPoSent":"ws/ecPoSent","ordStoreInfo":"ws/ordStoreInfo","epStatus":"ws/epStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipFix":"ws/saipFix","saipAck":"ws/saipAck","saipSeen":"ws/saipSeen","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen","unshipSrc":"ws/unshipSrc","usSaipStatus":"ws/usSaipStatus",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix","mvFix":"ws/mvFix","soFix":"ws/soFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre",
@@ -4040,6 +4040,8 @@ function fbListen(){
   apply("ws/ecPoReq","ecPoReq",function(d){if(d&&typeof d==="object")ecPoReq=d;},function(){if(typeof epRender==="function")epRender();});
   apply("ws/ecPoSent","ecPoSent",function(d){if(d&&typeof d==="object")ecPoSent=d;},function(){if(typeof epRender==="function")epRender();});
   apply("ws/epStatus","epStatus",function(d){if(d&&typeof d==="object")epStatus=d;},function(){if(typeof epRender==="function")epRender();});
+  /* 매장 수령인·연락처·주소 직접 입력(2026-11-17) — ORDER_STORES에 덮어 쓴다(수기발주·매장 발주·백화점 발주 도매발주서가 같이 씀) */
+  apply("ws/ordStoreInfo","ordStoreInfo",function(d){if(d&&typeof d==="object"){ordStoreInfo=d;_ordStoreApplyInfo();}},function(){if(typeof epRender==="function")epRender();});
   apply("ws/portalLogin","portalLogin",
     function(d){if(d&&typeof d==="object")portalLogin=d;},
     function(){if(typeof renderPortalLogin==="function")renderPortalLogin();if(typeof renderSaipAuto==="function")renderSaipAuto();}
@@ -9281,7 +9283,30 @@ var ecPo=(function(){try{return JSON.parse(localStorage.getItem("ecPo")||"null")
 var ecPoReq=(function(){try{return JSON.parse(localStorage.getItem("ecPoReq")||"null");}catch(e){return null;}})();
 var ecPoSent=(function(){try{return JSON.parse(localStorage.getItem("ecPoSent")||"null");}catch(e){return null;}})()||{};
 var epStatus=(function(){try{return JSON.parse(localStorage.getItem("epStatus")||"null");}catch(e){return null;}})();
-var _epSel={},_epOpen={},_epShowSent=false;
+var _epSel={},_epOpen={},_epShowSent=false,_epEdit={};
+function epInfoEdit(k){_epEdit[k]=!_epEdit[k];epRender();if(_epEdit[k])setTimeout(function(){var el=document.getElementById("epInf_recv_"+k);if(el)el.focus();},0);}
+function epInfoSave(k,wh){
+  var g=function(f){var el=document.getElementById("epInf_"+f+"_"+k);return el?String(el.value).trim():"";};
+  var st=_ordStoreByCode(wh),name=g("name")||(st&&st.name)||"";
+  var v={recv:g("recv"),tel:g("tel"),addr:g("addr"),by:_saipMe(),at:new Date().toISOString()};
+  if(!st||st.custom){if(!name){alert("매장명을 넣어 주세요.");return;}v.name=name;}
+  if(!v.recv||!v.tel||!v.addr){if(!confirm("비어 있는 칸이 있습니다(수령인·연락처·주소). 이대로 저장할까요?"))return;}
+  if(!ordStoreInfo||typeof ordStoreInfo!=="object")ordStoreInfo={};
+  ordStoreInfo[wh]=v;_ordStoreApplyInfo();
+  wsSetItem("ordStoreInfo",JSON.stringify(ordStoreInfo));
+  Object.keys(_epEdit).forEach(function(x){var s2=_epSlips().filter(function(y){return y.key===x;})[0];if(s2&&s2.wh===wh)_epEdit[x]=false;});
+  epRender();
+}
+function _epInfoRow(s){
+  var k=s.key,st=_ordStoreByCode(s.wh),known=st&&!st.custom,nm=(st&&st.name)||((typeof ecStock!=="undefined"&&ecStock&&ecStock.names&&ecStock.names[s.wh])||"");
+  var inp=function(f,ph,val,w){return '<input id="epInf_'+f+'_'+k+'" placeholder="'+ph+'" value="'+_esc(val||"")+'" style="width:'+w+';padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;margin:0" onkeydown="if(event.key===\'Enter\')epInfoSave(\''+k+'\',\''+s.wh+'\')">';};
+  return '<tr><td></td><td colspan="6" style="padding:6px 6px 10px;background:#fffbeb"><div style="font-size:12px;color:#92400e;margin-bottom:4px">✏️ <b>'+_esc(s.wh)+'</b> 매장 정보 — 저장하면 팀 전체에 적용(수기발주·매장 발주·도매발주서 주소록도 같이)</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+    +(known?'<span style="font-weight:700">'+_esc(nm)+'</span>':inp("name","매장명",nm,"170px"))
+    +inp("recv","수령인",st&&st.recv,"110px")+inp("tel","연락처",st&&st.tel,"130px")+inp("addr","주소",st&&st.addr,"min(420px,100%)")
+    +'<button class="a2-btn" style="font-size:12px;padding:5px 11px" onclick="epInfoSave(\''+k+'\',\''+s.wh+'\')">저장</button>'
+    +'<button class="a2-btn sub" style="font-size:12px;padding:5px 11px" onclick="epInfoEdit(\''+k+'\')">닫기</button></div></td></tr>';
+}
 function _epSlips(){return ((ecPo&&ecPo.slips)||[]).filter(function(s){return s&&s.key;});}
 function _epSentOf(k){return (ecPoSent||{})[k]||null;}
 function _epStore(s){var st=_ordStoreByCode(s.wh);return st&&st.code?st:null;}
@@ -9363,11 +9388,13 @@ function epRender(){
     h+='<tr style="border-top:1px solid #eef2f7;'+(sn?'color:#5b6675;':'')+'">'
       +'<td style="padding:5px 6px;text-align:center"><input type="checkbox" '+(_epIsSel(s)?'checked ':'')+(ok?'':'disabled ')+'onchange="epToggle(\''+s.key+'\',this.checked)"></td>'
       +'<td style="padding:5px 6px;white-space:nowrap"><a href="javascript:void(0)" onclick="epOpenSlip(\''+s.key+'\')" style="color:#1b6e82;font-weight:700">'+E(_epKeyLab(s))+' '+(op?'▴':'▾')+'</a><div style="font-size:11.5px;color:#5b6675">'+E(s.writer||"")+'</div></td>'
-      +'<td style="padding:5px 6px">'+(st?E(st.name)+' <span style="color:#5b6675">'+E(s.wh)+'</span>'+(!st.recv||!st.addr?' <span style="color:#b45309;font-weight:700">⚠ 주소 없음</span>':''):'<span style="color:#b91c1c;font-weight:700">'+E(s.wh||"창고 없음")+' — 매장 정보 없음</span>')+'</td>'
+      +'<td style="padding:5px 6px">'+(st?E(st.name)+' <span style="color:#5b6675">'+E(s.wh)+'</span>'+(!st.recv||!st.tel||!st.addr?' <span style="color:#b45309;font-weight:700">⚠ 주소 없음</span>':''):'<span style="color:#b91c1c;font-weight:700">'+E(s.wh||"창고 없음")+' — 매장 정보 없음</span>')
+        +(s.wh?' <a href="javascript:void(0)" onclick="epInfoEdit(\''+s.key+'\')" title="이 매장의 수령인·연락처·주소를 직접 넣거나 고칩니다(팀 전체 적용)" style="color:#1b6e82;font-weight:700;white-space:nowrap">✏️ '+(st&&st.recv&&st.tel&&st.addr?'수정':'입력')+'</a>':'')+'</td>'
       +'<td style="padding:5px 6px">'+E(first)+(L.length>1?' <span style="color:#5b6675">외 '+(L.length-1)+'품목</span>':'')+(L.length?'':'<span style="color:#b91c1c">품목을 읽지 못함</span>')+'</td>'
       +'<td style="padding:5px 6px;text-align:right;font-weight:700">'+q2+'</td>'
       +'<td style="padding:5px 6px;white-space:nowrap;color:'+(s.gb==="Y"?'#047857':'#b45309')+';font-weight:700">'+(s.gb==="Y"?'확인':'미확인')+'</td>'
       +'<td style="padding:5px 6px;white-space:nowrap">'+(sn?'✉️ '+E(sn.by||"")+' '+E(_saipFmtAt(sn.at))+(sn.ec&&sn.ec!=="확인"&&sn.ec!=="이미 확인"?' <span style="color:#b91c1c">이카운트 '+E(sn.ec)+'</span>':''):'<span style="color:#b45309">안 보냄</span>')+'</td></tr>';
+    if(_epEdit[s.key])h+=_epInfoRow(s);
     if(op)h+='<tr><td></td><td colspan="6" style="padding:2px 6px 8px"><table style="border-collapse:collapse;font-size:12px;width:100%">'
       +'<tr style="color:#5b6675"><td style="padding:2px 6px">품목코드</td><td style="padding:2px 6px">품목명</td><td style="padding:2px 6px;text-align:right">수량</td><td style="padding:2px 6px">납기</td><td style="padding:2px 6px">적요</td></tr>'
       +L.map(function(x){return '<tr style="border-top:1px dashed #e2e8f0"><td style="padding:2px 6px;font-family:monospace">'+E(x.code)+'</td><td style="padding:2px 6px">'+E(_epItemName(x))+'</td><td style="padding:2px 6px;text-align:right">'+E(x.qty)+'</td><td style="padding:2px 6px">'+E(x.due?x.due.slice(4,6)+'/'+x.due.slice(6,8):'')+'</td><td style="padding:2px 6px">'+E(x.memo||"")+'</td></tr>';}).join("")+'</table></td></tr>';
@@ -16732,7 +16759,21 @@ function _ordNeedRecv(r){return (r.online||_ordIsCx(r))&&(!String(r.recv||"").tr
 var ORDER_HEADERS=["출고일","주문번호(사방넷)","주문번호(쇼핑몰)","쇼핑몰","수령인","택배사","운송장번호","받는분연락처","받는분기타연락처","주소","배송메세지","상품명","수량","결제금액","큐텐(한글상품명)","바코드","큐텐바코드","상품코드","쇼핑몰(참고용)","상품컬러코드","상품명(수집)","옵션(수집)","주문자명","구분","주문일시(YYYY-MM-DD HH:MM)","주문자전화번호1","주문자전화번호2"];
 var orderDB=(function(){try{var d=JSON.parse(localStorage.getItem("orderDB")||"null");return (d&&d.rows)?d:{rows:[]};}catch(e){return {rows:[]};}})();
 function saveOrder(){wsSetItem("orderDB",JSON.stringify(orderDB));}
+/* 매장 수령인·연락처·주소 직접 입력(2026-11-17 영업2팀 "칸을 만들어주세요. 직접 입력하게요") — ⚡ AUTO 🏬 이카운트 백화점 발주 칸의 ✏️에서 넣는다.
+   팀 공유 ws/ordStoreInfo {코드: {name, recv, tel, addr, by, at}} → ORDER_STORES의 같은 코드 매장에 덮어 쓴다(없는 코드는 새 매장으로 더함).
+   그래서 수기발주·이카운트 매장 발주·백화점 발주 도매발주서·매장주소록이 모두 같은 값을 쓴다. 코드에 적힌 값보다 이 값이 먼저다 */
+var ordStoreInfo=(function(){try{return JSON.parse(localStorage.getItem("ordStoreInfo")||"null");}catch(e){return null;}})()||{};
+function _ordStoreApplyInfo(){
+  Object.keys(ordStoreInfo||{}).forEach(function(code){
+    var v=ordStoreInfo[code];if(!code||!v||typeof v!=="object")return;
+    var st=null;for(var i=0;i<ORDER_STORES.length;i++)if(ORDER_STORES[i].code===code){st=ORDER_STORES[i];break;}
+    if(!st){st={code:code,name:v.name||code,recv:"",tel:"",addr:"",custom:true};ORDER_STORES.push(st);}
+    ["recv","tel","addr"].forEach(function(k){if(typeof v[k]==="string")st[k]=v[k];});
+    if(st.custom&&v.name)st.name=v.name;
+  });
+}
 function _ordStoreByCode(code){if(!code)return null;/* 매장없음(공백)은 매장정보 없음으로 취급 */for(var i=0;i<ORDER_STORES.length;i++)if(ORDER_STORES[i].code===code)return ORDER_STORES[i];return null;}
+try{_ordStoreApplyInfo();}catch(e){}
 function _ordAddrBookAoa(){
   var aoa=[ORDER_HEADERS.slice()];
   ORDER_STORES.forEach(function(s){

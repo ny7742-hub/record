@@ -225,6 +225,8 @@
 - 흐름: 매장이 이카운트 [구매관리 › 발주서 › 발주서입력](E040301)에 **입고창고 = 매장 창고코드**로 발주서를 넣는다 → 자동화 PC가 [발주서조회](E040302)를 읽어 `ws/ecPo` →
   ⚡ AUTO `🏬 이카운트 백화점 발주` 칸(`#epCard`, `epRender`)에 목록 → 체크 → `⬇ 도매발주서`(`epDl`) 또는 `✉️ 발주 메일 전달`(`epMail`) → 자동화 PC가 메일을 보낸 뒤 이카운트 발주서를 **'확인'**으로 바꾼다.
 - **매장 = 입고창고**(영업2팀 선택): `_ordStoreByCode(wh)` — `ORDER_STORES`의 수령인·연락처·주소. 없는 창고는 '매장 정보 없음'으로 체크 불가, 주소가 비면 `⚠ 주소 없음`(보내기 확인창에도 경고).
+  **직접 입력**(2026-11-17 영업2팀 "칸을 만들어주세요. 직접 입력하게요"): 매장 칸 `✏️ 입력/수정`(`epInfoEdit`) → 수령인·연락처·주소(없는 창고는 매장명도) → `저장`(`epInfoSave`) →
+  팀 공유 `ws/ordStoreInfo {코드:{name,recv,tel,addr,by,at}}` → `_ordStoreApplyInfo`가 `ORDER_STORES`에 덮어 쓴다(없는 코드는 새 매장으로 더함, `custom`). 그래서 수기발주·매장 발주 도매발주서·매장주소록도 같은 값을 쓰고, 코드에 적힌 값보다 이 값이 먼저다.
 - **도매발주서** = 매장 발주 `ecDlWholesale`와 같은 27칸(`_epRows` → `_wholesaleWorkbook`, 파일 `_wholesaleFileName()`): C 매장코드 · D 매장명 · E 수령인 · H 연락처 · J 주소 · L 상품명(상품데이터 상품명+칼라명, 없으면 이카운트 품목명+규격) · M 수량 · R 코드 앞 8자리 · T 자사코드.
 - **메일 = 도매 발주 메일과 완전히 같게**(영업2팀 선택): 받는 사람 gnkim72@daum.net · 참조 강민준·이유진·이다겸·김민희 · 제목 `[도매] 발주서 - M/D(요일)` · 첨부 `화이트샌즈(MMDD) - 도매발주서.xlsx` · 서명 = 누른 사람.
   요청 `ws/saipReq.ep {id, by, keys:[20261117-1…], fileName, b64, lines, stores}` → saip-watch(kind `ep`, ws 줄, 하이웍스 로그인 기다림) → `automation/ecount-po.mjs --send --id=…`.
