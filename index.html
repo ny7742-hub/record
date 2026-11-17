@@ -12470,9 +12470,16 @@ function _a2sChTables(CL){
       var types=c==="백화점"?["백화점"]:c==="홈쇼핑"?["홈쇼핑"]:c==="코스트코"?Object.keys(d.scs).map(function(sc){return sc==="COSO"?"코코 온라인":"코코 직매입";}).filter(function(t,i,a){return a.indexOf(t)===i;}):null;
       if(!types)h+='<td style="'+td+';text-align:right;color:#5b6675" title="세일즈 매니지먼트에 올리지 않는 채널">–</td>';
       else{
-        var wa=0,known=true;types.forEach(function(t){var v=(wssalesDays||{})[day+"|"+t];if(v&&v.d!=null)wa+=+v.d;else known=false;});
+        /* 매장을 골랐으면 그 매장의 세매 금액만(ws/wssalesDays st = 매장명별, 2026-11-17 — 전엔 채널 전체 합이 나와 서울역점만 보는데 백화점 전체 3,854,200이 찍혔다) */
+        var fl=CL._sv||CL._q,nk=function(s){return String(s||"").replace(/\s+/g,"");};
+        var wa=0,known=true;types.forEach(function(t){var v=(wssalesDays||{})[day+"|"+t];if(!v||v.d==null){known=false;return;}
+          if(!fl){wa+=+v.d;return;}
+          if(CL._q||!v.st){known=false;return;}
+          var want={};Object.keys(d.scs).forEach(function(sc){want[nk((st[sc]||{}).sn)]=1;});
+          Object.keys(v.st).forEach(function(n){if(want[nk(n)])wa+=+v.st[n];});});
         var H=c==="홈쇼핑"?((typeof wssalesHs!=="undefined"&&wssalesHs)||{})[day.slice(5,7)+day.slice(8,10)]:null;
-        if(known){h+=amtTd(wa,"세일즈 매니지먼트 금액 ("+types.join("·")+")");T.ws+=wa;}
+        if(!known&&fl)h+='<td style="'+td+';text-align:right;color:#5b6675" title="'+(CL._q?'상품 검색 중에는 세매 금액을 나눠 볼 수 없습니다':'이 날은 매장별 세매 금액 기록이 없습니다(채널 합계만 있음) — 🤖 자동화 탭 세일즈 매니지먼트 [🔍 미등록 확인]을 다시 누르면 채워집니다')+'">–</td>';
+        else if(known){h+=amtTd(wa,"세일즈 매니지먼트 금액 ("+types.join("·")+")");T.ws+=wa;}
         else if(H&&H.state==="done"&&+H.step>=4)h+='<td style="'+td+';text-align:right;color:#047857;font-weight:700" title="⚡ AUTO 세매 등록 완료 — 금액은 다음 세매 확인 때 채워집니다">등록됨</td>';
         else h+='<td style="'+td+';text-align:right;color:#5b6675" title="세매 금액 기록 없음 — 🤖 자동화 탭 세일즈 매니지먼트 [🔍 미등록 확인]을 누르면 채워집니다">?</td>';
       }
@@ -12564,6 +12571,7 @@ function a2sRender(){
     lines.forEach(function(x){var c=chOf(x);if(A2S_CH.indexOf(c)<0||!_a2s.ch[c])return;if(sv&&x.sc!==sv)return;
       if(q&&String(x.name||"").toLowerCase().indexOf(q)<0&&String(x.code||"").toLowerCase().indexOf(q)<0)return;
       CL.push({day:x.day,ch:c,sc:x.sc,sn:x.sn||x.sc,qty:+x.qty||0,amt:Math.round(+x.amt||0),pm:x.ch!=="매장판매"&&x.ch!=="트래블메이트"&&!x._job});});
+    CL._sv=sv;CL._q=q;
     _a2sRows={view:"ch",rows:CL,R:R};
     var cq=CL.reduce(function(a,x){return a+x.qty;},0),ca=CL.reduce(function(a,x){return a+x.amt;},0),nf0=function(n){return Math.round(n).toLocaleString();};
     document.getElementById("a2sSum").innerHTML='<b>'+R[0]+(R[1]!==R[0]?' ~ '+R[1]:'')+'</b> · 수량 <b>'+nf0(cq)+'</b>개 · 판매금액 <b>'+nf0(ca)+'</b>원 <span style="color:#5b6675;font-size:12px">— 이 보기는 이카운트에 안 넣은 판매도 다 보이고, 오른쪽 PlayMD·이카운트·세매 칸은 그곳에 들어간 금액(일 합계와 같으면 초록 · 다르면 주황 · 0 빨강 · ? 기록 없음 · – 해당 없음, 칸에 마우스를 올리면 설명)</span>';
