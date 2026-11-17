@@ -220,3 +220,21 @@
 - **💰 매출 등록에 연결**: `EC_SAL_CH` 맨 앞 채널 **`매장판매`**(화면 `매장 판매등록`, 기본 켜짐). `_ecSalLines`가 기간 안의 `ecStoreSales`를 줄로 넣고, **매장이 넣은 날·매장(day_sc)의 판매일보 줄은 뺀다**(두 번 더하지 않게).
   그 뒤는 매출 등록 그대로 — 전표 키 `YYYY-MM-DD_매장코드`, `⬇ 이카운트 판매 엑셀`·`🤖 이카운트에 넣기`, 받으면 `ws/ecSalLog`. 적요 기본 `매장 판매등록 매출(자비스)`. ⚙ 거래처코드·출하창고 목록에도 매장 판매 매장이 나온다.
 - 11/10 로컬 시험(LJS 3줄: 정상 1 · 30% 할인 2 · 반품 −1 → 60,200원) — 매출 등록에 `매장 판매등록 1장 · 60,200원`, 엑셀 줄 단가·공급가액·부가세·반품 − 확인. 팀 공유(Firebase) 저장은 실제 회원 로그인으로 아직 안 해 봄.
+
+## 🏬 이카운트 백화점 발주(⚡ AUTO 탭, 2026-11-17 영업2팀 "이카운트 구매관리 발주서 조회에서 들어오는 걸 확인하고, 도매 발주서 양식으로 변환하고, 메일로 김구남 센터장에게")
+- 흐름: 매장이 이카운트 [구매관리 › 발주서 › 발주서입력](E040301)에 **입고창고 = 매장 창고코드**로 발주서를 넣는다 → 자동화 PC가 [발주서조회](E040302)를 읽어 `ws/ecPo` →
+  ⚡ AUTO `🏬 이카운트 백화점 발주` 칸(`#epCard`, `epRender`)에 목록 → 체크 → `⬇ 도매발주서`(`epDl`) 또는 `✉️ 발주 메일 전달`(`epMail`) → 자동화 PC가 메일을 보낸 뒤 이카운트 발주서를 **'확인'**으로 바꾼다.
+- **매장 = 입고창고**(영업2팀 선택): `_ordStoreByCode(wh)` — `ORDER_STORES`의 수령인·연락처·주소. 없는 창고는 '매장 정보 없음'으로 체크 불가, 주소가 비면 `⚠ 주소 없음`(보내기 확인창에도 경고).
+- **도매발주서** = 매장 발주 `ecDlWholesale`와 같은 27칸(`_epRows` → `_wholesaleWorkbook`, 파일 `_wholesaleFileName()`): C 매장코드 · D 매장명 · E 수령인 · H 연락처 · J 주소 · L 상품명(상품데이터 상품명+칼라명, 없으면 이카운트 품목명+규격) · M 수량 · R 코드 앞 8자리 · T 자사코드.
+- **메일 = 도매 발주 메일과 완전히 같게**(영업2팀 선택): 받는 사람 gnkim72@daum.net · 참조 강민준·이유진·이다겸·김민희 · 제목 `[도매] 발주서 - M/D(요일)` · 첨부 `화이트샌즈(MMDD) - 도매발주서.xlsx` · 서명 = 누른 사람.
+  요청 `ws/saipReq.ep {id, by, keys:[20261117-1…], fileName, b64, lines, stores}` → saip-watch(kind `ep`, ws 줄, 하이웍스 로그인 기다림) → `automation/ecount-po.mjs --send --id=…`.
+  보내기 전에 `ws/ecPoSent`를 다시 보고 이미 보낸 전표가 섞여 있으면 멈춘다. 보낸 뒤 b64는 지운다. 결과 `ws/epStatus`.
+- **보낸 뒤 이카운트 '확인'**(영업2팀 선택): `/ECAPI/SVC/Common/Infra/UpdateFinishSlip` `{SlipInfo:{IO_DATE, IO_NO, GB_TYPE:'Y', P_FLAG:'1', VERSION_NO(지금 값)}}` — 발주서수정 창 [확인] 단추와 같은 요청. 이미 확인이면 건너뜀(`이미 확인`), 바뀌었는지 다시 읽어 본다.
+  보낸 기록 `ws/ecPoSent {key: {at, by, subject, ec:'확인'|'이미 확인'|'실패'|'없음', err}}` — 보낸 발주서는 기본 체크에서 빠지고 `보낸 발주서 N건 보기 ▾`로만 보인다.
+  ⚠ 관리자 계정이 저장한 발주서는 저장하자마자 '확인'(GB_TYPE Y)이 된다(시험에서 확인) — 그래서 '보낼 것'은 미확인이 아니라 **보낸 기록이 없는 것**으로 고른다.
+- **받기**(`pullEcountPo`, 읽기만): saip-watch가 7~21시 5분마다 + `🔄 지금 확인`(`ws/ecPoReq` → doneAt·note). 기간 = 일자 기준 오늘 앞 14일 ~ 뒤 30일.
+  · 목록 `/ECAPI/SVC/Common/SlipTransfer/GetListXFormSlipCommon`(PRG_ID E040302, FORM_TYPE SR200) — 전표마다 ORD_DATE·ORD_NO·WH_CD·GB_TYPE(Y 확인/N 미확인)·VERSION_NO·WRITER_ID·UPDATE_DATE. 품목은 없다.
+  · 품목 = 발주서수정 창이 부르는 `/ECERP/SVC/ESG/ESG004M {Request:{Key:{Date,No},EditMode:'02',FromProgramId:'E040302'}}`(HTML) 안 자료에서 `"PROD_CD","PROD_DES","SIZE_DES","UQTY","QTY"…"REMARKS"…"TIME_DATE"…"Key":{"SER_NO"}`를 읽는다. UPDATE_DATE·VERSION_NO가 그대로인 전표는 지난번 줄을 쓴다.
+  · 결과 `ws/ecPo {at, by, from, to, slips:[{key, date, no, wh, gb, ver, writer, upd, amt, lines:[{ser,code,name,size,qty,due,memo}]}], pullErr}`.
+- 2026-11-17 시험: 발주서가 0건이라 시험 전표 2장(11/17-1 LGP 1품목 · -2 AVE 2품목)을 넣어 받기·품목 읽기·확인취소→확인을 확인하고 **둘 다 지웠다**(삭제 = `/ECAPI/SVC/Inventory/PurchasesOrder/Delete`). 메일 보내기(하이웍스)는 도매 메일과 같은 `hiworksSend`라 따로 보내 보지 않았다.
+- ⚠ 이카운트 자동화 창(9333)의 **같은 세션 주소를 새 탭으로 열면 이카운트가 세션을 끊는다**(2026-11-17 '세션이 종료되었습니다' → portal-auto-login으로 다시 로그인). 조회는 열린 탭 안에서 fetch로만.

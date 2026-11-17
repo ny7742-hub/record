@@ -2487,6 +2487,13 @@ label{font-size:14px!important}
       </div>
       <div id="a2sSum" style="font-size:13px;margin-bottom:6px"></div>
       <div id="a2sBox" style="max-height:560px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"></div></div>
+    <!-- 🏬 이카운트 백화점 발주(2026-11-17 영업2팀) — 이카운트 발주서조회 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'. docs/ecount.md -->
+    <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 이카운트 백화점 발주</b><span style="font-size:12.5px;color:#475569">이카운트 [구매관리 › 발주서조회]에 들어온 발주서 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'</span>
+      <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epPullGo()" title="자동화 PC가 이카운트 발주서조회를 지금 다시 읽습니다(평소엔 7~21시 5분마다 자동) — 이카운트에는 아무것도 쓰지 않습니다">🔄 지금 확인</button>
+        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="체크한 발주서로 도매발주서(물류 양식)를 받습니다 — 메일로 보내는 파일과 같습니다">⬇ 도매발주서</button>
+        <button class="a2-btn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 이카운트 발주서를 '확인'으로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
+      <div id="epBox" style="font-size:13px"></div></div>
   </div>
 </div>
 </div><!-- /page-auto2 -->
@@ -3229,7 +3236,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccSalesStatus":"ws/ccSalesStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","ecStockReq":"ws/ecStockReq","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccSalesStatus":"ws/ccSalesStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","ecStockReq":"ws/ecStockReq","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","ecPo":"ws/ecPo","ecPoReq":"ws/ecPoReq","ecPoSent":"ws/ecPoSent","epStatus":"ws/epStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipFix":"ws/saipFix","saipAck":"ws/saipAck","saipSeen":"ws/saipSeen","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen","unshipSrc":"ws/unshipSrc","usSaipStatus":"ws/usSaipStatus",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix","mvFix":"ws/mvFix","soFix":"ws/soFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre",
@@ -4016,6 +4023,11 @@ function fbListen(){
     function(d){if(d&&typeof d==="object")wmStatus=d;},
     function(){if(typeof ocAutoRender==="function")ocAutoRender();}
   );
+  /* 🏬 이카운트 백화점 발주(2026-11-17) — 자동화 PC ecount-po.mjs가 쓴다: 발주서 목록 · 지금 확인 요청 · 보낸 기록 · 메일 결과 */
+  apply("ws/ecPo","ecPo",function(d){if(d&&typeof d==="object")ecPo=d;},function(){if(typeof epRender==="function")epRender();});
+  apply("ws/ecPoReq","ecPoReq",function(d){if(d&&typeof d==="object")ecPoReq=d;},function(){if(typeof epRender==="function")epRender();});
+  apply("ws/ecPoSent","ecPoSent",function(d){if(d&&typeof d==="object")ecPoSent=d;},function(){if(typeof epRender==="function")epRender();});
+  apply("ws/epStatus","epStatus",function(d){if(d&&typeof d==="object")epStatus=d;},function(){if(typeof epRender==="function")epRender();});
   apply("ws/portalLogin","portalLogin",
     function(d){if(d&&typeof d==="object")portalLogin=d;},
     function(){if(typeof renderPortalLogin==="function")renderPortalLogin();if(typeof renderSaipAuto==="function")renderSaipAuto();}
@@ -4089,7 +4101,7 @@ function fbListen(){
   );
   apply("ws/saipReq","saipReq",
     function(d){if(d&&typeof d==="object")saipReq=d;},
-    function(){if(typeof whsRender==="function")whsRender();if(typeof ccNhPaint==="function")ccNhPaint();if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();}
+    function(){if(typeof whsRender==="function")whsRender();if(typeof epRender==="function")epRender();if(typeof ccNhPaint==="function")ccNhPaint();if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();}
   );
   /* PlayMD 전체 창고재고(사이즈별 자사코드) — 창고재고현황을 올릴 때 같이 만든다 · 이카운트 자동 입력 결과(자동화 PC ecount-stock.mjs가 쓴다) */
   apply("ws/pmWhAll","pmWhAll",
@@ -9248,6 +9260,109 @@ function _bigInitApCards(){
   });
 }
 document.addEventListener("DOMContentLoaded",_bigInitApCards);
+/* 🏬 이카운트 백화점 발주(2026-11-17 영업2팀 "이카운트 구매관리 발주서 조회에서 들어오는 걸 확인하고, 도매 발주서 양식으로 변환하고, 메일로 김구남 센터장에게").
+   자동화 PC automation/ecount-po.mjs가 7~21시 5분마다 이카운트 [발주서조회](E040302)를 읽어 ws/ecPo {slips:[{key, date, no, wh(입고창고), gb(Y 확인·N 미확인), lines:[{code,name,size,qty,due,memo}]}]}.
+   매장 = 입고창고 코드(ORDER_STORES — 수령인·연락처·주소). 체크한 발주서 → 도매발주서(ecDlWholesale와 같은 27칸 양식, _wholesaleWorkbook)
+   → ✉️ ws/saipReq.ep {keys, b64} → 자동화 PC가 도매 발주 메일과 똑같이(김구남 센터장 · 참조 강민준·이유진·이다겸·김민희 · [도매] 발주서 - M/D) 보내고
+   이카운트 발주서를 '확인'으로 바꾼 뒤 ws/ecPoSent{key}에 남긴다(보낸 발주서는 기본 체크에서 빠진다). 상세 docs/ecount.md */
+var ecPo=(function(){try{return JSON.parse(localStorage.getItem("ecPo")||"null");}catch(e){return null;}})();
+var ecPoReq=(function(){try{return JSON.parse(localStorage.getItem("ecPoReq")||"null");}catch(e){return null;}})();
+var ecPoSent=(function(){try{return JSON.parse(localStorage.getItem("ecPoSent")||"null");}catch(e){return null;}})()||{};
+var epStatus=(function(){try{return JSON.parse(localStorage.getItem("epStatus")||"null");}catch(e){return null;}})();
+var _epSel={},_epOpen={},_epShowSent=false;
+function _epSlips(){return ((ecPo&&ecPo.slips)||[]).filter(function(s){return s&&s.key;});}
+function _epSentOf(k){return (ecPoSent||{})[k]||null;}
+function _epStore(s){var st=_ordStoreByCode(s.wh);return st&&st.code?st:null;}
+function _epCanSend(s){return !!_epStore(s)&&(s.lines||[]).some(function(x){return +x.qty>0;});}
+function _epIsSel(s){if(!_epCanSend(s))return false;if(s.key in _epSel)return !!_epSel[s.key];return !_epSentOf(s.key);}
+function _epPicked(){return _epSlips().filter(_epIsSel).sort(function(a,b){return a.key<b.key?-1:1;});}
+function _epKeyLab(s){return String(s.date||"").replace(/-/g,"/")+"-"+s.no;}
+function _epItemName(x){var P=(typeof _ocProdList==="function")?_ocProdList().by[String(x.code||"").toUpperCase()]:null;return P&&P.label?P.label:(x.name||"")+(x.size?" "+x.size:"");}
+/* 도매발주서 줄(27칸) — ecDlWholesale(매장 발주)와 같은 자리 */
+function _epRows(L){
+  var rows=[];
+  L.forEach(function(s){var st=_epStore(s)||{};(s.lines||[]).forEach(function(x){if(!(+x.qty>0))return;
+    var row=[];for(var c=0;c<27;c++)row.push("");
+    row[2]=st.code||s.wh;row[3]=st.name||"";row[4]=st.recv||"";row[7]=st.tel||"";row[9]=st.addr||"";
+    row[11]=_epItemName(x);row[12]=String(x.qty);row[17]=String(x.code).slice(0,8);row[19]=x.code;rows.push(row);});});
+  return rows;
+}
+function _epStoresLine(L){var m={};L.forEach(function(s){var st=_epStore(s),k=(st&&st.name)||s.wh;m[k]=(m[k]||0)+(s.lines||[]).filter(function(x){return +x.qty>0;}).length;});return Object.keys(m).map(function(k){return k+" "+m[k]+"줄";}).join(", ");}
+function epToggle(k,on){_epSel[k]=!!on;epRender();}
+function epOpenSlip(k){_epOpen[k]=!_epOpen[k];epRender();}
+function epShowSent(){_epShowSent=!_epShowSent;epRender();}
+function epPullGo(){
+  var q=ecPoReq;if(q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000){alert("이카운트 발주서를 확인하는 중입니다 — 잠시 뒤 이 칸이 바뀝니다.");return;}
+  ecPoReq={id:Date.now().toString(36),by:_saipMe(),at:new Date().toISOString()};
+  wsSetItem("ecPoReq",JSON.stringify(ecPoReq));epRender();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 확인합니다.");
+}
+function epDl(){
+  var L=_epPicked();if(!L.length){alert("도매발주서로 만들 발주서를 체크해 주세요.");return;}
+  XLSX.writeFile(_wholesaleWorkbook(_epRows(L)),_wholesaleFileName());
+}
+function epMail(){
+  var L=_epPicked();if(!L.length){alert("보낼 발주서를 체크해 주세요.\n\n(매장 정보가 없거나 수량이 없는 발주서는 체크되지 않습니다)");return;}
+  var cur=(saipReq||{}).ep;
+  if(_saipReqActive(cur)){alert("이카운트 백화점 발주 메일이 이미 "+(cur.state==="처리중"?"보내지는 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").");return;}
+  var dup=L.filter(function(s){return _epSentOf(s.key);});
+  var rows=_epRows(L),sl=_epStoresLine(L),qty=rows.reduce(function(a,r){return a+(+r[12]||0);},0);
+  var noAddr=L.filter(function(s){var st=_epStore(s);return !st.recv||!st.tel||!st.addr;}).map(function(s){return _epStore(s).name;});
+  var d=new Date(),subj="[도매] 발주서 - "+(d.getMonth()+1)+"/"+d.getDate()+"("+"일월화수목금토".charAt(d.getDay())+")";
+  if(!confirm((dup.length?"⚠ 이미 보낸 발주서가 있습니다: "+dup.map(function(s){var x=_epSentOf(s.key);return _epKeyLab(s)+"("+(x.by||"")+" "+_saipFmtAt(x.at)+")";}).join(", ")+"\n자동화 PC는 이미 보낸 발주서가 섞여 있으면 보내지 않습니다 — 취소 후 체크를 빼 주세요.\n\n":"")
+    +"김구남 센터장(gnkim72@daum.net)께 이카운트 백화점 발주서를 도매 발주 메일로 보냅니다.\n\n제목: "+subj+"\n참조: 강민준·이유진·이다겸·김민희\n첨부: "+_wholesaleFileName()+" ("+rows.length+"줄 "+qty+"개 · "+sl+")\n이카운트 발주서: "+L.map(_epKeyLab).join(", ")+" → 보낸 뒤 '확인'으로 바꿉니다\n서명: "+_saipMe()
+    +(noAddr.length?"\n\n⚠ 수령인·연락처·주소가 비어 있는 매장: "+noAddr.join(", ")+" — 물류에서 보낼 곳을 모릅니다. 취소 후 매장 정보를 채워 주세요.":"")
+    +"\n\n보낸 메일은 되돌릴 수 없습니다. 보낼까요?"))return;
+  var b64=XLSX.write(_wholesaleWorkbook(rows),{type:"base64",bookType:"xlsx"});
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send",
+    keys:L.map(function(s){return s.key;}),fileName:_wholesaleFileName(),b64:b64,lines:rows.length,stores:sl};
+  _saipReqSet("ep",R);
+  epRender();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 보냅니다.");
+}
+function epRender(){
+  var box=document.getElementById("epBox");if(!box)return;
+  var E=_esc,S=_epSlips(),R=(saipReq||{}).ep,act=_saipReqActive(R),q=ecPoReq,T=epStatus,h="";
+  var pulling=q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000;
+  h+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:#475569;margin-bottom:6px">'
+    +'<span>'+(ecPo&&ecPo.at?'마지막 확인 '+E(_saipFmtAt(ecPo.pullAt||ecPo.at))+' · 발주서 '+S.length+'건'+(ecPo.from?' ('+E(ecPo.from.slice(4,6)+'/'+ecPo.from.slice(6,8))+' 이후)':''):'아직 받은 발주서 목록이 없습니다')+'</span>'
+    +(pulling?'<span style="color:#1d4ed8;font-weight:700">🔄 확인 중… ('+E(q.by||"?")+')</span>':q&&q.note&&q.doneAt&&Date.now()-new Date(q.doneAt).getTime()<30*60*1000?'<span style="color:#b91c1c;font-weight:700">'+E(q.note)+'</span>':'')
+    +(ecPo&&ecPo.pullErr?'<span style="color:#b91c1c;font-weight:700">⚠ '+E(ecPo.pullErr)+'</span>':'')
+    +(_saipWatchOk()?'':'<span style="color:#b45309;font-weight:700">🤖 자동화 PC 신호 없음</span>')+'</div>';
+  if(act)h+='<div style="margin:4px 0 8px;padding:7px 10px;border-radius:8px;background:#ede9fe;color:#5b21b6;font-weight:700">⏳ 발주 메일 '+E(R.state)+' · '+E(R.by||"")+' · '+E((R.keys||[]).length)+'건'+(R.progress?' — '+E(R.progress):'')+'</div>';
+  else if(T&&T.at&&Date.now()-new Date(T.at).getTime()<24*3600*1000){
+    var cf=(T.confirm||[]).map(function(c){return c.key.slice(4,6)+'/'+c.key.slice(6,8)+c.key.slice(8)+' '+c.res+(c.err?'('+c.err+')':'');}).join(' · ');
+    h+='<div style="margin:4px 0 8px;padding:7px 10px;border-radius:8px;background:'+(T.ok?'#ecfdf5':'#fef2f2')+';color:'+(T.ok?'#047857':'#b91c1c')+';font-weight:700">'
+      +(T.ok?'✅ ':'❌ ')+'발주 메일 '+(T.mode==='draft'?'임시저장':'보냄')+(T.ok?'':' 실패')+' · '+E(_saipFmtAt(T.at))+' · '+E(T.by||"")+' · '+E(T.subject||"")+' · '+E(T.lines||0)+'줄 ('+E(T.stores||"")+')'
+      +(T.error?'<div style="font-weight:600">'+E(T.error)+'</div>':'')+(cf?'<div style="font-weight:600;color:#334155">이카운트: '+E(cf)+'</div>':'')+'</div>';
+  }
+  var un=S.filter(function(s){return !_epSentOf(s.key);}),sent=S.filter(function(s){return _epSentOf(s.key);});
+  var list=un.concat(_epShowSent?sent:[]);
+  if(!S.length){box.innerHTML=h+'<div style="color:#5b6675;padding:6px 0">들어온 발주서가 없습니다. 매장이 이카운트 [구매관리 › 발주서입력]에 <b>입고창고 = 매장 창고</b>로 발주서를 넣으면 5분 안에 여기에 나옵니다.</div>';return;}
+  var pk=_epPicked(),pq=0;pk.forEach(function(s){(s.lines||[]).forEach(function(x){pq+=+x.qty||0;});});
+  h+='<div style="font-size:12.5px;margin-bottom:4px">보낼 것 <b>'+un.length+'건</b> · 체크 <b>'+pk.length+'건 '+pq+'개</b>'
+    +(sent.length?' · <a href="javascript:void(0)" onclick="epShowSent()" style="color:#1b6e82">보낸 발주서 '+sent.length+'건 '+(_epShowSent?'숨기기 ▴':'보기 ▾')+'</a>':'')+'</div>';
+  h+='<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:auto;max-height:520px"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+    +'<thead><tr style="background:#f1f5f9;position:sticky;top:0"><th style="padding:5px 6px;width:28px"></th><th style="padding:5px 6px;text-align:left">일자-No.</th><th style="padding:5px 6px;text-align:left">매장(입고창고)</th><th style="padding:5px 6px;text-align:left">품목</th><th style="padding:5px 6px;text-align:right">수량</th><th style="padding:5px 6px;text-align:left">이카운트</th><th style="padding:5px 6px;text-align:left">메일</th></tr></thead><tbody>';
+  if(!list.length)h+='<tr><td colspan="7" style="padding:8px;color:#5b6675">새로 들어온 발주서가 없습니다(모두 보냄).</td></tr>';
+  list.forEach(function(s){
+    var st=_epStore(s),ok=_epCanSend(s),sn=_epSentOf(s.key),L=(s.lines||[]),q2=L.reduce(function(a,x){return a+(+x.qty||0);},0),op=!!_epOpen[s.key];
+    var first=L[0]?_epItemName(L[0]):'';
+    h+='<tr style="border-top:1px solid #eef2f7;'+(sn?'color:#5b6675;':'')+'">'
+      +'<td style="padding:5px 6px;text-align:center"><input type="checkbox" '+(_epIsSel(s)?'checked ':'')+(ok?'':'disabled ')+'onchange="epToggle(\''+s.key+'\',this.checked)"></td>'
+      +'<td style="padding:5px 6px;white-space:nowrap"><a href="javascript:void(0)" onclick="epOpenSlip(\''+s.key+'\')" style="color:#1b6e82;font-weight:700">'+E(_epKeyLab(s))+' '+(op?'▴':'▾')+'</a><div style="font-size:11.5px;color:#5b6675">'+E(s.writer||"")+'</div></td>'
+      +'<td style="padding:5px 6px">'+(st?E(st.name)+' <span style="color:#5b6675">'+E(s.wh)+'</span>'+(!st.recv||!st.addr?' <span style="color:#b45309;font-weight:700">⚠ 주소 없음</span>':''):'<span style="color:#b91c1c;font-weight:700">'+E(s.wh||"창고 없음")+' — 매장 정보 없음</span>')+'</td>'
+      +'<td style="padding:5px 6px">'+E(first)+(L.length>1?' <span style="color:#5b6675">외 '+(L.length-1)+'품목</span>':'')+(L.length?'':'<span style="color:#b91c1c">품목을 읽지 못함</span>')+'</td>'
+      +'<td style="padding:5px 6px;text-align:right;font-weight:700">'+q2+'</td>'
+      +'<td style="padding:5px 6px;white-space:nowrap;color:'+(s.gb==="Y"?'#047857':'#b45309')+';font-weight:700">'+(s.gb==="Y"?'확인':'미확인')+'</td>'
+      +'<td style="padding:5px 6px;white-space:nowrap">'+(sn?'✉️ '+E(sn.by||"")+' '+E(_saipFmtAt(sn.at))+(sn.ec&&sn.ec!=="확인"&&sn.ec!=="이미 확인"?' <span style="color:#b91c1c">이카운트 '+E(sn.ec)+'</span>':''):'<span style="color:#b45309">안 보냄</span>')+'</td></tr>';
+    if(op)h+='<tr><td></td><td colspan="6" style="padding:2px 6px 8px"><table style="border-collapse:collapse;font-size:12px;width:100%">'
+      +'<tr style="color:#5b6675"><td style="padding:2px 6px">품목코드</td><td style="padding:2px 6px">품목명</td><td style="padding:2px 6px;text-align:right">수량</td><td style="padding:2px 6px">납기</td><td style="padding:2px 6px">적요</td></tr>'
+      +L.map(function(x){return '<tr style="border-top:1px dashed #e2e8f0"><td style="padding:2px 6px;font-family:monospace">'+E(x.code)+'</td><td style="padding:2px 6px">'+E(_epItemName(x))+'</td><td style="padding:2px 6px;text-align:right">'+E(x.qty)+'</td><td style="padding:2px 6px">'+E(x.due?x.due.slice(4,6)+'/'+x.due.slice(6,8):'')+'</td><td style="padding:2px 6px">'+E(x.memo||"")+'</td></tr>';}).join("")+'</table></td></tr>';
+  });
+  h+='</tbody></table></div>';
+  box.innerHTML=h;
+}
 /* ⚡ AUTO 홈쇼핑 → 세매 테스트(2026-11-13 영업2팀 "단계별로 확인 · 세매 등록 버튼을 눌러도 세매 등록까지는 안 나게").
    [📊 세매 등록 (테스트)] → ws/saipReq.whs {mmdd} → 자동화 PC saip-watch → automation/wssales-hs.mjs(등록 코드 없음).
    단계 기록 ws/wssalesHs[MMDD] = {id, by, at, state run|done|fail, step 1~4, err, steps:{od, fill, wss}} — 단계가 끝날 때마다 채워진다 */
@@ -9738,7 +9853,7 @@ function switchTab(tab){
   document.getElementById("page-unship").style.display=tab==="unship"?"block":"none";
   document.getElementById("page-auto2").style.display=tab==="auto2"?"block":"none";
   document.getElementById("tab-auto2").classList.toggle("active",tab==="auto2");
-  if(tab==="auto2"){try{renderPortalLogin();}catch(e){}try{whsRender();}catch(e){}try{a2sRender();}catch(e){}}
+  if(tab==="auto2"){try{renderPortalLogin();}catch(e){}try{whsRender();}catch(e){}try{a2sRender();}catch(e){}try{epRender();}catch(e){}}
   document.getElementById("page-auto").style.display=tab==="auto"?"block":"none";
   document.getElementById("tab-auto").classList.toggle("active",tab==="auto");
   if(tab==="auto"){try{_retScan(false);}catch(e){}try{renderSaipAuto();}catch(e){}try{renderRetAuto();}catch(e){}renderAutoPage();}
