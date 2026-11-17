@@ -1131,7 +1131,36 @@ label{font-size:14px!important}
     body.jv-dark ::-webkit-scrollbar-thumb{background:#2A3A55!important;border-color:#0B0F17!important}
     body.jv-dark ::-webkit-scrollbar-thumb:hover{background:#007EEC!important}
   </style>
-  <div id="homeDash"></div>
+  <!-- 홈 대시보드(#homeDash)는 2026-11-17 영업2팀 요청으로 뺐다 — 그 자리에 ⚡ AUTO 탭에 있던 🧾 이카운트 판매조회(기본 매장별 합계)를 옮김 -->
+  <div id="homeA2s" style="margin-bottom:14px">
+  <style>
+    #homeA2s .a2-card{background:#fff;border:1px solid #cfe0e5;border-radius:12px;padding:12px 14px;min-width:0;overflow-wrap:anywhere}
+    #homeA2s .a2-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+    #homeA2s .a2-h b{font-size:15px;color:#0f4c5c}
+    #homeA2s .a2-btn{display:inline-block;font-size:13px;font-weight:800;padding:7px 12px;border-radius:8px;cursor:pointer;border:1px solid #1b6e82;background:#1b6e82;color:#fff;text-decoration:none}
+    #homeA2s .a2-btn.sub{background:#fff;color:#1b6e82;border-style:dashed}
+    #homeA2s #a2sFrom,#homeA2s #a2sTo,#homeA2s #a2sStore,#homeA2s #a2sView{width:auto !important;margin:0}
+    #homeA2s #a2sQ{width:150px !important;margin:0}
+    #homeA2s #a2sOnly,#homeA2s #a2sZero{width:auto !important;margin:0 3px 0 0;vertical-align:middle}
+  </style>
+    <div class="a2-card"><div class="a2-h"><b>🧾 이카운트 판매조회</b><span style="font-size:12.5px;color:#475569">이카운트 판매입력에 넣은(받은) 전표 · 백화점·코스트코·홈쇼핑·아난티·트래블메이트·팩토리 전 매장</span>
+      <button class="a2-btn sub" style="margin-left:auto;font-size:12.5px;padding:5px 11px" onclick="a2sXlsx()" title="지금 보이는 줄을 엑셀로 받습니다">⬇ 엑셀</button></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;font-size:13px">
+        <input type="date" id="a2sFrom" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"> ~
+        <input type="date" id="a2sTo" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
+        <button class="a2-btn sub" style="font-size:12px;padding:4px 9px" onclick="a2sQuick('y')">어제</button>
+        <button class="a2-btn sub" style="font-size:12px;padding:4px 9px" onclick="a2sQuick('m')">이번 달</button>
+        <button class="a2-btn sub" style="font-size:12px;padding:4px 9px" onclick="a2sQuick('pm')">지난달</button>
+        <span id="a2sChips" style="display:inline-flex;gap:4px;flex-wrap:wrap"></span>
+        <select id="a2sStore" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="">전체 매장</option></select>
+        <input id="a2sQ" oninput="a2sRender()" placeholder="상품명·코드 검색" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;width:150px">
+        <select id="a2sView" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="store" selected>매장별 합계</option><option value="line">일자·매장별</option><option value="item">상품별 합계</option></select>
+        <label style="font-size:12.5px;color:#475569" title="끄면 아직 이카운트에 안 넣은 판매도 같이 보입니다(등록 칸 '미등록')"><input type="checkbox" id="a2sOnly" checked onchange="a2sRender()"> 이카운트 등록된 것만</label>
+        <label style="font-size:12.5px;color:#475569" title="일자·매장별 보기에서 판매가 없는 날도 0개·0원 줄로 보입니다(기간 안에 판매가 있는 매장만)"><input type="checkbox" id="a2sZero" checked onchange="a2sRender()"> 판매 없는 날도</label>
+      </div>
+      <div id="a2sSum" style="font-size:13px;margin-bottom:6px"></div>
+      <div id="a2sBox" style="max-height:560px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"></div></div>
+  </div>
   <!-- 전체 매출(모든 매장구분)을 먼저, 연 누적 매출(영업2팀 6채널)을 그 **아래**에 둔다(2026-09-29 영업2팀).
        예전엔 넓은 화면에서 좌우로 나란히 뒀는데 월별 표가 좁은 칸에 끼어 글자가 작아져서 **항상 위아래로** 쌓는다(2026-09-30 영업2팀). -->
   <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
@@ -2451,9 +2480,6 @@ label{font-size:14px!important}
     #auto2PlSites{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
     #auto2PlSites>div{min-width:0 !important}
     #auto2PlSites>div[style*="flex-basis:100%"]{grid-column:1/-1}
-    #page-auto2 #a2sFrom,#page-auto2 #a2sTo,#page-auto2 #a2sStore,#page-auto2 #a2sView{width:auto !important;margin:0}
-    #page-auto2 #a2sQ{width:150px !important;margin:0}
-    #page-auto2 #a2sOnly,#page-auto2 #a2sZero{width:auto !important;margin:0 3px 0 0;vertical-align:middle}
     @media(max-width:1100px){#page-auto2 .a2-grid{grid-template-columns:1fr}}
   </style>
   <div class="a2-grid">
@@ -2470,23 +2496,6 @@ label{font-size:14px!important}
       </div>
       <div style="font-size:12px;color:#5b6675;margin-bottom:6px">① OneDrive 받기 → ② 매칭표로 상품컬러코드·상품코드·결제금액(매칭표 현재가 × 수량) 채우기 → ③ 세매 변환 미리보기 → ④ 세매 [이대로 등록하기]. <b>단계마다 결과를 보고 [✅ 승인]을 눌러야 다음으로 넘어갑니다</b>(10분 안에 안 누르면 멈춤 · [✖ 그만]은 등록 없이 멈춤). ③에 변환 실패·확인 필요·이중 계상이 있으면 ④로 가지 않습니다.</div>
       <div id="whsSteps" style="font-size:13px;line-height:1.55"></div></div>
-    <div class="a2-card" style="grid-column:1/-1"><div class="a2-h"><b>🧾 이카운트 판매조회</b><span style="font-size:12.5px;color:#475569">이카운트 판매입력에 넣은(받은) 전표 · 백화점·코스트코·홈쇼핑·아난티·트래블메이트·팩토리 전 매장</span>
-      <button class="a2-btn sub" style="margin-left:auto;font-size:12.5px;padding:5px 11px" onclick="a2sXlsx()" title="지금 보이는 줄을 엑셀로 받습니다">⬇ 엑셀</button></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;font-size:13px">
-        <input type="date" id="a2sFrom" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"> ~
-        <input type="date" id="a2sTo" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
-        <button class="a2-btn sub" style="font-size:12px;padding:4px 9px" onclick="a2sQuick('y')">어제</button>
-        <button class="a2-btn sub" style="font-size:12px;padding:4px 9px" onclick="a2sQuick('m')">이번 달</button>
-        <button class="a2-btn sub" style="font-size:12px;padding:4px 9px" onclick="a2sQuick('pm')">지난달</button>
-        <span id="a2sChips" style="display:inline-flex;gap:4px;flex-wrap:wrap"></span>
-        <select id="a2sStore" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="">전체 매장</option></select>
-        <input id="a2sQ" oninput="a2sRender()" placeholder="상품명·코드 검색" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;width:150px">
-        <select id="a2sView" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="line">일자·매장별</option><option value="store">매장별 합계</option><option value="item">상품별 합계</option></select>
-        <label style="font-size:12.5px;color:#475569" title="끄면 아직 이카운트에 안 넣은 판매도 같이 보입니다(등록 칸 '미등록')"><input type="checkbox" id="a2sOnly" checked onchange="a2sRender()"> 이카운트 등록된 것만</label>
-        <label style="font-size:12.5px;color:#475569" title="일자·매장별 보기에서 판매가 없는 날도 0개·0원 줄로 보입니다(기간 안에 판매가 있는 매장만)"><input type="checkbox" id="a2sZero" checked onchange="a2sRender()"> 판매 없는 날도</label>
-      </div>
-      <div id="a2sSum" style="font-size:13px;margin-bottom:6px"></div>
-      <div id="a2sBox" style="max-height:560px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"></div></div>
     <!-- 🏬 이카운트 백화점 발주(2026-11-17 영업2팀) — 이카운트 발주서조회 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'. docs/ecount.md -->
     <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 이카운트 백화점 발주</b><span style="font-size:12.5px;color:#475569">이카운트 [구매관리 › 발주서조회]에 들어온 발주서 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'</span>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
@@ -9853,7 +9862,7 @@ function switchTab(tab){
   document.getElementById("page-unship").style.display=tab==="unship"?"block":"none";
   document.getElementById("page-auto2").style.display=tab==="auto2"?"block":"none";
   document.getElementById("tab-auto2").classList.toggle("active",tab==="auto2");
-  if(tab==="auto2"){try{renderPortalLogin();}catch(e){}try{whsRender();}catch(e){}try{a2sRender();}catch(e){}try{epRender();}catch(e){}}
+  if(tab==="auto2"){try{renderPortalLogin();}catch(e){}try{whsRender();}catch(e){}try{epRender();}catch(e){}}
   document.getElementById("page-auto").style.display=tab==="auto"?"block":"none";
   document.getElementById("tab-auto").classList.toggle("active",tab==="auto");
   if(tab==="auto"){try{_retScan(false);}catch(e){}try{renderSaipAuto();}catch(e){}try{renderRetAuto();}catch(e){}renderAutoPage();}
@@ -9906,7 +9915,7 @@ function switchTab(tab){
   document.getElementById("tab-orderconv").classList.toggle("active",tab==="orderconv");
   document.getElementById("tab-popup").classList.toggle("active",tab==="popup");
   document.getElementById("tab-lossreport").classList.toggle("active",tab==="lossreport");
-  if(tab==="home") renderHomeDashboard();
+  if(tab==="home"){renderHomeDashboard();try{a2sRender();}catch(e){}}
   if(tab==="meeting"){ renderMeetingGrid(); if(typeof renderDocLib==="function")renderDocLib(); }
   if(tab==="dept"){initDeptDates();renderDeptPage();}
   if(tab==="daily") renderDaily();
@@ -12097,7 +12106,7 @@ function _ecSalLines(R0,C0){
   _ecSal.extra.forEach(function(x){if(x.day>=R[0]&&x.day<=R[1]&&C[x.ch])out.push(x);});
   return out;
 }
-/* ⚡ AUTO 탭 🧾 이카운트 판매조회(2026-11-17 영업2팀) — 💰 매출 등록 줄(_ecSalLines) 중 ws/ecSalLog에 있는(이카운트에 넣은·받은) 전표만.
+/* 🏠 홈 🧾 이카운트 판매조회(2026-11-17 영업2팀, 처음엔 ⚡ AUTO 탭 → 같은 날 홈 대시보드 자리로) — 💰 매출 등록 줄(_ecSalLines) 중 ws/ecSalLog에 있는(이카운트에 넣은·받은) 전표만.
    매장 판매등록 줄은 그 매장의 판매일보 채널(없으면 백화점)로 보인다. 이 PC에 줄이 없는 전표(다른 PC의 트래블메이트 등)는 ws/ecSalJob 품목으로 채운다 */
 var A2S_CH=["백화점","코스트코","홈쇼핑","아난티","트래블메이트","팩토리"];
 var _a2s=(function(){try{return JSON.parse(localStorage.getItem("a2sUi")||"null")||{};}catch(e){return {};}})();
@@ -12147,7 +12156,7 @@ function _a2sLoadJobs(){
 }
 function a2sRender(){
   var box=document.getElementById("a2sBox");if(!box)return;
-  var pg=document.getElementById("page-auto2");if(pg&&pg.style.display==="none")return;
+  var pg=document.getElementById("page-home");if(pg&&pg.style.display==="none")return;
   var fE=document.getElementById("a2sFrom"),tE=document.getElementById("a2sTo");
   if(!fE.value){var t0=_a2sYmd(new Date());fE.value=t0.slice(0,8)+"01";tE.value=t0;}
   var R=[fE.value,tE.value||fE.value].sort(),only=document.getElementById("a2sOnly").checked;
