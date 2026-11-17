@@ -1147,7 +1147,9 @@ label{font-size:14px!important}
     #homeA2s #a2sOnly,#homeA2s #a2sZero{width:auto !important;margin:0 3px 0 0;vertical-align:middle}
   </style>
     <div class="a2-card"><div class="a2-h"><b>🧾 이카운트 판매조회</b><span style="font-size:12.5px;color:#475569">이카운트 판매입력에 넣은(받은) 전표 · 백화점·코스트코·홈쇼핑·아난티·트래블메이트·팩토리 전 매장</span>
-      <button class="a2-btn sub" style="margin-left:auto;font-size:12.5px;padding:5px 11px" onclick="a2sXlsx()" title="지금 보이는 줄을 엑셀로 받습니다">⬇ 엑셀</button></div>
+      <button id="a2sRefBtn" class="a2-btn" style="margin-left:auto;font-size:12.5px;padding:5px 11px" onclick="a2sRefGo()" title="자동화 PC가 고른 기간의 PlayMD 매장판매일보를 받고, 세일즈 매니지먼트·이카운트 판매조회에 들어가 금액을 읽어 와 PlayMD·세매·이카운트 칸을 새로 채웁니다(읽기만, 3~6분)">🔄 최신화</button>
+      <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="a2sXlsx()" title="지금 보이는 줄을 엑셀로 받습니다">⬇ 엑셀</button></div>
+      <div id="a2sRefInfo" style="font-size:12.5px;margin:-2px 0 6px;display:none"></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;font-size:13px">
         <input type="date" id="a2sFrom" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"> ~
         <input type="date" id="a2sTo" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">
@@ -4131,7 +4133,16 @@ function fbListen(){
   );
   apply("ws/saipReq","saipReq",
     function(d){if(d&&typeof d==="object")saipReq=d;},
-    function(){if(typeof whsRender==="function")whsRender();if(typeof epRender==="function")epRender();if(typeof ccNhPaint==="function")ccNhPaint();if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();}
+    function(){if(typeof whsRender==="function")whsRender();if(typeof epRender==="function")epRender();if(typeof ccNhPaint==="function")ccNhPaint();if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();if(typeof a2sRefRender==="function")a2sRefRender();}
+  );
+  /* 홈 판매조회 [🔄 최신화](2026-11-17) — 단계별 결과(ws/a2sRefresh) · 이카운트 판매조회에서 읽은 전표(ws/ecSalView) */
+  apply("ws/a2sRefresh","a2sRefresh",
+    function(d){if(d&&typeof d==="object")a2sRefresh=d;},
+    function(){try{a2sRefRender();}catch(e){}}
+  );
+  apply("ws/ecSalView","ecSalView",
+    function(d){if(d&&typeof d==="object")ecSalView=d;},
+    function(){try{a2sRender();}catch(e){}}
   );
   /* PlayMD 전체 창고재고(사이즈별 자사코드) — 창고재고현황을 올릴 때 같이 만든다 · 이카운트 자동 입력 결과(자동화 PC ecount-stock.mjs가 쓴다) */
   apply("ws/pmWhAll","pmWhAll",
@@ -12463,6 +12474,62 @@ function _a2sSplitOn(lines){
   out.forEach(function(x){if(!x.on&&any[x.sc]){x.sc0=x.sc;x.sn0=x.sn;x.sn=x.sn+" (오프라인)";}});
   return out;
 }
+/* ── 🔄 최신화(2026-11-17 영업2팀 "플레이엠디 매출은 플레이엠디에서, 세매는 세매에 들어가서, 이카운트도 이카운트 접속해서 확인해서 매출을 가져오세요") ──
+   누르면 고른 기간으로 ws/saipReq.a2r {from,to}를 남기고 자동화 PC(saip-watch → automation/a2s-refresh.mjs)가 차례로 읽는다(저장은 안 함):
+   ① PlayMD 매장판매일보 받기 → ws/ecSalSrc(표 금액·PlayMD 칸) ② 세일즈 매니지먼트 sales_data → ws/wssalesDays(세매 칸)
+   ③ 이카운트 판매조회 목록(ecount-view.mjs) → ws/ecSalView {at,from,to,s:{'일자_거래처코드':[[금액,전표번호],…]},nm} — 이카운트 칸은 이 기간 안이면 이걸 쓴다.
+   단계별 결과 ws/a2sRefresh {steps:{pm,ws,ec:{ok,at,msg}}} */
+var a2sRefresh=(function(){try{return JSON.parse(localStorage.getItem("a2sRefresh")||"null");}catch(e){return null;}})();
+var ecSalView=(function(){try{return JSON.parse(localStorage.getItem("ecSalView")||"null");}catch(e){return null;}})();
+var _a2sRefMine="";
+function a2sRefGo(){
+  var cur=(saipReq||{}).a2r;
+  if(_saipReqActive(cur)){alert("판매조회 최신화가 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+cur.from+" ~ "+cur.to+").");return;}
+  var f=document.getElementById("a2sFrom").value,t=document.getElementById("a2sTo").value||f,today=_a2sYmd(new Date());
+  if(!f){alert("기간을 먼저 고르세요.");return;}
+  if(f>t){var x=f;f=t;t=x;}if(t>today)t=today;
+  if(f>today){alert("아직 오지 않은 날짜입니다.");return;}
+  var nd=Math.round((new Date(t+"T00:00:00")-new Date(f+"T00:00:00"))/864e5)+1;
+  if(nd>62){alert("한 번에 62일까지만 최신화합니다(지금 "+nd+"일) — 기간을 줄여 주세요.");return;}
+  if(!confirm("["+f+" ~ "+t+"] 판매조회를 최신화합니다.\n\n자동화 PC가 차례로 확인합니다(읽기만, 저장 안 함 · 3~6분):\n ① PlayMD 매장판매일보 받기 → PlayMD 칸·표 금액\n ② 세일즈 매니지먼트 판매 내역 → 세매 칸\n ③ 이카운트 판매조회 전표 → 이카운트 칸\n\n세매는 오늘은 하루가 안 끝나 어제까지 봅니다."))return;
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",from:f,to:t};
+  _saipReqSet("a2r",R);_a2sRefMine=R.id;a2sRefRender();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 확인합니다.");
+}
+function a2sRefRender(){
+  var el=document.getElementById("a2sRefInfo"),btn=document.getElementById("a2sRefBtn");if(!el)return;
+  var R=(saipReq||{}).a2r,A=a2sRefresh,act=_saipReqActive(R),fa=function(iso){return iso?String(new Date(iso).toLocaleString("sv-SE")).slice(5,16):"";};
+  if(btn){btn.disabled=act;btn.style.opacity=act?".55":"";btn.textContent=act?"⏳ 최신화 중":"🔄 최신화";}
+  var stepH=function(k,lab){var s=A&&A.steps&&A.steps[k];if(!s)return '<span style="color:#5b6675">'+lab+' –</span>';
+    if(s.run)return '<span style="color:#1d4ed8">'+lab+' ⏳</span>';
+    return '<span style="color:'+(s.ok?'#047857':'#b91c1c')+'" title="'+_escX(s.msg||"")+'">'+lab+' '+(s.ok?'✓':'✖')+' <span style="font-weight:400">'+_escX(String(s.msg||"").slice(0,70))+'</span></span>';};
+  var h='';
+  if(act)h='<span style="color:#1d4ed8;font-weight:700">⏳ '+(R.state==="요청"?"최신화 요청됨"+(_saipWatchOk()?"":" — 자동화 PC 신호 없음"):"최신화 중")+' ('+_escX(R.by||"?")+' · '+_escX(R.from+" ~ "+R.to)+')</span>'+(R.state==="처리중"&&R.progress?' <span style="color:#475569">▸ '+_escX(String(R.progress).slice(0,90))+'</span>':'');
+  if(A&&A.steps&&(act?A.id===(R||{}).id:true)){
+    h+=(h?'<br>':'')+(act?'':'<b style="color:#0f4c5c">마지막 최신화</b> '+_escX(fa(A.end||A.at))+' · '+_escX(A.by||"")+' · '+_escX(A.from+" ~ "+A.to)+' &nbsp; ')+
+      [stepH("pm","PlayMD"),stepH("ws","세매"),stepH("ec","이카운트")].join(' &nbsp;·&nbsp; ');
+  }
+  if(!act&&R&&R.state==="실패"&&!(A&&A.id===R.id))h+=(h?'<br>':'')+'<span style="color:#b91c1c">✖ 최신화 실패'+(R.error?' — '+_escX(R.error):'')+' · '+_escX(fa(R.endedAt))+'</span>';
+  el.style.display=h?"":"none";el.innerHTML=h;
+  if(R&&_a2sRefMine&&R.id===_a2sRefMine&&!act){_a2sRefMine="";try{a2sRender();}catch(e){}}
+}
+/* 이카운트 칸 — 최신화로 읽은 이카운트 판매조회(ecSalView) 그 날 그 매장 전표 금액. 온라인·오프라인으로 나눈 매장은 같은 거래처 전표 중
+   넣은 기록(ecSalLog 일자_매장~on)의 금액과 같은 전표를 온라인으로 본다. 기간 밖이면 null(→ 예전처럼 넣은 기록) */
+function _a2sEcView(day,scList,st){
+  var V=ecSalView;if(!V||!V.s||!V.from||day<V.from||day>V.to)return null;
+  var tot=0,n=0,miss=[],seen={};
+  scList.forEach(function(sc){
+    var base=String(sc).split("~")[0],cust=_ecSalCust(base),L=V.s[day+"_"+cust]||[],S=st[sc]||{};
+    var part=/~on$/.test(sc)?"on":S.sn0?"off":"all";
+    if(part==="all"){if(seen[cust])return;seen[cust]=1;}
+    var sum=L.reduce(function(a,x){return a+(+x[0]||0);},0),lg=(ecSalLog||{})[day+"_"+base+"~on"],onAmt=0;
+    if(part!=="all"&&lg&&lg.amt!=null){var hit=L.filter(function(x){return Math.abs((+x[0]||0)-(+lg.amt))<=1;})[0];if(hit)onAmt=+hit[0];}
+    var v=part==="on"?onAmt:part==="off"?sum-onAmt:sum;
+    if(part==="on"&&!onAmt)miss.push(S.sn||sc);else if(part!=="on"&&!L.length)miss.push(S.sn||sc);
+    n+=part==="off"?Math.max(0,L.length-(onAmt?1:0)):part==="on"?(onAmt?1:0):L.length;tot+=v;
+  });
+  return {amt:tot,n:n,miss:miss,at:V.at};
+}
 function _a2sChTables(CL){
   var nf=function(n){return Math.round(n).toLocaleString();},wm=_a2sWsMap(),out='',wk="일월화수목금토";
   var th='padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:800;white-space:nowrap;text-align:left;position:sticky;top:0',td='padding:6px 10px;border-bottom:1px solid #eef2f6;font-size:13px;white-space:nowrap';
@@ -12493,9 +12560,12 @@ function _a2sChTables(CL){
       h+=d.pm?amtTd(d.pmAmt,"PlayMD 매장판매일보 금액"):'<td style="'+td+';text-align:right;color:#5b6675" title="PlayMD 판매일보에 없는 판매(매장 판매등록·트래블메이트)">–</td>';
       if(d.pm)T.pm+=d.pmAmt;
       /* 이카운트 = 넣은 전표 금액(ecSalLog.amt, 없으면 그 전표 줄 합) */
-      var ks=Object.keys(d.slips),ea=0,en=0;
+      var ks=Object.keys(d.slips),ea=0,en=0,EV=_a2sEcView(day,scs,st);
+      if(EV){ea=EV.amt;h+=amtTd(ea,"이카운트 판매조회 전표 "+EV.n+"장 (최신화 "+String(new Date(EV.at).toLocaleString("sv-SE")).slice(5,16)+")"+(EV.miss.length?" — 전표 없는 매장: "+EV.miss.join(", "):""));}
+      else{
       ks.forEach(function(k){var lg=ecSalLog[k];if(!lg)return;en++;ea+=lg.amt!=null?+lg.amt:(d.slipAmt[k]||0);});
-      h+=amtTd(ea,"이카운트 전표 "+en+"/"+ks.length+"장"+(en<ks.length?" — 안 넣은 매장: "+ks.filter(function(k){return !ecSalLog[k];}).map(function(k){var sc=k.slice(11);return (st[sc]||{}).sn||sc;}).join(", "):""));
+      h+=amtTd(ea,"이카운트 전표 "+en+"/"+ks.length+"장 (자비스가 넣은 기록 — 🔄 최신화를 누르면 이카운트 판매조회에서 읽습니다)"+(en<ks.length?" — 안 넣은 매장: "+ks.filter(function(k){return !ecSalLog[k];}).map(function(k){var sc=k.slice(11);return (st[sc]||{}).sn||sc;}).join(", "):""));
+      }
       T.ec+=ea;
       /* 세매 = 세일즈 매니지먼트에 들어간 금액(ws/wssalesDays d) */
       var types=c==="백화점"?["백화점"]:c==="홈쇼핑"?["홈쇼핑"]:c==="코스트코"?Object.keys(d.scs).map(function(sc){return sc==="COSO"?"코코 온라인":"코코 직매입";}).filter(function(t,i,a){return a.indexOf(t)===i;}):null;
@@ -12569,6 +12639,7 @@ function _a2sLoadJobs(){
 function a2sRender(){
   var box=document.getElementById("a2sBox");if(!box)return;
   var pg=document.getElementById("page-home");if(pg&&pg.style.display==="none")return;
+  try{a2sRefRender();}catch(e){}
   var fE=document.getElementById("a2sFrom"),tE=document.getElementById("a2sTo");
   if(!fE.value){var t0=_a2sYmd(new Date());fE.value=t0.slice(0,8)+"01";tE.value=t0;}
   var R=[fE.value,tE.value||fE.value].sort(),only=document.getElementById("a2sOnly").checked;
