@@ -12081,6 +12081,13 @@ function a2sRender(){
       }
     }
   });
+  if(view==="line")h+='<tr style="background:#e6f1f4"><td style="'+td+';font-weight:800" colspan="3">합계</td><td style="'+num+'"></td><td style="'+num+';font-weight:800">'+nf(tq)+'개</td><td style="'+num+';font-weight:800">'+nf(ta)+'원</td><td style="'+td+'"></td></tr>';
+  if(view==="store"){
+    /* 채널 소계 + 합계 */
+    A2S_CH.forEach(function(c){var R2=rows.filter(function(r){return r.ch===c;});if(!R2.length)return;var q2=R2.reduce(function(a,r){return a+r.qty;},0),a2=R2.reduce(function(a,r){return a+r.amt;},0);
+      h+='<tr style="background:#f6fafb"><td style="'+td+';font-weight:700" colspan="5">'+_escX(_ecSalChLab(c))+' 소계 ('+R2.length+'개 매장)</td><td style="'+num+';font-weight:700">'+nf(q2)+'</td><td style="'+num+';font-weight:700">'+nf(a2)+'</td><td style="'+num+';color:#5b6675">'+(ta?(a2/ta*100).toFixed(1)+'%':'-')+'</td></tr>';});
+    h+='<tr style="background:#e6f1f4"><td style="'+td+';font-weight:800" colspan="5">합계</td><td style="'+num+';font-weight:800">'+nf(tq)+'</td><td style="'+num+';font-weight:800">'+nf(ta)+'</td><td style="'+num+'">100%</td></tr>';
+  }
   h+='</tbody></table>'+(rows.length>3000?'<div style="padding:8px;font-size:12px;color:#5b6675">앞 3,000줄만 보입니다 — 엑셀로 받으면 전부 나옵니다.</div>':'');
   box.innerHTML=h;
 }
@@ -12182,10 +12189,6 @@ function ecSalLoad(inp){
   var f=inp.files&&inp.files[0];inp.value="";if(!f)return;
   var msg=document.getElementById("ecSalMsg");if(msg){msg.style.color="#b45309";msg.textContent="읽는 중… 큰 파일은 30초쯤 걸립니다";}
   var rd=new FileReader();
-  }else if(view==="store"){
-    var bs={};rows.forEach(function(r){var b=bs[r.sc]||(bs[r.sc]={ch:r.ch,sc:r.sc,sn:r.sn,qty:0,amt:0,days:{},slips:{}});b.qty+=r.qty;b.amt+=r.amt;b.days[r.day]=1;b.slips[r.day+"_"+r.sc]=1;});
-    rows=Object.keys(bs).map(function(k){var b=bs[k];b.nd=Object.keys(b.days).length;b.ns=Object.keys(b.slips).length;return b;})
-      .sort(function(a,b){return A2S_CH.indexOf(a.ch)-A2S_CH.indexOf(b.ch)||b.amt-a.amt;});
   rd.onload=function(e){setTimeout(function(){
     try{
       var wb=XLSX.read(e.target.result,{type:"array",cellDates:false,cellText:false,cellNF:false,cellStyles:false,cellFormula:false});
@@ -12195,28 +12198,13 @@ function ecSalLoad(inp){
       if(msg){msg.style.color="#047857";msg.textContent="✔ "+res.rows.toLocaleString()+"줄 반영 ("+res.months.join(", ")+")";}
       ecSalRender();
     }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
-  else if(view==="store")h+='<th style="'+th+'">채널</th><th style="'+th+'">매장</th><th style="'+th+'">코드</th><th style="'+thr+'">판매일수</th><th style="'+thr+'">전표</th><th style="'+thr+'">수량</th><th style="'+thr+'">매출합</th><th style="'+thr+'">비중</th>';
   },50);};
-  if(view==="line")h+='<tr style="background:#e6f1f4"><td style="'+td+';font-weight:800" colspan="3">합계</td><td style="'+num+'"></td><td style="'+num+';font-weight:800">'+nf(tq)+'개</td><td style="'+num+';font-weight:800">'+nf(ta)+'원</td><td style="'+td+'"></td></tr>';
-  if(view==="store"){
-    /* 채널 소계 + 합계 */
-    A2S_CH.forEach(function(c){var R2=rows.filter(function(r){return r.ch===c;});if(!R2.length)return;var q2=R2.reduce(function(a,r){return a+r.qty;},0),a2=R2.reduce(function(a,r){return a+r.amt;},0);
-      h+='<tr style="background:#f6fafb"><td style="'+td+';font-weight:700" colspan="5">'+_escX(_ecSalChLab(c))+' 소계 ('+R2.length+'개 매장)</td><td style="'+num+';font-weight:700">'+nf(q2)+'</td><td style="'+num+';font-weight:700">'+nf(a2)+'</td><td style="'+num+';color:#5b6675">'+(ta?(a2/ta*100).toFixed(1)+'%':'-')+'</td></tr>';});
-    h+='<tr style="background:#e6f1f4"><td style="'+td+';font-weight:800" colspan="5">합계</td><td style="'+num+';font-weight:800">'+nf(tq)+'</td><td style="'+num+';font-weight:800">'+nf(ta)+'</td><td style="'+num+'">100%</td></tr>';
-  }
   rd.readAsArrayBuffer(f);
 }
 /* 🧳 트래블메이트 — 발주 표(트래블메이트 발주 탭 › 없으면 수기발주)의 트래블메이트 매장 줄을 명세표 단가로 */
 function ecSalFromTm(){
-    else if(view==="store")h+='<tr style="cursor:pointer" title="이 매장 줄만 보기" onclick="document.getElementById(\'a2sStore\').value=\''+_escX(r.sc)+'\';document.getElementById(\'a2sView\').value=\'line\';a2sRender()"><td style="'+td+';white-space:nowrap">'+_escX(_ecSalChLab(r.ch))+'</td><td style="'+td+';font-weight:700">'+_escX(r.sn)+'</td><td style="'+td+';color:#5b6675;font-size:12px">'+_escX(r.sc)+'</td><td style="'+num+'">'+r.nd+'</td><td style="'+num+'">'+r.ns+'</td><td style="'+num+neg+'">'+nf(r.qty)+'</td><td style="'+num+neg+';font-weight:700">'+nf(r.amt)+'</td><td style="'+num+';color:#5b6675">'+(ta?(r.amt/ta*100).toFixed(1)+'%':'-')+'</td></tr>';
   var src=typeof _tmInvoiceSource==="function"?_tmInvoiceSource():[];
   if(!src.length){alert("트래블메이트 매장(TMG·TMI1·TMI2)으로 지정된 발주 행이 없습니다.\n\n📦 발주 → 🧳 트래블메이트 발주에서 발주서를 먼저 불러오세요.");return;}
-  if(view==="store"){
-    /* 채널 소계 + 합계 */
-    A2S_CH.forEach(function(c){var R2=rows.filter(function(r){return r.ch===c;});if(!R2.length)return;var q2=R2.reduce(function(a,r){return a+r.qty;},0),a2=R2.reduce(function(a,r){return a+r.amt;},0);
-      h+='<tr style="background:#f6fafb"><td style="'+td+';font-weight:700" colspan="5">'+_escX(_ecSalChLab(c))+' 소계 ('+R2.length+'개 매장)</td><td style="'+num+';font-weight:700">'+nf(q2)+'</td><td style="'+num+';font-weight:700">'+nf(a2)+'</td><td style="'+num+';color:#5b6675">'+(ta?(a2/ta*100).toFixed(1)+'%':'-')+'</td></tr>';});
-    h+='<tr style="background:#e6f1f4"><td style="'+td+';font-weight:800" colspan="5">합계</td><td style="'+num+';font-weight:800">'+nf(tq)+'</td><td style="'+num+';font-weight:800">'+nf(ta)+'</td><td style="'+num+'">100%</td></tr>';
-  }
   var day=String((document.getElementById("ecSalTmDay")||{}).value||_ecSalRange()[1]);
   var P=_ocProdList().by,add=[],noTag=0,stores={};
   src.forEach(function(r){
