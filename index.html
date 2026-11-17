@@ -2453,7 +2453,7 @@ label{font-size:14px!important}
     #auto2PlSites>div[style*="flex-basis:100%"]{grid-column:1/-1}
     #page-auto2 #a2sFrom,#page-auto2 #a2sTo,#page-auto2 #a2sStore,#page-auto2 #a2sView{width:auto !important;margin:0}
     #page-auto2 #a2sQ{width:150px !important;margin:0}
-    #page-auto2 #a2sOnly{width:auto !important;margin:0 3px 0 0;vertical-align:middle}
+    #page-auto2 #a2sOnly,#page-auto2 #a2sZero{width:auto !important;margin:0 3px 0 0;vertical-align:middle}
     @media(max-width:1100px){#page-auto2 .a2-grid{grid-template-columns:1fr}}
   </style>
   <div class="a2-grid">
@@ -2481,8 +2481,9 @@ label{font-size:14px!important}
         <span id="a2sChips" style="display:inline-flex;gap:4px;flex-wrap:wrap"></span>
         <select id="a2sStore" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="">전체 매장</option></select>
         <input id="a2sQ" oninput="a2sRender()" placeholder="상품명·코드 검색" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;width:150px">
-        <select id="a2sView" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="line">일자·매장별 줄</option><option value="store">매장별 합계</option><option value="item">상품별 합계</option></select>
+        <select id="a2sView" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="line">일자·매장별</option><option value="store">매장별 합계</option><option value="item">상품별 합계</option></select>
         <label style="font-size:12.5px;color:#475569" title="끄면 아직 이카운트에 안 넣은 판매도 같이 보입니다(등록 칸 '미등록')"><input type="checkbox" id="a2sOnly" checked onchange="a2sRender()"> 이카운트 등록된 것만</label>
+        <label style="font-size:12.5px;color:#475569" title="일자·매장별 보기에서 판매가 없는 날도 0개·0원 줄로 보입니다(기간 안에 판매가 있는 매장만)"><input type="checkbox" id="a2sZero" checked onchange="a2sRender()"> 판매 없는 날도</label>
       </div>
       <div id="a2sSum" style="font-size:13px;margin-bottom:6px"></div>
       <div id="a2sBox" style="max-height:560px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"></div></div>
@@ -11986,7 +11987,8 @@ function _ecSalLines(R0,C0){
 var A2S_CH=["백화점","코스트코","홈쇼핑","아난티","트래블메이트","팩토리"];
 var _a2s=(function(){try{return JSON.parse(localStorage.getItem("a2sUi")||"null")||{};}catch(e){return {};}})();
 if(!_a2s.ch)_a2s.ch={"백화점":1,"코스트코":1,"홈쇼핑":1,"아난티":1,"트래블메이트":1,"팩토리":1};
-var _a2sJobs=null,_a2sRows=null;
+var _a2sJobs=null,_a2sRows=null,_a2sOpen={};
+function a2sOpen(k){_a2sOpen[k]=!_a2sOpen[k];a2sRender();}
 function _a2sSave(){try{localStorage.setItem("a2sUi",JSON.stringify(_a2s));}catch(e){}}
 function _a2sYmd(x){return x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0");}
 function a2sQuick(k){
@@ -12023,11 +12025,12 @@ function a2sRender(){
     (s.items||[]).forEach(function(x){lines.push({day:day,ch:s.ch,sc:s.sc,sn:s.sn||s.sc,code:x.code,name:x.name||x.code,qty:+x.qty||0,amt:(+x.sup||0)+(+x.vat||0)});});
   });
   var stores={},sel=document.getElementById("a2sStore"),sv=sel.value,q=String(document.getElementById("a2sQ").value||"").trim().toLowerCase(),view=document.getElementById("a2sView").value;
-  var rows=[];
+  var rows=[],unreg={},stCh2={};
   lines.forEach(function(x){
     var c=chOf(x);if(A2S_CH.indexOf(c)<0||!_a2s.ch[c])return;
-    var k=x.day+"_"+x.sc,lg=ecSalLog[k];if(only&&!lg)return;
-    stores[x.sc]=x.sn||x.sc;
+    var k=x.day+"_"+x.sc,lg=ecSalLog[k];
+    if(only&&!lg){if(!sv||x.sc===sv){var u0=unreg[k]||(unreg[k]={qty:0,amt:0});u0.qty+=+x.qty||0;u0.amt+=Math.round(+x.amt||0);}return;}
+    stores[x.sc]=x.sn||x.sc;stCh2[x.sc]=c;
     if(sv&&x.sc!==sv)return;
     if(q&&String(x.name||"").toLowerCase().indexOf(q)<0&&String(x.code||"").toLowerCase().indexOf(q)<0)return;
     rows.push({day:x.day,ch:c,sc:x.sc,sn:x.sn||x.sc,code:x.code,name:x.name||x.code,qty:+x.qty||0,amt:Math.round(+x.amt||0),st:lg?((lg.at?String(lg.at).slice(5,16).replace("T"," "):"")+" "+(lg.by||"")).trim()||"등록":"미등록"});
@@ -12036,22 +12039,47 @@ function a2sRender(){
   if(view==="item"){
     var by={};rows.forEach(function(r){var b=by[r.code]||(by[r.code]={code:r.code,name:r.name,qty:0,amt:0});b.qty+=r.qty;b.amt+=r.amt;});
     rows=Object.keys(by).map(function(k){return by[k];}).sort(function(a,b){return b.qty-a.qty||b.amt-a.amt;});
-  }else rows.sort(function(a,b){return a.day<b.day?-1:a.day>b.day?1:A2S_CH.indexOf(a.ch)-A2S_CH.indexOf(b.ch)||(a.sn<b.sn?-1:a.sn>b.sn?1:a.name<b.name?-1:a.name>b.name?1:0);});
+  }else if(view==="store"){
+    var bs={};rows.forEach(function(r){var b=bs[r.sc]||(bs[r.sc]={ch:r.ch,sc:r.sc,sn:r.sn,qty:0,amt:0,days:{},slips:{}});b.qty+=r.qty;b.amt+=r.amt;b.days[r.day]=1;b.slips[r.day+"_"+r.sc]=1;});
+    rows=Object.keys(bs).map(function(k){var b=bs[k];b.nd=Object.keys(b.days).length;b.ns=Object.keys(b.slips).length;return b;})
+      .sort(function(a,b){return A2S_CH.indexOf(a.ch)-A2S_CH.indexOf(b.ch)||b.amt-a.amt;});
+  }else{
+    /* 일자·매장 = 한 줄(누르면 상품 상세). 기간 안에 판매가 있는 매장은 판매 없는 날도 0개·0원으로 */
+    rows.sort(function(a,b){return a.code<b.code?-1:a.code>b.code?1:b.qty-a.qty;});
+    var bk={};rows.forEach(function(r){var k=r.day+"_"+r.sc,b=bk[k]||(bk[k]={key:k,day:r.day,ch:r.ch,sc:r.sc,sn:r.sn,qty:0,amt:0,st:r.st,items:[]});b.qty+=r.qty;b.amt+=r.amt;b.items.push(r);});
+    if(document.getElementById("a2sZero").checked&&!q){
+      var today=_a2sYmd(new Date()),endD=R[1]<today?R[1]:today,dd=new Date(R[0]+"T00:00:00");
+      var scs=sv?(stores[sv]?[sv]:[]):Object.keys(stores);
+      while(_a2sYmd(dd)<=endD){var ds=_a2sYmd(dd);scs.forEach(function(sc){var k=ds+"_"+sc;if(!bk[k])bk[k]={key:k,day:ds,ch:stCh2[sc],sc:sc,sn:stores[sc],qty:0,amt:0,st:"",items:[]};});dd.setDate(dd.getDate()+1);}
+    }
+    Object.keys(bk).forEach(function(k){var u0=unreg[k];if(u0&&!bk[k].items.length)bk[k].un=u0;});
+    rows=Object.keys(bk).map(function(k){return bk[k];}).sort(function(a,b){return a.day<b.day?-1:a.day>b.day?1:A2S_CH.indexOf(a.ch)-A2S_CH.indexOf(b.ch)||(a.sn<b.sn?-1:a.sn>b.sn?1:0);});
+  }
   _a2sRows={view:view,rows:rows,R:R};
   var nf=function(n){return Math.round(n).toLocaleString();},tq=rows.reduce(function(a,r){return a+r.qty;},0),ta=rows.reduce(function(a,r){return a+r.amt;},0);
-  var nSlip={};if(view==="line")rows.forEach(function(r){nSlip[r.day+"_"+r.sc]=1;});
-  var nS=view==="store"?rows.reduce(function(a,r){return a+r.ns;},0):Object.keys(nSlip).length;
-  document.getElementById("a2sSum").innerHTML='<b>'+R[0]+(R[1]!==R[0]?' ~ '+R[1]:'')+'</b> · '+(view!=="item"?'전표 '+nS+'장 · ':'')+rows.length+(view==="store"?'개 매장':'줄')+' · 수량 <b>'+nf(tq)+'</b>개 · 판매금액 <b>'+nf(ta)+'</b>원'+(only?'':' <span style="color:#5b6675">(미등록 포함)</span>');
+  var nS=view==="store"?rows.reduce(function(a,r){return a+r.ns;},0):rows.filter(function(r){return r.items&&r.items.length;}).length;
+  document.getElementById("a2sSum").innerHTML='<b>'+R[0]+(R[1]!==R[0]?' ~ '+R[1]:'')+'</b> · '+(view!=="item"?'전표 '+nS+'장 · ':'')+(view==="store"?rows.length+'개 매장 · ':view==="item"?rows.length+'줄 · ':'')+'수량 <b>'+nf(tq)+'</b>개 · 판매금액 <b>'+nf(ta)+'</b>원'+(only?'':' <span style="color:#5b6675">(미등록 포함)</span>');
   if(!rows.length){box.innerHTML='<div style="padding:16px;color:#5b6675;font-size:13px">'+(Object.keys(ecSalLog||{}).length?'이 기간·채널에 이카운트에 넣은 판매가 없습니다.':'이카운트 등록 기록을 읽는 중이거나 없습니다(팀 공유 로그인 필요).')+'</div>';return;}
   var th='position:sticky;top:0;background:#eef6f8;padding:6px 8px;border-bottom:1px solid #cfe0e5;text-align:left;font-size:12.5px;white-space:nowrap',thr=th+';text-align:right',td='padding:5px 8px;border-bottom:1px solid #eef2f6;font-size:13px',num=td+';text-align:right;white-space:nowrap';
   var h='<table style="width:100%;border-collapse:collapse"><thead><tr>';
   if(view==="item")h+='<th style="'+th+'">상품명</th><th style="'+th+'">코드</th><th style="'+thr+'">수량</th><th style="'+thr+'">평균 판매가</th><th style="'+thr+'">판매금액</th>';
-  else h+='<th style="'+th+'">일자</th><th style="'+th+'">채널</th><th style="'+th+'">매장</th><th style="'+th+'">상품명</th><th style="'+thr+'">수량</th><th style="'+thr+'">판매가</th><th style="'+thr+'">판매금액</th><th style="'+th+'">등록</th>';
+  else if(view==="store")h+='<th style="'+th+'">채널</th><th style="'+th+'">매장</th><th style="'+th+'">코드</th><th style="'+thr+'">판매일수</th><th style="'+thr+'">전표</th><th style="'+thr+'">수량</th><th style="'+thr+'">매출합</th><th style="'+thr+'">비중</th>';
+  else h+='<th style="'+th+'">일자</th><th style="'+th+'">채널</th><th style="'+th+'">매장</th><th style="'+thr+'">품목</th><th style="'+thr+'">수량</th><th style="'+thr+'">판매금액</th><th style="'+th+'">등록</th>';
   h+='</tr></thead><tbody>';
   rows.slice(0,3000).forEach(function(r){
     var u=r.qty?nf(r.amt/r.qty):'-',neg=r.qty<0?';color:#b91c1c':'';
     if(view==="item")h+='<tr><td style="'+td+'">'+_escX(r.name)+'</td><td style="'+td+';color:#5b6675;font-size:12px">'+_escX(r.code)+'</td><td style="'+num+neg+'">'+nf(r.qty)+'</td><td style="'+num+'">'+u+'</td><td style="'+num+neg+'">'+nf(r.amt)+'</td></tr>';
-    else h+='<tr><td style="'+td+';white-space:nowrap">'+r.day.slice(5)+'</td><td style="'+td+';white-space:nowrap">'+_escX(_ecSalChLab(r.ch))+'</td><td style="'+td+'">'+_escX(r.sn)+'</td><td style="'+td+'" title="'+_escX(r.code)+'">'+_escX(r.name)+(r.qty<0?' <span style="color:#b91c1c;font-size:11.5px">반품</span>':'')+'</td><td style="'+num+neg+'">'+nf(r.qty)+'</td><td style="'+num+'">'+u+'</td><td style="'+num+neg+'">'+nf(r.amt)+'</td><td style="'+td+';font-size:11.5px;color:'+(r.st==="미등록"?'#b45309':'#5b6675')+';white-space:nowrap">'+_escX(r.st)+'</td></tr>';
+    else if(view==="store")h+='<tr style="cursor:pointer" title="이 매장 줄만 보기" onclick="document.getElementById(\'a2sStore\').value=\''+_escX(r.sc)+'\';document.getElementById(\'a2sView\').value=\'line\';a2sRender()"><td style="'+td+';white-space:nowrap">'+_escX(_ecSalChLab(r.ch))+'</td><td style="'+td+';font-weight:700">'+_escX(r.sn)+'</td><td style="'+td+';color:#5b6675;font-size:12px">'+_escX(r.sc)+'</td><td style="'+num+'">'+r.nd+'</td><td style="'+num+'">'+r.ns+'</td><td style="'+num+neg+'">'+nf(r.qty)+'</td><td style="'+num+neg+';font-weight:700">'+nf(r.amt)+'</td><td style="'+num+';color:#5b6675">'+(ta?(r.amt/ta*100).toFixed(1)+'%':'-')+'</td></tr>';
+    else{
+      var has=r.items.length>0,op=has&&!!_a2sOpen[r.key],wd=new Date(r.day+"T00:00:00").getDay(),dc=wd===0?'#b91c1c':wd===6?'#1d4ed8':'inherit';
+      var stx=has?r.st:(r.un?'⚠ 미등록 '+nf(r.un.qty)+'개 · '+nf(r.un.amt)+'원':''),stc=(has&&r.st!=="미등록")?'#5b6675':'#b45309';
+      h+='<tr'+(has?' style="cursor:pointer" onclick="a2sOpen(\''+_escX(r.key)+'\')" title="눌러서 상품 상세 보기"':' style="color:#5b6675"')+'><td style="'+td+';white-space:nowrap"><span style="display:inline-block;width:12px;color:#1b6e82">'+(has?(op?'▾':'▸'):'')+'</span><span style="color:'+(has?dc:'inherit')+'">'+r.day.slice(5)+' ('+"일월화수목금토"[wd]+')</span></td><td style="'+td+';white-space:nowrap">'+_escX(_ecSalChLab(r.ch))+'</td><td style="'+td+(has?';font-weight:700':'')+'">'+_escX(r.sn)+'</td><td style="'+num+'">'+r.items.length+'</td><td style="'+num+neg+'">'+nf(r.qty)+'개</td><td style="'+num+neg+(has?';font-weight:700':'')+'">'+nf(r.amt)+'원</td><td style="'+td+';font-size:11.5px;color:'+stc+';white-space:nowrap">'+_escX(stx)+'</td></tr>';
+      if(op){
+        h+='<tr><td colspan="7" style="padding:4px 8px 10px 30px;background:#f8fbfc;border-bottom:1px solid #e2e8f0"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+th+';position:static;background:#eef2f6">상품명</th><th style="'+th+';position:static;background:#eef2f6">코드</th><th style="'+thr+';position:static;background:#eef2f6">수량</th><th style="'+thr+';position:static;background:#eef2f6">판매가</th><th style="'+thr+';position:static;background:#eef2f6">판매금액</th></tr></thead><tbody>';
+        r.items.forEach(function(x){var n2=x.qty<0?';color:#b91c1c':'';h+='<tr><td style="'+td+'">'+_escX(x.name)+(x.qty<0?' <span style="color:#b91c1c;font-size:11.5px">반품</span>':'')+'</td><td style="'+td+';color:#5b6675;font-size:12px">'+_escX(x.code)+'</td><td style="'+num+n2+'">'+nf(x.qty)+'</td><td style="'+num+'">'+(x.qty?nf(x.amt/x.qty):'-')+'</td><td style="'+num+n2+'">'+nf(x.amt)+'</td></tr>';});
+        h+='</tbody></table></td></tr>';
+      }
+    }
   });
   h+='</tbody></table>'+(rows.length>3000?'<div style="padding:8px;font-size:12px;color:#5b6675">앞 3,000줄만 보입니다 — 엑셀로 받으면 전부 나옵니다.</div>':'');
   box.innerHTML=h;
@@ -12060,7 +12088,8 @@ function a2sXlsx(){
   var D=_a2sRows;if(!D||!D.rows||!D.rows.length){alert("받을 줄이 없습니다.");return;}
   var aoa=D.view==="store"?[["채널","매장코드","매장","판매일수","전표","수량","매출합"]].concat(D.rows.map(function(r){return [_ecSalChLab(r.ch),r.sc,r.sn,r.nd,r.ns,r.qty,r.amt];}))
     :D.view==="item"?[["상품명","코드","수량","평균 판매가","판매금액"]].concat(D.rows.map(function(r){return [r.name,r.code,r.qty,r.qty?Math.round(r.amt/r.qty):0,r.amt];}))
-    :[["일자","채널","매장코드","매장","상품코드","상품명","수량","판매가","판매금액","등록"]].concat(D.rows.map(function(r){return [r.day,_ecSalChLab(r.ch),r.sc,r.sn,r.code,r.name,r.qty,r.qty?Math.round(r.amt/r.qty):0,r.amt,r.st];}));
+    :[["일자","채널","매장코드","매장","상품코드","상품명","수량","판매가","판매금액","등록"]].concat([].concat.apply([],D.rows.map(function(s){
+      return s.items.length?s.items.map(function(r){return [r.day,_ecSalChLab(r.ch),r.sc,r.sn,r.code,r.name,r.qty,r.qty?Math.round(r.amt/r.qty):0,r.amt,r.st];}):[[s.day,_ecSalChLab(s.ch),s.sc,s.sn,"","(판매 없음)",0,0,0,s.un?"미등록 "+s.un.qty+"개 "+s.un.amt+"원":""]];})));
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),"판매조회");
   XLSX.writeFile(wb,"이카운트_판매조회_"+D.R[0].replace(/-/g,"")+(D.R[1]!==D.R[0]?"-"+D.R[1].slice(5).replace(/-/g,""):"")+".xlsx");
 }
@@ -12168,6 +12197,13 @@ function ecSalLoad(inp){
     }catch(err){alert("파일 오류: "+err.message);if(msg)msg.textContent="";}
   else if(view==="store")h+='<th style="'+th+'">채널</th><th style="'+th+'">매장</th><th style="'+th+'">코드</th><th style="'+thr+'">판매일수</th><th style="'+thr+'">전표</th><th style="'+thr+'">수량</th><th style="'+thr+'">매출합</th><th style="'+thr+'">비중</th>';
   },50);};
+  if(view==="line")h+='<tr style="background:#e6f1f4"><td style="'+td+';font-weight:800" colspan="3">합계</td><td style="'+num+'"></td><td style="'+num+';font-weight:800">'+nf(tq)+'개</td><td style="'+num+';font-weight:800">'+nf(ta)+'원</td><td style="'+td+'"></td></tr>';
+  if(view==="store"){
+    /* 채널 소계 + 합계 */
+    A2S_CH.forEach(function(c){var R2=rows.filter(function(r){return r.ch===c;});if(!R2.length)return;var q2=R2.reduce(function(a,r){return a+r.qty;},0),a2=R2.reduce(function(a,r){return a+r.amt;},0);
+      h+='<tr style="background:#f6fafb"><td style="'+td+';font-weight:700" colspan="5">'+_escX(_ecSalChLab(c))+' 소계 ('+R2.length+'개 매장)</td><td style="'+num+';font-weight:700">'+nf(q2)+'</td><td style="'+num+';font-weight:700">'+nf(a2)+'</td><td style="'+num+';color:#5b6675">'+(ta?(a2/ta*100).toFixed(1)+'%':'-')+'</td></tr>';});
+    h+='<tr style="background:#e6f1f4"><td style="'+td+';font-weight:800" colspan="5">합계</td><td style="'+num+';font-weight:800">'+nf(tq)+'</td><td style="'+num+';font-weight:800">'+nf(ta)+'</td><td style="'+num+'">100%</td></tr>';
+  }
   rd.readAsArrayBuffer(f);
 }
 /* 🧳 트래블메이트 — 발주 표(트래블메이트 발주 탭 › 없으면 수기발주)의 트래블메이트 매장 줄을 명세표 단가로 */
