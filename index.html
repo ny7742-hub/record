@@ -2499,6 +2499,10 @@ label{font-size:14px!important}
       </div>
       <div style="font-size:12px;color:#5b6675;margin-bottom:6px">① OneDrive 받기 → ② 매칭표로 상품컬러코드·상품코드·결제금액(매칭표 현재가 × 수량) 채우기 → ③ 세매 변환 미리보기 → ④ 세매 [이대로 등록하기]. <b>단계마다 결과를 보고 [✅ 승인]을 눌러야 다음으로 넘어갑니다</b>(10분 안에 안 누르면 멈춤 · [✖ 그만]은 등록 없이 멈춤). ③에 변환 실패·확인 필요·이중 계상이 있으면 ④로 가지 않습니다.</div>
       <div id="whsSteps" style="font-size:13px;line-height:1.55"></div></div>
+    <!-- 🛒 코스트코 자동발주(2026-11-17 영업2팀 "오토탭에 코스트코 자동발주 — 자동화 탭과 같은 방식, 5단계에서 승인") — 칸 안은 코스트코 발주 탭 ccAutoRender를 그대로 복사(_apCopy → #auto2CcStatus). docs/costco.md -->
+    <div class="a2-card" id="auto2CcCard" style="grid-column:1/-1"><div class="a2-h"><b>🛒 코스트코 자동발주</b><span style="font-size:12.5px;color:#475569">① 건수 확인 → ② 발주하기 → ③④ 자동 → ⑤ 회신 오면 미출고 확인 후 <b>✅ 승인</b> → ⑤ DSS26·31 송장·판매현황 → ⑥ PlayMD 사입출고 · 세매</span>
+      <a class="a2-btn sub" style="margin-left:auto;font-size:12.5px;padding:5px 11px" href="javascript:void(0)" onclick="apOpen('ccorder','ccAutoBox')" title="코스트코 발주 탭의 원래 칸으로 갑니다">↗ 열기</a></div>
+      <div id="auto2CcStatus" style="font-size:13px;line-height:1.6"></div></div>
     <!-- 🏬 이카운트 백화점 발주(2026-11-17 영업2팀) — 이카운트 발주서조회 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'. docs/ecount.md -->
     <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 이카운트 백화점 발주</b><span style="font-size:12.5px;color:#475569">이카운트 [구매관리 › 발주서조회]에 들어온 발주서 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'</span>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
@@ -3951,6 +3955,11 @@ function fbListen(){
     function(d){if(d&&typeof d==="object")ccOrderLog=d;},
     function(){if(typeof ccAutoRender==="function")ccAutoRender();}
   );
+  /* 코스트코 자동발주 ⑤ 승인(2026-11-17 영업2팀 "5단계에서 승인 받고 진행") — {날짜:{by,at}}. 자동화 PC saip-watch ccChainTick이 이걸 보고 송장·사입출고를 건다 */
+  apply("ws/ccApprove","ccApprove",
+    function(d){if(d&&typeof d==="object")ccApprove=d;},
+    function(){if(typeof ccAutoRender==="function")ccAutoRender();}
+  );
   /* DSS 재고(재고 업데이트 DELTA QTY — automation/dss-stock.mjs) → 코스트코 탭 'DSS 재고' 칸 */
   apply("ws/ccDssStock","ccDssStock",
     function(d){if(d&&typeof d==="object")ccDssStock=d;},
@@ -4054,7 +4063,7 @@ function fbListen(){
   );
   apply("ws/wssalesUpload","wssalesUpload",
     function(d){if(d&&typeof d==="object")wssalesUpload=d;},
-    function(){if(typeof renderWsAuto==="function")renderWsAuto();}
+    function(){if(typeof renderWsAuto==="function")renderWsAuto();if(typeof ccAutoRender==="function")try{ccAutoRender();}catch(e){}}   /* .cc = 코스트코 자동발주 ⑥ 세매 */
   );
   /* 세매 날짜·채널별 등록 상태(자동화 PC wssales-upload.mjs가 확인할 때마다 쌓음, 2026-11-17) — 홈 판매조회 채널별 일자표의 세매 칸 */
   apply("ws/wssalesDays","wssalesDays",
@@ -25906,7 +25915,7 @@ function ccAutoGo(mode){
   if(mode==="save"&&qOk&&!(+Q.total)&&!confirm("방금 확인한 새 주문이 0건입니다 ("+_saipFmtAt(Q.at)+").\n\n그래도 발주를 진행할까요?"))return;
   var cntLine=qOk?"발주할 새 주문: "+(Q.accounts||[]).map(function(a){return a.who+" "+a.orders+"건";}).join(" · ")+" → 합계 "+(+Q.total||0)+"건 ("+_saipFmtAt(Q.at)+" 확인)\n\n":"";
   var msg=mode==="save"
-    ?cntLine+"코스트코 발주를 진행합니다.\n\n① DSS 두 아이디 [인쇄] 화면을 열어 새 주문을 확인 처리하고\n② 도매발주서를 만든 뒤\n③ 그 주문들을 DSS [출력](출력완료, 20건씩 페이지를 넘겨 가며) 하고\n④ 김구남 님(gnkim72@daum.net, 참조 영업2팀·CX팀)께 '화이트샌즈("+today.slice(5,7)+today.slice(8,10)+") - 영업2팀' 메일을 바로 보냅니다.\n\n그 뒤는 기다리지 않고 자동으로 이어집니다 — 슬랙 CX팀 글 → 물류 회신(운송장)이 오면 PlayMD 사입출고 → DSS 송장 → 판매현황.\n\n서명: "+_saipMe()+"\nDSS 출력은 되돌리기 어렵습니다. 진행할까요?"
+    ?cntLine+"코스트코 발주를 진행합니다.\n\n① DSS 두 아이디 [인쇄] 화면을 열어 새 주문을 확인 처리하고\n② 도매발주서를 만든 뒤\n③ 그 주문들을 DSS [출력](출력완료, 20건씩 페이지를 넘겨 가며) 하고\n④ 김구남 님(gnkim72@daum.net, 참조 영업2팀·CX팀)께 '화이트샌즈("+today.slice(5,7)+today.slice(8,10)+") - 영업2팀' 메일을 바로 보냅니다.\n\n그 뒤 슬랙 CX팀 글은 자동, 물류 회신(운송장)이 오면 ⑤에서 미출고를 확인하고 [✅ 승인]을 누르면 DSS 송장(미출고 빼고) → 판매현황 → PlayMD 사입출고 → 세매까지 이어집니다.\n\n서명: "+_saipMe()+"\nDSS 출력은 되돌리기 어렵습니다. 진행할까요?"
     :"코스트코 발주 미리보기를 합니다.\n\nDSS는 읽기만 하고, 도매발주서를 만들어 하이웍스 임시보관함에 메일 초안만 저장합니다(보내지 않음).\n\n진행할까요?";
   if(!confirm(msg))return;
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:today.slice(5,7)+today.slice(8,10),date:today,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:mode};
@@ -25919,6 +25928,44 @@ function _ccCopySlack(btn){
   var t=btn.getAttribute("data-t")||"";
   var done=function(){var o=btn.textContent;btn.textContent="✔ 복사됨";setTimeout(function(){btn.textContent=o;},1500);};
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,function(){prompt("복사하세요",t);});else prompt("복사하세요",t);
+}
+/* ⑤ 승인(2026-11-17 영업2팀 "오토탭에 코스트코 자동발주 — 5단계에서 승인 받고 진행. 미출고가 있으면 메일에서 미출고 송장번호를 확인하고 DSS26·31 출고건에서 등록하지 않음. 6단계 사입출고 및 세매 등록까지").
+   물류 회신(운송장)이 와도 자동화 PC는 이 승인(ws/ccApprove[날짜])을 기다린다. 승인하면 승인한 사람 이름으로 PlayMD 사입출고 → DSS 송장(미출고는 뺌) → 판매현황 → 세매(코코 온라인).
+   미출고 = 회신 본문(saip-ready가 읽어 ws/saipReady.cc[].unship). CC_APPROVE_SINCE 전 날짜는 예전처럼 승인 없이 이어졌다 */
+var CC_APPROVE_SINCE="2026-11-17";
+var ccApprove=(function(){try{return JSON.parse(localStorage.getItem("ccApprove")||"null")||{};}catch(e){return {};}})();
+function _ccUnshipTxt(u,short){
+  var OK='<span style="color:#047857;font-weight:700">',WAIT='<span style="color:#b45309;font-weight:700">',BAD='<span style="color:#b91c1c;font-weight:700">',GRAY='<span style="color:#5b6675">';
+  if(!u||!u.said)return GRAY+'미출고: 회신에 언급 없음(모두 출고로 봄)</span>';
+  if(!u.has)return OK+'✅ 미출고 없음</span>'+(short?'':' '+GRAY+'— 회신 \''+_escX(u.text||"미출고 없습니다")+'\'</span>');
+  if(u.unknown)return BAD+'❗ 미출고가 있다는데 송장번호를 못 읽음</span> '+GRAY+'— \''+_escX(String(u.text||"").slice(0,90))+'\' · 승인해도 DSS 송장은 멈춥니다. 메일을 보고 직접 처리</span>';
+  return WAIT+'⚠ 미출고 '+(u.nos||[]).length+'개</span> '+GRAY+'— '+(u.nos||[]).map(_escX).join(", ")+' · DSS26·31에 올리지 않습니다</span>'+(short?'':'<div style="font-size:11.5px;color:#5b6675">회신: \''+_escX(String(u.text||"").slice(0,120))+'\'</div>');
+}
+function _ccApproveNeed(d){return !!d&&d>=CC_APPROVE_SINCE;}
+function ccApproveGo(d){
+  d=d||_ccToday();
+  var md=(+d.slice(5,7))+"/"+(+d.slice(8,10)),L=(ccOrderLog||{})[d];
+  if(ccApprove[d]&&ccApprove[d].by){alert(md+" 코스트코는 이미 승인했습니다 ("+ccApprove[d].by+" · "+_saipFmtAt(ccApprove[d].at)+").");return;}
+  if(!L||L.state!=="sent"){alert(md+" 코스트코 발주 메일을 보낸 기록이 없습니다 — ②③을 먼저 해 주세요.");return;}
+  var it=_saipReadyOf("cc").filter(function(x){return x.date===d&&!x.more;})[0];
+  if(!it){alert(md+" 물류 회신(운송장) 메일이 아직 없습니다.\n\n회신이 오면(자동화 PC가 5분마다 살핌) 이 단추로 승인합니다.");return;}
+  var u=it.unship,ut=!u||!u.said?"미출고: 회신에 언급 없음(모두 출고로 봄)":!u.has?"미출고 없음":u.unknown?"⚠ 미출고가 있다는데 송장번호를 못 읽었습니다 — 승인해도 DSS 송장 입력은 멈춥니다":"⚠ 미출고 "+u.nos.length+"개: "+u.nos.join(", ")+"\n   → 이 송장(주문)은 DSS26·31에 올리지 않습니다";
+  if(!confirm("코스트코 "+md+" 물류 회신을 승인하고 이어서 진행합니다.\n\n회신: "+(it.files||[]).join(", ")+" ("+_saipFmtAt(it.received||it.modified)+")\n"+ut+(u&&u.text?"\n   회신 본문: '"+String(u.text).slice(0,100)+"'":"")
+    +"\n\n⑤ DSS26·31 송장 입력(미출고 빼고) [발송완료 진행] → 코스트코탭 판매현황\n⑥ PlayMD 사입출고 → 세매(코코 온라인) 등록\n\nDSS 발송완료·PlayMD 등록은 되돌리기 어렵습니다. 승인할까요?\n(승인: "+_saipMe()+")"))return;
+  var v={by:_saipMe(),at:new Date().toISOString(),unship:u&&u.has?(u.nos||[]):[]};
+  ccApprove[d]=v;try{localStorage.setItem("ccApprove",JSON.stringify(ccApprove));}catch(e){}
+  ccAutoRender();
+  if(WS_LOCAL_ONLY||(_authState!=="member"&&_authState!=="open")){alert("로그인(승인된 회원)이 필요합니다 — 팀 공유에 저장하지 못했습니다.");return;}
+  try{
+    fbDB.ref("ws/ccApprove").transaction(function(cur){
+      var o={};
+      if(typeof cur==="string"){try{o=JSON.parse(cur)||{};}catch(e){o={};}}else if(cur&&typeof cur==="object")o=cur;
+      if(o[d]&&o[d].by)return;   /* 다른 사람이 먼저 승인 */
+      o[d]=v;Object.keys(o).sort().slice(0,-30).forEach(function(k){delete o[k];});
+      return JSON.stringify(o);
+    },function(err){if(err)alert("승인 저장 오류: "+err.message);},false);
+  }catch(e){alert("승인 저장 오류: "+e.message);}
+  if(!_saipWatchOk())alert("승인을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 진행합니다.");
 }
 var CC_EC_HOLD=true;   /* ⑦ 이카운트 판매등록 보류(2026-11-12 영업2팀) — 자동화 PC saip-watch CC_CHAIN.ecOff와 같이 바꾼다 */
 function ccAutoRender(){
@@ -26016,11 +26063,18 @@ function ccStepDss(){
       :CSs.state==="none"?WAIT+'더할 줄 없음</span> '+GRAY+_escX(CSs.note||"")+'</span>'
       :BAD+'❗ '+(CSs.state==="nomail"?'회신 메일 없음':'멈춤')+'</span> '+GRAY+_escX(CSs.note||"")+'</span>')
     :actC?waitTxt:GRAY+'아직</span>';
-  var s5=(DD||CSs||actC||LP)?'<div>🚚 DSS 송장 '+dTxt+'</div><div>🗂 코스트코탭 판매현황 '+cTxt+'</div>'
+  /* ⑤ 승인(2026-11-17) — 회신이 와도 승인 전엔 시작하지 않는다. 미출고는 회신 본문에서(saipReady.cc[].unship) */
+  var apNeed=_ccApproveNeed(gd),AP=(ccApprove||{})[gd],apOk=!!(AP&&AP.by),rdyIt=_saipReadyOf("cc").filter(function(x){return x.date===gd&&!x.more;})[0];
+  var apWait=apNeed&&rdy&&!apOk&&!(DD||CSs||actC||LP);
+  var apLine=apNeed&&apOk?'<div>'+OK+'✅ 승인</span> '+GRAY+_escX(AP.by)+' · '+_escX(_saipFmtAt(AP.at))+'</span></div>':'';
+  var unLine=DD&&DD.unship?'<div>'+_ccUnshipTxt({said:1,has:1,nos:DD.unship.nos||[],text:DD.unship.text},1)+(DD.unship.orders&&DD.unship.orders.length?' '+GRAY+'· 뺀 주문 '+DD.unship.orders.length+'건</span>':'')+'</div>':rdyIt&&apNeed?'<div>'+_ccUnshipTxt(rdyIt.unship,apOk)+'</div>':'';
+  var s5=(DD||CSs||actC||LP)?apLine+unLine+'<div>🚚 DSS 송장 '+dTxt+'</div><div>🗂 코스트코탭 판매현황 '+cTxt+'</div>'
     :gN===0?GRAY+'새 주문 0건이라 없음</span>'
+    :apWait?WAIT+'물류 회신 왔음 · 승인 대기</span> '+GRAY+'— '+_escX((rdyIt&&rdyIt.files||[]).join(", "))+' ('+_escX(_saipFmtAt(rdyIt&&(rdyIt.received||rdyIt.modified)))+')</span>'+unLine+'<div style="font-size:12px;color:#5b6675">미출고를 확인하고 <b>✅ 승인</b>을 누르면 ⑤ DSS26·31 송장(미출고 빼고) → 판매현황 → ⑥ PlayMD 사입출고 → 세매까지 이어집니다</div>'
+    :rdy&&apNeed&&apOk?apLine+unLine+RUN+'⏳ 곧 시작</span> '+GRAY+'— 자동화 PC가 1분 안에 요청합니다</span>'
     :rdy?WAIT+'물류 회신 왔음</span> '+GRAY+'— 곧 자동으로 등록합니다(1분 안에)</span>'
-    :!d3?GRAY+'③ 뒤에 — 물류 회신(운송장)이 오면 자동</span>'
-    :GRAY+'물류 회신(운송장) 메일을 기다리는 중 — 오면 자동으로</span>';
+    :!d3?GRAY+'③ 뒤에 — 물류 회신(운송장)이 오면 '+(apNeed?'승인 단추':'자동')+'</span>'
+    :GRAY+'물류 회신(운송장) 메일을 기다리는 중 — 오면 '+(apNeed?'미출고를 보여 주고 <b>✅ 승인</b>을 기다립니다':'자동으로')+'</span>';
   var s6=LP?OK+_escX(_saipFmtAt(LP.at))+' · '+_escX(_saipWho(LP.by))+(LP.qty!=null?' · '+LP.qty+'개':'')+'</span>'
     :ph==="req"?RUN+'⏳ 요청됨</span> '+GRAY+'— '+_escX(_saipWho(Rc.by))+' · '+_escX(_saipFmtAt(Rc.at))+'</span>'
     :ph==="pm"?RUN+'⏳ 등록 중</span>'+pgT()
@@ -26032,6 +26086,18 @@ function ccStepDss(){
     :gN===0?GRAY+'새 주문 0건이라 없음</span>'
     :rdy?WAIT+'아직</span> '+GRAY+'— 곧 자동으로 등록</span>'
     :GRAY+'물류 회신 뒤에 자동</span>';
+  /* ⑥ 세매(코코 온라인) — 승인으로 돌린 날짜만(2026-11-17). 자동화 PC ccChainWs: 사입출고 뒤 판매일보(매시 받기, 45분 넘으면 직접 받기)가 오면 wssales-upload --only=코코 온라인 --day */
+  var WSd=(wssalesDays||{})[gd+"|코코 온라인"],WU=wssalesUpload&&wssalesUpload.cc&&wssalesUpload.cc.day===gd?wssalesUpload.cc:null;
+  var Rw=(saipReq||{}).wsu,actW=_saipReqActive(Rw)&&Rw.chain&&Rw.day===gd,Rpm=(saipReq||{}).pms,actPm=_saipReqActive(Rpm)&&Rpm.chain;
+  var wsOk=!!((WU&&WU.ok)||(WSd&&WSd.s==="ok"&&LP&&WSd.at&&new Date(WSd.at).getTime()>=new Date(LP.at).getTime()));
+  var wsTxt=wsOk?OK+(WU&&WU.results&&WU.results.length?WU.results.length+'개 파일 올림':'세매에 들어감')+'</span>'+(WSd&&WSd.d!=null?' '+GRAY+'· '+Number(WSd.d||0).toLocaleString()+'원</span>':'')
+    :actW?RUN+'⏳ '+(Rw.state==="요청"?'요청됨':'올리는 중')+'</span>'
+    :WU&&!WU.ok?BAD+'❗ 멈춤</span> '+GRAY+_escX(String(WU.err||((WU.results||[]).filter(function(r){return !r.ok;})[0]||{}).msg||"").slice(0,90))+' — 🤖 자동화 탭 세일즈 매니지먼트 칸에서 [지금 올리기]</span>'
+    :actPm&&LP?RUN+'⏳ PlayMD 판매일보 받는 중</span>'
+    :LP?WAIT+'판매일보 기다리는 중</span> '+GRAY+'— 사입출고가 매시 받기에 들어오면 자동(45분 넘거나 17시 뒤면 직접 받기)</span>'
+    :GRAY+'PlayMD 사입출고 뒤에</span>';
+  var wsNeed=apNeed&&apOk;
+  if(wsNeed)s6='<div>📒 PlayMD '+s6+'</div><div>📊 세매(코코 온라인) '+wsTxt+'</div>';
   /* ⑦ 이카운트 판매등록(2026-11-12 영업2팀 "6번 플레이엠디 사입출고와 이카운트 판매등록도 같이 되게") — ⑥ 등록이 판매일보(매시)에 들어오면
      자동화 PC(saip-watch ccChainEcount)가 그 날 코스트코 온라인(COSO) 전표를 이카운트 판매입력에 넣는다. 넣은 기록 = ws/ecSalLog/{날짜}_COSO */
   var EK=gd+"_COSO",EL=gd?ecSalLog[EK]:null,Re=(saipReq||{}).es,actE=_saipReqActive(Re)&&Re.chain&&Re.date===gd;
@@ -26049,14 +26115,15 @@ function ccStepDss(){
     :GRAY+'⑥ 뒤에 자동</span>';
   var k7=EL?"done":CC_EC_HOLD?"skip":gN===0&&!actE?"skip":(actE||LP||ESbad)?"on":"todo";
   var b7=EL?{p:100,t:"완료"}:CC_EC_HOLD?{p:0,t:"보류"}:gN===0&&!actE?{p:100,t:"할 일 없음"}:actE?(Re.state==="요청"?{p:3,t:"요청됨"}:est(Re.startedAt||Re.at,90)):{p:0,t:LP?"판매일보 대기":"대기"};
-  var d5=dssOk&&salOk,d6=!!LP;
+  var d5=dssOk&&salOk,d6=!!LP&&(!wsNeed||wsOk);
   var k5=d5?"done":gN===0&&!DD&&!CSs?"skip":(actC||rdy||DD||CSs)?"on":"todo";
-  var k6=d6?"done":gN===0&&!actC?"skip":(actC||actP||rdy||LPp)?"on":"todo";
+  var k6=d6?"done":gN===0&&!actC?"skip":(actC||actP||(rdy&&!apWait)||LPp||(LP&&wsNeed))?"on":"todo";
   /* 상태바 — 실제 단계로: PlayMD 중엔 ⑥만 차오르고, 송장 25% · 판매현황 75%(송장이 끝났으면) */
   var b5=d5?{p:100,t:"완료"}:gN===0&&!DD&&!CSs?{p:100,t:"할 일 없음"}
     :ph==="dss"?{p:25,t:"송장 입력 중"}:ph==="sal"?{p:dssOk?75:50,t:"판매현황 중"}
     :(dssOk||salOk)?{p:50,t:"1/2"}:{p:0,t:ph==="req"?"요청됨":ph==="pm"?"PlayMD 다음":"대기"};
   var b6=d6?{p:100,t:"완료"}:gN===0&&!actC?{p:100,t:"할 일 없음"}
+    :LP&&wsNeed?(actW?{p:85,t:"세매 올리는 중"}:{p:70,t:actPm?"판매일보 받는 중":"세매 대기"})
     :ph==="pm"?est(Rc.startedAt||Rc.at,150):ph==="req"?{p:3,t:"요청됨"}:actP?est(Rc.startedAt||Rc.at,120):{p:0,t:actC?"확인 중":"대기"};
   var bar=function(b,k){var run=b.p>0&&b.p<100,c=b.p>=100?"#16a34a":run?"repeating-linear-gradient(45deg,#f59e0b 0 8px,#fbbf24 8px 16px)":"#cbd5e1";
     return '<div style="display:flex;align-items:center;gap:6px;margin-top:4px"><div style="flex:1;height:8px;border-radius:5px;background:#e2e8f0;overflow:hidden">'
@@ -26068,11 +26135,15 @@ function ccStepDss(){
   var u2=sb(k2,'🚚 발주하기',"ccAutoGo('save')",'DSS 출력 · 도매발주서 · 메일까지 — 오늘 이미 발주했으면 막습니다');
   var u3=sb(k3,'✉️ 메일 보내기',"ccAutoGo('send')",'오늘 만든 도매발주서를 누른 사람 서명으로 보냅니다(초안만 있는 날)');
   var u4=gN==null?'':'<button class="bs cc-step-b'+(k4==="on"&&!d4?' cc-step-b-on':'')+'" onclick="_ccCopySlack(this)" data-t="'+_escX(gsl)+'" title="슬랙 CX팀 채널에 올릴 문구를 복사합니다">📋 문구 복사</button>';
-  var u5=sb(d5?"done":k5,(DD||CSs)&&!d5?'🔁 송장 · 판매현황 다시':'▶ 송장 · 판매현황 실행','ccStepDss()','오늘 발주의 물류 회신 운송장으로 DSS 송장 입력 → 코스트코탭 판매현황 (PlayMD 사입출고는 건너뜀)');
+  var u5=apWait?'<button class="bs cc-step-b cc-step-b-on" onclick="ccApproveGo(\''+gd+'\')" title="미출고를 확인했으면 누르세요 — 자동화 PC가 DSS26·31 송장 입력(미출고 빼고) → 판매현황 → PlayMD 사입출고 → 세매까지 이어 갑니다">✅ 승인</button>'
+    :sb(d5?"done":k5,(DD||CSs)&&!d5?'🔁 송장 · 판매현황 다시':'▶ 송장 · 판매현황 실행','ccStepDss()','오늘 발주의 물류 회신 운송장으로 DSS 송장 입력 → 코스트코탭 판매현황 (PlayMD 사입출고는 건너뜀)');
   var u6=sb(k6,'↗ 매출등록 카드',"apOpen('ccorder','saipAutoCc')",'사입출고등록 🛒 코스트코 매출등록 카드에서 확인 · 등록합니다');
   var u7=sb(k7,'↗ 이카운트 탭',"switchTab('ecount')",'이카운트 탭 💰 매출 등록에서 직접 넣습니다');
   var row=function(n,t,st,k,b,u){return '<div class="cc-step cc-step-'+k+'"><div class="cc-step-h"><span class="cc-step-n">'+n+'</span>'+t+(k==="done"?' <span class="cc-step-ok">완료</span>':k==="on"?' <span class="cc-step-now">지금</span>':'')+'</div><div class="cc-step-s">'+st+'</div>'+bar(b,k)+(u?'<div class="cc-step-u">'+u+'</div>':'')+'</div>';};
-  h+='<div class="cc-steps">'+row('①','🔢 건수 확인',s1,k1,b1,u1)+row('②','🚚 발주하기',s2,k2,b2,u2)+row('③','✉️ 메일 보내기',s3,k3,b3,u3)+row('④','💬 슬랙 CX팀',s4,k4,b4,u4)+row('⑤','🚚 DSS 송장 · 판매현황',s5,k5,b5,u5)+row('⑥','📒 PlayMD 사입출고',s6,k6,b6,u6)+row('⑦','🧮 이카운트 판매등록',s7,k7,b7,u7)+'</div>';
+  h+='<div class="cc-steps">'+row('①','🔢 건수 확인',s1,k1,b1,u1)+row('②','🚚 발주하기',s2,k2,b2,u2)+row('③','✉️ 메일 보내기',s3,k3,b3,u3)+row('④','💬 슬랙 CX팀',s4,k4,b4,u4)+row('⑤','🚚 DSS 송장 · 판매현황',s5,k5,b5,u5)+row('⑥',wsNeed?'📒 PlayMD 사입출고 · 📊 세매':'📒 PlayMD 사입출고',s6,k6,b6,u6)+row('⑦','🧮 이카운트 판매등록',s7,k7,b7,u7)+'</div>';
+  /* 지난 발주 날짜의 회신이 늦게 와 승인을 기다리는 것(최근 4일) */
+  var apOld=_saipReadyOf("cc").filter(function(x){var o=(ccOrderLog||{})[x.date];return x.date!==gd&&!x.more&&_ccApproveNeed(x.date)&&o&&o.state==="sent"&&!((ccApprove||{})[x.date]||{}).by&&(new Date(gd)-new Date(x.date))<=4*864e5;});
+  apOld.forEach(function(x){h+='<div style="color:#b45309;font-weight:700">⏳ '+(+x.date.slice(5,7))+'/'+(+x.date.slice(8,10))+' 발주 물류 회신 승인 대기 · '+_ccUnshipTxt(x.unship,1)+' <button class="bs cc-step-b cc-step-b-on" onclick="ccApproveGo(\''+x.date+'\')">✅ 승인</button></div>';});
   if(R&&R.state){
     var who=(R.auto?'🤖 자동 · ':'')+_escX(R.by||"?")+' · '+_escX(_saipFmtAt(R.at)),what=R.mode==="save"?"발주":R.mode==="send"?"발주 메일 보내기":"미리보기";
     if(_saipReqActive(R))h+='<div style="color:#1d4ed8;font-weight:700">⏳ '+what+' '+(R.state==="요청"?'요청됨 ('+who+') — '+(_saipWatchOk()?'자동화 PC가 곧 시작합니다':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>'):'진행 중… ('+who+')')+'</div>'+_ccProgBar(R,S);
@@ -26096,9 +26167,10 @@ function ccStepDss(){
   if(!h)h='<span style="color:#5b6675">아직 실행 기록이 없습니다. 처음에는 <b>미리보기</b>로 메일 초안을 확인해 주세요.</span>';
   /* 평일 8:30 자동 발주(2026-10-06 영업2팀 8:40 → 10-08 8:30 — 자동화 PC saip-watch ccAutoOrder, 로그인이 풀려 있으면 로그인 창·슬랙 요청 뒤 기다림). 메일은 초안까지라 보내기는 사람이 */
   /* 2026-10-12 영업2팀: 8:30 자동 발주를 끄고 버튼으로만 — 누르기 전에 [🔢 건수 확인]으로 건수를 본다 */
-  h='<div style="font-size:12px;color:#5b6675;margin-bottom:3px">① 건수 확인 · ② 발주하기만 누르면 ③~⑥(메일 보내기 · 슬랙 · 회신 오면 송장·판매현황·사입출고)은 자동으로 이어집니다'+(CC_EC_HOLD?' · ⑦ 이카운트 판매등록은 보류 중':'')+'</div>'+h;
+  h='<div style="font-size:12px;color:#5b6675;margin-bottom:3px">① 건수 확인 · ② 발주하기를 누르면 ③ 메일 보내기 · ④ 슬랙은 자동, 물류 회신이 오면 <b>⑤에서 미출고를 확인하고 [✅ 승인]</b> → ⑤ DSS26·31 송장(미출고 빼고)·판매현황 · ⑥ PlayMD 사입출고 · 세매까지 자동'+(CC_EC_HOLD?' · ⑦ 이카운트 판매등록은 보류 중':'')+'</div>'+h;
   box.innerHTML=h;
   _apCopy("ccAutoStatus","autoCcStatus");
+  _apCopy("ccAutoStatus","auto2CcStatus");   /* ⚡ AUTO 탭(2026-11-17) */
   _ccProgTick();
 }
 /* 진행 막대(2026-10-06 영업2팀 — "오래 걸려 발주 중인지 몰라 [발주하기]를 계속 누르게 된다").

@@ -106,6 +106,20 @@
   **같은 날 15:35 둘 다 껐다**(영업2팀 "멈춰주세요" → "이카운트 등록은 일단 보류"): `CC_CHAIN.pmRetry=0` · `ecOff=true`, 자비스 `CC_EC_HOLD=true`(⑦ 칸 `⏸ 보류 중`). 다시 켤 때 셋을 같이 바꾼다.
   끄기 전 15:33에 **11/12 COSO 전표(5줄 · 7개 · 99,359원)가 이카운트에 실제로 저장됐다**(알림 `성공 : 5건 · 실패 : 0건`) — 그런데 `ecount-sales.mjs`가 이 알림을 실패로 읽어
   `ws/ecSalLog/2026-11-12_COSO`를 남기지 않았고 저장 뒤 단가 채우기(fixprice)도 안 돌았다. ⑦ 칸은 이 경우 '이카운트에 저장됨 · 자비스 기록 없음 — 다시 넣지 마세요'로 보인다. 실패로 읽은 원인은 아직 안 고쳤다.
+  **2026-11-17 — ⚡ AUTO 탭 · ⑤ 승인 · 미출고 · ⑥ 세매**(영업2팀 "오토탭에 코스트코 자동발주. 자동화탭과 방식이 같고 5단계에서 승인 받고 진행. 미출고가 있으면 메일에서 미출고 송장번호를 확인하고 DSS26·31 출고건에서 등록하지 않음. 6단계 사입출고 및 세매등록까지"):
+  - AUTO 탭 `#auto2CcCard` — 칸 안은 `ccAutoRender`를 `_apCopy("ccAutoStatus","auto2CcStatus")`로 복사(자동화 탭 `#autoCcStatus`와 같은 방식). 흐름은 하나라 **승인은 세 화면(코스트코 발주 탭·자동화 탭·AUTO 탭) 어디서 눌러도 같다**.
+  - **⑤ 승인**: `saip-watch CC_CHAIN.approve`(approveSince 2026-11-17) — 물류 회신이 와도 `ws/ccApprove[날짜] = {by,at,unship}`이 있어야 cc save를 건다(서명 = 승인한 사람, `ccChainLog[날짜].approved`).
+    자비스 `ccApproveGo(날짜)`(⑤ 칸 `✅ 승인`, 회신이 `saipReady.cc`에 있고 그날 발주 메일 `sent`일 때만). 지난 날짜(4일 안) 회신 승인 대기도 카드 위에 줄로. 승인 전 날짜(11/16 이전)는 예전처럼 바로.
+    수동 ⑤ `ccStepDss`·매출등록 카드 [등록]은 승인 없이 그대로(사람이 누른 것).
+  - **미출고**: `hiworks-cc.mjs parseUnship` — 회신 본문(`text_content`, `--- 원본 메일` 위쪽)에서 '미출고'를 찾는다. `미출고 없습니다`면 없음, 언급이 없으면 없음으로 본다.
+    '미출고'가 있는데 '없'이 아니면 위쪽의 10~15자리 숫자(하이픈 빼고, 0으로 시작하는 전화번호 제외)를 미출고 번호로 본다 — **9/21~11/17 회신에 실제 미출고가 한 번도 없어 적는 모양을 못 봤다**. 번호를 못 읽으면 `unknown` → DSS 송장 입력이 멈춘다(사람이 메일 보고).
+    `saip-ready`가 `saipReady.cc[].unship`으로 올려 승인 칸에 미리 보이고, `dss-invoice.mjs`가 그 송장번호(또는 주문번호)를 도매발주서 짝에서 빼 **DSS26·31 어디에도 안 올린다**(`ccDssStatus.unship {nos,text,orders}`).
+    **PlayMD 사입출고·판매현황은 미출고도 그대로 등록한다**(요청은 DSS만) — 바꾸려면 playmd-hs-saip cc·cc-sales-register에도 빼기를 넣을 것.
+  - **⑥ 세매**: `ccChainWs` — 승인 날짜의 PlayMD 사입출고(`saipLog.cc`)가 끝나고 그 뒤에 받은 판매일보(`downloads/매장판매일보_YYYYMM01-오늘.xlsx`, 매시 받기)가 있으면
+    `saipReq.wsu {mode:'upload', only:'코코 온라인', day, chain}` → `wssales-upload.mjs --force --only=코코 온라인 --day=YYYY-MM-DD`(그 하루만, 오늘이어도 — 결과는 `ws/wssalesUpload.cc`, 그날 .done·자동화 탭 결과 칸은 안 건드림).
+    매시 받기를 `wsWaitMin`(45)분 기다리고 그래도 없거나 17시 뒤면 `saipReq.pms`(지난달 1일~오늘)를 건다. 날짜마다 한 번(`ccChainLog[날짜].ws·wsPm`), 끄려면 `CC_CHAIN.wsOff=true`.
+    ⑥ 칸은 PlayMD 등록 + 세매(코코 온라인) 둘 다 끝나야 완료(`wssalesUpload.cc.ok` 또는 `wssalesDays[날|코코 온라인].s==='ok'`).
+  - 백업 `automation/_backup-{hiworks-cc,dss-invoice,saip-watch,saip-ready,wssales-upload}-1117-ccapprove.mjs`. **saip-watch를 다시 띄워야 적용된다**(saip-ready는 watcher 안에서 import).
   **칸마다 진행 상태바**(2026-10-16): 끝남 100%(초록) · 도는 중 주황 줄무늬 — ② 발주는 실제 단계 수(`_ccProg`, ws/ccOrderStatus steps), ① 건수 확인(~1분)·③ 메일 보내기(~40초)는 보통 걸리는 시간 대비 지난 시간(95%에서 멈춤) · 아직 0%. `_ccProgTick`이 건수 확인 중에도 10초마다 다시 그린다.
   **⑤ DSS 송장 · 판매현황 · ⑥ PlayMD 사입출고**(2026-11-03 영업2팀 "5단계 DSS 송장 업로드·자비스 코스트코탭 매출등록, 6단계 플레이엠디 사입출고 완료"): 오늘 발주 날짜의 물류 회신(운송장)이 오면
   사입출고등록 🛒 코스트코 매출등록 하나가 차례로 한다(PlayMD 매출등록 → DSS 송장 → 판매현황). ⑤ = `ws/ccDssStatus`(save, 26·31 입력 건수) + **`ws/ccSalesStatus`**
