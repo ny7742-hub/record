@@ -3783,6 +3783,7 @@ function fbListen(){
     function(d){if(Array.isArray(d)&&d.length>0){popupDB=d;}},
     function(){
       if(document.getElementById("page-popup")&&document.getElementById("page-popup").style.display!=="none")renderPopupPage();
+      if(typeof epRender==="function")try{epRender();}catch(e){}
       var ph=document.getElementById("page-home");if(ph&&ph.style.display!=="none"&&typeof renderHomeDashboard==="function")renderHomeDashboard();
     }
   );
@@ -9287,29 +9288,68 @@ var _epSel={},_epOpen={},_epShowSent=false,_epEdit={};
 function epInfoEdit(k){_epEdit[k]=!_epEdit[k];epRender();if(_epEdit[k])setTimeout(function(){var el=document.getElementById("epInf_recv_"+k);if(el)el.focus();},0);}
 function epInfoSave(k,wh){
   var g=function(f){var el=document.getElementById("epInf_"+f+"_"+k);return el?String(el.value).trim():"";};
-  var st=_ordStoreByCode(wh),name=g("name")||(st&&st.name)||"";
-  var v={recv:g("recv"),tel:g("tel"),addr:g("addr"),by:_saipMe(),at:new Date().toISOString()};
-  if(!st||st.custom){if(!name){alert("매장명을 넣어 주세요.");return;}v.name=name;}
-  if(!v.recv||!v.tel||!v.addr){if(!confirm("비어 있는 칸이 있습니다(수령인·연락처·주소). 이대로 저장할까요?"))return;}
-  if(!ordStoreInfo||typeof ordStoreInfo!=="object")ordStoreInfo={};
-  ordStoreInfo[wh]=v;_ordStoreApplyInfo();
-  wsSetItem("ordStoreInfo",JSON.stringify(ordStoreInfo));
+  var slip=_epSlips().filter(function(y){return y.key===k;})[0],cur=slip?_epStore(slip):null;
+  /* 팝업 탭에서 온 매장이면 그 팝업 줄에 적는다(팝업 탭 주소 칸 아래 수령인·연락처와 같은 칸) */
+  if(cur&&cur.pop&&!cur.base){
+    var p=cur.pop,i=popupDB.indexOf(p);if(i<0){alert("팝업 일정을 다시 찾지 못했습니다 — 새로 고침 후 다시 해 주세요.");return;}
+    var nv={recv:g("recv"),tel:g("tel"),addr:g("addr")};
+    if(!nv.recv||!nv.tel||!nv.addr){if(!confirm("비어 있는 칸이 있습니다(수령인·연락처·주소). 이대로 저장할까요?"))return;}
+    p.recv=nv.recv;p.tel=nv.tel;p.addr=nv.addr;savePopupDB();
+    try{var pp=document.getElementById("page-popup");if(pp&&pp.style.display!=="none")renderPopupPage();}catch(e){}
+  }else{
+    var st=_ordStoreByCode(wh),name=g("name")||(st&&st.name)||"";
+    var v={recv:g("recv"),tel:g("tel"),addr:g("addr"),by:_saipMe(),at:new Date().toISOString()};
+    if(!st||st.custom){if(!name){alert("매장명을 넣어 주세요.");return;}v.name=name;}
+    if(!v.recv||!v.tel||!v.addr){if(!confirm("비어 있는 칸이 있습니다(수령인·연락처·주소). 이대로 저장할까요?"))return;}
+    if(!ordStoreInfo||typeof ordStoreInfo!=="object")ordStoreInfo={};
+    ordStoreInfo[wh]=v;_ordStoreApplyInfo();
+    wsSetItem("ordStoreInfo",JSON.stringify(ordStoreInfo));
+  }
   Object.keys(_epEdit).forEach(function(x){var s2=_epSlips().filter(function(y){return y.key===x;})[0];if(s2&&s2.wh===wh)_epEdit[x]=false;});
   epRender();
 }
 function _epInfoRow(s){
-  var k=s.key,st=_ordStoreByCode(s.wh),known=st&&!st.custom,nm=(st&&st.name)||((typeof ecStock!=="undefined"&&ecStock&&ecStock.names&&ecStock.names[s.wh])||"");
+  var k=s.key,st=_epStore(s),pop=st&&st.pop&&!st.base?st.pop:null,base=_ordStoreByCode(s.wh),known=pop||(base&&!base.custom);
+  var nm=(st&&st.name)||((typeof ecStock!=="undefined"&&ecStock&&ecStock.names&&ecStock.names[s.wh])||"");
   var inp=function(f,ph,val,w){return '<input id="epInf_'+f+'_'+k+'" placeholder="'+ph+'" value="'+_esc(val||"")+'" style="width:'+w+';padding:5px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;margin:0" onkeydown="if(event.key===\'Enter\')epInfoSave(\''+k+'\',\''+s.wh+'\')">';};
-  return '<tr><td></td><td colspan="6" style="padding:6px 6px 10px;background:#fffbeb"><div style="font-size:12px;color:#92400e;margin-bottom:4px">✏️ <b>'+_esc(s.wh)+'</b> 매장 정보 — 저장하면 팀 전체에 적용(수기발주·매장 발주·도매발주서 주소록도 같이)</div>'
+  return '<tr><td></td><td colspan="6" style="padding:6px 6px 10px;background:#fffbeb"><div style="font-size:12px;color:#92400e;margin-bottom:4px">✏️ <b>'+_esc(s.wh)+'</b> 매장 정보 — '
+    +(pop?'🏪 팝업 탭 <b>'+_esc(String(pop.store||"").trim())+' '+_esc(_epPopRange(pop))+'</b> 줄에 저장됩니다(팝업 탭 주소·수령인·연락처 칸)':'저장하면 팀 전체에 적용(수기발주·매장 발주·도매발주서 주소록도 같이)')+'</div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
     +(known?'<span style="font-weight:700">'+_esc(nm)+'</span>':inp("name","매장명",nm,"170px"))
-    +inp("recv","수령인",st&&st.recv,"110px")+inp("tel","연락처",st&&st.tel,"130px")+inp("addr","주소",st&&st.addr,"min(420px,100%)")
+    +inp("recv","수령인",pop?pop.recv:st&&st.recv,"110px")+inp("tel","연락처",pop?pop.tel:st&&st.tel,"130px")+inp("addr","주소",st&&st.addr,"min(420px,100%)")
     +'<button class="a2-btn" style="font-size:12px;padding:5px 11px" onclick="epInfoSave(\''+k+'\',\''+s.wh+'\')">저장</button>'
     +'<button class="a2-btn sub" style="font-size:12px;padding:5px 11px" onclick="epInfoEdit(\''+k+'\')">닫기</button></div></td></tr>';
 }
 function _epSlips(){return ((ecPo&&ecPo.slips)||[]).filter(function(s){return s&&s.key;});}
 function _epSentOf(k){return (ecPoSent||{})[k]||null;}
-function _epStore(s){var st=_ordStoreByCode(s.wh);return st&&st.code?st:null;}
+/* 매장 수령인·연락처·주소(2026-11-17 영업2팀 "팝업탭에서 확인하고 자동으로 들어가게" · 붙여 준 기본 주소록 19곳 = ORDER_STORES 그대로):
+   ① 기본 주소록(ORDER_STORES + ✏️ 직접 입력 ws/ordStoreInfo)에 수령인·연락처·주소가 다 있으면 그대로
+   ② 아니면 팝업 탭(popupDB)에서 그 매장(입고창고 코드 = storeNameToCode(팝업 매장명), 또는 이카운트 창고명과 같은 이름) 팝업 줄 —
+      발주서 일자가 기간 안 → 진행중 → 앞으로 열 진행예정 순. 빈 칸만 팝업 줄의 주소·수령인·연락처로 채운다(수령인이 없으면 '화이트샌즈') */
+function _epPopRange(p){var f=function(d){return d?String(d).slice(5).replace("-","/"):"";};return p.start?f(p.start)+"~"+f(p.end):"";}
+function _epPopOf(s){
+  if(!s||!s.wh||typeof popupDB==="undefined"||!Array.isArray(popupDB))return null;
+  /* 이름으로 맞춘다 — 이카운트 창고명·매장명과 _dsNormPop이 같거나 한쪽이 다른 쪽으로 시작(롯데센텀 ↔ 롯데센텀시티).
+     storeNameToCode는 '롯데 부산본점'을 본점(LDA)으로 잡아서, 창고 이름을 모를 때만 쓴다 */
+  var norm=function(x){try{return typeof _dsNormPop==="function"?_dsNormPop(x):String(x||"").replace(/\s/g,"");}catch(e){return String(x||"").replace(/\s/g,"");}};
+  var base=_ordStoreByCode(s.wh),ns=[(typeof ecStock!=="undefined"&&ecStock&&ecStock.names&&ecStock.names[s.wh])||"",base&&base.code?base.name:""].map(norm).filter(function(x){return x&&x.length>=3;});
+  var same=function(a,b){return a===b||(a.length>=4&&b.length>=4&&(a.indexOf(b)===0||b.indexOf(a)===0));};
+  var L=popupDB.filter(function(p){if(!p||!String(p.store||"").trim())return false;var pn=norm(p.store);
+    if(ns.length)return ns.some(function(n){return same(n,pn);});
+    var c="";try{c=storeNameToCode(p.store);}catch(e){}return c===s.wh;});
+  if(!L.length)return null;
+  var d=s.date||new Date().toISOString().slice(0,10);
+  var by=function(a,b){return String(a.start||"").localeCompare(String(b.start||""));};
+  return L.filter(function(p){return p.start&&p.start<=d&&(!p.end||p.end>=d);}).sort(by).pop()
+    ||L.filter(function(p){return p.status==="진행중";}).sort(by).pop()
+    ||L.filter(function(p){return p.status!=="종료"&&p.start&&p.start>=d;}).sort(by)[0]||null;
+}
+function _epStore(s){
+  var b=_ordStoreByCode(s.wh);b=b&&b.code?b:null;
+  if(b&&b.recv&&b.tel&&b.addr)return b;
+  var p=_epPopOf(s);if(!p)return b;
+  return {code:s.wh,name:(b&&b.name)||String(p.store||"").trim(),recv:(b&&b.recv)||String(p.recv||"").trim()||"화이트샌즈",tel:(b&&b.tel)||String(p.tel||"").trim(),addr:(b&&b.addr)||String(p.addr||"").trim(),pop:p,base:b&&(b.recv||b.tel||b.addr)?b:null};
+}
 function _epCanSend(s){return !!_epStore(s)&&(s.lines||[]).some(function(x){return +x.qty>0;});}
 function _epIsSel(s){if(!_epCanSend(s))return false;if(s.key in _epSel)return !!_epSel[s.key];return !_epSentOf(s.key);}
 function _epPicked(){return _epSlips().filter(_epIsSel).sort(function(a,b){return a.key<b.key?-1:1;});}
@@ -9389,6 +9429,7 @@ function epRender(){
       +'<td style="padding:5px 6px;text-align:center"><input type="checkbox" '+(_epIsSel(s)?'checked ':'')+(ok?'':'disabled ')+'onchange="epToggle(\''+s.key+'\',this.checked)"></td>'
       +'<td style="padding:5px 6px;white-space:nowrap"><a href="javascript:void(0)" onclick="epOpenSlip(\''+s.key+'\')" style="color:#1b6e82;font-weight:700">'+E(_epKeyLab(s))+' '+(op?'▴':'▾')+'</a><div style="font-size:11.5px;color:#5b6675">'+E(s.writer||"")+'</div></td>'
       +'<td style="padding:5px 6px">'+(st?E(st.name)+' <span style="color:#5b6675">'+E(s.wh)+'</span>'+(!st.recv||!st.tel||!st.addr?' <span style="color:#b45309;font-weight:700">⚠ 주소 없음</span>':''):'<span style="color:#b91c1c;font-weight:700">'+E(s.wh||"창고 없음")+' — 매장 정보 없음</span>')
+        +(st&&st.pop?' <span title="팝업 탭 '+E(String(st.pop.store||"").trim())+' '+E(_epPopRange(st.pop))+'에서 가져온 수령인·연락처·주소" style="font-size:11.5px;font-weight:700;color:#7c3aed;background:#f5f3ff;border-radius:6px;padding:1px 6px;white-space:nowrap">🏪 팝업 '+E(_epPopRange(st.pop))+'</span>':'')
         +(s.wh?' <a href="javascript:void(0)" onclick="epInfoEdit(\''+s.key+'\')" title="이 매장의 수령인·연락처·주소를 직접 넣거나 고칩니다(팀 전체 적용)" style="color:#1b6e82;font-weight:700;white-space:nowrap">✏️ '+(st&&st.recv&&st.tel&&st.addr?'수정':'입력')+'</a>':'')+'</td>'
       +'<td style="padding:5px 6px">'+E(first)+(L.length>1?' <span style="color:#5b6675">외 '+(L.length-1)+'품목</span>':'')+(L.length?'':'<span style="color:#b91c1c">품목을 읽지 못함</span>')+'</td>'
       +'<td style="padding:5px 6px;text-align:right;font-weight:700">'+q2+'</td>'
@@ -30627,7 +30668,10 @@ function renderPopupPage(){
     var _popCell=function(field,val,ph,color){
       return '<td style="padding:5px 4px"><textarea'+(field==="addr"?' id="popaddr-'+i+'"':'')+' onchange="popupEdit('+i+',\''+field+'\',this.value)" placeholder="'+ph+'" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:16px;font-family:inherit;'+(color?"color:"+color+";":"")+'resize:none;overflow:auto;height:'+_taH+'px;box-sizing:border-box">'+_esc(val||"")+'</textarea></td>';
     };
-    h+=_popCell("addr",row.addr,"주소","");
+    /* 주소 칸 아래 수령인·연락처(2026-11-17 영업2팀) — ⚡ AUTO 🏬 이카운트 백화점 발주가 기본 주소록에 없는 팝업 매장의 도매발주서에 쓴다(수령인 비우면 '화이트샌즈') */
+    h+=_popCell("addr",row.addr,"주소","").replace(/<\/td>$/,'<div style="display:flex;gap:4px;margin-top:4px">'
+      +'<input value="'+_esc(row.recv||"")+'" placeholder="수령인" title="도매발주서 수령인(비우면 화이트샌즈)" onchange="popupEdit('+i+',\'recv\',this.value.trim())" style="flex:1;min-width:0;border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:13px;margin:0">'
+      +'<input value="'+_esc(row.tel||"")+'" placeholder="연락처" title="도매발주서 받는분연락처" onchange="popupEdit('+i+',\'tel\',this.value.trim())" style="flex:1.3;min-width:0;border:1px solid #e5e7eb;border-radius:6px;padding:4px 6px;font-size:13px;margin:0"></div></td>');
     h+=_popCell("hours",row.hours,"영업시간","");
     h+=_popCell("promo",row.promo,"프로모션","#b45309");
     /* 비고 */
@@ -30701,8 +30745,8 @@ function popupDownload(){
   var list=all.filter(function(x){return x.r.status!=="종료";}).sort(cmpS).concat(all.filter(function(x){return x.r.status==="종료";}).sort(cmpE));
   var loss=function(r){if(!_popLossNeed(r))return "";var st=_popLossState(r);return st==="done"?"품의완료":st==="none"?"로스 없음":"작성요망";};
   var smart=function(r){return _popSmartNeed(r)?(r.smartDone?"등록완료":"등록요망"):"";};
-  var aoa=[["구분","매장","시작일","종료일","내용","주소","영업시간","프로모션","비고","스마트플레이스","로스품의서"]];
-  list.forEach(function(x){var r=x.r;aoa.push([r.status||"",r.store||"",r.start||"",r.end||"",r.content||"",r.addr||"",r.hours||"",r.promo||"",r.note||"",smart(r),loss(r)]);});
+  var aoa=[["구분","매장","시작일","종료일","내용","주소","수령인","연락처","영업시간","프로모션","비고","스마트플레이스","로스품의서"]];
+  list.forEach(function(x){var r=x.r;aoa.push([r.status||"",r.store||"",r.start||"",r.end||"",r.content||"",r.addr||"",r.recv||"",r.tel||"",r.hours||"",r.promo||"",r.note||"",smart(r),loss(r)]);});
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"]=[{wch:9},{wch:22},{wch:11},{wch:11},{wch:50},{wch:36},{wch:18},{wch:30},{wch:20},{wch:14},{wch:12}];
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"팝업일정");
