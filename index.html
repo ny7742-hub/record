@@ -4072,6 +4072,10 @@ function fbListen(){
     function(d){if(d&&typeof d==="object")wssalesDays=d;},
     function(){try{a2sRender();}catch(e){}try{ecSalRender();}catch(e){}}
   );
+  apply("ws/ecSalOn","ecSalOn",   /* 11/16 전 온라인 줄(청량리 11/1~11/15, PlayMD 판매유형 '온라인' — 2026-11-17) */
+    function(d){if(d&&typeof d==="object")ecSalOn=d;},
+    function(){try{a2sRender();}catch(e){}try{ecSalRender();}catch(e){}}
+  );
   apply("ws/wssalesHs","wssalesHs",   /* ⚡ AUTO 홈쇼핑 → 세매 테스트 단계 기록(자동화 PC wssales-hs.mjs, 2026-11-13) */
     function(d){if(d&&typeof d==="object")wssalesHs=d;},
     function(){if(typeof whsRender==="function")whsRender();}
@@ -12496,17 +12500,21 @@ function _a2sMark(k,tip){
    세매 「매장 판매 입력」은 줄마다 온라인/오프라인을 고른다(11/16~) → 자동화 PC wssales-upload.mjs가 ws/wssalesDays[날|채널].on[세매 매장명] = {a 온라인 금액, i {자사코드:[수량,금액]}}로 쌓는다.
    그 날 그 매장 줄 중 온라인 수량만큼을 '매장명 (온라인)'(sc = 코드~on)으로 떼고, 그런 매장은 나머지 줄을 '(오프라인)'으로 보인다.
    💰 매출 등록도 이 함수로 온라인 줄을 따로 전표(일자_매장~on, 이카운트 구분 01 온라인)로 만든다 — 판매조회의 이카운트 칸도 그 키로 본다 */
+/* ws/ecSalOn = 11/16 전(세매에 구분이 없던 때) 온라인 줄 — {YYYY-MM-DD: {매장명: {a, i:{자사코드(반품 ~r):[수량,금액]}}}}.
+   2026-11-17 영업2팀 "11/1~11/15 플레이엠디 판매일보 기준(판매유형 '온라인')으로 온오프 구분" — 이카운트 전표를 그대로 나눠 다시 넣은 온라인 줄 */
+var ecSalOn=(function(){try{return JSON.parse(localStorage.getItem("ecSalOn")||"null")||{};}catch(e){return {};}})();
 function _a2sSplitOn(lines){
   var nk=function(s){return String(s||"").replace(/\s+/g,"");},on={},any={},has=0;
-  Object.keys(wssalesDays||{}).forEach(function(k){var v=wssalesDays[k];if(!v||!v.on)return;var day=k.slice(0,10);
-    Object.keys(v.on).forEach(function(n){var o=v.on[n];if(!o||!o.i)return;var m=on[day+"|"+nk(n)]||(on[day+"|"+nk(n)]={});has=1;
-      Object.keys(o.i).forEach(function(c){var x=o.i[c]||[],t=m[c.toUpperCase()]||(m[c.toUpperCase()]=[0,0]);t[0]+=+x[0]||0;t[1]+=+x[1]||0;});});});
+  var add=function(day,n,o){if(!o||!o.i)return;var m=on[day+"|"+nk(n)]||(on[day+"|"+nk(n)]={});has=1;
+    Object.keys(o.i).forEach(function(c){var x=o.i[c]||[],t=m[c.toUpperCase()]||(m[c.toUpperCase()]=[0,0]);t[0]+=+x[0]||0;t[1]+=+x[1]||0;});};
+  Object.keys(wssalesDays||{}).forEach(function(k){var v=wssalesDays[k];if(!v||!v.on)return;var day=k.slice(0,10);Object.keys(v.on).forEach(function(n){add(day,n,v.on[n]);});});
+  Object.keys(ecSalOn||{}).forEach(function(day){var v=ecSalOn[day]||{};Object.keys(v).forEach(function(n){add(day,n,v[n]);});});
   if(!has)return lines;
   var out=[];
   lines.forEach(function(x){
-    var m=on[x.day+"|"+nk(x.sn)],r=m&&m[String(x.code||"").toUpperCase()],q=+x.qty||0;
+    var m=on[x.day+"|"+nk(x.sn)],q=+x.qty||0,c0=String(x.code||"").toUpperCase(),r=m&&((q<0&&m[c0+"~R"])||m[c0]);
     if(!r||!r[0]||!q||(r[0]>0)!==(q>0)){out.push(x);return;}
-    var t=Math.abs(r[0])<Math.abs(q)?r[0]:q,oa=Math.round((+x.amt||0)*t/q);r[0]-=t;any[x.sc]=1;
+    var t=Math.abs(r[0])<Math.abs(q)?r[0]:q,oa=t===r[0]&&r[1]?Math.round(r[1]):Math.round((+x.amt||0)*t/q);r[0]-=t;r[1]-=oa;any[x.sc]=1;
     out.push(Object.assign({},x,{sc0:x.sc,sn0:x.sn,sc:x.sc+"~on",sn:x.sn+" (온라인)",qty:t,amt:oa,on:1}));
     if(t!==q)out.push(Object.assign({},x,{qty:q-t,amt:(+x.amt||0)-oa}));
   });
@@ -12694,7 +12702,8 @@ function a2sRender(){
   /* 이 PC에 줄이 없는 등록 전표 → 자동 입력 작업(ws/ecSalJob)에 든 품목 */
   var jobBy={};Object.keys(_a2sJobs||{}).sort().forEach(function(id){((_a2sJobs[id]||{}).slips||[]).forEach(function(s){if(s&&s.key)jobBy[s.key]=s;});});
   Object.keys(ecSalLog||{}).forEach(function(k){
-    var day=k.slice(0,10);if(day<R[0]||day>R[1]||have[k])return;var s=jobBy[k];if(!s)return;
+    /* 일자_매장~on(온라인 전표)·일자_매장_추가도 이 PC에 그 매장 줄이 있으면 건너뜀 — 두 번 더하지 않게(2026-11-17) */
+    var day=k.slice(0,10),kb=k.slice(0,11)+k.slice(11).split(/[~_]/)[0];if(day<R[0]||day>R[1]||have[k]||have[kb])return;var s=jobBy[k];if(!s)return;
     (s.items||[]).forEach(function(x){lines.push({day:day,ch:s.ch,sc:s.sc,sn:s.sn||s.sc,code:x.code,name:x.name||x.code,qty:+x.qty||0,amt:(+x.sup||0)+(+x.vat||0),_job:1});});
   });
   lines=_a2sSplitOn(lines);
