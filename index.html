@@ -1157,7 +1157,7 @@ label{font-size:14px!important}
         <span id="a2sChips" style="display:inline-flex;gap:4px;flex-wrap:wrap"></span>
         <select id="a2sStore" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="">전체 매장</option></select>
         <input id="a2sQ" oninput="a2sRender()" placeholder="상품명·코드 검색" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;width:150px">
-        <select id="a2sView" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="store" selected>매장별 합계</option><option value="line">일자·매장별</option><option value="item">상품별 합계</option></select>
+        <select id="a2sView" onchange="a2sRender()" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><option value="ch" selected>채널별 일자표</option><option value="store">매장별 합계</option><option value="line">일자·매장별</option><option value="item">상품별 합계</option></select>
         <label style="font-size:12.5px;color:#475569" title="끄면 아직 이카운트에 안 넣은 판매도 같이 보입니다(등록 칸 '미등록')"><input type="checkbox" id="a2sOnly" checked onchange="a2sRender()"> 이카운트 등록된 것만</label>
         <label style="font-size:12.5px;color:#475569" title="일자·매장별 보기에서 판매가 없는 날도 0개·0원 줄로 보입니다(기간 안에 판매가 있는 매장만)"><input type="checkbox" id="a2sZero" checked onchange="a2sRender()"> 판매 없는 날도</label>
       </div>
@@ -12143,6 +12143,69 @@ var _a2s=(function(){try{return JSON.parse(localStorage.getItem("a2sUi")||"null"
 if(!_a2s.ch)_a2s.ch={"백화점":1,"코스트코":1,"홈쇼핑":1,"아난티":1,"트래블메이트":1,"팩토리":1};
 var _a2sJobs=null,_a2sRows=null,_a2sOpen={};
 function a2sOpen(k){_a2sOpen[k]=!_a2sOpen[k];a2sRender();}
+/* 채널별 일자표(2026-11-17 영업2팀 — 날짜는 아래로, 매장은 옆으로, 일 합계 · PlayMD · 이카운트 · 세매 등록 여부)
+   판매 줄은 '이카운트 등록된 것만'과 상관없이 전부(판매일보 + 매장 판매등록 + 트래블메이트) — 등록 여부는 오른쪽 세 칸이 보여 준다.
+   PlayMD ✓ = 그날 그 채널 줄이 PlayMD 매장판매일보(ws/ecSalSrc)에 있음(홈쇼핑·코스트코 온라인·백화점몰은 사입출고등록을 해야 판매일보에 들어온다). 매장 판매등록·트래블메이트만 있는 날은 –.
+   이카운트 = 그날 그 채널 전표(일자_매장) 중 ws/ecSalLog에 있는 수. 세매 = 세일즈 매니지먼트 미등록 확인(ws/wssalesUpload after|check의 ok·partial·missing, 백화점·홈쇼핑·코코 온라인·코코 직매입)
+   + 홈쇼핑은 ⚡ AUTO 세매 등록 기록(ws/wssalesHs[MMDD] state done · step 4). 아난티·팩토리·트래블메이트는 세매에 안 올려 – */
+function _a2sWsMap(){
+  var W=wssalesUpload||{},S=W.after||W.check||W.before,m={};if(!S)return m;
+  (S.ok||[]).forEach(function(x){m[x.ymd+"|"+x.type]="ok";});
+  (S.partial||[]).forEach(function(x){m[x.ymd+"|"+x.type]="part";});
+  (S.missing||[]).forEach(function(x){m[x.ymd+"|"+x.type]="miss";});
+  return m;
+}
+function _a2sMark(k,tip){
+  var M={ok:['✓','#047857'],part:['△','#b45309'],miss:['✗','#b91c1c'],na:['–','#5b6675'],unk:['?','#5b6675']}[k]||['–','#5b6675'];
+  return '<td style="padding:6px 10px;border-bottom:1px solid #eef2f6;text-align:center;font-weight:800;color:'+M[1]+'"'+(tip?' title="'+_escX(tip)+'"':'')+'>'+M[0]+'</td>';
+}
+function _a2sChTables(CL){
+  var nf=function(n){return Math.round(n).toLocaleString();},wm=_a2sWsMap(),out='',wk="일월화수목금토";
+  var th='padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:800;white-space:nowrap;text-align:left;position:sticky;top:0',td='padding:6px 10px;border-bottom:1px solid #eef2f6;font-size:13px;white-space:nowrap';
+  A2S_CH.forEach(function(c){
+    var L=CL.filter(function(x){return x.ch===c;});if(!L.length)return;
+    var st={},days={},cell={};
+    L.forEach(function(x){
+      var s=st[x.sc]||(st[x.sc]={sn:x.sn,amt:0});s.amt+=x.amt;
+      var d=days[x.day]||(days[x.day]={amt:0,qty:0,slips:{},pm:0,scs:{}});d.amt+=x.amt;d.qty+=x.qty;d.slips[x.day+"_"+x.sc]=1;d.scs[x.sc]=1;if(x.pm)d.pm++;
+      var k=x.day+"_"+x.sc;cell[k]=(cell[k]||0)+x.amt;
+    });
+    var scs=Object.keys(st).sort(function(a,b){return st[b].amt-st[a].amt;}),tot=L.reduce(function(a,x){return a+x.amt;},0);
+    var h='<div style="margin:4px 0 14px"><div style="font-weight:800;font-size:14px;color:#0f4c5c;margin:6px 2px">'+_escX(_ecSalChLab(c))+' <span style="font-weight:600;color:#5b6675;font-size:12.5px">'+scs.length+'개 매장 · '+nf(tot)+'원</span></div>';
+    h+='<div style="overflow:auto;border:1px solid #e2e8f0;border-radius:8px;max-height:520px"><table style="border-collapse:collapse;min-width:100%"><thead><tr><th style="'+th+'">일자</th>';
+    scs.forEach(function(sc){h+='<th style="'+th+'" title="'+_escX(sc)+'">'+_escX(st[sc].sn)+'</th>';});
+    h+='<th style="'+th+'">일 합계</th><th style="'+th+';text-align:center">PlayMD</th><th style="'+th+';text-align:center">이카운트</th><th style="'+th+';text-align:center">세매</th></tr></thead><tbody>';
+    Object.keys(days).sort().forEach(function(day){
+      var d=days[day],w=new Date(day+"T00:00:00").getDay();
+      h+='<tr><td style="'+td+(w===0?';color:#b91c1c':w===6?';color:#1d4ed8':'')+'">'+(+day.slice(5,7))+'/'+(+day.slice(8,10))+' <span style="font-size:11px">('+wk[w]+')</span></td>';
+      scs.forEach(function(sc){var k=day+"_"+sc,v=cell[k];
+        h+=v==null?'<td style="'+td+';color:#5b6675">–</td>':'<td style="'+td+';cursor:pointer'+(v<0?';color:#b91c1c':'')+'" onclick="a2sGo(\''+_escX(sc)+'\',\''+day+'\')" title="'+_escX(st[sc].sn)+' '+day+' 상품 보기">'+nf(v)+'</td>';});
+      h+='<td style="'+td+';font-weight:800">'+nf(d.amt)+'</td>';
+      /* PlayMD */
+      h+=d.pm?_a2sMark("ok","PlayMD 매장판매일보에 있음"):_a2sMark("na","PlayMD 판매일보에 없는 판매(매장 판매등록·트래블메이트)");
+      /* 이카운트 */
+      var ks=Object.keys(d.slips),n=ks.filter(function(k){return ecSalLog[k];}).length;
+      h+=_a2sMark(n===ks.length?"ok":n?"part":"miss","이카운트 전표 "+n+"/"+ks.length+"장 넣음"+(n<ks.length?" — 안 넣은 매장: "+ks.filter(function(k){return !ecSalLog[k];}).map(function(k){var sc=k.slice(11);return (st[sc]||{}).sn||sc;}).join(", "):""));
+      /* 세매 */
+      var types=c==="백화점"?["백화점"]:c==="홈쇼핑"?["홈쇼핑"]:c==="코스트코"?Object.keys(d.scs).map(function(sc){return sc==="COSO"?"코코 온라인":"코코 직매입";}):null;
+      if(!types)h+=_a2sMark("na","세일즈 매니지먼트에 올리지 않는 채널");
+      else{
+        var H=c==="홈쇼핑"?((typeof wssalesHs!=="undefined"&&wssalesHs)||{})[day.slice(5,7)+day.slice(8,10)]:null;
+        if(H&&H.state==="done"&&+H.step>=4)h+=_a2sMark("ok","⚡ AUTO 세매 등록 완료"+(H.at?" "+String(H.at).slice(5,16).replace("T"," "):""));
+        else{
+          var r=types.map(function(t){return wm[day+"|"+t]||"unk";}),k2=r.indexOf("miss")>=0?"miss":r.indexOf("part")>=0?"part":r.indexOf("unk")>=0?"unk":"ok";
+          h+=_a2sMark(k2,{miss:"세매 미등록",part:"세매 일부만(금액이 판매일보보다 적음)",unk:"세매 확인 기록 없음 — 🤖 자동화 탭 세일즈 매니지먼트 [🔍 미등록 확인]",ok:"세매 등록됨"}[k2]+" ("+types.join("·")+")");
+        }
+      }
+      h+='</tr>';
+    });
+    h+='<tr style="background:#f6fafb"><td style="'+td+';font-weight:800">합계</td>';
+    scs.forEach(function(sc){h+='<td style="'+td+';font-weight:800">'+nf(st[sc].amt)+'</td>';});
+    h+='<td style="'+td+';font-weight:800">'+nf(tot)+'</td><td colspan="3" style="'+td+'"></td></tr></tbody></table></div></div>';
+    out+=h;
+  });
+  return out;
+}
 /* 매장별 합계 = 매장 × 일자 표(칸 = 그날 판매금액, 아래 작은 글씨 수량). 칸을 누르면 그 매장 일자·매장별 보기에서 그날 상세를 연다 */
 function _a2sDays(R){var out=[],today=_a2sYmd(new Date()),e=R[1]<today?R[1]:today,d=new Date(R[0]+"T00:00:00");while(_a2sYmd(d)<=e&&out.length<400){out.push(_a2sYmd(d));d.setDate(d.getDate()+1);}return out;}
 function a2sGo(sc,day){document.getElementById("a2sStore").value=sc;document.getElementById("a2sView").value="line";if(day)_a2sOpen[day+"_"+sc]=true;a2sRender();
@@ -12203,7 +12266,7 @@ function a2sRender(){
   var jobBy={};Object.keys(_a2sJobs||{}).sort().forEach(function(id){((_a2sJobs[id]||{}).slips||[]).forEach(function(s){if(s&&s.key)jobBy[s.key]=s;});});
   Object.keys(ecSalLog||{}).forEach(function(k){
     var day=k.slice(0,10);if(day<R[0]||day>R[1]||have[k])return;var s=jobBy[k];if(!s)return;
-    (s.items||[]).forEach(function(x){lines.push({day:day,ch:s.ch,sc:s.sc,sn:s.sn||s.sc,code:x.code,name:x.name||x.code,qty:+x.qty||0,amt:(+x.sup||0)+(+x.vat||0)});});
+    (s.items||[]).forEach(function(x){lines.push({day:day,ch:s.ch,sc:s.sc,sn:s.sn||s.sc,code:x.code,name:x.name||x.code,qty:+x.qty||0,amt:(+x.sup||0)+(+x.vat||0),_job:1});});
   });
   var stores={},sel=document.getElementById("a2sStore"),sv=sel.value,q=String(document.getElementById("a2sQ").value||"").trim().toLowerCase(),view=document.getElementById("a2sView").value;
   var rows=[],unreg={},stCh2={};
@@ -12217,6 +12280,19 @@ function a2sRender(){
     rows.push({day:x.day,ch:c,sc:x.sc,sn:x.sn||x.sc,code:x.code,name:x.name||x.code,qty:+x.qty||0,amt:Math.round(+x.amt||0),st:lg?((lg.at?String(lg.at).slice(5,16).replace("T"," "):"")+" "+(lg.by||"")).trim()||"등록":"미등록"});
   });
   sel.innerHTML='<option value="">전체 매장</option>'+Object.keys(stores).sort(function(a,b){return stores[a]<stores[b]?-1:1;}).map(function(sc){return '<option value="'+_escX(sc)+'"'+(sc===sv?' selected':'')+'>'+_escX(stores[sc])+' ('+_escX(sc)+')</option>';}).join("");
+  if(view==="ch"){
+    var CL=[];
+    lines.forEach(function(x){var c=chOf(x);if(A2S_CH.indexOf(c)<0||!_a2s.ch[c])return;if(sv&&x.sc!==sv)return;
+      if(q&&String(x.name||"").toLowerCase().indexOf(q)<0&&String(x.code||"").toLowerCase().indexOf(q)<0)return;
+      CL.push({day:x.day,ch:c,sc:x.sc,sn:x.sn||x.sc,qty:+x.qty||0,amt:Math.round(+x.amt||0),pm:x.ch!=="매장판매"&&x.ch!=="트래블메이트"&&!x._job});});
+    _a2sRows={view:"ch",rows:CL,R:R};
+    var cq=CL.reduce(function(a,x){return a+x.qty;},0),ca=CL.reduce(function(a,x){return a+x.amt;},0),nf0=function(n){return Math.round(n).toLocaleString();};
+    document.getElementById("a2sSum").innerHTML='<b>'+R[0]+(R[1]!==R[0]?' ~ '+R[1]:'')+'</b> · 수량 <b>'+nf0(cq)+'</b>개 · 판매금액 <b>'+nf0(ca)+'</b>원 <span style="color:#5b6675;font-size:12px">— 이 보기는 이카운트에 안 넣은 판매도 다 보이고, 오른쪽 PlayMD·이카운트·세매 칸이 등록 여부(✓ 됨 · △ 일부 · ✗ 안 됨 · ? 확인 기록 없음 · – 해당 없음, 칸에 마우스를 올리면 설명)</span>';
+    box.style.maxHeight="none";
+    box.innerHTML=CL.length?_a2sChTables(CL):'<div style="padding:16px;color:#5b6675;font-size:13px">이 기간·채널에 판매가 없습니다(판매일보를 읽는 중이거나 팀 공유 로그인 필요).</div>';
+    return;
+  }
+  box.style.maxHeight="560px";
   if(view==="item"){
     var by={};rows.forEach(function(r){var b=by[r.code]||(by[r.code]={code:r.code,name:r.name,qty:0,amt:0});b.qty+=r.qty;b.amt+=r.amt;});
     rows=Object.keys(by).map(function(k){return by[k];}).sort(function(a,b){return b.qty-a.qty||b.amt-a.amt;});
@@ -12276,7 +12352,8 @@ function a2sRender(){
 function a2sXlsx(){
   var D=_a2sRows;if(!D||!D.rows||!D.rows.length){alert("받을 줄이 없습니다.");return;}
   var DD=_a2sDays(D.R);
-  var aoa=D.view==="store"?[["채널","매장코드","매장","판매일수","전표","수량","매출합"].concat(DD.map(function(d){return d.slice(5)+" 금액";}))].concat(D.rows.map(function(r){return [_ecSalChLab(r.ch),r.sc,r.sn,r.nd,r.ns,r.qty,r.amt].concat(DD.map(function(d){return r.da[d]||0;}));}))
+  var aoa=D.view==="ch"?[["일자","채널","매장코드","매장","수량","판매금액","PlayMD 판매일보","이카운트"]].concat(D.rows.map(function(r){return [r.day,_ecSalChLab(r.ch),r.sc,r.sn,r.qty,r.amt,r.pm?"O":"",ecSalLog[r.day+"_"+r.sc]?"O":""];}))
+    :D.view==="store"?[["채널","매장코드","매장","판매일수","전표","수량","매출합"].concat(DD.map(function(d){return d.slice(5)+" 금액";}))].concat(D.rows.map(function(r){return [_ecSalChLab(r.ch),r.sc,r.sn,r.nd,r.ns,r.qty,r.amt].concat(DD.map(function(d){return r.da[d]||0;}));}))
     :D.view==="item"?[["상품명","코드","수량","평균 판매가","판매금액"]].concat(D.rows.map(function(r){return [r.name,r.code,r.qty,r.qty?Math.round(r.amt/r.qty):0,r.amt];}))
     :[["일자","채널","매장코드","매장","상품코드","상품명","수량","판매가","판매금액","등록"]].concat([].concat.apply([],D.rows.map(function(s){
       return s.items.length?s.items.map(function(r){return [r.day,_ecSalChLab(r.ch),r.sc,r.sn,r.code,r.name,r.qty,r.qty?Math.round(r.amt/r.qty):0,r.amt,r.st];}):[[s.day,_ecSalChLab(s.ch),s.sc,s.sn,"","(판매 없음)",0,0,0,s.un?"미등록 "+s.un.qty+"개 "+s.un.amt+"원":""]];})));
