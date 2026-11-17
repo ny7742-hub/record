@@ -2505,6 +2505,7 @@ label{font-size:14px!important}
         <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epPullGo()" title="자동화 PC가 이카운트 발주서조회를 지금 다시 읽습니다(평소엔 7~21시 5분마다 자동) — 이카운트에는 아무것도 쓰지 않습니다">🔄 지금 확인</button>
         <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="체크한 발주서로 도매발주서(물류 양식)를 받습니다 — 메일로 보내는 파일과 같습니다">⬇ 도매발주서</button>
         <button class="a2-btn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 이카운트 발주서를 '확인'으로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
+      <div id="epAddSlot" style="margin-bottom:8px"></div>
       <div id="epBox" style="font-size:13px"></div></div>
   </div>
 </div>
@@ -9447,26 +9448,169 @@ function epPullGo(){
   wsSetItem("ecPoReq",JSON.stringify(ecPoReq));epRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 확인합니다.");
 }
+/* ＋ 상품 추가 · 🏨 아난티 발주 같이 넣기(2026-11-17 영업2팀 "백화점 발주 밑에 상품·아난티 발주도 같이") — 도매 발주서 변환의 같은 두 줄(ocAddRender)을 이 칸에도.
+   넣은 줄은 이 브라우저에만(localStorage epExtra, 도매 발주서 변환 표처럼 팀 공유 안 함) → 칸 안 표 → ⬇ 도매발주서·✉️ 발주 메일에 이카운트 발주서 줄 뒤에 같이 나간다.
+   매장 수령인·연락처·주소는 파일을 만들 때 _epStore(기본 주소록 → 팝업 탭)로 다시 찾는다. 메일이 보내졌으면(epStatus.id = 그 요청) 비운다 */
+var _epExtra=(function(){try{var d=JSON.parse(localStorage.getItem("epExtra")||"[]");return Array.isArray(d)?d:[];}catch(e){return [];}})();
+function _epExtraSave(){try{localStorage.setItem("epExtra",JSON.stringify(_epExtra));}catch(e){}}
+function epAddRender(){
+  var sl=document.getElementById("epAddSlot");if(!sl||sl.dataset.ready)return;   /* 한 번만 그린다(입력 중 값 보존) */
+  var PL=_ocProdList(),dl=document.getElementById("ocProdList");
+  if(!dl){dl=document.createElement("datalist");dl.id="ocProdList";document.body.appendChild(dl);}
+  if(dl.dataset.sig!==String(PL.sig)){dl.innerHTML=PL.list.map(function(o){return '<option value="'+_escX(o.label+" ["+o.code+"]")+'">';}).join("");dl.dataset.sig=String(PL.sig);}
+  var opts=ORDER_STORES.filter(function(x){return x.code;}).map(function(x){return '<option value="'+_escX(x.code)+'">'+_escX(x.code+" · "+x.name)+'</option>';}).join("");
+  /* 기본 주소록에 없는 이카운트 백화점·아울렛·몰 창고(롯데 부산본점 LSM 등 — 수령인·주소는 팝업 탭에서)도 고를 수 있게 */
+  var EN=(typeof ecStock!=="undefined"&&ecStock&&ecStock.names)||{};
+  opts+=Object.keys(EN).filter(function(c){var n=String(EN[c]||"");return !_ordStoreByCode(c)&&/백화점|아울렛|롯데몰|현대시티|커넥트/.test(n)&&!/면세/.test(n);}).map(function(c){return '<option value="'+_escX(c)+'">'+_escX(c+" · "+EN[c]+" (팝업)")+'</option>';}).join("");
+  var anOpts=(typeof ANANTI_STORES!=="undefined"?ANANTI_STORES:[]).map(function(x){var o=_ordStoreByCode(x.code);return '<option value="'+_escX(x.code)+'">'+_escX(x.code+" · "+((o&&o.name)||x.code))+'</option>';}).join("");
+  sl.innerHTML='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:#faf5ff;border:1px dashed #c4b5fd;border-radius:8px;padding:6px 8px">'
+    +'<b style="font-size:12.5px;color:#6d28d9">＋ 상품 추가</b>'
+    +'<select id="epAddStore" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;max-width:220px;width:auto;margin:0"><option value="">매장 선택</option>'+opts+'</select>'
+    +'<input id="epAddProd" list="ocProdList" placeholder="상품명이나 자사코드" style="flex:1;min-width:220px;padding:4px 7px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;margin:0">'
+    +'<input id="epAddQty" inputmode="numeric" placeholder="수량" style="width:60px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;text-align:right;margin:0" onkeydown="if(event.key===\'Enter\')epAddItem()">'
+    +'<button onclick="epAddItem()" style="padding:4px 12px;font-size:12.5px;font-weight:700;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer">＋ 추가</button>'
+    +'<span id="epAddMsg" style="font-size:11.5px;color:#5b6675"></span></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:#f0f9ff;border:1px dashed #7dd3fc;border-radius:8px;padding:6px 8px;margin-top:6px">'
+    +'<b style="font-size:12.5px;color:#0369a1">🏨 아난티 발주 같이 넣기</b>'
+    +'<select id="epAnStore" title="비워 두면 파일 이름·상호로 매장을 고릅니다" style="padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;width:auto;margin:0"><option value="">매장 자동(파일 이름)</option>'+anOpts+'</select>'
+    +'<label style="cursor:pointer;margin:0"><span style="display:inline-block;padding:4px 12px;font-size:12.5px;font-weight:700;background:#0369a1;color:#fff;border-radius:6px">📂 아난티 발주서 올리기</span>'
+    +'<input type="file" accept=".xlsx,.xls" style="display:none" onchange="epAnLoad(this)"></label>'
+    +'<span id="epAnMsg" style="font-size:11.5px;color:#5b6675">아난티가 보낸 엑셀 — 바코드로 매칭해 이 도매발주서·발주 메일에 같이 나갑니다</span></div>';
+  sl.dataset.ready="1";
+}
+function epAddItem(){
+  var g=function(id){return document.getElementById(id);};
+  var sc=(g("epAddStore")||{}).value||"",pv=String((g("epAddProd")||{}).value||"").trim(),q=parseInt(String((g("epAddQty")||{}).value||"").replace(/[^0-9]/g,""),10);
+  var msg=g("epAddMsg"),say=function(t,c){if(msg){msg.style.color=c||"#5b6675";msg.textContent=t;}};
+  if(!sc){say("매장을 골라 주세요","#b91c1c");return;}
+  if(!pv){say("상품을 골라 주세요","#b91c1c");return;}
+  if(!(q>0)){say("수량을 적어 주세요","#b91c1c");return;}
+  var P=_ocProdList(),m=/\[([A-Za-z0-9]+)\]\s*$/.exec(pv),code=(m?m[1]:pv).toUpperCase(),o=P.by[code];
+  if(!o){var hit=P.list.filter(function(x){return x.label===pv;});if(hit.length===1)o=hit[0];}
+  if(!o){say("상품데이터에서 못 찾았습니다 — 목록에서 골라 주세요","#b91c1c");return;}
+  _epExtra.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),store:sc,name:o.label,code:o.code,qty:q,added:true,by:_saipMe()});
+  _epExtraSave();(g("epAddProd")||{}).value="";(g("epAddQty")||{}).value="";
+  epRender();
+  var st=_epStore({wh:sc,date:_epToday()})||{};
+  say("✔ "+(st.name||sc)+" · "+o.label+" "+q+"개 추가 (추가 줄 "+_epExtra.length+")","#047857");
+  var wq=typeof whQty==="function"?whQty(o.code):null;
+  if(wq!==null&&typeof WH_MIN_ORDER!=="undefined"&&wq<=WH_MIN_ORDER)say("⚠ 추가했지만 창고재고 "+wq+"개로 발주불가입니다 — 아래 표에서 확인해 주세요","#b45309");
+}
+function epAnLoad(input){
+  var f=input.files;if(!f||!f[0])return;
+  var msg=document.getElementById("epAnMsg");if(msg){msg.style.color="#5b6675";msg.textContent="읽는 중…";}
+  _anProcessFiles(f,function(fn){epAnMerge(fn);});
+  input.value="";
+}
+function epAnMerge(fn){
+  var msg=document.getElementById("epAnMsg"),say=function(t,c){if(msg){msg.style.color=c||"#5b6675";msg.textContent=t;}};
+  var pick=(document.getElementById("epAnStore")||{}).value||"",sel=document.getElementById("anStore");
+  if(pick&&sel){sel.value=pick;try{anRenderTable();}catch(e){}}
+  if(!(sel&&sel.value)){say("⚠ 매장을 찾지 못해 넣지 않았습니다 — 왼쪽 칸에서 매장을 고르고 다시 올리세요","#c2410c");return;}
+  var code=sel.value,st=_ordStoreByCode(code)||{};
+  var add=anRows.filter(function(r){return r.checked&&(Number(r.qty)||0)>0;}).map(function(r){
+    var sku=String(r.skuCode||"").trim();
+    var o={id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),store:code,name:(r.prodName?(r.prodName+" "+(r.colorName||"")).trim():(r.short||r.itemName||"")),code:sku,qty:Number(r.qty)||0,an:true,anFile:fn,by:_saipMe()};
+    if(!sku){o.noSku=true;o.src="아난티 "+(r.itemName||"")+(r.barcode?" · 바코드 "+r.barcode:"");}
+    if(sku&&r.nameWarn)o.anWarn="아난티 품목명 '"+(r.short||r.itemName||"")+"' · 바코드 "+(r.barcode||"")+" → "+o.name+" ("+r.nameWarn+")";
+    return o;
+  });
+  if(!add.length){say("붙일 상품이 없습니다 (수량 0)","#b91c1c");return;}
+  var warnRows=anRows.filter(function(r){return r.checked&&(Number(r.qty)||0)>0&&r.skuCode&&r.nameWarn;});
+  if(warnRows.length&&!confirm("⚠ 아난티 품목명과 바코드 상품이 다른 줄이 "+warnRows.length+"줄 있습니다.\n\n"
+      +warnRows.slice(0,12).map(function(r){return "· 아난티: "+(r.short||r.itemName)+" "+r.qty+"개\n   바코드 "+r.barcode+" → "+r.prodName+" "+r.colorName+" ["+r.skuCode+"]";}).join("\n")
+      +"\n\n아난티에 어느 상품이 맞는지 확인해 주세요.\n[확인] 바코드 상품으로 그대로 넣기(주황 줄로 표시)\n[취소] 넣지 않기 — 🏨 아난티 발주 화면 표에서 자사코드를 고친 뒤 다시 올리세요")){
+    say("⚠ 품목명·바코드 다른 줄 "+warnRows.length+"줄 — 넣지 않았습니다. 🏨 아난티 발주 화면에서 자사코드를 고친 뒤 다시 올리세요","#c2410c");return;
+  }
+  var before=_epExtra.length;
+  _epExtra=_epExtra.filter(function(r){return !(r.an&&r.anFile===fn);}).concat(add);
+  var replaced=before+add.length-_epExtra.length;
+  _epExtraSave();epRender();
+  var noSku=add.filter(function(r){return r.noSku;}).length,qty=add.reduce(function(a,r){return a+(Number(r.qty)||0);},0);
+  say("✔ "+(st.name||code)+" "+add.length+"줄 · "+qty+"개 붙임"+(replaced?" (같은 파일 "+replaced+"줄 바꿈)":"")
+    +(noSku?" · ❗바코드 못 찾은 "+noSku+"줄은 빨간 줄(빼거나 아난티 발주 화면에서 코드를 넣고 다시 올리세요)":"")
+    +(warnRows.length?" · ⚠ 품목명·바코드 다른 "+warnRows.length+"줄은 주황 줄":"")+" · 거래명세서는 🏨 아난티 발주 화면 5단계",(noSku||warnRows.length)?"#b45309":"#047857");
+}
+function epExtraDel(id){
+  var r=_epExtra.filter(function(x){return x.id===id;})[0];if(!r)return;
+  if(!confirm((r.store?r.store+" · ":"")+(r.name||"이 줄")+" "+(r.qty||"")+"개를 뺄까요?"))return;
+  _epExtra=_epExtra.filter(function(x){return x.id!==id;});_epExtraSave();epRender();
+}
+function epExtraQty(id,v){
+  var r=_epExtra.filter(function(x){return x.id===id;})[0];if(!r)return;
+  var n=parseInt(String(v).replace(/[^0-9]/g,""),10);
+  if(!(n>0)){alert("수량은 1 이상이어야 합니다. 이 줄을 빼려면 ✕로 삭제해 주세요.");epRender();return;}
+  r.qty=n;_epExtraSave();epRender();
+}
+function epExtraClear(){if(!_epExtra.length)return;if(!confirm("추가한 줄 "+_epExtra.length+"개를 모두 뺄까요?"))return;_epExtra=[];_epExtraSave();epRender();}
+/* 보낼 추가 줄(코드 없는 줄은 뺀다) → 도매발주서 줄(27칸) */
+function _epExtraOk(){return _epExtra.filter(function(r){return r&&r.code&&+r.qty>0;});}
+function _epExtraRows(){
+  return _epExtraOk().map(function(r){var st=_epStore({wh:r.store,date:_epToday()})||{};
+    var row=[];for(var c=0;c<27;c++)row.push("");
+    row[2]=st.code||r.store;row[3]=st.name||"";row[4]=st.recv||"";row[7]=st.tel||"";row[9]=st.addr||"";
+    row[11]=r.name||"";row[12]=String(r.qty);row[17]=String(r.code).slice(0,8);row[19]=r.code;return row;});
+}
+function _epExtraTable(){
+  if(_epExtraSent()){_epExtra=[];_epExtraSave();try{localStorage.removeItem("epExtraSent");}catch(e){}}
+  if(!_epExtra.length)return "";
+  var E=_esc,q=0;_epExtra.forEach(function(r){q+=+r.qty||0;});
+  var h='<div style="margin:0 0 10px"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:4px"><b style="color:#6d28d9">＋ 추가·🏨 아난티 줄 '+_epExtra.length+'줄 '+q+'개</b><span style="color:#5b6675">— 도매발주서·발주 메일에 이카운트 발주서와 같이 나갑니다(이 브라우저에만 저장)</span>'
+    +'<a href="javascript:void(0)" onclick="epExtraClear()" style="margin-left:auto;color:#b91c1c;font-size:12px">모두 빼기</a></div>'
+    +'<div style="border:1px solid #e9d5ff;border-radius:8px;overflow:auto;max-height:320px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#faf5ff">'
+    +'<th style="padding:4px 6px;text-align:left">구분</th><th style="padding:4px 6px;text-align:left">매장</th><th style="padding:4px 6px;text-align:left">상품명</th><th style="padding:4px 6px;text-align:left">자사코드</th><th style="padding:4px 6px;text-align:right">수량</th><th style="padding:4px 6px;text-align:right">창고재고</th><th style="padding:4px 6px;text-align:left">수령인·주소</th><th style="padding:4px 6px"></th></tr></thead><tbody>';
+  _epExtra.forEach(function(r){
+    var st=_epStore({wh:r.store,date:_epToday()})||{},wq=r.code&&typeof whQty==="function"?whQty(r.code):null,low=wq!==null&&typeof WH_MIN_ORDER!=="undefined"&&wq<=WH_MIN_ORDER;
+    var bg=r.noSku?"#fef2f2":r.anWarn?"#fff7ed":"";
+    h+='<tr style="border-top:1px solid #f3e8ff;'+(bg?'background:'+bg:'')+'">'
+      +'<td style="padding:4px 6px;white-space:nowrap">'+(r.an?'🏨 아난티':'＋ 추가')+'</td>'
+      +'<td style="padding:4px 6px">'+E(st.name||r.store)+' <span style="color:#5b6675">'+E(r.store)+'</span></td>'
+      +'<td style="padding:4px 6px">'+E(r.name||"")+(r.anWarn?'<div style="color:#c2410c;font-size:11.5px">⚠ '+E(r.anWarn)+'</div>':'')+(r.noSku?'<div style="color:#b91c1c;font-size:11.5px">❗코드없음 — '+E(r.src||"")+' (보내지 않음)</div>':'')+'</td>'
+      +'<td style="padding:4px 6px;font-family:monospace">'+E(r.code||"")+'</td>'
+      +'<td style="padding:4px 6px;text-align:right"><input value="'+E(r.qty)+'" inputmode="numeric" onchange="epExtraQty(\''+r.id+'\',this.value)" style="width:52px;text-align:right;padding:2px 4px;border:1px solid #cbd5e1;border-radius:5px;font-size:12.5px;margin:0"></td>'
+      +'<td style="padding:4px 6px;text-align:right;'+(low?'color:#b91c1c;font-weight:700':'')+'">'+(wq===null?'-':wq)+(low?' 발주불가':'')+'</td>'
+      +'<td style="padding:4px 6px;font-size:12px">'+(st.recv&&st.tel&&st.addr?E(st.recv)+' · '+E(st.addr):'<span style="color:#b45309;font-weight:700">⚠ 매장 정보 비어 있음</span>')+'</td>'
+      +'<td style="padding:4px 6px;text-align:center"><a href="javascript:void(0)" onclick="epExtraDel(\''+r.id+'\')" style="color:#b91c1c;font-weight:700">✕</a></td></tr>';
+  });
+  return h+'</tbody></table></div></div>';
+}
+/* 내가 보낸 요청이 보내졌나 — 보냈으면 추가 줄을 비운다 */
+function _epExtraSent(){var id="";try{id=localStorage.getItem("epExtraSent")||"";}catch(e){}return !!(id&&epStatus&&epStatus.id===id&&epStatus.ok&&epStatus.mode==="send");}
+function _epAllStoresLine(L){
+  var m={};L.forEach(function(x){var st=_epStore(x),k=(st&&st.name)||x.wh;m[k]=(m[k]||0)+(x.lines||[]).filter(function(y){return +y.qty>0;}).length;});
+  _epExtraOk().forEach(function(r){var st=_epStore({wh:r.store,date:_epToday()}),k=(st&&st.name)||r.store;m[k]=(m[k]||0)+1;});
+  return Object.keys(m).map(function(k){return k+" "+m[k]+"줄";}).join(", ");
+}
 function epDl(){
-  var L=_epPicked();if(!L.length){alert("도매발주서로 만들 발주서를 체크해 주세요.");return;}
-  XLSX.writeFile(_wholesaleWorkbook(_epRows(L)),_wholesaleFileName());
+  var L=_epPicked(),rows=_epRows(L).concat(_epExtraRows());
+  if(!rows.length){alert("도매발주서로 만들 발주서를 체크하거나, ＋ 상품 추가·🏨 아난티 발주로 줄을 넣어 주세요.");return;}
+  XLSX.writeFile(_wholesaleWorkbook(rows),_wholesaleFileName());
 }
 function epMail(){
-  var L=_epPicked();if(!L.length){alert("보낼 발주서를 체크해 주세요.\n\n(매장 정보가 없거나 수량이 없는 발주서는 체크되지 않습니다)");return;}
+  var L=_epPicked(),X=_epExtraOk(),rows=_epRows(L).concat(_epExtraRows());
+  if(!rows.length){alert("보낼 발주서를 체크하거나, ＋ 상품 추가·🏨 아난티 발주로 줄을 넣어 주세요.\n\n(매장 정보가 없거나 수량이 없는 발주서는 체크되지 않습니다)");return;}
   var cur=(saipReq||{}).ep;
   if(_saipReqActive(cur)){alert("이카운트 백화점 발주 메일이 이미 "+(cur.state==="처리중"?"보내지는 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").");return;}
-  var dup=L.filter(function(s){return _epSentOf(s.key);});
-  var rows=_epRows(L),sl=_epStoresLine(L),qty=rows.reduce(function(a,r){return a+(+r[12]||0);},0);
-  var noAddr=L.filter(function(s){var st=_epStore(s);return !st.recv||!st.tel||!st.addr;}).map(function(s){return _epStore(s).name;});
+  var dup=L.filter(function(x){return _epSentOf(x.key);});
+  var sl=_epAllStoresLine(L),qty=rows.reduce(function(a,r){return a+(+r[12]||0);},0);
+  var noAddr={};rows.forEach(function(r){if(!r[4]||!r[7]||!r[9])noAddr[r[3]||r[2]]=1;});noAddr=Object.keys(noAddr);
+  var noSku=_epExtra.filter(function(r){return r.noSku;}).length,anW=X.filter(function(r){return r.anWarn;}).length;
+  var low=X.filter(function(r){var w=typeof whQty==="function"?whQty(r.code):null;return w!==null&&typeof WH_MIN_ORDER!=="undefined"&&w<=WH_MIN_ORDER;}).length;
   var d=new Date(),subj="[도매] 발주서 - "+(d.getMonth()+1)+"/"+d.getDate()+"("+"일월화수목금토".charAt(d.getDay())+")";
-  if(!confirm((dup.length?"⚠ 이미 보낸 발주서가 있습니다: "+dup.map(function(s){var x=_epSentOf(s.key);return _epKeyLab(s)+"("+(x.by||"")+" "+_saipFmtAt(x.at)+")";}).join(", ")+"\n자동화 PC는 이미 보낸 발주서가 섞여 있으면 보내지 않습니다 — 취소 후 체크를 빼 주세요.\n\n":"")
-    +"김구남 센터장(gnkim72@daum.net)께 이카운트 백화점 발주서를 도매 발주 메일로 보냅니다.\n\n제목: "+subj+"\n참조: 강민준·이유진·이다겸·김민희\n첨부: "+_wholesaleFileName()+" ("+rows.length+"줄 "+qty+"개 · "+sl+")\n이카운트 발주서: "+L.map(_epKeyLab).join(", ")+" → 보낸 뒤 '확인'으로 바꿉니다\n서명: "+_saipMe()
+  if(!confirm((dup.length?"⚠ 이미 보낸 발주서가 있습니다: "+dup.map(function(x){var y=_epSentOf(x.key);return _epKeyLab(x)+"("+(y.by||"")+" "+_saipFmtAt(y.at)+")";}).join(", ")+"\n자동화 PC는 이미 보낸 발주서가 섞여 있으면 보내지 않습니다 — 취소 후 체크를 빼 주세요.\n\n":"")
+    +"김구남 센터장(gnkim72@daum.net)께 도매 발주 메일을 보냅니다.\n\n제목: "+subj+"\n참조: 강민준·이유진·이다겸·김민희\n첨부: "+_wholesaleFileName()+" ("+rows.length+"줄 "+qty+"개 · "+sl+")"
+    +(L.length?"\n이카운트 발주서: "+L.map(_epKeyLab).join(", ")+" → 보낸 뒤 '확인'으로 바꿉니다":"")
+    +(X.length?"\n＋ 추가·🏨 아난티 줄: "+X.length+"줄":"")+"\n서명: "+_saipMe()
     +(noAddr.length?"\n\n⚠ 수령인·연락처·주소가 비어 있는 매장: "+noAddr.join(", ")+" — 물류에서 보낼 곳을 모릅니다. 취소 후 매장 정보를 채워 주세요.":"")
+    +(noSku?"\n\n⚠ 아난티 바코드를 못 찾은 줄(❗코드없음) "+noSku+"줄은 빼고 보냅니다.":"")
+    +(anW?"\n\n⚠ 아난티 품목명과 바코드 상품이 다른 줄이 "+anW+"줄 있습니다. 아난티에 확인했는지 다시 봐 주세요.":"")
+    +(low?"\n\n⚠ 창고재고 부족(발주불가) 추가 줄이 "+low+"줄 있습니다. 빼려면 취소 후 ✕를 누르세요.":"")
     +"\n\n보낸 메일은 되돌릴 수 없습니다. 보낼까요?"))return;
   var b64=XLSX.write(_wholesaleWorkbook(rows),{type:"base64",bookType:"xlsx"});
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send",
-    keys:L.map(function(s){return s.key;}),fileName:_wholesaleFileName(),b64:b64,lines:rows.length,stores:sl};
+    keys:L.map(function(x){return x.key;}),fileName:_wholesaleFileName(),b64:b64,lines:rows.length,extra:X.length,stores:sl};
   _saipReqSet("ep",R);
+  if(X.length)try{localStorage.setItem("epExtraSent",R.id);}catch(e){}
   epRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 보냅니다.");
 }
@@ -9480,6 +9624,7 @@ function epRender(){
 }
 function _epRender0(){
   var box=document.getElementById("epBox");if(!box)return;
+  try{epAddRender();}catch(e){}
   var E=_esc,S=_epSlips(),R=(saipReq||{}).ep,act=_saipReqActive(R),q=ecPoReq,T=epStatus,h="";
   var pulling=q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000;
   h+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:#475569;margin-bottom:6px">'
@@ -9495,6 +9640,7 @@ function _epRender0(){
       +(T.ok?'✅ ':'❌ ')+'발주 메일 '+(T.mode==='draft'?'임시저장':'보냄')+(T.ok?'':' 실패')+' · '+E(_saipFmtAt(T.at))+' · '+E(T.by||"")+' · '+E(T.subject||"")+' · '+E(T.lines||0)+'줄 ('+E(T.stores||"")+')'
       +(T.error?'<div style="font-weight:600">'+E(T.error)+'</div>':'')+(cf?'<div style="font-weight:600;color:#334155">이카운트: '+E(cf)+'</div>':'')+'</div>';
   }
+  h+=_epExtraTable();
   var un=S.filter(function(s){return !_epSentOf(s.key);}),sent=S.filter(function(s){return _epSentOf(s.key);});
   var list=un.concat(_epShowSent?sent:[]);
   if(!S.length){box.innerHTML=h+'<div style="color:#5b6675;padding:6px 0">들어온 발주서가 없습니다. 매장이 이카운트 [구매관리 › 발주서입력]에 <b>입고창고 = 매장 창고</b>로 발주서를 넣으면 5분 안에 여기에 나옵니다.</div>';return;}
