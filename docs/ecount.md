@@ -287,9 +287,14 @@
   발주서를 '확인'으로 바꾸는 것만으로는 이카운트 재고가 움직이지 않는다(발주서는 재고 전표가 아님) — 그래서 메일이 나간 뒤 창고이동도 저장한다.
   `epMail`이 `_epMoveSlips(L, X)`로 **받는 창고마다 전표 1장**(보내는 창고 `_ecHq()` = NH)을 만들어 요청 `mv`에 싣는다 — 이카운트 발주서 줄은 그 발주서의 입고창고, ＋ 추가·🏨 아난티 줄은 `_ecWh(매장코드)`.
   `EC_WHS`에 없는 창고(팝업 등)는 창고이동에서 빼고 확인창에 `⚠ 이카운트 창고가 없어 창고이동을 넣지 않는 매장`으로 알린다(메일은 그대로 나감). 적요 `매장명 발주 · 발주서 MM/DD-N, 추가, 아난티 · 누른 사람`.
-  `ecount-po.mjs` `saveMove`: 메일이 나간 뒤(임시저장은 안 함) `ws/ecMoveJob/{em…}` {kind:'ep', epId, date:오늘, slips} → `ecount-move.mjs --id --save`(kind `ep`는 주문 `ws/ecOrders` 승인 확인·출고 처리를 건너뜀) →
-  결과 `ws/epStatus.move {id, n, lines, ok, msg}` → 칸 위 결과 줄에 `이카운트 창고이동 NH → 매장: ✅ 넣음 / ❌ 실패`. 실패해도 메일은 이미 나갔으므로 다시 보내지 말고 이카운트 창고이동조회에서 확인 후 손으로 넣는다.
-  아직 실제 저장으로 돌려 보지 않았다(창고이동 저장 경로 자체는 🧮 매장 발주 승인에서 11/5부터 쓰는 것과 같음).
+  자동화 PC는 메일이 나간 뒤(임시저장은 안 함) 공통 **`automation/ecount-move-after.mjs` `saveMoveAfterMail`** → `ws/ecMoveJob/{em…}` {kind:'ep', epId:'ep:요청id', date:오늘, slips} → `ecount-move.mjs --id --save`(kind `ep`는 주문 `ws/ecOrders` 승인 확인·출고 처리를 건너뜀) →
+  결과 `ws/epStatus.move {id, n, lines, ok, msg}` → 칸 위 결과 줄에 `이카운트 창고이동 NH → 매장: ✅ 넣음 / ❌ 실패`(`_ecMoveResHtml`). 실패해도 메일은 이미 나갔으므로 다시 보내지 말고 이카운트 창고이동조회에서 확인 후 손으로 넣는다.
+  **같은 창고이동이 다른 발주에도 붙어 있다**(공통 `_ecMoveFromRows`·`_ecMoveConfirmTxt` — index.html `epDl` 바로 위):
+  · 📥 도매 발주(발주서 변환) `✉️ 발주 메일 전달`(`ocAutoMail` → `_ocMoveSlips`, 코드 없는 줄 뺌) → `wholesale-mail.mjs`가 보낸 뒤 같은 `saveMoveAfterMail` → `ws/wmStatus.move` — 팩토리·백화점 등 매장 코드의 이카운트 창고로.
+  · 🧳 트래블메이트 발주 3단계 `🧮 이카운트 창고이동 NH → 트래블메이트`(`ecMoveFromTm`) · 📝 수기발주 `🧮 이카운트 창고이동`(`ecMoveFromOrd`, 온라인 고객 배송·CX·매장 없음 줄 뺌) —
+    메일이 없어서 단추로 바로 `_ecMoveDirect`: `ws/ecMoveJob` {kind:'ep', epId:'tm'|'ord'} + `ws/saipReq.em`(mode save, oids 빈 칸) → saip-watch `em` → `ecount-move.mjs --save`. 결과는 단추 옆(`#ecMvDirect_tm`·`_ord`, `_ecMoveDirectPaint` — `ws/ecMoveStatus` id가 같을 때).
+    오늘 같은 내용으로 이미 넣었으면(이 브라우저 `localStorage.ecMvDirect_tm|ord`) 확인창에 '두 번 빠집니다' 경고.
+  네 곳 모두 아직 실제 저장으로 돌려 보지 않았다(창고이동 저장 경로 자체는 🧮 매장 발주 승인에서 11/5부터 쓰는 것과 같음).
 - **받기**(`pullEcountPo`, 읽기만): saip-watch가 7~21시 5분마다 + `🔄 지금 확인`(`ws/ecPoReq` → doneAt·note). 기간 = 일자 기준 오늘 앞 14일 ~ 뒤 30일.
   · 목록 `/ECAPI/SVC/Common/SlipTransfer/GetListXFormSlipCommon`(PRG_ID E040302, FORM_TYPE SR200) — 전표마다 ORD_DATE·ORD_NO·WH_CD·GB_TYPE(Y 확인/N 미확인)·VERSION_NO·WRITER_ID·UPDATE_DATE. 품목은 없다.
   · 품목 = 발주서수정 창이 부르는 `/ECERP/SVC/ESG/ESG004M {Request:{Key:{Date,No},EditMode:'02',FromProgramId:'E040302'}}`(HTML) 안 자료에서 `"PROD_CD","PROD_DES","SIZE_DES","UQTY","QTY"…"REMARKS"…"TIME_DATE"…"Key":{"SER_NO"}`를 읽는다. UPDATE_DATE·VERSION_NO가 그대로인 전표는 지난번 줄을 쓴다.
