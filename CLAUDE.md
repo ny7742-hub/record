@@ -45,6 +45,7 @@
 - 홈 바로 옆(`page-auto2`, 2026-11-13 영업2팀) — 로그인 상태 6칸만(renderPortalLogin 끝에서 `#plSites`를 `#auto2PlSites`로 복사, 2칸 격자라 DSS26·DSS31 나란히) +
   홈쇼핑 칸: `📊 세매 등록` = 날짜 고르고 누르면 자동화 PC(`ws/saipReq.whs` {mode save, step} → `automation/wssales-hs.mjs`)가 ① OneDrive 받기 ② 매칭표로 채우기 ③ 세매 변환 미리보기 ④ 세매 등록 — **단계마다 `✅ 승인`을 눌러야 넘어간다**(2026-11-16, 상세 `docs/sales.md`), 단계 기록 `ws/wssalesHs`·`whsRender` ·
   `↗ 세매 열기`(새 탭) · `🚚 PlayMD 사입출고등록` = `saipAutoGo('hs')` · OneDrive 판매자료. PlayMD 자료 업로드는 넣지 않는다. 🤖 자동화 탭은 그대로 둔다.
+  아래 전체 폭 `🧾 이카운트 판매조회`(2026-11-17, `a2sRender`) — 이카운트에 넣은 판매 줄을 일자·매장·상품명·수량·판매가로(상세 `docs/ecount.md` 매출 등록 끝).
 
 ## 🤖 자동화 탭
 - 홈 다음 탭(`page-auto`, `renderAutoPage`, 2026-10-02 영업2팀) — 로그인 상태 · PlayMD 자료 업로드 4종 · 코스트코 자동 발주 · 도매 발주(주문배분현황) ·
