@@ -12433,6 +12433,27 @@ function _a2sMark(k,tip){
   var M={ok:['✓','#047857'],part:['△','#b45309'],miss:['✗','#b91c1c'],na:['–','#5b6675'],unk:['?','#5b6675']}[k]||['–','#5b6675'];
   return '<td style="padding:6px 10px;border-bottom:1px solid #eef2f6;text-align:center;font-weight:800;color:'+M[1]+'"'+(tip?' title="'+_escX(tip)+'"':'')+'>'+M[0]+'</td>';
 }
+/* 온라인·오프라인 나누기(2026-11-17 영업2팀 "청량리점 세매에는 온라인·오프라인 구분되는데 이카운트는 안 되어 있다 — 판매조회에서 구분")
+   세매 「매장 판매 입력」은 줄마다 온라인/오프라인을 고른다(11/16~) → 자동화 PC wssales-upload.mjs가 ws/wssalesDays[날|채널].on[세매 매장명] = {a 온라인 금액, i {자사코드:[수량,금액]}}로 쌓는다.
+   그 날 그 매장 줄 중 온라인 수량만큼을 '매장명 (온라인)'(sc = 코드~on)으로 떼고, 그런 매장은 나머지 줄을 '(오프라인)'으로 보인다.
+   이카운트 전표·등록 기록(ecSalLog)은 나누지 않은 원래 매장코드(sc0)로 본다 — 이카운트에는 매장 하나로 들어가 있다 */
+function _a2sSplitOn(lines){
+  var nk=function(s){return String(s||"").replace(/\s+/g,"");},on={},any={},has=0;
+  Object.keys(wssalesDays||{}).forEach(function(k){var v=wssalesDays[k];if(!v||!v.on)return;var day=k.slice(0,10);
+    Object.keys(v.on).forEach(function(n){var o=v.on[n];if(!o||!o.i)return;var m=on[day+"|"+nk(n)]||(on[day+"|"+nk(n)]={});has=1;
+      Object.keys(o.i).forEach(function(c){var x=o.i[c]||[],t=m[c.toUpperCase()]||(m[c.toUpperCase()]=[0,0]);t[0]+=+x[0]||0;t[1]+=+x[1]||0;});});});
+  if(!has)return lines;
+  var out=[];
+  lines.forEach(function(x){
+    var m=on[x.day+"|"+nk(x.sn)],r=m&&m[String(x.code||"").toUpperCase()],q=+x.qty||0;
+    if(!r||!r[0]||!q||(r[0]>0)!==(q>0)){out.push(x);return;}
+    var t=Math.abs(r[0])<Math.abs(q)?r[0]:q,oa=Math.round((+x.amt||0)*t/q);r[0]-=t;any[x.sc]=1;
+    out.push(Object.assign({},x,{sc0:x.sc,sn0:x.sn,sc:x.sc+"~on",sn:x.sn+" (온라인)",qty:t,amt:oa,on:1}));
+    if(t!==q)out.push(Object.assign({},x,{qty:q-t,amt:(+x.amt||0)-oa}));
+  });
+  out.forEach(function(x){if(!x.on&&any[x.sc]){x.sc0=x.sc;x.sn0=x.sn;x.sn=x.sn+" (오프라인)";}});
+  return out;
+}
 function _a2sChTables(CL){
   var nf=function(n){return Math.round(n).toLocaleString();},wm=_a2sWsMap(),out='',wk="일월화수목금토";
   var th='padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:800;white-space:nowrap;text-align:left;position:sticky;top:0',td='padding:6px 10px;border-bottom:1px solid #eef2f6;font-size:13px;white-space:nowrap';
@@ -12440,8 +12461,9 @@ function _a2sChTables(CL){
     var L=CL.filter(function(x){return x.ch===c;});if(!L.length)return;
     var st={},days={},cell={};
     L.forEach(function(x){
-      var s=st[x.sc]||(st[x.sc]={sn:x.sn,amt:0});s.amt+=x.amt;
-      var d=days[x.day]||(days[x.day]={amt:0,qty:0,slips:{},slipAmt:{},pm:0,pmAmt:0,scs:{}});d.amt+=x.amt;d.qty+=x.qty;d.slips[x.day+"_"+x.sc]=1;d.slipAmt[x.day+"_"+x.sc]=(d.slipAmt[x.day+"_"+x.sc]||0)+x.amt;d.scs[x.sc]=1;if(x.pm){d.pm++;d.pmAmt+=x.amt;}
+      var s=st[x.sc]||(st[x.sc]={sn:x.sn,sn0:x.sn0,on:x.on,amt:0});s.amt+=x.amt;
+      var sk=x.day+"_"+(x.sc0||x.sc);   /* 이카운트 전표는 온라인·오프라인을 나누지 않은 원래 매장코드 하나 */
+      var d=days[x.day]||(days[x.day]={amt:0,qty:0,slips:{},slipAmt:{},pm:0,pmAmt:0,scs:{}});d.amt+=x.amt;d.qty+=x.qty;d.slips[sk]=1;d.slipAmt[sk]=(d.slipAmt[sk]||0)+x.amt;d.scs[x.sc]=1;if(x.pm){d.pm++;d.pmAmt+=x.amt;}
       var k=x.day+"_"+x.sc;cell[k]=(cell[k]||0)+x.amt;
     });
     var scs=Object.keys(st).sort(function(a,b){return st[b].amt-st[a].amt;}),tot=L.reduce(function(a,x){return a+x.amt;},0),T={pm:0,ec:0,ws:0};
@@ -12475,8 +12497,10 @@ function _a2sChTables(CL){
         var wa=0,known=true;types.forEach(function(t){var v=(wssalesDays||{})[day+"|"+t];if(!v||v.d==null){known=false;return;}
           if(!fl){wa+=+v.d;return;}
           if(CL._q||!v.st){known=false;return;}
-          var want={};Object.keys(d.scs).forEach(function(sc){want[nk((st[sc]||{}).sn)]=1;});
-          Object.keys(v.st).forEach(function(n){if(want[nk(n)])wa+=+v.st[n];});});
+          /* 온라인·오프라인으로 나눈 매장(2026-11-17)은 세매 v.on[매장명].a(온라인 금액)로 나눠 본다 */
+          var vst={},von={};Object.keys(v.st).forEach(function(n){vst[nk(n)]=(vst[nk(n)]||0)+(+v.st[n]||0);});Object.keys(v.on||{}).forEach(function(n){von[nk(n)]=(von[nk(n)]||0)+(+(v.on[n]||{}).a||0);});
+          var seen={};Object.keys(d.scs).forEach(function(sc){var S=st[sc]||{},n=nk(S.sn0||S.sn),part=S.on?"on":S.sn0?"off":"all";if(seen[n+part])return;seen[n+part]=1;
+            wa+=part==="on"?(von[n]||0):part==="off"?(vst[n]||0)-(von[n]||0):(vst[n]||0);});});
         var H=c==="홈쇼핑"?((typeof wssalesHs!=="undefined"&&wssalesHs)||{})[day.slice(5,7)+day.slice(8,10)]:null;
         if(!known&&fl)h+='<td style="'+td+';text-align:right;color:#5b6675" title="'+(CL._q?'상품 검색 중에는 세매 금액을 나눠 볼 수 없습니다':'이 날은 매장별 세매 금액 기록이 없습니다(채널 합계만 있음) — 🤖 자동화 탭 세일즈 매니지먼트 [🔍 미등록 확인]을 다시 누르면 채워집니다')+'">–</td>';
         else if(known){h+=amtTd(wa,"세일즈 매니지먼트 금액 ("+types.join("·")+")");T.ws+=wa;}
@@ -12554,23 +12578,25 @@ function a2sRender(){
     var day=k.slice(0,10);if(day<R[0]||day>R[1]||have[k])return;var s=jobBy[k];if(!s)return;
     (s.items||[]).forEach(function(x){lines.push({day:day,ch:s.ch,sc:s.sc,sn:s.sn||s.sc,code:x.code,name:x.name||x.code,qty:+x.qty||0,amt:(+x.sup||0)+(+x.vat||0),_job:1});});
   });
+  lines=_a2sSplitOn(lines);
   var stores={},sel=document.getElementById("a2sStore"),sv=sel.value,q=String(document.getElementById("a2sQ").value||"").trim().toLowerCase(),view=document.getElementById("a2sView").value;
   var rows=[],unreg={},stCh2={};
   lines.forEach(function(x){
     var c=chOf(x);if(A2S_CH.indexOf(c)<0||!_a2s.ch[c])return;
-    var k=x.day+"_"+x.sc,lg=ecSalLog[k];
+    var k=x.day+"_"+(x.sc0||x.sc),lg=ecSalLog[k];
+    if(view==="ch"){stores[x.sc]=x.sn||x.sc;stCh2[x.sc]=c;}   /* 채널별 일자표는 미등록 판매도 보이니 매장 목록에도(청량리 온라인 등) */
     if(only&&!lg){if(!sv||x.sc===sv){var u0=unreg[k]||(unreg[k]={qty:0,amt:0});u0.qty+=+x.qty||0;u0.amt+=Math.round(+x.amt||0);}return;}
     stores[x.sc]=x.sn||x.sc;stCh2[x.sc]=c;
     if(sv&&x.sc!==sv)return;
     if(q&&String(x.name||"").toLowerCase().indexOf(q)<0&&String(x.code||"").toLowerCase().indexOf(q)<0)return;
     rows.push({day:x.day,ch:c,sc:x.sc,sn:x.sn||x.sc,code:x.code,name:x.name||x.code,qty:+x.qty||0,amt:Math.round(+x.amt||0),st:lg?((lg.at?String(lg.at).slice(5,16).replace("T"," "):"")+" "+(lg.by||"")).trim()||"등록":"미등록"});
   });
-  sel.innerHTML='<option value="">전체 매장</option>'+Object.keys(stores).sort(function(a,b){return stores[a]<stores[b]?-1:1;}).map(function(sc){return '<option value="'+_escX(sc)+'"'+(sc===sv?' selected':'')+'>'+_escX(stores[sc])+' ('+_escX(sc)+')</option>';}).join("");
+  sel.innerHTML='<option value="">전체 매장</option>'+Object.keys(stores).sort(function(a,b){return stores[a]<stores[b]?-1:1;}).map(function(sc){return '<option value="'+_escX(sc)+'"'+(sc===sv?' selected':'')+'>'+_escX(stores[sc])+' ('+_escX(sc.split("~")[0])+')</option>';}).join("");
   if(view==="ch"){
     var CL=[];
     lines.forEach(function(x){var c=chOf(x);if(A2S_CH.indexOf(c)<0||!_a2s.ch[c])return;if(sv&&x.sc!==sv)return;
       if(q&&String(x.name||"").toLowerCase().indexOf(q)<0&&String(x.code||"").toLowerCase().indexOf(q)<0)return;
-      CL.push({day:x.day,ch:c,sc:x.sc,sn:x.sn||x.sc,qty:+x.qty||0,amt:Math.round(+x.amt||0),pm:x.ch!=="매장판매"&&x.ch!=="트래블메이트"&&!x._job});});
+      CL.push({day:x.day,ch:c,sc:x.sc,sn:x.sn||x.sc,sc0:x.sc0,sn0:x.sn0,on:x.on,qty:+x.qty||0,amt:Math.round(+x.amt||0),pm:x.ch!=="매장판매"&&x.ch!=="트래블메이트"&&!x._job});});
     CL._sv=sv;CL._q=q;
     _a2sRows={view:"ch",rows:CL,R:R};
     var cq=CL.reduce(function(a,x){return a+x.qty;},0),ca=CL.reduce(function(a,x){return a+x.amt;},0),nf0=function(n){return Math.round(n).toLocaleString();};
