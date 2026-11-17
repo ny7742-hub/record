@@ -2496,7 +2496,7 @@ label{font-size:14px!important}
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
         <input type="date" id="whsDate" onchange="whsRender()" onclick="try{if(this.showPicker)this.showPicker();}catch(e){}" style="cursor:pointer;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px" title="OneDrive 판매자료 날짜 폴더(기본 전 영업일)">
         <button class="a2-btn" id="whsBtn" onclick="whsGo()" title="자동화 PC가 ① OneDrive 파일 받기 → ② 매칭표로 빈 칸 채우기 → ③ 세매 변환 미리보기 → ④ 세매 등록을 합니다. 단계가 끝날 때마다 [✅ 승인]을 눌러야 다음 단계로 넘어갑니다">📊 세매 등록</button>
-        <button class="a2-btn sub" onclick="saipAutoGo('hs')" title="사입출고등록 탭의 🛍 홈쇼핑 매출등록과 같습니다 — 확인창 뒤 자동화 PC가 PlayMD에 등록합니다">🚚 PlayMD 사입출고등록</button>
+        <button class="a2-btn sub" id="whsSaipBtn" onclick="whsSaipGo()" title="사입출고등록 탭의 🛍 홈쇼핑 매출등록과 같습니다(왼쪽에서 고른 날짜로) — 확인창 뒤 자동화 PC가 PlayMD에 등록합니다">🚚 PlayMD 사입출고등록</button>
         <a class="a2-btn sub" href="https://onedrive.live.com/?id=FEBA372AF61138D3%21187394&cid=FEBA372AF61138D3&redeem=aHR0cHM6Ly8xZHJ2Lm1zL2YvYy9mZWJhMzcyYWY2MTEzOGQzL1F0TTRFZllxTjdvZ2dQNEMzQUlBQUFBQXhmTllYWVJMUVpZWUt3" target="_blank" rel="noopener" title="원본이 있는 OneDrive 판매자료 폴더를 엽니다">📂 OneDrive ↗</a>
       </div>
       <div style="font-size:12px;color:#5b6675;margin-bottom:6px">① OneDrive 받기 → ② 매칭표로 상품컬러코드·상품코드·결제금액(매칭표 현재가 × 수량) 채우기 → ③ 세매 변환 미리보기 → ④ 세매 [이대로 등록하기]. <b>단계마다 결과를 보고 [✅ 승인]을 눌러야 다음으로 넘어갑니다</b>(10분 안에 안 누르면 멈춤 · [✖ 그만]은 등록 없이 멈춤). ③에 변환 실패·확인 필요·이중 계상이 있으면 ④로 가지 않습니다.</div>
@@ -9697,11 +9697,35 @@ function _epRender0(){
 var wssalesHs=(function(){try{return JSON.parse(localStorage.getItem("wssalesHs")||"null");}catch(e){return null;}})();
 function _whsMmdd(){var el=document.getElementById("whsDate");if(el&&!el.value&&typeof _saipPrevBizDay==="function")el.value=_saipPrevBizDay();var v=el&&el.value||"";return v?v.slice(5,7)+v.slice(8,10):"";}
 function _whsAt(v){try{return typeof _auFmtAt==="function"?_auFmtAt(v):String(v||"");}catch(e){return String(v||"");}}
+/* 완료 판단(2026-11-17 영업2팀 "완료됐으면 완료 표시 · 중복으로 올라가지 않게") —
+   세매: 이 칸 기록(state done·mode save·reg.ok) 또는 세매 일별 대조 ws/wssalesDays[날짜|홈쇼핑](d>0, 다른 경로로 올린 것 포함)
+   사입출고: 팀 공유 등록 기록 ws/saipLog.hs[날짜](_saipLogOf — 추가분·일부만이면 미완료) */
+function _whsDate(){var el=document.getElementById("whsDate");return el&&el.value||"";}
+function _whsDone(mmdd,date){
+  var H=(wssalesHs||{})[mmdd]||null,S=(H&&H.steps)||{};
+  var mine=!!(H&&H.state==="done"&&H.mode==="save"&&S.reg&&S.reg.ok);
+  var wd=date&&typeof wssalesDays==="object"&&wssalesDays?wssalesDays[date+"|홈쇼핑"]:null;
+  var inWs=!!(wd&&Number(wd.d)>0);
+  var L=date&&typeof _saipLogOf==="function"?_saipLogOf("hs",date):null;
+  return {H:H,mine:mine,wd:wd,inWs:inWs,ws:mine||inWs,wsFull:mine||!!(wd&&wd.s==="ok"&&Number(wd.d)>0),L:L};
+}
+function whsSaipGo(){var v=_whsDate();if(!v){alert("날짜를 골라 주세요.");return;}saipAutoGo("hs",{date:v});}
 function whsGo(){
   /* 2026-11-16 영업2팀 "테스트말고 진짜로 · 단계별로 승인 버튼" — mode save + step: 자동화 PC(wssales-hs.mjs)가 ①②③ 뒤마다 [✅ 승인](saipReq.whs.go)을 기다린다 */
   var mmdd=_whsMmdd();if(!mmdd){alert("날짜를 골라 주세요.");return;}
   var R=(saipReq||{}).whs;
   if(_saipReqActive(R)){alert("홈쇼핑 세매 등록이 이미 진행 중입니다 ("+(R.by||"?")+"). 끝난 뒤 다시 눌러 주세요.");return;}
+  /* 이미 세매에 들어간 날 — 막는다(2026-11-17). 세매 금액이 원본보다 적은 날(일부만)만 확인 후 진행 — 같은 거래는 세매가 건너뛴다 */
+  var D=_whsDone(mmdd,_whsDate()),md0=(+mmdd.slice(0,2))+"/"+(+mmdd.slice(2,4)),f0=function(n){return (Number(n)||0).toLocaleString();};
+  if(D.wsFull){
+    var rg=D.mine?D.H.steps.reg:null;
+    alert("이미 세매에 등록된 날짜입니다.\n\n홈쇼핑 "+md0
+      +(D.mine?"\n등록: "+_whsAt(rg.at||D.H.endAt)+" · "+(D.H.by||"?")+" · "+(rg.msg||""):"")
+      +(D.wd?"\n세매 금액: "+f0(D.wd.d)+"원 (원본 "+f0(D.wd.f)+"원)":"")
+      +"\n\n다시 올리면 매출이 두 번 잡힐 수 있어 요청하지 않습니다. 고쳐야 하면 세매 데이터 관리에서 직접 수정해 주세요.");
+    return;
+  }
+  if(D.inWs&&!confirm("세매에 홈쇼핑 "+md0+" 매출이 일부 들어가 있습니다.\n세매 "+f0(D.wd.d)+"원 / 원본 "+f0(D.wd.f)+"원\n\n빠진 줄만 더 올리려는 경우에만 진행하세요(같은 거래는 세매가 건너뜁니다). 진행할까요?"))return;
   if(typeof _saipWatchOk==="function"&&!_saipWatchOk()){alert("자동화 PC 신호가 없습니다 — 자동화 PC가 켜져 있고 요청 받기 프로그램이 돌아야 합니다.");return;}
   var md=(+mmdd.slice(0,2))+"/"+(+mmdd.slice(2,4));
   if(!confirm("홈쇼핑 "+md+" 매출을 세일즈 매니지먼트에 등록합니다.\n\n① OneDrive '"+mmdd+" 홈쇼핑.xlsx' 받기\n② 매칭표로 상품컬러코드·상품코드·결제금액 채우기\n③ 세매 사방넷 변환 미리보기\n④ 세매 [이대로 등록하기]\n\n단계가 끝날 때마다 이 칸에 [✅ 승인] 단추가 뜹니다 — 눌러야 다음 단계로 넘어갑니다."))return;
@@ -9737,7 +9761,21 @@ function whsRender(){
   var mmdd=_whsMmdd(),R=(saipReq||{}).whs,act=_saipReqActive(R)&&R.mmdd===mmdd;
   var H=(wssalesHs||{})[mmdd]||null;
   if(act&&H&&R.id&&H.id!==R.id)H=null;               /* 새 요청 — 예전 기록은 숨기고 처음부터 채운다 */
-  var btn=document.getElementById("whsBtn");if(btn){btn.disabled=_saipReqActive(R);btn.style.opacity=btn.disabled?".55":"1";btn.textContent=btn.disabled?"⏳ 진행 중…":"📊 세매 등록";}
+  var D=_whsDone(mmdd,_whsDate());
+  var btn=document.getElementById("whsBtn");if(btn){var busy=_saipReqActive(R),dn=!busy&&D.wsFull;btn.disabled=busy;btn.style.opacity=busy||dn?".55":"1";btn.textContent=busy?"⏳ 진행 중…":dn?"✅ 세매 등록 완료":"📊 세매 등록";}
+  var sb=document.getElementById("whsSaipBtn");if(sb){sb.style.opacity=D.L?".55":"1";sb.textContent=D.L?"✅ 사입출고 완료":"🚚 PlayMD 사입출고등록";}
+  /* 둘 다 끝난 날 — 단계 칸은 접고 완료 한 줄만(2026-11-17 영업2팀 "완료됐으면 안 보여야 · 완료 표시"). [단계 보기]로 펼침 */
+  if(!act&&D.ws&&D.L&&window._whsOpenDay!==mmdd){
+    var e0=_escX,f0=function(n){return (Number(n)||0).toLocaleString();},md0=(+mmdd.slice(0,2))+"/"+(+mmdd.slice(2,4)),L0=D.L,rg0=D.mine?D.H.steps.reg:null;
+    box.innerHTML='<div style="background:#ecfdf5;border:2px solid #10b981;border-radius:8px;padding:8px 12px">'
+      +'<div style="font-weight:800;color:#065f46;font-size:14px">✅ '+md0+' 홈쇼핑 완료 — 사입출고 · 세매 모두 등록됨'
+      +' <a href="javascript:void(0)" onclick="window._whsOpenDay=\''+mmdd+'\';whsRender()" style="font-size:12px;font-weight:700;color:#1b6e82;margin-left:6px">단계 보기 ▾</a></div>'
+      +'<div style="margin-top:4px;color:#334155">🚚 PlayMD 사입출고: '+f0(L0.qty)+'개 · '+f0(L0.amt)+'원'+(L0.slips&&L0.slips.length?' · 전표 '+e0(L0.slips.join(", ")):'')+' · '+e0(L0.by||"")+' · '+e0(_whsAt(L0.at))+'</div>'
+      +'<div style="color:#334155">📊 세매: '+(rg0?e0(rg0.msg||"등록")+' · '+e0(D.H.by||"")+' · '+e0(_whsAt(rg0.at||D.H.endAt)):'다른 경로로 등록됨')
+      +(D.wd?' · 세매 금액 <b>'+f0(D.wd.d)+'원</b>'+(D.wd.s==="ok"?' <span style="color:#047857">(원본과 같음 · 중복 없음)</span>':' <span style="color:#b45309">(원본 '+f0(D.wd.f)+'원과 다름)</span>'):'')+'</div>'
+      +'<div style="font-size:12px;color:#5b6675;margin-top:3px">이 날짜는 다시 눌러도 요청하지 않습니다(중복 방지).</div></div>';
+    return;
+  }
   var sv=act?R.mode==="save":!!(H&&H.mode==="save");   /* 등록까지 하는 요청인지 */
   var e=_escX,f=function(n){return (Number(n)||0).toLocaleString();},S=(H&&H.steps)||{},step=H?H.step||1:0,fail=!!(H&&H.state==="fail");
   var md=(+mmdd.slice(0,2))+"/"+(+mmdd.slice(2,4));
@@ -9745,6 +9783,7 @@ function whsRender(){
   if(act)head='<div style="color:#1b6e82;font-weight:700">⏳ '+(R.state==="요청"?"자동화 PC가 가져가기를 기다리는 중":"자동화 PC에서 진행 중")+' · '+e(R.by||"")+(R.progress?' — '+e(String(R.progress).replace(/^▷\s*/,"").slice(0,70)):'')+'</div>';
   else if(!H)head='<div style="color:#5b6675">'+md+' 기록이 없습니다 — [📊 세매 등록]을 눌러 주세요.</div>';
   else head='<div style="color:#5b6675">'+md+' · '+e(H.by||"")+' · '+e(_whsAt(H.at))+(H.state==="done"?' · <b style="color:#047857">'+(H.mode==="save"?'끝 — 세매에 등록함':'끝 — 세매에는 등록하지 않음')+'</b>':fail?' · <b style="color:#b91c1c">멈춤</b>':'')+'</div>';
+  if(!act&&D.ws&&D.L)head='<div><a href="javascript:void(0)" onclick="window._whsOpenDay=null;whsRender()" style="font-size:12px;font-weight:700;color:#047857">✅ 완료 — 접기 ▴</a></div>'+head;
   var row=function(n,title,st,body){
     var ic=st==="ok"?"✅":st==="bad"?"❌":st==="warn"?"⚠️":st==="run"?"⏳":"⬜";
     var bc=st==="ok"?"#86efac":st==="bad"?"#fca5a5":st==="warn"?"#fcd34d":st==="run"?"#7dd3fc":"#e2e8f0";
