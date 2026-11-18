@@ -23,6 +23,7 @@
   **삼성 인터넷 일반 탭**(2026-11-13 영업2팀 스크린샷 `Google 로그인 실패: This operation is not supported…`): 팝업이 그 오류를 내면 예전엔 페이지 이동 방식으로 넘겼는데 이동도 똑같이 실패하고, 돌아온 뒤 `getRedirectResult` 오류가 영어 원문으로 떴다. 이제 팝업에서 그 오류면 이동하지 않고 바로 `_authInAppHelp`, 돌아온 뒤 오류도 `_authGoogleFail`로 보낸다. 삼성 인터넷(UA `SamsungBrowser`)이면 안내 문구가 비밀 모드·스마트 안티 트래킹·쿠키 차단을 짚는다.
   **진짜 원인 — localStorage 꽉 참**(2026-11-18 영업2팀, 시크릿 창이 아닌 휴대폰에서도 `operation-not-supported…` → `크롬으로 열기`): Firebase v8은 localStorage에 시험 한 줄을 써 보고 실패하면 '저장 불가 환경'으로 보고 Google 로그인을 거부하며 로그인 유지도 못 한다. 팀 자료 캐시(FB_PATH)로 꽉 차도 똑같이 실패한다.
   그래서 `_authFreeStorage()`가 페이지를 열 때(Firebase 로그인을 처음 쓰기 전)와 Google 단추를 누를 때 64KB를 써 보고, 안 되면 FB_PATH 캐시를 **큰 것부터** 지운다(로그인 뒤 Firebase에서 다시 채워진다). 이어서 `setPersistence(LOCAL)`로 한 번 로그인하면 계속 유지.
+  **순서 주의**(같은 날 두 번째 스크린샷 `Be sure to include authDomain…` = `auth/auth-domain-config-required`): v8 로그인은 **만들어지는 순간** 저장공간이 막혀 있으면 Google 팝업·이동 기능을 붙이지 않는다. `firebase.database()`가 로그인을 같이 만들므로 `var fbDB=firebase.database()`를 `_authFreeStorage()` **뒤로** 옮겼다 — 앞에 두면 버튼 누를 때 비워도 이 오류가 난다.
 - **화면 게이트만으로는 막히지 않는다** — 페이지 코드에 DB 주소가 있어 누구나 REST로 `ws/` 전체(`quickCreds` 포함)를 읽을 수 있었다.
   실제 잠금은 저장소의 **`database.rules.json`** 을 Firebase 콘솔 Realtime Database → 규칙에 붙여넣어야 한다.
   규칙: `ws/`는 `access/members/{uid}`가 있는 사람만 읽기·쓰기, `access/pending/{uid}`는 본인만 요청, 승인·삭제는 `access/admins`만.

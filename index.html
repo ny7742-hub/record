@@ -3260,7 +3260,7 @@ if(!firebase.apps.length){
     appId:"1:702948407363:web:0276f3f76dd7cac266bcf6"
   });
 }
-var fbDB=firebase.database();
+/* var fbDB=firebase.database(); — 아래 _authFreeStorage() 뒤로 옮겼다(2026-11-18) */
 
 /* Firebase 경로 매핑 */
 var FB_PATH={
@@ -3301,6 +3301,10 @@ function _authFreeStorage(){
   return ok();
 }
 _authFreeStorage();
+/* 순서 중요(2026-11-18 영업2팀 휴대폰 'Be sure to include authDomain…'): firebase.database()가 로그인(auth)을 함께 만들고,
+   로그인은 만들어지는 그 순간 저장공간이 막혀 있으면 Google 팝업·이동 기능을 아예 붙이지 않는다.
+   그래서 저장공간을 비운 **뒤에** database()를 부른다 — 앞에서 부르면 비운 뒤에도 Google 로그인이 auth-domain-config-required로 실패한다. */
+var fbDB=firebase.database();
 /* 한 번 로그인하면 이 브라우저에서 계속 유지(기본값이지만 분명히 해 둔다) */
 try{firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});}catch(e){}
 
