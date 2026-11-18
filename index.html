@@ -2492,10 +2492,10 @@ label{font-size:14px!important}
     <div class="a2-card" style="grid-column:1/-1"><div class="a2-h"><b>🔑 로그인 상태</b><span id="auto2PlAge" style="font-size:12.5px;color:#475569"></span>
       <button class="a2-btn sub" id="auto2PlCheckBtn" style="margin-left:auto;font-size:12.5px;padding:5px 11px" onclick="plCheckGo()" title="로그인을 다시 하지 않습니다 — 자동화 PC가 자동화 창의 로그인 상태를 지금 바로 다시 읽어 이 칸을 새로 고칩니다">🔄 상태 다시 확인</button></div>
       <div id="auto2PlSites"></div></div>
-    <!-- 🏬 이카운트 백화점 발주(2026-11-17 영업2팀) — 이카운트 발주서조회 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'. docs/ecount.md -->
-    <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 이카운트 백화점 발주</b><span style="font-size:12.5px;color:#475569">이카운트 [구매관리 › 발주서조회]에 들어온 발주서 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'</span>
+    <!-- 🏬 이카운트 백화점 발주(2026-11-17 영업2팀) — 이카운트 발주요청조회(11/18부터) → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'. docs/ecount.md -->
+    <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 이카운트 백화점 발주</b><span style="font-size:12.5px;color:#475569">이카운트 [재고 I › 구매관리 › 발주요청조회]에 들어온 발주요청 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'</span>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epPullGo()" title="자동화 PC가 이카운트 발주서조회를 지금 다시 읽습니다(평소엔 7~21시 5분마다 자동) — 이카운트에는 아무것도 쓰지 않습니다">🔄 지금 확인</button>
+        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epPullGo()" title="자동화 PC가 이카운트 발주요청조회를 지금 다시 읽습니다(평소엔 7~21시 5분마다 자동) — 이카운트에는 아무것도 쓰지 않습니다">🔄 지금 확인</button>
         <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="체크한 발주서로 도매발주서(물류 양식)를 받습니다 — 메일로 보내는 파일과 같습니다">⬇ 도매발주서</button>
         <button class="a2-btn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 이카운트 발주서를 '확인'으로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
       <div id="epAddSlot" style="margin-bottom:8px"></div>
@@ -9308,10 +9308,11 @@ function _bigInitApCards(){
 }
 document.addEventListener("DOMContentLoaded",_bigInitApCards);
 /* 🏬 이카운트 백화점 발주(2026-11-17 영업2팀 "이카운트 구매관리 발주서 조회에서 들어오는 걸 확인하고, 도매 발주서 양식으로 변환하고, 메일로 김구남 센터장에게").
-   자동화 PC automation/ecount-po.mjs가 7~21시 5분마다 이카운트 [발주서조회](E040302)를 읽어 ws/ecPo {slips:[{key, date, no, wh(입고창고), gb(Y 확인·N 미확인), lines:[{code,name,size,qty,due,memo}]}]}.
+   자동화 PC automation/ecount-po.mjs가 7~21시 5분마다 이카운트 [재고 I › 구매관리 › 발주요청조회](E040315 — 2026-11-18 영업2팀 "매장은 발주요청에 넣는다", 그전엔 발주서조회 E040302)를 읽어
+   ws/ecPo {src:'req', slips:[{key, date, no, wh(입고창고 코드), whNm, gb(Y 확인·N 미확인), st(진행상태 미확인·진행중·완료), lines:[{code,name,size,qty,due,memo}]}]}.
    매장 = 입고창고 코드(ORDER_STORES — 수령인·연락처·주소). 체크한 발주서 → 도매발주서(ecDlWholesale와 같은 27칸 양식, _wholesaleWorkbook)
    → ✉️ ws/saipReq.ep {keys, b64} → 자동화 PC가 도매 발주 메일과 똑같이(김구남 센터장 · 참조 강민준·이유진·이다겸·김민희 · [도매] 발주서 - M/D) 보내고
-   이카운트 발주서를 '확인'으로 바꾼 뒤 ws/ecPoSent{key}에 남긴다(보낸 발주서는 기본 체크에서 빠진다). 상세 docs/ecount.md */
+   이카운트 발주요청을 '확인(진행중)'으로 바꾼 뒤 ws/ecPoSent{key}에 남긴다(보낸 발주요청은 기본 체크에서 빠진다). 상세 docs/ecount.md */
 var ecPo=(function(){try{return JSON.parse(localStorage.getItem("ecPo")||"null");}catch(e){return null;}})();
 var ecPoReq=(function(){try{return JSON.parse(localStorage.getItem("ecPoReq")||"null");}catch(e){return null;}})();
 var ecPoSent=(function(){try{return JSON.parse(localStorage.getItem("ecPoSent")||"null");}catch(e){return null;}})()||{};
@@ -9734,7 +9735,7 @@ function _epRender0(){
   var E=_esc,S=_epSlips(),R=(saipReq||{}).ep,act=_saipReqActive(R),q=ecPoReq,T=epStatus,h="";
   var pulling=q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000;
   h+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:#475569;margin-bottom:6px">'
-    +'<span>'+(ecPo&&ecPo.at?'마지막 확인 '+E(_saipFmtAt(ecPo.pullAt||ecPo.at))+' · 발주서 '+S.length+'건'+(ecPo.from?' ('+E(ecPo.from.slice(4,6)+'/'+ecPo.from.slice(6,8))+' 이후)':''):'아직 받은 발주서 목록이 없습니다')+'</span>'
+    +'<span>'+(ecPo&&ecPo.at?'마지막 확인 '+E(_saipFmtAt(ecPo.pullAt||ecPo.at))+' · 발주요청 '+S.length+'건'+(ecPo.from?' ('+E(ecPo.from.slice(4,6)+'/'+ecPo.from.slice(6,8))+' 이후)':''):'아직 받은 발주요청 목록이 없습니다')+'</span>'
     +(pulling?'<span style="color:#1d4ed8;font-weight:700">🔄 확인 중… ('+E(q.by||"?")+')</span>':q&&q.note&&q.doneAt&&Date.now()-new Date(q.doneAt).getTime()<30*60*1000?'<span style="color:#b91c1c;font-weight:700">'+E(q.note)+'</span>':'')
     +(ecPo&&ecPo.pullErr?'<span style="color:#b91c1c;font-weight:700">⚠ '+E(ecPo.pullErr)+'</span>':'')
     +(_saipWatchOk()?'':'<span style="color:#b45309;font-weight:700">🤖 자동화 PC 신호 없음</span>')+'</div>';
@@ -9750,13 +9751,13 @@ function _epRender0(){
   h+=_epExtraTable();
   var un=S.filter(function(s){return !_epSentOf(s.key);}),sent=S.filter(function(s){return _epSentOf(s.key);});
   var list=un.concat(_epShowSent?sent:[]);
-  if(!S.length){box.innerHTML=h+'<div style="color:#5b6675;padding:6px 0">들어온 발주서가 없습니다. 매장이 이카운트 [구매관리 › 발주서입력]에 <b>입고창고 = 매장 창고</b>로 발주서를 넣으면 5분 안에 여기에 나옵니다.</div>';return;}
+  if(!S.length){box.innerHTML=h+'<div style="color:#5b6675;padding:6px 0">들어온 발주요청이 없습니다. 매장이 이카운트 [재고 I › 구매관리 › 발주요청입력]에 <b>입고창고 = 매장 창고</b>로 발주요청을 넣으면 5분 안에 여기에 나옵니다.</div>';return;}
   var pk=_epPicked(),pq=0;pk.forEach(function(s){(s.lines||[]).forEach(function(x){pq+=+x.qty||0;});});
   h+='<div style="font-size:12.5px;margin-bottom:4px">보낼 것 <b>'+un.length+'건</b> · 체크 <b>'+pk.length+'건 '+pq+'개</b>'
-    +(sent.length?' · <a href="javascript:void(0)" onclick="epShowSent()" style="color:#1b6e82">보낸 발주서 '+sent.length+'건 '+(_epShowSent?'숨기기 ▴':'보기 ▾')+'</a>':'')+'</div>';
+    +(sent.length?' · <a href="javascript:void(0)" onclick="epShowSent()" style="color:#1b6e82">보낸 발주요청 '+sent.length+'건 '+(_epShowSent?'숨기기 ▴':'보기 ▾')+'</a>':'')+'</div>';
   h+='<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:auto;max-height:520px"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
     +'<thead><tr style="background:#f1f5f9;position:sticky;top:0"><th style="padding:5px 6px;width:28px"></th><th style="padding:5px 6px;text-align:left">일자-No.</th><th style="padding:5px 6px;text-align:left">매장(입고창고)</th><th style="padding:5px 6px;text-align:left">품목</th><th style="padding:5px 6px;text-align:right">수량</th><th style="padding:5px 6px;text-align:left">이카운트</th><th style="padding:5px 6px;text-align:left">메일</th></tr></thead><tbody>';
-  if(!list.length)h+='<tr><td colspan="7" style="padding:8px;color:#5b6675">새로 들어온 발주서가 없습니다(모두 보냄).</td></tr>';
+  if(!list.length)h+='<tr><td colspan="7" style="padding:8px;color:#5b6675">새로 들어온 발주요청이 없습니다(모두 보냄).</td></tr>';
   list.forEach(function(s){
     var st=_epStore(s),ok=_epCanSend(s),sn=_epSentOf(s.key),L=(s.lines||[]),q2=L.reduce(function(a,x){return a+(+x.qty||0);},0),op=!!_epOpen[s.key];
     var first=L[0]?_epItemName(L[0]):'';
@@ -9768,7 +9769,7 @@ function _epRender0(){
         +(s.wh?' <a href="javascript:void(0)" onclick="epInfoEdit(\''+s.key+'\')" title="이 매장의 수령인·연락처·주소를 직접 넣거나 고칩니다(팀 전체 적용)" style="color:#1b6e82;font-weight:700;white-space:nowrap">✏️ '+(st&&st.recv&&st.tel&&st.addr?'수정':'입력')+'</a>':'')+'</td>'
       +'<td style="padding:5px 6px">'+E(first)+(L.length>1?' <span style="color:#5b6675">외 '+(L.length-1)+'품목</span>':'')+(L.length?'':'<span style="color:#b91c1c">품목을 읽지 못함</span>')+'</td>'
       +'<td style="padding:5px 6px;text-align:right;font-weight:700">'+q2+'</td>'
-      +'<td style="padding:5px 6px;white-space:nowrap;color:'+(s.gb==="Y"?'#047857':'#b45309')+';font-weight:700">'+(s.gb==="Y"?'확인':'미확인')+'</td>'
+      +'<td style="padding:5px 6px;white-space:nowrap;color:'+(s.gb==="Y"?'#047857':'#b45309')+';font-weight:700">'+E(s.st||(s.gb==="Y"?'확인':'미확인'))+'</td>'
       +'<td style="padding:5px 6px;white-space:nowrap">'+(sn?'✉️ '+E(sn.by||"")+' '+E(_saipFmtAt(sn.at))+(sn.ec&&sn.ec!=="확인"&&sn.ec!=="이미 확인"?' <span style="color:#b91c1c">이카운트 '+E(sn.ec)+'</span>':''):'<span style="color:#b45309">안 보냄</span>')+'</td></tr>';
     if(_epEdit[s.key])h+=_epInfoRow(s);
     if(op)h+='<tr><td></td><td colspan="6" style="padding:2px 6px 8px"><table style="border-collapse:collapse;font-size:12px;width:100%">'
