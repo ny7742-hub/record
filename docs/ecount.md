@@ -282,6 +282,7 @@
   체크한 발주서 없이 추가 줄만으로도 보낼 수 있다(keys 빈 요청 → 이카운트 확인 처리 없음). 보낸 요청 id를 `epExtraSent`에 두고 `ws/epStatus.id`가 같고 ok면 추가 줄을 비운다(ecount-po.mjs가 `id`·`extra`를 남김).
 - **⬇ 다운로드는 합쳐서**(2026-11-18 영업2팀 "다운을 하면 합쳐서 나오게"): 이 칸의 `⬇ 도매발주서`(`epDl`)와 📥 도매 발주 `⬇ 발주서 다운로드`(`ocDownload`) 둘 다 `_wholesaleMergedDl` —
   📥 도매 발주 표(`orderConvRows`, `_ocAoaRows`) 줄 앞 + 이 칸에서 체크한 발주요청·＋추가·🏨 아난티 줄(`_epAoaRows`) 뒤로 한 파일. 받은 뒤 `#ocMsg`·`#epDlMsg`에 `N줄 M개 = 도매 … + 백화점 …`.
+  새로 고침하면 📥 도매 발주 표가 비어 있으므로(ocAutoApply는 한 번만 올림) 표가 비고 **오늘 받은** `ws/orderConvSrc`가 있으면 받을 때 `ocParse`로 다시 올리고 발주불가(`_ocNoOrder`) 줄은 뺀다(11/18 "다운받았는데 23건" — 청량리만 나왔다).
   **메일(✉️)은 합치지 않는다** — 도매 메일은 표 줄만(`_ocWorkbook`), 백화점 메일은 체크한 발주서 줄만.
 - **도매발주서** = 매장 발주 `ecDlWholesale`와 같은 27칸(`_epRows` → `_wholesaleWorkbook`, 파일 `_wholesaleFileName()`): C 매장코드 · D 매장명 · E 수령인 · H 연락처 · J 주소 · L 상품명(상품데이터 상품명+칼라명, 없으면 이카운트 품목명+규격) · M 수량 · R 코드 앞 8자리 · T 자사코드.
 - **메일 = 도매 발주 메일과 완전히 같게**(영업2팀 선택): 받는 사람 gnkim72@daum.net · 참조 강민준·이유진·이다겸·김민희 · 제목 `[도매] 발주서 - M/D(요일)` · 첨부 `화이트샌즈(MMDD) - 도매발주서.xlsx` · 서명 = 누른 사람.

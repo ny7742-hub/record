@@ -9710,11 +9710,21 @@ function _ocAoaRows(){
 }
 function _epAoaRows(){try{return _epRows(_epPicked()).concat(_epExtraRows());}catch(e){return [];}}
 function _wholesaleMergedDl(){
+  /* 새로 고침하면 📥 도매 발주 표가 비어 있다(ocAutoApply는 한 번만 표로 올림) — 오늘 받은 주문배분현황(ws/orderConvSrc)이 있으면 표로 다시 올리고 합친다
+     (2026-11-18 영업2팀 "다운받았는데 23건" — 표가 비어 청량리 23줄만 나왔다) */
+  try{var S=orderConvSrc,sd=S&&S.at?new Date(S.at):null;
+    if(!orderConvRows.length&&sd&&S.aoa&&S.aoa.length&&(sd.getFullYear()+"-"+String(sd.getMonth()+1).padStart(2,"0")+"-"+String(sd.getDate()).padStart(2,"0"))===_epToday()){
+      ocParse(S.aoa);
+      var nb=orderConvRows.filter(_ocNoOrder).length;   /* 발주불가(창고재고 부족) 줄은 아침에 빼고 보냈을 테니 다시 뺀다 */
+      if(nb){orderConvRows=orderConvRows.filter(function(r){return !_ocNoOrder(r);});ocRender();}
+      var reload="📥 도매 발주 표가 비어 있어 오늘 "+String(sd.getHours()).padStart(2,"0")+":"+String(sd.getMinutes()).padStart(2,"0")+" 받은 주문배분현황을 다시 불러와 합쳤습니다"+(nb?"(발주불가 "+nb+"줄 뺌)":"");
+    }
+  }catch(e){}
   var a=_ocAoaRows(),b=_epAoaRows(),rows=a.concat(b);
   if(!rows.length){alert("도매발주서로 만들 줄이 없습니다.\n📥 도매 발주에서 주문배분현황을 불러오거나, 🏬 백화점 발주에서 발주서를 체크해 주세요.");return false;}
   XLSX.writeFile(_wholesaleWorkbook(rows),_wholesaleFileName());
   var q=function(L){return L.reduce(function(s,r){return s+(Number(r[12])||0);},0);};
-  var t="⬇ 도매발주서 "+rows.length+"줄 "+q(rows)+"개 = 📥 도매 발주 "+a.length+"줄 "+q(a)+"개 + 🏬 백화점 발주 "+b.length+"줄 "+q(b)+"개";
+  var t="⬇ 도매발주서 "+rows.length+"줄 "+q(rows)+"개 = 📥 도매 발주 "+a.length+"줄 "+q(a)+"개 + 🏬 백화점 발주 "+b.length+"줄 "+q(b)+"개"+(typeof reload==="string"?" · "+reload:"");
   ["ocMsg","epDlMsg"].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=t;});
   return true;
 }
