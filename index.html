@@ -2496,9 +2496,10 @@ label{font-size:14px!important}
     <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 이카운트 백화점 발주</b><span style="font-size:12.5px;color:#475569">이카운트 [재고 I › 구매관리 › 발주요청조회]에 들어온 발주요청 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'</span>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
         <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epPullGo()" title="자동화 PC가 이카운트 발주요청조회를 지금 다시 읽습니다(평소엔 7~21시 5분마다 자동) — 이카운트에는 아무것도 쓰지 않습니다">🔄 지금 확인</button>
-        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="체크한 발주서로 도매발주서(물류 양식)를 받습니다 — 메일로 보내는 파일과 같습니다">⬇ 도매발주서</button>
+        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="📥 도매 발주(주문배분현황) 줄 + 체크한 발주서를 합친 도매발주서(물류 양식)를 받습니다 — 메일은 따로 나갑니다">⬇ 도매발주서</button>
         <button class="a2-btn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 이카운트 발주서를 '확인'으로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
       <div id="epAddSlot" style="margin-bottom:8px"></div>
+      <div id="epDlMsg" style="font-size:12px;color:#059669;font-weight:600;margin-bottom:4px"></div>
       <div id="epBox" style="font-size:13px"></div></div>
     <!-- 🛒 코스트코 자동발주(2026-11-17 영업2팀 "오토탭에 코스트코 자동발주 — 자동화 탭과 같은 방식, 5단계에서 승인") — 칸 안은 코스트코 발주 탭 ccAutoRender를 그대로 복사(_apCopy → #auto2CcStatus). docs/costco.md -->
     <div class="a2-card" id="auto2CcCard" style="grid-column:1/-1"><div class="a2-h"><b>🛒 코스트코 자동발주</b><span style="font-size:12.5px;color:#475569">① 건수 확인 → ② 발주하기 → ③④ 자동 → ⑤ 회신 오면 미출고 확인 후 <b>✅ 승인</b> → ⑤ DSS26·31 송장·판매현황 → ⑥ PlayMD 사입출고 · 세매</span>
@@ -9698,11 +9699,26 @@ function ecMoveFromOrd(){
   if(!rows.length){alert("매장 발주 줄이 없습니다(온라인 고객 배송·CX 줄은 창고이동에 넣지 않습니다).");return;}
   _ecMoveDirect("ord","수기발주",_ecMoveFromRows(rows.map(function(r){var st=_ordStoreByCode(r.store)||{};return {wh:_ecWh(r.store),nm:st.name||r.store,code:r.code,name:r.name,qty:r.qty,tag:"수기발주"};})));
 }
-function epDl(){
-  var L=_epPicked(),rows=_epRows(L).concat(_epExtraRows());
-  if(!rows.length){alert("도매발주서로 만들 발주서를 체크하거나, ＋ 상품 추가·🏨 아난티 발주로 줄을 넣어 주세요.");return;}
-  XLSX.writeFile(_wholesaleWorkbook(rows),_wholesaleFileName());
+/* ⬇ 다운로드는 합쳐서(2026-11-18 영업2팀 "다운을 하면 합쳐서 나오게") — 📥 도매 발주(주문배분현황 표) 줄 + 🏬 백화점 발주(체크한 이카운트 발주요청·＋추가·🏨 아난티) 줄을
+   한 도매발주서로. ocDownload·epDl 둘 다 이걸 쓴다. 메일(✉️)은 그대로 따로 나간다 */
+function _ocAoaRows(){
+  return (typeof orderConvRows!=="undefined"?orderConvRows:[]).map(function(r){
+    var row=[];for(var c=0;c<27;c++)row.push("");
+    row[2]=r.store||"";row[3]=r.storeName||"";row[4]=r.recv||"";row[7]=r.tel||"";row[9]=r.addr||"";
+    row[11]=r.name||"";row[12]=r.qty||"";row[17]=(r.code||"").slice(0,8);row[19]=r.code||"";
+    return row;});
 }
+function _epAoaRows(){try{return _epRows(_epPicked()).concat(_epExtraRows());}catch(e){return [];}}
+function _wholesaleMergedDl(){
+  var a=_ocAoaRows(),b=_epAoaRows(),rows=a.concat(b);
+  if(!rows.length){alert("도매발주서로 만들 줄이 없습니다.\n📥 도매 발주에서 주문배분현황을 불러오거나, 🏬 백화점 발주에서 발주서를 체크해 주세요.");return false;}
+  XLSX.writeFile(_wholesaleWorkbook(rows),_wholesaleFileName());
+  var q=function(L){return L.reduce(function(s,r){return s+(Number(r[12])||0);},0);};
+  var t="⬇ 도매발주서 "+rows.length+"줄 "+q(rows)+"개 = 📥 도매 발주 "+a.length+"줄 "+q(a)+"개 + 🏬 백화점 발주 "+b.length+"줄 "+q(b)+"개";
+  ["ocMsg","epDlMsg"].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=t;});
+  return true;
+}
+function epDl(){_wholesaleMergedDl();}
 function epMail(){
   var L=_epPicked(),X=_epExtraOk(),rows=_epRows(L).concat(_epExtraRows());
   if(!rows.length){alert("보낼 발주서를 체크하거나, ＋ 상품 추가·🏨 아난티 발주로 줄을 넣어 주세요.\n\n(매장 정보가 없거나 수량이 없는 발주서는 체크되지 않습니다)");return;}
@@ -20343,17 +20359,7 @@ function ocAutoRender(){
   _apCopy("ocAutoStatus","autoOcStatus");
   _ocProgTick();
 }
-function ocDownload(){
-  if(!orderConvRows.length){alert("먼저 주문배분현황 파일을 업로드하세요.");return;}
-  var aoa=[ORDER_HEADERS.slice()];
-  orderConvRows.forEach(function(r){
-    var row=[];for(var c=0;c<27;c++)row.push("");
-    row[2]=r.store||"";row[3]=r.storeName||"";row[4]=r.recv||"";row[7]=r.tel||"";row[9]=r.addr||"";
-    row[11]=r.name||"";row[12]=r.qty||"";row[17]=(r.code||"").slice(0,8);row[19]=r.code||"";
-    aoa.push(row);
-  });
-  XLSX.writeFile(_wholesaleWorkbook(aoa.slice(1)),_wholesaleFileName());
-}
+function ocDownload(){_wholesaleMergedDl();}   /* 🏬 백화점 발주 줄까지 합쳐서 — _wholesaleMergedDl */
 
 /* ── 엑셀 편집기 ── */
 var _xlNames=[];      /* 시트명 배열 */
