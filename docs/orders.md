@@ -12,8 +12,7 @@
   **확인구분 [3] 미확인**(ng-model `searchConditions.selGubn`, 주문일자는 화면 기본 한 달)을 [조회]·[엑셀]로 받아 시트 그대로 `ws/orderConvSrc{at,by,aoa,rows,note}`에 올린다
   (없으면 PlayMD가 '엑셀변환할 데이터가 없습니다' → rows 0 '미확인 주문 없음'). 화면은 새로 받은 것을 **한 번만** `ocParse`로 표에 넣는다
   (내가 누른 뒤 받은 것, 또는 표가 비었을 때 오늘 받은 것 — `ocSrcWant`·`ocSrcLoaded` 이 브라우저 기억).
-  **`⬇ 발주서 다운로드`는 🏬 이카운트 백화점 발주 줄까지 합쳐서 받는다**(2026-11-18 영업2팀 "다운을 하면 합쳐서" — `_wholesaleMergedDl`, 상세 `docs/ecount.md` 백화점 발주). 메일 파일은 이 표만.
-  **`✉️ 발주 메일 전달`** → 지금 표로 만든 발주서(`_ocWorkbook` — 이 표 줄만)를 base64로 `ws/saipReq.wm`에 실어 →
+  **`✉️ 발주 메일 전달`** → 지금 표로 만든 발주서(`⬇ 발주서 다운로드`와 같은 `_ocWorkbook`)를 base64로 `ws/saipReq.wm`에 실어 →
   `automation/wholesale-mail.mjs`가 하이웍스(`hiworks-send.mjs` 공통)로 **받는 사람 gnkim72@daum.net · 참조 강민준·이유진·이다겸·김민희 ·
   제목 `[도매] 발주서 - M/D(요일)` · 첨부 `화이트샌즈(MMDD) - 도매발주서.xlsx` · 서명 = 누른 사람**(김민희 대리님이 보내던 형식)으로 보내고,
   보낸 뒤 요청에서 파일(b64)을 지운다. 결과 `ws/wmStatus`. **보낸 뒤 이카운트 창고이동 NH → 매장 창고도 저장한다**(2026-11-18, 요청 `mv` → `ecount-move-after.mjs`, 상세 `docs/ecount.md` 백화점 발주). 확인창에 줄 수·매장별 줄·발주불가 줄 수와 '오늘 이미 보냄' 경고를 띄운다.
