@@ -38283,28 +38283,39 @@ function periods(){
 }
 function loadFrom(){return (new Date().getFullYear()-1)+"-01-01";}
 
-/* ── 세일즈 매니지먼트 불러오기 — 달마다 나눠 1000행씩(PostgREST 한도), 6개씩 동시에 ── */
+/* ── 세일즈 매니지먼트 불러오기 — 자동화 PC 경유(2026-11-18 영업2팀 "자동화 PC 경유로 고쳐줘")
+   세일즈 매니지먼트가 요약표를 공개 키로 못 읽게 막아(401 · 이름도 sales_daily_summary_v로 바뀜) 브라우저에서 직접 못 읽는다.
+   자동화 PC(automation/wkm-sales.mjs, saip-watch 요청 ws/saipReq.wkm)가 세일즈 매니지먼트 로그인으로 작년 1/1~오늘 영업2팀 매출을 읽어
+   팀 공유 ws/wkmSales {at, from, to, S:[매장구분|매장], P:[상품명], d:"yymmdd,S,P,금액,수량;…"}에 올리고, 여기서는 그걸 푼다.
+   자료가 WKM_STALE보다 오래됐으면 한 번 자동화 PC에 새로 받기를 걸고(화면은 지금 자료로 먼저 그린다) 끝나면 다시 읽는다. ── */
+var WKM_STALE=3*60*60*1000;
+function _wkmAuthOk(){return typeof _authState==="undefined"||_authState==="member"||_authState==="open";}
 function loadSales(){
   if(S.st==="load")return;
-  S.st="load";S.err="";S.prog=0;var rows=[],from=loadFrom(),today=ymd(new Date());
-  var chunks=[],d=pd(from);
-  while(ymd(d)<=today){var e=new Date(d.getFullYear(),d.getMonth()+1,0);chunks.push([ymd(d),ymd(e)]);d=new Date(d.getFullYear(),d.getMonth()+1,1);}
-  var st="in.("+TYPES.join(",")+")",H={apikey:WSSALES_KEY,Authorization:"Bearer "+WSSALES_KEY};
-  function page(c,off){
-    var q="select=ymd,store_type,store_name,product_name,total_amount,total_qty&store_type="+encodeURIComponent(st)
-      +"&ymd=gte."+c[0]+"&ymd=lte."+c[1]+"&order=ymd,store_type,store_name,product_code,color,product_name&offset="+off+"&limit=1000";
-    return fetch(WSSALES_URL+"/rest/v1/sales_daily_summary?"+q,{headers:H}).then(function(r){if(!r.ok)throw new Error("세일즈 매니지먼트 응답 "+r.status);return r.json();})
-      .then(function(a){a.forEach(function(x){rows.push([x.ymd,x.store_type,x.store_name||"",x.product_name||"",Number(x.total_amount)||0,Number(x.total_qty)||0]);});
-        if(a.length===1000)return page(c,off+1000);});
-  }
-  var i=0,done=0;
-  function next(){if(i>=chunks.length)return Promise.resolve();var c=chunks[i++];return page(c,0).then(function(){done++;S.prog=Math.round(done/chunks.length*100);_prog();return next();});}
-  var ws=[];for(var k=0;k<6;k++)ws.push(next());
-  Promise.all(ws).then(function(){
+  if(!_wkmAuthOk()){S.st="err";S.errAuth=true;S.err="자비스에 로그인(승인된 계정)해야 매출을 볼 수 있습니다";render();return;}
+  S.st="load";S.err="";S.errAuth=false;S.prog=0;
+  fbDB.ref("ws/wkmSales").once("value").then(function(snap){
+    var v=snap.val();if(typeof v==="string")v=JSON.parse(v);
+    if(!v||!v.d||!v.S||!v.P){S.st="err";S.err="자동화 PC가 올린 세일즈 매니지먼트 매출이 아직 없습니다";_wkmAutoPull(true);render();return;}
+    var rows=[],SL=v.S,PL=v.P,a=String(v.d).split(";");
+    for(var i=0;i<a.length;i++){var f=a[i].split(",");if(f.length<5)continue;var s=SL[+f[1]]||"|",j=s.indexOf("|"),d=f[0];
+      rows.push(["20"+d.slice(0,2)+"-"+d.slice(2,4)+"-"+d.slice(4,6),s.slice(0,j),s.slice(j+1),PL[+f[2]]||"",Number(f[3])||0,Number(f[4])||0]);}
     var last={};rows.forEach(function(r){if(!last[r[1]]||r[0]>last[r[1]])last[r[1]]=r[0];});
-    S.rows=rows;S.last=last;S.from=from;S.st="ok";S.at=Date.now();S._deptKeys=null;S._hsKeys=null;render();
-  }).catch(function(e){S.st="err";S.err=String(e&&e.message||e);render();});
+    S.rows=rows;S.last=last;S.from=v.from||loadFrom();S.st="ok";S.at=Date.parse(v.at)||Date.now();S.srcBy=v.by||"";S._deptKeys=null;S._hsKeys=null;
+    if(Date.now()-S.at>WKM_STALE)_wkmAutoPull(false);
+    render();
+  }).catch(function(e){S.st="err";S.err="팀 공유 매출 읽기 실패 — "+String(e&&e.message||e);render();});
   render();
+}
+/* 자료가 없거나 오래됐을 때 한 번만 자동화 PC에 받기 요청(누른 사람 없이 — 화면을 연 사람 이름으로) */
+function _wkmAutoPull(none){
+  if(S.pull||S._autoPulled)return;
+  if(typeof _saipWatchOk==="function"&&!_saipWatchOk())return;
+  if(typeof saipReq!=="undefined"&&_saipReqActive((saipReq||{}).wkm)){S.pull={kind:"wkm",id:saipReq.wkm.id,at:Date.now()};_pullSay("세일즈 매니지먼트 매출 받는 중 (다른 사람이 요청)");if(!S.pullT)S.pullT=setInterval(_pullTick,3000);return;}
+  S._autoPulled=true;
+  _pullStart("wkm",{id:_pullReq(),by:_saipMe(),at:new Date().toISOString(),state:"요청",auto:true});
+  _pullSay((none?"":"자료가 오래돼 ")+"자동화 PC에서 세일즈 매니지먼트 매출 받는 중 · 0초");
+  if(!S.pullT)S.pullT=setInterval(_pullTick,3000);
 }
 function _prog(){var el=document.getElementById("wkmProg");if(el)el.textContent="세일즈 매니지먼트 불러오는 중… "+S.prog+"%";}
 
@@ -38477,22 +38488,27 @@ function _pullSay(t,col){S.pullMsg=t;var el=document.getElementById("wkmPull");i
 function _pullStart(kind,R){if(!saipReq||typeof saipReq!=="object")saipReq={};_saipReqSet(kind,R);S.pull={kind:kind,id:R.id,at:Date.now()};}
 function _pullTick(){
   var P=S.pull;if(!P){clearInterval(S.pullT);S.pullT=null;return;}
-  var R=(saipReq||{})[P.kind]||{},mine=R.id===P.id,lab=P.kind==="pms"?"① PlayMD 판매일보 받는 중":"② 세일즈 매니지먼트에 올리는 중";
+  var R=(saipReq||{})[P.kind]||{},mine=R.id===P.id,lab=P.kind==="pms"?"① PlayMD 판매일보 받는 중":"② 자동화 PC에서 세일즈 매니지먼트 매출 받는 중";
   var sec=Math.round((Date.now()-P.at)/1000);
   if(!mine||R.state==="요청"||R.state==="처리중"){
-    if(Date.now()-P.at>25*60*1000){S.pull=null;_pullSay("자동화 PC가 25분 안에 끝내지 못했습니다 — 세일즈 매니지먼트를 다시 읽습니다","#b45309");wkmReload();return;}
+    if(Date.now()-P.at>25*60*1000){S.pull=null;_pullSay("자동화 PC가 25분 안에 끝내지 못했습니다 — 지금 있는 자료로 다시 읽습니다","#b45309");wkmReload();return;}
     _pullSay(lab+(R.state==="요청"?" (자동화 PC 대기)":"")+" · "+sec+"초"+(R.progress?" — "+String(R.progress).slice(0,60):""));return;
   }
-  if(R.state!=="끝"){S.pull=null;_pullSay((P.kind==="pms"?"PlayMD 판매일보 받기":"세일즈 매니지먼트 올리기")+" 실패"+(R.state&&R.state!=="실패"?"("+R.state+")":"")+" — 지금 있는 자료로 다시 읽습니다","#dc2626");wkmReload();return;}
-  /* ② 세일즈 매니지먼트 자동 올리기는 멈췄다(2026-11-13 영업2팀 "세일즈매니지먼트에 자동올리기는 전부 중지") — PlayMD 받기 뒤 다시 읽기만 */
-  if(P.kind==="pms"){S.pull=null;_pullSay("✅ PlayMD 판매일보 받기 끝 "+new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})+" · 세일즈 매니지먼트 자동 올리기는 멈춤 — 지금 있는 자료로 다시 읽습니다","#047857");wkmReload();return;}
-  S.pull=null;_pullSay("✅ PlayMD 매출 반영 "+new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),"#047857");wkmReload();
+  /* ① PlayMD 받기가 끝나면(실패해도) ② 자동화 PC에 세일즈 매니지먼트 매출 받기(ws/saipReq.wkm — 2026-11-18, 세매 공개 읽기가 막혀서) */
+  if(P.kind==="pms"){
+    var pmOk=R.state==="끝";
+    if(_saipReqActive((saipReq||{}).wkm)){S.pull={kind:"wkm",id:saipReq.wkm.id,at:Date.now()};_pullSay("② 자동화 PC에서 세일즈 매니지먼트 매출 받는 중 (다른 사람이 요청)");return;}
+    _pullStart("wkm",{id:_pullReq(),by:_saipMe(),at:new Date().toISOString(),state:"요청"});
+    _pullSay((pmOk?"":"PlayMD 판매일보 받기 실패 — ")+"② 자동화 PC에서 세일즈 매니지먼트 매출 받는 중 · 0초",pmOk?"#1b6e82":"#b45309");return;
+  }
+  if(R.state!=="끝"){S.pull=null;_pullSay("세일즈 매니지먼트 매출 받기 실패"+(R.state&&R.state!=="실패"?"("+R.state+")":"")+(R.progress?" — "+String(R.progress).slice(0,80):"")+" — 지금 있는 자료로 다시 읽습니다","#dc2626");wkmReload();return;}
+  S.pull=null;_pullSay("✅ 세일즈 매니지먼트 매출 받음 "+new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}),"#047857");wkmReload();
 }
 window.wkmPull=function(){
   if(S.pull){alert("이미 가져오는 중입니다 — "+(S.pullMsg||""));return;}
   if(_authState!=="member"&&_authState!=="open"){wkmReload();return;}
-  if(typeof _saipWatchOk==="function"&&!_saipWatchOk()){alert("자동화 PC 신호가 없어 PlayMD에서 새로 받지 못합니다.\n지금 세일즈 매니지먼트에 있는 자료로 다시 읽습니다.");wkmReload();return;}
-  var busy=[["pms","PlayMD 판매일보 받기"],["wsu","세일즈 매니지먼트 올리기"]].filter(function(k){return _saipReqActive((saipReq||{})[k[0]]);})[0];
+  if(typeof _saipWatchOk==="function"&&!_saipWatchOk()){alert("자동화 PC 신호가 없어 PlayMD·세일즈 매니지먼트에서 새로 받지 못합니다.\n자동화 PC가 마지막으로 올린 자료로 다시 읽습니다.");wkmReload();return;}
+  var busy=[["pms","PlayMD 판매일보 받기"],["wsu","세일즈 매니지먼트 올리기"],["wkm","세일즈 매니지먼트 매출 받기"]].filter(function(k){return _saipReqActive((saipReq||{})[k[0]]);})[0];
   if(busy){alert(busy[1]+"가 이미 진행 중입니다 ("+(((saipReq||{})[busy[0]]||{}).by||"?")+"). 끝난 뒤 다시 눌러 주세요.");return;}
   var now=new Date(),f=new Date(now.getFullYear(),now.getMonth()-1,1),y8=function(d){return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate());};
   _pullStart("pms",{id:_pullReq(),by:_saipMe(),at:now.toISOString(),state:"요청",ym:ymd(now).slice(0,7),from:y8(f),to:y8(now)});
@@ -38623,26 +38639,26 @@ function plainTable(C,P,label){
 
 function render(){
   var box=document.getElementById("wkmBody");if(!box)return;
-  if(S.st==="idle")loadSales();
+  if(S.st==="idle"||(S.st==="err"&&S.errAuth&&_wkmAuthOk()))loadSales();
   if(S.calSt==="idle")loadCal();
   listenMemo();
   var P=periods(),wk=S.mode==="week";
   var nav=wk?'<button '+BTN+' onclick="wkmSet(\'wk\',1)">◀</button><b style="font-size:14px">'+esc(P.week.label)+' · '+mdw(P.week.a)+' ~ '+mdw(P.week.b)+'</b><button '+BTN+(S.wkOff<=0?' disabled':'')+' onclick="wkmSet(\'wk\',-1)">▶</button>'
     :'<button '+BTN+' onclick="wkmSet(\'mo\',1)">◀</button><b style="font-size:14px">'+esc(P.month.label)+'</b><button '+BTN+(S.moOff<=0?' disabled':'')+' onclick="wkmSet(\'mo\',-1)">▶</button>';
   function seg(v,l){var on=S.mode===v;return '<button onclick="wkmSet(\'mode\',\''+v+'\')" style="padding:7px 16px;border:none;font-size:13.5px;font-weight:800;cursor:pointer;background:'+(on?'#1b6e82':'#fff')+';color:'+(on?'#fff':'#1b6e82')+'">'+l+'</button>';}
-  var info=S.st==="load"?'<span id="wkmProg">세일즈 매니지먼트 불러오는 중… '+S.prog+'%</span>':S.st==="err"?'<span style="color:#dc2626">'+esc(S.err)+'</span>':S.st==="ok"?'세일즈 매니지먼트 영업2팀 · '+new Date(S.at).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})+' 불러옴':'';
+  var info=S.st==="load"?'<span id="wkmProg">세일즈 매니지먼트 불러오는 중… '+S.prog+'%</span>':S.st==="err"?'<span style="color:#dc2626">'+esc(S.err)+'</span>':S.st==="ok"?'세일즈 매니지먼트 영업2팀 · '+(function(d){return (d.getMonth()+1)+"/"+d.getDate()+" "+p2(d.getHours())+":"+p2(d.getMinutes());})(new Date(S.at))+' 자료(자동화 PC)':'';
   var h='<div class="card" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     +'<div class="sec-title" style="margin:0;padding-bottom:0;border-bottom:none">🗓️ 주간회의</div>'
     +'<div style="display:inline-flex;border:1.5px solid #1b6e82;border-radius:8px;overflow:hidden">'+seg("week","주간회의")+seg("all","전체회의")+'</div>'
     +'<div style="display:flex;align-items:center;gap:6px">'+nav+'</div>'
     +'<div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span id="wkmPull" style="font-size:12px;font-weight:700;color:#1b6e82">'+esc(S.pullMsg||"")+'</span><span style="font-size:12px;color:#5b6675">'+info+'</span>'
-    +'<button '+BTN+(S.pull?' disabled':'')+' onclick="wkmPull()" title="자동화 PC가 PlayMD 판매일보(지난달 1일~오늘)를 받은 뒤 세일즈 매니지먼트를 다시 읽습니다(세매 자동 올리기는 멈춤 — 2026-11-13)">🔄 새로고침</button>'
-    +'<button '+BTN.replace("13px","12px")+' onclick="wkmReload()" title="PlayMD에서 받지 않고 지금 세일즈 매니지먼트·공유캘린더만 다시 읽습니다">다시 읽기만</button>'
+    +'<button '+BTN+(S.pull?' disabled':'')+' onclick="wkmPull()" title="자동화 PC가 PlayMD 판매일보(지난달 1일~오늘)를 받고, 세일즈 매니지먼트 매출을 새로 받아 올린 뒤 다시 읽습니다(세매 자동 올리기는 멈춤 — 2026-11-13)">🔄 새로고침</button>'
+    +'<button '+BTN.replace("13px","12px")+' onclick="wkmReload()" title="자동화 PC가 마지막으로 올린 세일즈 매니지먼트 매출·공유캘린더만 다시 읽습니다">다시 읽기만</button>'
     +'<button '+BTN+(S.st==="ok"?'':' disabled')+' onclick="wkmCopy()" title="표·사유·업무를 글로 복사합니다(슬랙·시트 붙여넣기용)">📋 회의자료 복사</button>'
     +'<a '+BTN.replace('style="','style="text-decoration:none;')+' href="https://wssales.pages.dev/" target="_blank" rel="noopener">↗ 세일즈 매니지먼트</a>'
     +'<a '+BTN.replace('style="','style="text-decoration:none;')+' href="https://docs.google.com/spreadsheets/d/'+CAL_ID+'/edit#gid='+CAL_GID+'" target="_blank" rel="noopener">↗ 공유캘린더</a></div></div></div>';
   if(S.st!=="ok"){
-    box.innerHTML=h+card("📊 매출",'<div style="font-size:13px;color:'+(S.st==="err"?"#dc2626":"#5b6675")+';padding:20px;text-align:center">'+(S.st==="err"?esc(S.err)+' — 🔄 새로고침을 눌러 다시 시도하세요':'세일즈 매니지먼트에서 영업2팀 매출(작년 1월~오늘)을 불러오는 중입니다… 10~20초 걸립니다')+'</div>');
+    box.innerHTML=h+card("📊 매출",'<div style="font-size:13px;color:'+(S.st==="err"?"#dc2626":"#5b6675")+';padding:20px;text-align:center">'+(S.st==="err"?esc(S.err)+(S.errAuth?'':' — 🔄 새로고침을 눌러 다시 시도하세요'):'자동화 PC가 올린 영업2팀 매출(작년 1월~오늘)을 불러오는 중입니다…')+'</div>');
     return;
   }
   var copy="";
