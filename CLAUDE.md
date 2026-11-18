@@ -45,7 +45,7 @@
 - 홈 바로 옆(`page-auto2`, 2026-11-13 영업2팀) — 로그인 상태 6칸만(renderPortalLogin 끝에서 `#plSites`를 `#auto2PlSites`로 복사, 2칸 격자라 DSS26·DSS31 나란히) +
   홈쇼핑 칸: `📊 세매 등록` = 날짜 고르고 누르면 자동화 PC(`ws/saipReq.whs` {mode save, step} → `automation/wssales-hs.mjs`)가 ① OneDrive 받기 ② 매칭표로 채우기 ③ 세매 변환 미리보기 ④ 세매 등록 — **단계마다 `✅ 승인`을 눌러야 넘어간다**(2026-11-16, 상세 `docs/sales.md`), 단계 기록 `ws/wssalesHs`·`whsRender` ·
   `↗ 세매 열기`(새 탭) · `🚚 PlayMD 사입출고등록` = `saipAutoGo('hs')` · OneDrive 판매자료. PlayMD 자료 업로드는 넣지 않는다. 🤖 자동화 탭은 그대로 둔다.
-  **칸 순서(2026-11-18): 로그인 상태(전체 폭) → 🏬 백화점 발주 → 🛒 코스트코 자동발주 → 🛍 홈쇼핑 → 🏬 백화점온라인몰 판매등록(PlayMD → 세매 한 칸, 세매 쪽은 홈쇼핑 칸을 본뜬 `wds*` — 홈쇼핑 칸을 고치면 같이 고칠 것, `docs/sales.md`) → PlayMD 등록 단계표 4칸(`#auto2Reg`·`a2rRender`, 2칸씩: 창고간이동·매장출고·홈쇼핑 반품·코스트코 반품 — 원래 등록 함수 saipConfirmGo·saipCfSave·retPreviewGo·retAutoGo를 그대로 부름, `docs/orders.md`) → 세매(전체 폭)**.
+  **칸 순서(2026-11-18): 로그인 상태(전체 폭) → 🏬 백화점 발주 → 🛒 코스트코 자동발주 → 🛍 홈쇼핑 판매등록(PlayMD → 세매 한 흐름, 백화점온라인몰과 같은 방식 `whsMainGo`) → 🏬 백화점온라인몰 판매등록(PlayMD → 세매 한 칸, 세매 쪽은 홈쇼핑 칸을 본뜬 `wds*` — 홈쇼핑 칸을 고치면 같이 고칠 것, `docs/sales.md`) → PlayMD 등록 단계표 4칸(`#auto2Reg`·`a2rRender`, 2칸씩: 창고간이동·매장출고·홈쇼핑 반품·코스트코 반품 — 원래 등록 함수 saipConfirmGo·saipCfSave·retPreviewGo·retAutoGo를 그대로 부름, `docs/orders.md`) → 세매(전체 폭)**.
   `🛒 코스트코 자동발주`(2026-11-17, `#auto2CcCard` — ccAutoRender 복사, ⑤ 회신 오면 미출고 확인 후 `✅ 승인` · 미출고 송장은 DSS에 안 올림 · ⑥ 사입출고+세매, 상세 `docs/costco.md`).
   그 아래 `🏬 이카운트 백화점 발주`(2026-11-17, `epRender`) — 이카운트 발주서조회(입고창고 = 매장) → 도매발주서 → 김구남 센터장 메일(도매와 같은 형식) → 이카운트 '확인'. 자동화 PC `automation/ecount-po.mjs`(상세 `docs/ecount.md` 끝).
 
