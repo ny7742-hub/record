@@ -3282,6 +3282,27 @@ var FB_PATH={
   "pmWhAll":"ws/pmWhAll","ecStkStatus":"ws/ecStkStatus","ecSalStatus":"ws/ecSalStatus","ecMoveStatus":"ws/ecMoveStatus"   /* PlayMD 전체 창고재고(사이즈별) · 이카운트 창고 재고 자동 입력 결과(2026-10-29) */
   /* orderDB(발주서 수기)는 동기화 안 함 — 각 사용자가 따로 작성 (localStorage 전용) */
 };
+/* 2026-11-18 영업2팀(휴대폰 'Google 계정으로 로그인' → auth/operation-not-supported-in-this-environment → '크롬으로 열기'):
+   Firebase 로그인(v8)은 localStorage에 시험 삼아 한 줄 써 보고 실패하면 '저장 불가 환경'으로 보고 Google 로그인을 거부하고,
+   로그인 유지도 못 한다. 그런데 팀 자료(FB_PATH 캐시)로 localStorage가 꽉 차도 똑같이 실패한다 — 시크릿 창이 아닌데 이 오류가 난 원인.
+   그래서 Firebase 로그인을 쓰기 전에 공간을 확인하고, 모자라면 팀 자료 캐시를 큰 것부터 지운다(로그인 뒤 Firebase에서 다시 채워진다). */
+function _authFreeStorage(){
+  var pad=new Array(65537).join("x"),K="__authSpaceTest";
+  function ok(){try{localStorage.setItem(K,pad);localStorage.removeItem(K);return true;}catch(e){try{localStorage.removeItem(K);}catch(_){}return false;}}
+  try{if(!window.localStorage)return false;}catch(e){return false;}
+  if(ok())return true;
+  var keys=Object.keys(FB_PATH).map(function(k){var v=null;try{v=localStorage.getItem(k);}catch(e){}return {k:k,n:v?v.length:0};})
+    .filter(function(o){return o.n>0;}).sort(function(a,b){return b.n-a.n;});
+  for(var i=0;i<keys.length;i++){
+    try{localStorage.removeItem(keys[i].k);}catch(e){}
+    console.warn("localStorage 꽉 참 — 로그인을 위해 팀 자료 캐시 지움:",keys[i].k,keys[i].n);
+    if(ok())return true;
+  }
+  return ok();
+}
+_authFreeStorage();
+/* 한 번 로그인하면 이 브라우저에서 계속 유지(기본값이지만 분명히 해 둔다) */
+try{firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});}catch(e){}
 
 /* ══════════════════════════════════════════
    회원 승인제 (2026-09 영업2팀)
@@ -3336,6 +3357,7 @@ var AUTH_GREDIR_KEY="authGoogleRedirAt";
 function _authGoogleProvider(){var p=new firebase.auth.GoogleAuthProvider();p.setCustomParameters({prompt:"select_account"});return p;}
 function authGoogleRedirect(){
   _authErr("");
+  _authFreeStorage();
   try{sessionStorage.setItem(AUTH_GREDIR_KEY,String(Date.now()));}catch(e){}
   var b=document.getElementById("authGoogleBtn");if(b){b.disabled=true;b.innerHTML="⏳ Google 로그인 화면으로 이동 중…";}
   firebase.auth().signInWithRedirect(_authGoogleProvider()).catch(function(e){_authGoogleFail(e);});
@@ -3383,6 +3405,7 @@ function _authInAppHelp(code){
 }
 function authGoogle(){
   _authErr("");
+  _authFreeStorage();
   if(_authInApp()){_authInAppHelp("");return;}
   var p=_authGoogleProvider();
   var b=document.getElementById("authGoogleBtn");if(b){b.disabled=true;b.innerHTML="⏳ Google 로그인 창 여는 중…";}
