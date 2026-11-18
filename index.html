@@ -2517,7 +2517,7 @@ label{font-size:14px!important}
         <button class="a2-btn sub" id="whsSaipBtn" onclick="whsSaipGo()" title="사입출고등록 탭의 🛍 홈쇼핑 매출등록과 같습니다(왼쪽에서 고른 날짜로) — 확인창 뒤 자동화 PC가 PlayMD에 등록합니다">🚚 PlayMD 사입출고등록</button>
         <a class="a2-btn sub" href="https://onedrive.live.com/?id=FEBA372AF61138D3%21187394&cid=FEBA372AF61138D3&redeem=aHR0cHM6Ly8xZHJ2Lm1zL2YvYy9mZWJhMzcyYWY2MTEzOGQzL1F0TTRFZllxTjdvZ2dQNEMzQUlBQUFBQXhmTllYWVJMUVpZWUt3" target="_blank" rel="noopener" title="원본이 있는 OneDrive 판매자료 폴더를 엽니다">📂 OneDrive ↗</a>
       </div>
-      <div style="font-size:12px;color:#5b6675;margin-bottom:6px">① OneDrive 받기 → ② 매칭표로 상품컬러코드·상품코드·결제금액(매칭표 현재가 × 수량) 채우기 → ③ 세매 변환 미리보기 → ④ 세매 [이대로 등록하기]. <b>단계마다 결과를 보고 [✅ 승인]을 눌러야 다음으로 넘어갑니다</b>(10분 안에 안 누르면 멈춤 · [✖ 그만]은 등록 없이 멈춤). ③에 변환 실패·확인 필요·이중 계상이 있으면 ④로 가지 않습니다.</div>
+      <div style="font-size:12px;color:#5b6675;margin-bottom:6px">① OneDrive 받기 → ② 매칭표로 상품컬러코드·상품코드·결제금액(매칭표 현재가 × 수량) 채우기 → ③ 세매 변환 미리보기 → ④ 세매 [이대로 등록하기]. ①→②는 바로 이어지고(매칭표 = <a href="https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/edit?gid=937142857#gid=937142857" target="_blank" rel="noopener" style="color:#1b6e82;font-weight:700">홈쇼핑 매칭표 시트 ↗</a>), <b>②·③ 뒤에는 결과를 보고 [✅ 승인]을 눌러야 다음으로 넘어갑니다</b>(10분 안에 안 누르면 멈춤 · [✖ 그만]은 등록 없이 멈춤). ③에 변환 실패·확인 필요·이중 계상이 있으면 ④로 가지 않습니다.</div>
       <div id="whsSteps" style="font-size:13px;line-height:1.55"></div></div>
   </div>
 </div>
@@ -9860,6 +9860,12 @@ function _whsReqPatch(id,patch){
     },function(err){if(err)alert("승인 저장 오류: "+err.message);},false);
   }catch(e){alert("승인 저장 오류: "+e.message);}
 }
+var WHS_SHEET="https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/edit?gid=937142857#gid=937142857";
+function whsCopyBad(btn){
+  var B=window._whsBad||[],seen={},t=B.filter(function(x){var k=x.shop+"|"+x.name;if(seen[k])return false;seen[k]=1;return true;}).map(function(x){return x.shop+String.fromCharCode(9,9)+x.name;}).join(String.fromCharCode(10));
+  var ok=function(){if(btn){var o=btn.textContent;btn.textContent="✅ 복사함 — 시트 F열에 붙여 넣기";setTimeout(function(){btn.textContent=o;},2500);}};
+  try{navigator.clipboard.writeText(t).then(ok,function(){prompt("복사해서 시트에 붙여 넣으세요",t);});}catch(e){prompt("복사해서 시트에 붙여 넣으세요",t);}
+}
 function whsApprove(n){
   var R=(saipReq||{}).whs;if(!_saipReqActive(R)){alert("진행 중인 요청이 없습니다.");return;}
   _whsReqPatch(R.id,{go:{step:n,by:_saipMe(),at:new Date().toISOString()}});
@@ -9930,14 +9936,18 @@ function whsRender(){
     if(view==="all"&&LN.length){
       b2+='<div style="overflow:auto;max-height:520px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thR+'>행</th><th '+thL+'>쇼핑몰</th><th '+thL+'>주문번호</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>결제금액</th></tr>'
         +LN.map(function(x){var F=x.f||"";return '<tr><td style="'+td+tdR+'color:#5b6675">'+x.r+'</td><td '+tdN+'>'+e(x.shop)+'</td><td style="'+td+tdC+'">'+e(x.ord)+'</td><td '+tdL+'>'+e(x.name)+'</td>'
-          +'<td style="'+td+tdC+(F.indexOf("c")>=0?FIL:'')+'">'+e(x.cc)+'</td><td style="'+td+tdC+(F.indexOf("p")>=0?FIL:'')+'">'+e(x.pc)+'</td>'
+          +'<td style="'+td+tdC+(!x.cc?'background:#fee2e2;':F.indexOf("c")>=0?FIL:'')+'">'+e(x.cc)+'</td><td style="'+td+tdC+(!x.pc?'background:#fee2e2;':F.indexOf("p")>=0?FIL:'')+'">'+e(x.pc)+'</td>'
           +'<td style="'+td+tdR+'">'+f(x.qty)+'</td><td style="'+td+tdR+(F.indexOf("a")>=0?FIL:'')+'">'+f(x.amt)+'</td></tr>';}).join("")
         +'<tr><td colspan="6" style="'+td+'font-weight:800;text-align:right">합계</td><td style="'+td+tdR+'font-weight:800">'+f(LN.reduce(function(a,x){return a+(Number(x.qty)||0);},0))+'</td><td style="'+td+tdR+'font-weight:800">'+f(fl.amount)+'</td></tr></table></div>';
     }else if(G.length){
       b2+='<div style="overflow:auto;max-height:520px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thL+'>쇼핑몰</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>단가</th><th '+thR+'>결제금액</th></tr>'
         +G.map(function(g){return '<tr><td '+tdN+'>'+e(g.shop)+'</td><td '+tdL+'>'+e(g.name)+'</td><td style="'+td+tdC+'">'+e(g.cc)+'</td><td style="'+td+tdC+'">'+e(g.pc)+'</td><td style="'+td+tdR+'">'+f(g.qty)+'</td><td style="'+td+tdR+'">'+f(g.unit)+'</td><td style="'+td+tdR+'">'+f(g.amt)+'</td></tr>';}).join("")+'</table></div>';
     }
-    if(fl.bad&&fl.bad.length){s2="bad";b2+='<div style="color:#b91c1c;margin-top:4px;font-weight:700">못 채운 줄 '+f(fl.badN||fl.bad.length)+'개 — 자비스 홈쇼핑 매칭표에 넣은 뒤 다시 눌러 주세요</div>'+fl.bad.slice(0,15).map(function(x){return '<div style="color:#b91c1c;font-size:12px">'+x.row+'행 '+e(x.shop)+' · '+e(x.name)+' · '+x.qty+'개 — '+e(x.why)+'</div>';}).join("");}
+    /* 못 채운 줄(2026-11-18 영업2팀 "매칭표 빈칸채우기 수정되게") — 매칭표 시트에 넣고 [🔄 다시 채우기] → 자동화 PC가 시트를 새로 읽어 ①②부터 다시 */
+    if(fl.bad&&fl.bad.length){s2="bad";window._whsBad=fl.bad;b2+='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:6px 10px;margin-top:6px"><div style="color:#b91c1c;font-weight:700">못 채운 줄 '+f(fl.badN||fl.bad.length)+'개 — 홈쇼핑 매칭표 시트에 넣고 [🔄 다시 채우기]를 눌러 주세요</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:5px 0"><a class="a2-btn sub" href="'+WHS_SHEET+'" target="_blank" rel="noopener">📝 매칭표 시트 열기 ↗</a>'
+      +'<button class="a2-btn sub" onclick="whsCopyBad(this)" title="쇼핑몰 · (홈쇼핑코드 빈칸) · 상품컬러명 — 시트의 「홈쇼핑」 칸(F열)에 붙여 넣고 상품컬러코드·상품코드·상품명·현재가를 채우세요">📋 시트에 넣을 줄 복사</button>'
+      +(act?'':'<button class="a2-btn whs-blink" onclick="whsGo()">🔄 다시 채우기</button>')+'</div>'+fl.bad.slice(0,15).map(function(x){return '<div style="color:#b91c1c;font-size:12px">'+x.row+'행 '+e(x.shop)+' · '+e(x.name)+' · '+x.qty+'개 — '+e(x.why)+'</div>';}).join("")+'</div>';}
     if(fl.saved)b2+='<div style="font-size:12px;color:#5b6675;margin-top:3px">채운 파일: 자동화 PC <code>'+e(String(fl.saved).replace(/^.*automation[\\\/]/,"automation/"))+'</code> (수령인·연락처·주소는 비움)</div>';
   }
   /* ③ */
