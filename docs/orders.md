@@ -553,3 +553,10 @@
   · 코스트코 **🔢 건수 확인** — DSS 1·2만 보고 요청만(기다리지 않음).
   · **롯데·현대 EDI** 일별매출 받기(`edi-daily.mjs`) — 로그인을 기다리기 시작할 때(`waitLotteLogin`·현대 대기) `askLogin`으로 요청(EDI는 원래 3시간까지 기다린다).
   `?`(탭 응답 없음)는 로그인된 것으로 본다(잘못 부르지 않게). 10분마다 도는 로그인 유지·DSS 주문 수 읽기(`keepAndCount`)는 요청하지 않는다.
+
+## ⚡ AUTO 탭 PlayMD 등록 단계표 5칸 (2026-11-18 영업2팀)
+"홈쇼핑처럼 백화점몰 판매등록, 창고간이동, 매장출고등록, 홈쇼핑반품등록, 코스트코반품등록" — 🏬 백화점몰 → 세매 칸 아래 `#auto2Reg`(2칸씩, 1100px 아래 1칸), `a2rRender`.
+- 새 등록 코드는 없다. **원래 흐름 함수를 그대로 부르고 단계만 보여 준다**(자동화 PC·saip-watch 그대로) — 원래 화면을 고치면 이 칸도 같이 바뀐다.
+- 사입출고(ds·mv·so): 날짜(기본 = 사입출고등록 탭 날짜 `_saipDateEl`, 고르면 그 날짜) → `[🚨 등록요망]` = `saipConfirmGo`(원본 받기·중복 검사 → 미리보기) → ① 원본 ② 중복(`_saipItemOf`: nofile·already·status) → ③ `canReg`(확정 창과 같은 조건 — 2시간 안·고친 값 없음·중복 아님)일 때 `[✅ 승인 — PlayMD 저장]` = `saipCfSave`, `[🔍 미리보기]` = `_saipCfShow` 창 → ④ `_saipLogOf`(전표·수량·금액·누가).
+- 반품(hr·cr): ① `_retPendingOf`(반품리스트 미등록 줄, 5분마다 `_retScan` — AUTO 탭이 열려 있어도 돈다) → `[🚨 등록요망 (N건)]` = `retPreviewGo` → ② `_retStatusOf` 미리보기(RET_ST_TXT) → ③ 미리보기 2시간 안·고친 값(`retFix`) 없음이면 `[✅ 승인 — PlayMD 저장]` = `retAutoGo(k,{expect})` → ④ 저장 결과 + `_retLastRun`.
+- 깜빡임(`whs-blink`)은 지금 누를 단추 하나: 등록할 건이 있으면 `등록요망`, 미리보기가 끝나 승인할 수 있으면 `✅ 승인`.
