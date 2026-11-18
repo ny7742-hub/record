@@ -2508,6 +2508,9 @@ label{font-size:14px!important}
     <!-- 🛍 홈쇼핑 → 세매 — 발주 칸들 아래(2026-11-18 영업2팀) -->
     <div class="a2-card" style="grid-column:1/-1"><div class="a2-h"><b>🛍 홈쇼핑 → 세매</b><span style="font-size:12.5px;color:#475569">OneDrive 판매자료 · MMDD 홈쇼핑.xlsx</span>
       <a class="a2-btn sub" style="margin-left:auto;font-size:12.5px;padding:5px 11px" href="https://wssales.pages.dev/" target="_blank" rel="noopener" title="세일즈 매니지먼트를 새 탭으로 엽니다 — 직접 올릴 때">↗ 세매 열기</a></div>
+      <style>/* 다음에 누를 단추 깜빡임(2026-11-18 영업2팀 "등록건이 있으면 세매 등록요망 깜빡 · 다음 순서 단추도 깜빡") */
+        @keyframes whsBlink{0%,100%{background:#dc2626;color:#fff;box-shadow:0 0 0 0 rgba(220,38,38,.6)}50%{background:#f59e0b;color:#fff;box-shadow:0 0 0 6px rgba(245,158,11,0)}}
+        .whs-blink{animation:whsBlink 1s ease-in-out infinite!important;border-color:transparent!important;opacity:1!important}</style>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
         <input type="date" id="whsDate" onchange="whsRender()" onclick="try{if(this.showPicker)this.showPicker();}catch(e){}" style="cursor:pointer;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px" title="OneDrive 판매자료 날짜 폴더(기본 전 영업일)">
         <button class="a2-btn" id="whsBtn" onclick="whsGo()" title="자동화 PC가 ① OneDrive 파일 받기 → ② 매칭표로 빈 칸 채우기 → ③ 세매 변환 미리보기 → ④ 세매 등록을 합니다. 단계가 끝날 때마다 [✅ 승인]을 눌러야 다음 단계로 넘어갑니다">📊 세매 등록</button>
@@ -9888,8 +9891,11 @@ function whsRender(){
   var H=(wssalesHs||{})[mmdd]||null;
   if(act&&H&&R.id&&H.id!==R.id)H=null;               /* 새 요청 — 예전 기록은 숨기고 처음부터 채운다 */
   var D=_whsDone(mmdd,_whsDate());
-  var btn=document.getElementById("whsBtn");if(btn){var busy=_saipReqActive(R),dn=!busy&&D.wsFull;btn.disabled=busy;btn.style.opacity=busy||dn?".55":"1";btn.textContent=busy?"⏳ 진행 중…":dn?"✅ 세매 등록 완료":"📊 세매 등록";}
-  var sb=document.getElementById("whsSaipBtn");if(sb){sb.style.opacity=D.L?".55":"1";sb.textContent=D.L?"✅ 사입출고 완료":"🚚 PlayMD 사입출고등록";}
+  /* 깜빡임(2026-11-18 영업2팀) — 그날 홈쇼핑 등록건이 있는데(세매 대조 miss·part·원본 금액>0, 대조 기록이 없으면 있다고 본다) 세매에 안 들어갔으면 [📊 세매 등록요망],
+     진행 중엔 그 단계의 [✅ 승인], 세매가 끝나고 사입출고가 남았으면 [🚚 PlayMD 사입출고등록]이 깜빡인다 — 지금 누를 단추 하나만 */
+  var busy=_saipReqActive(R),wd0=D.wd,has=wd0?(wd0.s==="miss"||wd0.s==="part"||Number(wd0.f)>0):true,need=!busy&&!D.wsFull&&has;
+  var btn=document.getElementById("whsBtn");if(btn){var dn=!busy&&D.wsFull;btn.disabled=busy;btn.style.opacity=busy||dn?".55":"1";btn.textContent=busy?"⏳ 진행 중…":dn?"✅ 세매 등록 완료":need?"📊 세매 등록요망":"📊 세매 등록";btn.classList.toggle("whs-blink",need);}
+  var sb=document.getElementById("whsSaipBtn");if(sb){var sNeed=!busy&&D.ws&&!D.L;sb.style.opacity=D.L?".55":"1";sb.textContent=D.L?"✅ 사입출고 완료":sNeed?"🚚 PlayMD 사입출고등록요망":"🚚 PlayMD 사입출고등록";sb.classList.toggle("whs-blink",sNeed);}
   /* 둘 다 끝난 날 — 단계 칸은 접고 완료 한 줄만(2026-11-17 영업2팀 "완료됐으면 안 보여야 · 완료 표시"). [단계 보기]로 펼침 */
   if(!act&&D.ws&&D.L&&window._whsOpenDay!==mmdd){
     var e0=_escX,f0=function(n){return (Number(n)||0).toLocaleString();},md0=(+mmdd.slice(0,2))+"/"+(+mmdd.slice(2,4)),L0=D.L,rg0=D.mine?D.H.steps.reg:null;
@@ -9975,7 +9981,7 @@ function whsRender(){
     return '<div style="background:#ecfdf5;border:2px solid #10b981;border-radius:8px;padding:8px 10px;margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       +'<b style="color:#065f46">⏸ 위 결과를 확인하고 승인해 주세요 → '+nm+'</b>'
       +(mine?'<span style="color:#1b6e82;font-weight:700">⏳ 보냈습니다 — 자동화 PC가 받는 중…</span>'
-        :'<button class="a2-btn" style="background:#047857" onclick="whsApprove('+n+')">✅ 승인 — '+nm+'</button><button class="a2-btn sub" onclick="whsCancel()">✖ 그만</button>')
+        :'<button class="a2-btn whs-blink" style="background:#047857" onclick="whsApprove('+n+')">✅ 승인 — '+nm+'</button><button class="a2-btn sub" onclick="whsCancel()">✖ 그만</button>')
       +'<span style="font-size:11.5px;color:#5b6675">10분 안에 안 누르면 멈춥니다</span></div>';
   };
   box.innerHTML=head+row("①","OneDrive 홈쇼핑 파일 받기",stOf("od",1),b1)+gate(2)+row("②","매칭표로 빈 칸 채우기",s2,b2)+gate(3)+row("③",sv?"세매 변환 미리보기":"세매 변환 미리보기 (등록 안 함)",s3,b3)+gate(4)+(sv?row("④","세매 등록 — [이대로 등록하기]",wt===4&&!rg?"":s4,b4):"")+errLine;
