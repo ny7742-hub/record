@@ -9910,7 +9910,7 @@ function _whsFxBar(){
   var X=window._whsFx||{},n=_whsFxLines().filter(function(x){return !x.cc||!x.amt||(X.open||{})[x.r];}).length;
   return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px">'
     +'<b style="color:#92400e">✏️ 고치는 줄 '+n+'개</b><button class="a2-btn'+(n?' whs-blink':'')+'" style="background:#b45309" onclick="whsFixGo()">💾 고친 값으로 다시 채우기</button>'
-    +'<span style="font-size:11.5px;color:#5b6675">고친 값은 이번 등록에 바로 쓰고, 비어 있던 줄은 자비스 홈쇼핑 매칭표에도 넣어 다음부터 자동으로 채웁니다(시트에 같은 상품이 있으면 시트가 이김).</span></div>';
+    +'<span style="font-size:11.5px;color:#5b6675">고친 값은 이번 등록에 바로 쓰고 자비스 홈쇼핑 매칭표에 '수정함'으로 기억해 다음부터도 그대로 넣습니다(시트·원본 파일 값보다 먼저).</span></div>';
 }
 function whsFixGo(){
   var X=window._whsFx;if(!X||X.mmdd!==_whsMmdd()){whsGo();return;}
@@ -9921,14 +9921,16 @@ function whsFixGo(){
     if(o.cc===x.cc&&Number(o.amt)===Number(x.amt))return;
     var rr=_whsRawOf(o.cc),pc=rr?String(rr[1]):(x.pc||String(o.cc).slice(0,-3));
     fix[x.r]={name:x.name,cc:o.cc,pc:pc,amt:Number(o.amt)};n++;
-    if(!x.cc)learn.push({x:x,cc:o.cc,pc:pc,rr:rr,unit:Math.round(Number(o.amt)/(Number(x.qty)||1))});
+    /* 고친 줄은 전부 매칭표에 '수정함'으로 기억(2026-11-18 영업2팀 "수정했으면 추후에도 수정한대로") — fixCc·fixAmt = 사람이 바꾼 칸 */
+    learn.push({x:x,cc:o.cc,pc:pc,rr:rr,unit:Math.round(Number(o.amt)/(Number(x.qty)||1)),fixCc:!x.cc||o.cc!==x.cc,fixAmt:!x.amt||Number(o.amt)!==Number(x.amt)});
   });
   if(errs.length){alert("아직 비어 있는 칸이 있습니다.\n\n"+errs.slice(0,10).join("\n"));return;}
   /* 비어 있던 줄은 자비스 매칭표에 배운다(쇼핑몰+주문 상품명 열쇠 — _hsCodeMatchProcessRows와 같은 합치기) */
   if(learn.length&&typeof hsCodeMatchDB!=="undefined"){
     var k=function(q){return (q.normChannel||"")+"|"+(q.normName||"");},map={};
     hsCodeMatchDB.forEach(function(q){map[k(q)]=q;});
-    learn.forEach(function(l){var rr=l.rr||[];var en={channel:l.x.shop,normChannel:_hsCodeNormChannel(l.x.shop),colorName:l.x.name,normName:_hsCodeNormName(l.x.name),colorCode:l.cc,prodCode:l.pc,prodName:String(rr[2]||""),price:l.unit,colorShort:String(rr[3]||""),colorKr:String(rr[4]||""),by:_saipMe(),at:new Date().toISOString()};map[k(en)]=en;});
+    learn.forEach(function(l){var rr=l.rr||[];var en={channel:l.x.shop,normChannel:_hsCodeNormChannel(l.x.shop),colorName:l.x.name,normName:_hsCodeNormName(l.x.name),colorCode:l.cc,prodCode:l.pc,prodName:String(rr[2]||""),price:l.unit,colorShort:String(rr[3]||""),colorKr:String(rr[4]||""),by:_saipMe(),at:new Date().toISOString(),fixed:true};
+      var old=map[k(en)];en.fixCc=l.fixCc||!!(old&&old.fixed&&old.fixCc);en.fixAmt=l.fixAmt||!!(old&&old.fixed&&old.fixAmt);map[k(en)]=en;});
     hsCodeMatchDB=Object.keys(map).map(function(q){return map[q];});
     try{saveHsCodeMatchDB();}catch(e){}
   }
