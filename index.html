@@ -9825,7 +9825,7 @@ function _whsDone(mmdd,date){
   return {H:H,mine:mine,wd:wd,inWs:inWs,ws:mine||inWs,wsFull:mine||!!(wd&&wd.s==="ok"&&Number(wd.d)>0),L:L};
 }
 function whsSaipGo(){var v=_whsDate();if(!v){alert("날짜를 골라 주세요.");return;}saipAutoGo("hs",{date:v});}
-function whsGo(){
+function whsGo(opt){
   /* 2026-11-16 영업2팀 "테스트말고 진짜로 · 단계별로 승인 버튼" — mode save + step: 자동화 PC(wssales-hs.mjs)가 ①②③ 뒤마다 [✅ 승인](saipReq.whs.go)을 기다린다 */
   var mmdd=_whsMmdd();if(!mmdd){alert("날짜를 골라 주세요.");return;}
   var R=(saipReq||{}).whs;
@@ -9844,7 +9844,7 @@ function whsGo(){
   if(typeof _saipWatchOk==="function"&&!_saipWatchOk()){alert("자동화 PC 신호가 없습니다 — 자동화 PC가 켜져 있고 요청 받기 프로그램이 돌아야 합니다.");return;}
   var md=(+mmdd.slice(0,2))+"/"+(+mmdd.slice(2,4));
   if(!confirm("홈쇼핑 "+md+" 매출을 세일즈 매니지먼트에 등록합니다.\n\n① OneDrive '"+mmdd+" 홈쇼핑.xlsx' 받기\n② 매칭표로 상품컬러코드·상품코드·결제금액 채우기\n③ 세매 사방넷 변환 미리보기\n④ 세매 [이대로 등록하기]\n\n단계가 끝날 때마다 이 칸에 [✅ 승인] 단추가 뜹니다 — 눌러야 다음 단계로 넘어갑니다."))return;
-  _saipReqSet("whs",{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mmdd:mmdd,mode:"save",step:true});
+  _saipReqSet("whs",{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mmdd:mmdd,mode:"save",step:true,fix:(opt&&opt.fix)||null});
   whsRender();
 }
 /* [✅ 승인]·[✖ 그만] — ws/saipReq.whs에 go{step}·cancel만 더한다(같은 요청 id일 때만, 자동화 PC가 적은 진행 칸은 그대로) */
@@ -9859,6 +9859,80 @@ function _whsReqPatch(id,patch){
       o.whs=Object.assign({},o.whs,patch);return JSON.stringify(o);
     },function(err){if(err)alert("승인 저장 오류: "+err.message);},false);
   }catch(e){alert("승인 저장 오류: "+e.message);}
+}
+/* ── ② 표에서 고치기 — window._whsFx = {mmdd, rows:{행:{cc, amt, amtSet, sug}}, open:{행:1}} ── */
+function _whsRawRows(){return (typeof RAW!=="undefined"&&RAW&&RAW.length)?RAW:(typeof DEFAULT_DATA!=="undefined"?DEFAULT_DATA:[]);}
+function _whsRawOf(cc){cc=String(cc||"").trim().toUpperCase();if(!cc)return null;var R=_whsRawRows();for(var i=0;i<R.length;i++)if(R[i]&&String(R[i][7]||"").toUpperCase()===cc)return R[i];return null;}
+function _whsRawPrice(r){return Number(String((r&&(r[11]||r[10]))||"").replace(/,/g,""))||0;}
+function _whsNmBase(n){var t=String(n||"").trim().split(/\s+/);if(t.length>1)t.pop();return t.join(" ");}
+function _whsNmColor(n){var t=String(n||"").trim().split(/\s+/);return (t[t.length-1]||"").replace(/[()]/g,"");}
+function _whsFxLines(){var X=window._whsFx||{};return ((((wssalesHs||{})[X.mmdd]||{}).steps||{}).fill||{}).lines||[];}
+/* 후보 = 같은 이름(색 빼고)의 다른 줄이 쓴 상품코드의 색들, 없으면 상품명이 주문 상품명에 들어 있는 상품 */
+function _whsFxCands(x,LN){
+  var R=_whsRawRows(),base=_whsNmBase(x.name),pcs={};
+  LN.forEach(function(y){if(y.r!==x.r&&y.pc&&_whsNmBase(y.name)===base)pcs[String(y.pc).toUpperCase()]=1;});
+  if(x.pc)pcs[String(x.pc).toUpperCase()]=1;
+  var out=R.filter(function(r){return r&&pcs[String(r[1]||"").toUpperCase()];});
+  if(!out.length){var on=String(x.name||"").replace(/\s/g,"");out=R.filter(function(r){var nm=String((r&&r[2])||"").replace(/^\s*\[[^\]]*\]\s*/,"").replace(/\s/g,"");return nm.length>=4&&on.indexOf(nm)>=0;});}
+  var seen={};return out.filter(function(r){var k=r[7];if(!k||seen[k])return false;seen[k]=1;return true;}).slice(0,40);
+}
+function _whsFxInit(mmdd,LN){
+  var X=window._whsFx;if(!X||X.mmdd!==mmdd)X=window._whsFx={mmdd:mmdd,rows:{},open:{}};
+  LN.forEach(function(x){
+    if((x.cc&&x.amt)||X.rows[x.r])return;
+    var C=_whsFxCands(x,LN),col=_whsNmColor(x.name).replace(/챠콜/g,"차콜"),hit=C.filter(function(r){var c=String(r[4]||"").replace(/\s/g,"").replace(/챠콜/g,"차콜");return col&&(c===col||c.indexOf(col)>=0);});
+    var o={cc:x.cc||"",amt:x.amt||0,amtSet:!!x.amt,sug:false};
+    if(!x.cc&&hit.length===1){o.cc=hit[0][7];o.sug=true;if(!o.amtSet)o.amt=_whsRawPrice(hit[0])*(Number(x.qty)||0);}
+    X.rows[x.r]=o;
+  });
+}
+function _whsFxEditing(x){var X=window._whsFx||{};return !x.cc||!x.amt||!!(X.open&&X.open[x.r]);}
+function whsFxOpen(r){var X=window._whsFx;if(!X)return;X.open[r]=1;var x=_whsFxLines().filter(function(y){return y.r===r;})[0];if(x&&!X.rows[r])X.rows[r]={cc:x.cc,amt:x.amt,amtSet:true};whsRender();}
+function _whsFxRow(x,LN,td,tdR,tdN,tdL,tdC){
+  var e=_escX,X=window._whsFx,o=X.rows[x.r]||(X.rows[x.r]={cc:x.cc||"",amt:x.amt||0,amtSet:!!x.amt}),rr=_whsRawOf(o.cc),C=_whsFxCands(x,LN);
+  var info=o.cc?(rr?'<div style="font-size:11px;color:#047857;font-family:inherit">'+e(rr[2])+' · '+e(rr[4])+' · '+_whsRawPrice(rr).toLocaleString()+'원'+(o.sug?' <b style="color:#b45309">(추천 — 맞으면 그대로)</b>':'')+'</div>':'<div style="font-size:11px;color:#b91c1c">상품 데이터에 없는 코드</div>'):'<div style="font-size:11px;color:#5b6675">'+(C.length?'목록에서 고르거나 입력':'코드를 입력하세요')+'</div>';
+  var ist='font:12px monospace;padding:2px 5px;border:2px solid '+(o.sug?'#f59e0b':'#1b6e82')+';border-radius:5px;background:'+(o.sug?'#fef3c7':'#fff')+';';
+  return '<tr style="background:#fffbeb"><td style="'+td+tdR+'color:#5b6675">'+x.r+'</td><td '+tdN+'>'+e(x.shop)+'</td><td style="'+td+tdC+'">'+e(x.ord)+'</td><td '+tdL+'>'+e(x.name)+'</td>'
+    +'<td style="'+td+'"><input list="whsFxL'+x.r+'" value="'+e(o.cc)+'" onchange="whsFxSet('+x.r+',\'cc\',this.value)" style="'+ist+'width:130px" placeholder="상품컬러코드">'
+    +'<datalist id="whsFxL'+x.r+'">'+C.map(function(r){return '<option value="'+e(r[7])+'">'+e(r[4])+' · '+e(r[2])+'</option>';}).join("")+'</datalist>'+info+'</td>'
+    +'<td style="'+td+tdC+'">'+e(rr?rr[1]:(x.pc||""))+'</td>'
+    +'<td style="'+td+tdR+'">'+(Number(x.qty)||0).toLocaleString()+'</td>'
+    +'<td style="'+td+tdR+'"><input type="number" min="0" value="'+(Number(o.amt)||"")+'" onchange="whsFxSet('+x.r+',\'amt\',this.value)" style="'+ist+'width:90px;text-align:right" placeholder="결제금액"></td></tr>';
+}
+function whsFxSet(r,k,v){
+  var X=window._whsFx;if(!X)return;var o=X.rows[r]||(X.rows[r]={});
+  var x=_whsFxLines().filter(function(y){return y.r===r;})[0]||{};
+  if(k==="cc"){o.cc=String(v||"").trim().toUpperCase();o.sug=false;var rr=_whsRawOf(o.cc);if(rr&&!o.amtSet)o.amt=_whsRawPrice(rr)*(Number(x.qty)||0);}
+  else{o.amt=Number(v)||0;o.amtSet=true;}
+  whsRender();
+}
+function _whsFxBar(){
+  var X=window._whsFx||{},n=_whsFxLines().filter(function(x){return !x.cc||!x.amt||(X.open||{})[x.r];}).length;
+  return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px">'
+    +'<b style="color:#92400e">✏️ 고치는 줄 '+n+'개</b><button class="a2-btn'+(n?' whs-blink':'')+'" style="background:#b45309" onclick="whsFixGo()">💾 고친 값으로 다시 채우기</button>'
+    +'<span style="font-size:11.5px;color:#5b6675">고친 값은 이번 등록에 바로 쓰고, 비어 있던 줄은 자비스 홈쇼핑 매칭표에도 넣어 다음부터 자동으로 채웁니다(시트에 같은 상품이 있으면 시트가 이김).</span></div>';
+}
+function whsFixGo(){
+  var X=window._whsFx;if(!X||X.mmdd!==_whsMmdd()){whsGo();return;}
+  var L=_whsFxLines(),fix={},n=0,errs=[],learn=[];
+  L.forEach(function(x){
+    var o=X.rows[x.r];if(!o||!(!x.cc||!x.amt||X.open[x.r]))return;
+    if(!o.cc||!(Number(o.amt)>0)){errs.push(x.r+"행 "+x.name+" — "+(!o.cc?"상품컬러코드":"결제금액")+" 비어 있음");return;}
+    if(o.cc===x.cc&&Number(o.amt)===Number(x.amt))return;
+    var rr=_whsRawOf(o.cc),pc=rr?String(rr[1]):(x.pc||String(o.cc).slice(0,-3));
+    fix[x.r]={name:x.name,cc:o.cc,pc:pc,amt:Number(o.amt)};n++;
+    if(!x.cc)learn.push({x:x,cc:o.cc,pc:pc,rr:rr,unit:Math.round(Number(o.amt)/(Number(x.qty)||1))});
+  });
+  if(errs.length){alert("아직 비어 있는 칸이 있습니다.\n\n"+errs.slice(0,10).join("\n"));return;}
+  /* 비어 있던 줄은 자비스 매칭표에 배운다(쇼핑몰+주문 상품명 열쇠 — _hsCodeMatchProcessRows와 같은 합치기) */
+  if(learn.length&&typeof hsCodeMatchDB!=="undefined"){
+    var k=function(q){return (q.normChannel||"")+"|"+(q.normName||"");},map={};
+    hsCodeMatchDB.forEach(function(q){map[k(q)]=q;});
+    learn.forEach(function(l){var rr=l.rr||[];var en={channel:l.x.shop,normChannel:_hsCodeNormChannel(l.x.shop),colorName:l.x.name,normName:_hsCodeNormName(l.x.name),colorCode:l.cc,prodCode:l.pc,prodName:String(rr[2]||""),price:l.unit,colorShort:String(rr[3]||""),colorKr:String(rr[4]||""),by:_saipMe(),at:new Date().toISOString()};map[k(en)]=en;});
+    hsCodeMatchDB=Object.keys(map).map(function(q){return map[q];});
+    try{saveHsCodeMatchDB();}catch(e){}
+  }
+  whsGo(n?{fix:fix}:null);
 }
 var WHS_SHEET="https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/edit?gid=937142857#gid=937142857";
 function whsCopyBad(btn){
@@ -9929,25 +10003,31 @@ function whsRender(){
     var th='padding:3px 6px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:12px;white-space:nowrap;position:sticky;top:0;z-index:1;',td='padding:3px 6px;border-bottom:1px solid #f1f5f9;font-size:12px;';
     var thL='style="'+th+'text-align:left"',thR='style="'+th+'text-align:right"',tdL='style="'+td+'"',tdN='style="'+td+'white-space:nowrap"',tdC='font-family:monospace;white-space:nowrap;',tdR='text-align:right;white-space:nowrap;';
     var FIL='background:#e0f2fe;';
+    /* 표에서 고치기(2026-11-18 영업2팀 "여기서 수정되게") — 진행 중이 아닐 때. 못 채운 줄은 처음부터 입력칸, 나머지는 코드·금액 칸을 누르면 입력칸 */
+    var canEd=!act&&!D.wsFull;_whsFxInit(mmdd,LN);
     var tg=function(k,lab){var on=view===k;return '<button onclick="window._whsView=\''+k+'\';whsRender()" style="font-size:12px;font-weight:700;padding:2px 9px;border-radius:6px;cursor:pointer;border:1px solid #1b6e82;background:'+(on?'#1b6e82':'#fff')+';color:'+(on?'#fff':'#1b6e82')+'">'+lab+'</button>';};
     if(LN.length||G.length)b2+='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:5px">'+(LN.length?tg("all","전체 줄 "+f(LN.length))+tg("sum","상품별 합계 "+f(G.length)):'')
-      +'<span style="font-size:11.5px;color:#5b6675"><span style="display:inline-block;width:10px;height:10px;background:#e0f2fe;border:1px solid #bae6fd;vertical-align:-1px"></span> 매칭표로 채운 칸</span></div>';
+      +'<span style="font-size:11.5px;color:#5b6675"><span style="display:inline-block;width:10px;height:10px;background:#e0f2fe;border:1px solid #bae6fd;vertical-align:-1px"></span> 매칭표로 채운 칸</span>'+(LN.some(function(x){return x.f==="m";})?'<span style="font-size:11.5px;color:#5b6675"><span style="display:inline-block;width:10px;height:10px;background:#ffedd5;border:1px solid #fdba74;vertical-align:-1px"></span> 자비스에서 고친 줄</span>':'')+(canEd?'<span style="font-size:11.5px;color:#1b6e82;font-weight:700">✏️ 상품컬러코드·결제금액 칸을 누르면 고칠 수 있습니다</span>':'')+'</div>';
     if(!LN.length&&G.length)b2+='<div style="margin-top:4px;font-size:12.5px;font-weight:700;color:#b45309">⚠ 이 기록은 줄 목록을 남기기 전(11/13 10:52 이전)에 돌린 것이라 상품별 합계만 있습니다 — [📊 세매 등록 (테스트)]를 다시 누르면 전체 줄이 나옵니다.</div>';
     if(view==="all"&&LN.length){
       b2+='<div style="overflow:auto;max-height:520px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thR+'>행</th><th '+thL+'>쇼핑몰</th><th '+thL+'>주문번호</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>결제금액</th></tr>'
-        +LN.map(function(x){var F=x.f||"";return '<tr><td style="'+td+tdR+'color:#5b6675">'+x.r+'</td><td '+tdN+'>'+e(x.shop)+'</td><td style="'+td+tdC+'">'+e(x.ord)+'</td><td '+tdL+'>'+e(x.name)+'</td>'
-          +'<td style="'+td+tdC+(!x.cc?'background:#fee2e2;':F.indexOf("c")>=0?FIL:'')+'">'+e(x.cc)+'</td><td style="'+td+tdC+(!x.pc?'background:#fee2e2;':F.indexOf("p")>=0?FIL:'')+'">'+e(x.pc)+'</td>'
-          +'<td style="'+td+tdR+'">'+f(x.qty)+'</td><td style="'+td+tdR+(F.indexOf("a")>=0?FIL:'')+'">'+f(x.amt)+'</td></tr>';}).join("")
-        +'<tr><td colspan="6" style="'+td+'font-weight:800;text-align:right">합계</td><td style="'+td+tdR+'font-weight:800">'+f(LN.reduce(function(a,x){return a+(Number(x.qty)||0);},0))+'</td><td style="'+td+tdR+'font-weight:800">'+f(fl.amount)+'</td></tr></table></div>';
+        +LN.map(function(x){var F=x.f||"",MF=F==="m"?'background:#ffedd5;':'',ed=canEd&&_whsFxEditing(x);
+          if(ed)return _whsFxRow(x,LN,td,tdR,tdN,tdL,tdC);
+          var ck=canEd?' onclick="whsFxOpen('+x.r+')" title="눌러서 고치기" ':'',cur=canEd?'cursor:pointer;':'';
+          return '<tr><td style="'+td+tdR+'color:#5b6675">'+x.r+'</td><td '+tdN+'>'+e(x.shop)+'</td><td style="'+td+tdC+'">'+e(x.ord)+'</td><td '+tdL+'>'+e(x.name)+'</td>'
+          +'<td'+ck+'style="'+td+tdC+cur+(!x.cc?'background:#fee2e2;':MF||(F.indexOf("c")>=0?FIL:''))+'">'+e(x.cc)+(canEd?' <span style="color:#5b6675">✏️</span>':'')+'</td><td style="'+td+tdC+(!x.pc?'background:#fee2e2;':MF||(F.indexOf("p")>=0?FIL:''))+'">'+e(x.pc)+'</td>'
+          +'<td style="'+td+tdR+'">'+f(x.qty)+'</td><td'+ck+'style="'+td+tdR+cur+(!x.amt?'background:#fee2e2;':MF||(F.indexOf("a")>=0?FIL:''))+'">'+f(x.amt)+'</td></tr>';}).join("")
+        +'<tr><td colspan="6" style="'+td+'font-weight:800;text-align:right">합계</td><td style="'+td+tdR+'font-weight:800">'+f(LN.reduce(function(a,x){return a+(Number(x.qty)||0);},0))+'</td><td style="'+td+tdR+'font-weight:800">'+f(fl.amount)+'</td></tr></table></div>'
+        +(canEd?_whsFxBar():'');
     }else if(G.length){
       b2+='<div style="overflow:auto;max-height:520px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thL+'>쇼핑몰</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>단가</th><th '+thR+'>결제금액</th></tr>'
         +G.map(function(g){return '<tr><td '+tdN+'>'+e(g.shop)+'</td><td '+tdL+'>'+e(g.name)+'</td><td style="'+td+tdC+'">'+e(g.cc)+'</td><td style="'+td+tdC+'">'+e(g.pc)+'</td><td style="'+td+tdR+'">'+f(g.qty)+'</td><td style="'+td+tdR+'">'+f(g.unit)+'</td><td style="'+td+tdR+'">'+f(g.amt)+'</td></tr>';}).join("")+'</table></div>';
     }
     /* 못 채운 줄(2026-11-18 영업2팀 "매칭표 빈칸채우기 수정되게") — 매칭표 시트에 넣고 [🔄 다시 채우기] → 자동화 PC가 시트를 새로 읽어 ①②부터 다시 */
-    if(fl.bad&&fl.bad.length){s2="bad";window._whsBad=fl.bad;b2+='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:6px 10px;margin-top:6px"><div style="color:#b91c1c;font-weight:700">못 채운 줄 '+f(fl.badN||fl.bad.length)+'개 — 홈쇼핑 매칭표 시트에 넣고 [🔄 다시 채우기]를 눌러 주세요</div>'
+    if(fl.bad&&fl.bad.length){s2="bad";window._whsBad=fl.bad;b2+='<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:6px 10px;margin-top:6px"><div style="color:#b91c1c;font-weight:700">못 채운 줄 '+f(fl.badN||fl.bad.length)+'개 — 위 표에서 바로 고치거나 홈쇼핑 매칭표 시트에 넣고 [🔄 다시 채우기]를 눌러 주세요</div>'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:5px 0"><a class="a2-btn sub" href="'+WHS_SHEET+'" target="_blank" rel="noopener">📝 매칭표 시트 열기 ↗</a>'
       +'<button class="a2-btn sub" onclick="whsCopyBad(this)" title="쇼핑몰 · (홈쇼핑코드 빈칸) · 상품컬러명 — 시트의 「홈쇼핑」 칸(F열)에 붙여 넣고 상품컬러코드·상품코드·상품명·현재가를 채우세요">📋 시트에 넣을 줄 복사</button>'
-      +(act?'':'<button class="a2-btn whs-blink" onclick="whsGo()">🔄 다시 채우기</button>')+'</div>'+fl.bad.slice(0,15).map(function(x){return '<div style="color:#b91c1c;font-size:12px">'+x.row+'행 '+e(x.shop)+' · '+e(x.name)+' · '+x.qty+'개 — '+e(x.why)+'</div>';}).join("")+'</div>';}
+      +(act?'':'<button class="a2-btn whs-blink" onclick="whsFixGo()">🔄 다시 채우기</button>')+'</div>'+fl.bad.slice(0,15).map(function(x){return '<div style="color:#b91c1c;font-size:12px">'+x.row+'행 '+e(x.shop)+' · '+e(x.name)+' · '+x.qty+'개 — '+e(x.why)+'</div>';}).join("")+'</div>';}
     if(fl.saved)b2+='<div style="font-size:12px;color:#5b6675;margin-top:3px">채운 파일: 자동화 PC <code>'+e(String(fl.saved).replace(/^.*automation[\\\/]/,"automation/"))+'</code> (수령인·연락처·주소는 비움)</div>';
   }
   /* ③ */
