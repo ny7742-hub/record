@@ -2530,6 +2530,9 @@ label{font-size:14px!important}
       </div>
       <div style="font-size:12px;color:#5b6675;margin-bottom:6px">① OneDrive 받기(쇼핑몰 이름을 세매 이름으로 바꿈) → ② 빈 칸 확인(원본에 상품컬러코드·결제금액이 이미 있음 — 비면 표에서 고침) → ③ 세매 변환 미리보기 → ④ 세매 [이대로 등록하기]. <b>②·③ 뒤에는 결과를 보고 [✅ 승인]을 눌러야 다음으로 넘어갑니다</b>(10분 안에 안 누르면 멈춤). ③에 변환 실패·확인 필요·이중 계상이 있으면 ④로 가지 않습니다 — <b>세매 매장 목록에 LGY·LTOA·HDOC가 들어가기 전에는 「매장코드 미매핑」으로 여기서 멈춥니다.</b></div>
       <div id="wdsSteps" style="font-size:13px;line-height:1.55"></div></div>
+    <!-- ⚡ PlayMD 등록 단계표 5칸 — 백화점몰 칸 아래 2칸씩(2026-11-18 영업2팀, a2rRender) -->
+    <style>#auto2Reg{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}@media(max-width:1100px){#auto2Reg{grid-template-columns:1fr}}</style>
+    <div id="auto2Reg"></div>
   </div>
 </div>
 </div><!-- /page-auto2 -->
@@ -9187,6 +9190,7 @@ function renderWsAuto(){
 }
 function renderAutoPage(){
   try{renderWsAuto();}catch(e){}
+  try{a2rRender();}catch(e){}   /* ⚡ AUTO 등록 단계표 5칸 — 사입출고·반품 상태가 바뀔 때마다(renderSaipAuto·renderRetAuto가 여기를 부른다) */
   var pg=document.getElementById("page-auto");if(!pg||pg.style.display==="none")return;
   try{ocAddRender();}catch(e){}   /* 도매 자동발주 카드의 '＋ 상품 추가' 칸 */
   /* PlayMD 자료 업로드 4종 */
@@ -10338,6 +10342,147 @@ function wdsRender(){
   };
   box.innerHTML=head+row("①","OneDrive 백화점몰 파일 받기",stOf("od",1),b1)+gate(2)+row("②","매칭표로 빈 칸 채우기",s2,b2)+gate(3)+row("③",sv?"세매 변환 미리보기":"세매 변환 미리보기 (등록 안 함)",s3,b3)+gate(4)+(sv?row("④","세매 등록 — [이대로 등록하기]",wt===4&&!rg?"":s4,b4):"")+errLine;
 }
+/* ⚡ AUTO 탭 등록 단계표 5칸(2026-11-18 영업2팀 "홈쇼핑처럼 백화점몰 판매등록, 창고간이동, 매장출고등록, 홈쇼핑반품등록, 코스트코반품등록") —
+   🤖 자동화 탭·사입출고등록·반품등록 탭의 등록 흐름을 그대로 쓴다(자동화 PC 코드 그대로). 이 칸은 단계만 보여 주고 같은 함수를 부른다.
+   사입출고(ds·mv·so): [등록요망] = saipConfirmGo(중복 검사 → 미리보기) → ③ [✅ 승인] = saipCfSave(확정 저장) → ④ saipLog.
+   반품(hr·cr): [등록요망] = retPreviewGo(미리보기·중복 확인) → ③ [✅ 승인] = retAutoGo(expect) → ④ retLog.
+   다음에 누를 단추 하나만 깜빡인다(whs-blink). 원래 화면을 고치면 이 칸도 같이 바뀐다 */
+var A2R_SAIP=["ds","mv","so"],A2R_RET=["hr","cr"],_a2rTouched={};
+function _a2rDate(k){
+  var el=document.getElementById("a2rDate_"+k),src=_saipDateEl(k);
+  if(el&&!_a2rTouched[k]&&src&&src.value&&el.value!==src.value)el.value=src.value;
+  return el&&el.value||(src&&src.value)||"";
+}
+function a2rDateSet(k){_a2rTouched[k]=true;a2rRender();}
+function a2rSaipGo(k){
+  var v=_a2rDate(k);if(!v){alert("날짜를 골라 주세요.");return;}
+  var src=_saipDateEl(k);if(src){src.value=v;_saipTouched[k]=true;}
+  saipConfirmGo(k);setTimeout(a2rRender,0);
+}
+function a2rSaipView(k){var v=_a2rDate(k);if(!v)return;if(_saipItemOf(k,v))_saipCfShow(k,v);else a2rSaipGo(k);}
+function a2rSaipOk(k){var v=_a2rDate(k);if(!v)return;saipCfSave(k,v);setTimeout(a2rRender,0);}
+function _a2rRow(n,title,st,body){
+  var ic=st==="ok"?"✅":st==="bad"?"❌":st==="warn"?"⚠️":st==="run"?"⏳":st==="wait"?"⏸":"⬜";
+  var bc=st==="ok"?"#86efac":st==="bad"?"#fca5a5":st==="warn"?"#fcd34d":st==="run"?"#7dd3fc":st==="wait"?"#10b981":"#e2e8f0";
+  return '<div style="border:1px solid '+bc+';border-radius:8px;padding:5px 9px;margin-top:5px"><div style="font-weight:800;color:#1f2937">'+ic+' '+n+' '+title+'</div>'+(body?'<div style="margin-top:2px;font-size:12.5px">'+body+'</div>':'')+'</div>';
+}
+function _a2rCard(k,isRet,inner,btns){
+  var K=isRet?RET_KINDS[k]:SAIP_KINDS[k],ttl=isRet?K.label+"등록":(k==="ds"?"백화점몰 판매등록":k==="so"?"매장출고등록":K.label);
+  var open=isRet?"apOpen('hsreturn','retAuto"+k.charAt(0).toUpperCase()+k.slice(1)+"')":"apOpen('ccorder','saipAuto"+k.charAt(0).toUpperCase()+k.slice(1)+"')";
+  return '<div class="a2-card"><div class="a2-h"><b>'+K.icon+' '+_escX(ttl)+'</b><span style="font-size:12px;color:#475569">PlayMD</span>'
+    +'<a class="a2-btn sub" style="margin-left:auto;font-size:12px;padding:4px 10px" href="javascript:void(0)" onclick="'+open+'" title="원래 탭의 이 칸으로 갑니다">↗ 열기</a></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+btns+'</div>'+inner+'</div>';
+}
+function _a2rSaip(k){
+  var e=_escX,f=function(n){return (Number(n)||0).toLocaleString();};
+  var v=_a2rDate(k),md=v?(+v.slice(5,7))+"/"+(+v.slice(8,10)):"",R=(saipReq||{})[k],act=_saipReqActive(R),mine=act&&(!R.date||R.date===v||(R.dates||[]).indexOf(v)>=0);
+  var it=v?_saipItemOf(k,v):null,L=v?_saipLogOf(k,v):null;
+  var fresh=!!(it&&it.at&&Date.now()-new Date(it.at).getTime()<2*3600*1000),stale=!!(it&&it.date&&_saipFixStaleOf(k,it));
+  var canReg=!!(it&&!L&&it.mode==="preview"&&it.status==="preview"&&(k==="mv"||!it.already)&&!act&&fresh&&!stale);
+  var ready=_saipReadyOf(k).map(function(x){return x.date;}),isReady=v&&ready.indexOf(v)>=0;
+  /* ①② 원본·중복 */
+  var s1="",b1="",s2="",b2="";
+  if(mine&&R.mode!=="save"){s1="run";b1=e(String(R.progress||"자동화 PC가 원본을 받는 중").replace(/^▷\s*/,"").slice(0,80));}
+  if(it){
+    if(it.status==="nofile"){s1="warn";b1=(k==="mv"||k==="so"?"원본":"파일")+" 없음 — 등록할 것 없음";}
+    else{s1="ok";b1=(it.src&&it.src.name?e(it.src.name)+' · ':'')+(it.rows?f(it.rows.length)+'줄 · '+f(it.qty)+'개':'')+(it.at?' <span style="color:#5b6675">· '+e(_saipFmtAt(it.at))+' 검사</span>':'');}
+    if(it.status==="nofile"){}
+    else if(it.already&&k!=="mv"){s2="bad";b2='<b style="color:#b45309">⛔ 플레이엠디에 이미 있습니다 — 등록하지 마세요</b><div>'+e(it.already)+'</div>';}
+    else if(it.status==="preview"){s2="ok";b2='겹치는 것 없음'+(it.more?' · <span style="color:#1d4ed8">➕ '+e(it.more)+'</span>':'');}
+    else{s2="bad";b2='<span style="color:#b91c1c">'+e((SAIP_ITEM_TXT[it.status]||[0,it.status||"확인 필요"])[1])+'</span>'+(it.error?'<div style="color:#b91c1c">'+e(it.error)+'</div>':'')+(it.bad&&it.bad.length?'<div style="color:#b91c1c">'+it.bad.slice(0,6).map(e).join("<br>")+(it.bad.length>6?'<br>… 외 '+(it.bad.length-6)+'줄':'')+'</div>':'');}
+  }else if(!mine&&!L)b1=isReady?'<b style="color:#b91c1c">'+md+' 등록할 건이 있습니다</b> — [등록요망]을 누르면 원본을 받아 중복 검사부터 합니다':(md?md+' 검사 기록 없음':'');
+  /* ③ 미리보기 승인 */
+  var s3="",b3="";
+  if(canReg){
+    s3="wait";
+    b3='<b>'+(it.rows||[]).length+'줄 · '+f(it.qty)+'개 · '+f(_saipItemAmt(k,it))+'원</b> — 미리보기를 보고 승인하면 플레이엠디에 저장합니다(되돌리기 어려움)'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px"><button class="a2-btn whs-blink" onclick="a2rSaipOk(\''+k+'\')">✅ 승인 — PlayMD 저장</button>'
+      +'<button class="a2-btn sub" onclick="a2rSaipView(\''+k+'\')">🔍 미리보기 보기</button></div>';
+  }else if(it&&!L&&it.status==="preview"&&!act){
+    s3="warn";b3=stale?'고친 값이 있습니다 — [등록요망]으로 다시 검사한 뒤 승인할 수 있습니다':!fresh?'검사한 지 2시간이 지났습니다 — [등록요망]으로 다시 검사해 주세요':'';
+    if(it.already&&k!=="mv")b3='중복이라 저장하지 않습니다 — <a href="javascript:void(0)" onclick="a2rSaipView(\''+k+'\')">자세히</a>';
+  }else if(L){s3="ok";}
+  /* ④ 저장 */
+  var s4="",b4="";
+  if(L){s4="ok";b4=f(L.qty)+'개 · '+f(L.amt)+'원'+(L.slips&&L.slips.length?' · 전표 '+e(L.slips.join(", ")):'')+' · '+e(_saipWho(L.by))+' · '+e(_saipFmtAt(L.at));}
+  else if(mine&&R.mode==="save"){s4="run";b4=e(String(R.progress||"자동화 PC가 플레이엠디에 저장하는 중").replace(/^▷\s*/,"").slice(0,80));}
+  else if(R&&R.state==="실패"&&R.mode==="save"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<6*3600*1000){s4="bad";b4='<span style="color:#b91c1c">'+e(R.error||"저장 실패")+'</span>';}
+  /* 단추 */
+  var need=!L&&!act&&!canReg&&(isReady||(!it&&false)||(it&&it.status==="preview"&&(stale||!fresh)));
+  var lab=L?"✅ "+md+" 등록 완료":act?"⏳ 진행 중…":canReg?"🔍 다시 검사":need?"🚨 등록요망":"🔍 중복 검사";
+  var btns='<input type="date" id="a2rDate_'+k+'" value="'+e(v)+'" onchange="a2rDateSet(\''+k+'\')" onclick="try{if(this.showPicker)this.showPicker();}catch(e){}" style="cursor:pointer;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
+    +'<button class="a2-btn'+(need?' whs-blink':'')+'" '+(act?'disabled ':'')+'style="'+(L||act?'opacity:.55':'')+'" onclick="a2rSaipGo(\''+k+'\')">'+lab+'</button>'
+    +(it?'<button class="a2-btn sub" onclick="a2rSaipView(\''+k+'\')">🔍 미리보기</button>':'')
+    +(ready.length?'<span style="font-size:12px;color:#5b6675">등록할 건: '+ready.map(function(d){return (+d.slice(5,7))+'/'+(+d.slice(8,10));}).join(", ")+'</span>':'');
+  var inner=(act?_saipProgBar(k,R):'')
+    +_a2rRow("①",k==="mv"?"창고간이동 원본 받기":k==="so"?"매장출고 원본 받기":"OneDrive 백화점몰 파일 받기",s1,b1)
+    +_a2rRow("②","중복 검사(플레이엠디에 이미 있는지)",s2,b2)
+    +_a2rRow("③","미리보기 확인 → 승인",s3,b3)
+    +_a2rRow("④","플레이엠디 저장",s4,b4);
+  return _a2rCard(k,false,inner,btns);
+}
+function _a2rRet(k){
+  var e=_escX,f=function(n){return (Number(n)||0).toLocaleString();},K=RET_KINDS[k];
+  var R=(saipReq||{})[k],act=_saipReqActive(R),P=_retPendingOf(k),E=_retPend[k],S=_retStatusOf(k);
+  var MV=_retMovesPending(k).length,LF=_retLeftInSheet(k).length,n=(P?P.length:0);
+  var fresh=!!(S&&S.at&&Date.now()-new Date(S.at).getTime()<2*3600*1000);
+  var FX=(retFix||{})[k]||{},rows=(S&&S.rows)||[],anyFix=rows.concat((S&&S.holdRows)||[]).some(function(r){return r.key&&FX[r.key];});
+  var canReg=!!(S&&S.mode==="preview"&&S.status==="preview"&&!act&&fresh&&!anyFix&&rows.length);
+  var last=_retLastRun(k);
+  /* ① 반품리스트 */
+  var s1="",b1="";
+  if(E&&E.err){s1="bad";b1='<span style="color:#b91c1c">반품리스트를 못 읽었습니다 — '+e(E.err)+'</span>';}
+  else if(!E){s1="run";b1="반품리스트 확인 중…";}
+  else{s1=n?"ok":"ok";b1=n?'<b>등록 대상 '+f(n)+'건</b> ('+(k==="hr"?'홈쇼핑 탭 · 해체일 있는 건':'온라인 탭 · 코스트코')+')':'등록할 반품 없음'
+    +(MV?' · 불량 창고간이동 대기 '+MV+'건':'')+(LF?' · 시트 정리 대기 '+LF+'건':'');}
+  /* ② 미리보기 */
+  var s2="",b2="";
+  if(act&&R.mode==="preview"){s2="run";b2=e(String(R.progress||"자동화 PC가 미리보기 중").replace(/^▷\s*/,"").slice(0,80));}
+  else if(S&&S.mode==="preview"&&fresh){
+    var t=RET_ST_TXT[S.status]||["•",S.status||"",""];
+    var q=0,a=0;rows.forEach(function(r){q+=r.qty||0;a+=(r.qty||0)*(Number(r.price)||0);});
+    s2=S.status==="preview"?"ok":S.status==="none"?"ok":"bad";
+    b2='<span style="color:'+(t[2]||'#334155')+';font-weight:700">'+t[0]+' '+e(t[1])+'</span>'+(rows.length?' · '+rows.length+'건 · '+q+'개 · '+Math.round(a).toLocaleString()+'원':'')
+      +(S.found&&S.found.length?'<div style="color:#b45309">⚠ 플레이엠디에 이미 있어 뺀 줄 '+S.found.length+'건</div>':'')
+      +(S.bad&&S.bad.length?'<div style="color:#b91c1c">'+S.bad.slice(0,5).map(e).join("<br>")+(S.bad.length>5?'<br>… 외 '+(S.bad.length-5)+'줄':'')+'</div>':'')
+      +(S.hold&&S.hold.length?'<div style="color:#b45309">⏸ 처리보류 '+S.hold.length+'건</div>':'')
+      +' <span style="color:#5b6675">· '+e(_saipFmtAt(S.at))+'</span>';
+  }else if(S&&S.mode==="preview"&&!fresh&&n){s2="warn";b2="미리보기한 지 2시간이 지났습니다 — [등록요망]으로 다시";}
+  /* ③ 승인 */
+  var s3="",b3="";
+  if(canReg){s3="wait";b3='미리보기를 보고 승인하면 플레이엠디에 사입반품으로 저장합니다(되돌리기 어려움 · 반품리스트가 바뀌었으면 저장 안 함)'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px"><button class="a2-btn whs-blink" onclick="retAutoGo(\''+k+'\',{expect:\''+e(S.expect||"")+'\'})">✅ 승인 — PlayMD 저장</button>'
+    +'<button class="a2-btn sub" onclick="'+"apOpen('hsreturn','retAuto"+k.charAt(0).toUpperCase()+k.slice(1)+"')"+'">🔍 미리보기 표 보기</button></div>';}
+  else if(anyFix&&S&&S.mode==="preview"){s3="warn";b3="표에서 고친 코드·공급가가 있습니다 — [등록요망]으로 다시 미리보기한 뒤 승인";}
+  /* ④ 저장 */
+  var s4="",b4="";
+  if(act&&R.mode==="save"){s4="run";b4=e(String(R.progress||"자동화 PC가 저장하는 중").replace(/^▷\s*/,"").slice(0,80));}
+  else if(S&&S.mode==="save"&&S.status&&RET_ST_TXT[S.status]){var t4=RET_ST_TXT[S.status];s4=S.status==="saved"?"ok":S.status==="savecheck"?"warn":S.status==="none"?"":"bad";
+    b4='<span style="color:'+t4[2]+';font-weight:700">'+t4[0]+' '+e(t4[1])+'</span>'+(S.error?' — '+e(S.error):'')+(S.at?' <span style="color:#5b6675">· '+e(_saipFmtAt(S.at))+'</span>':'');}
+  if(last)b4+=(b4?'<div>':'<div>')+'<span style="color:#047857">마지막 저장 '+e(_saipFmtAt(last.at))+' · '+e(_saipWho(last.by))+' · '+last.n+'건 · '+last.qty+'개 · '+Math.round(last.amt).toLocaleString()+'원</span></div>';
+  if(last&&!s4)s4="ok";
+  var need=!act&&!canReg&&(n>0||MV>0||LF>0);
+  var lab=act?(R.mode==="preview"?"⏳ 미리보기 중…":"⏳ 저장 중…"):need?"🚨 등록요망 ("+(n+MV+LF)+"건)":"🔍 미리보기";
+  var btns='<button class="a2-btn'+(need?' whs-blink':'')+'" '+(act?'disabled style="opacity:.55" ':'')+'onclick="retPreviewGo(\''+k+'\')">'+lab+'</button>'
+    +'<button class="a2-btn sub" onclick="_retScan(true)" title="반품리스트를 다시 읽습니다">🔄 다시 읽기</button>';
+  var inner=(act?_saipProgBar(k,R):'')
+    +_a2rRow("①","반품리스트 읽기",s1,b1)
+    +_a2rRow("②","미리보기 · 중복 확인(저장 안 함)",s2,b2)
+    +_a2rRow("③","미리보기 확인 → 승인",s3,b3)
+    +_a2rRow("④","플레이엠디 저장"+(k==="hr"||k==="cr"?" (불량은 NH→BAD 이동까지)":""),s4,b4);
+  return _a2rCard(k,true,inner,btns);
+}
+function a2rRender(){
+  var box=document.getElementById("auto2Reg");if(!box)return;
+  var pg=document.getElementById("page-auto2");if(!pg||pg.style.display==="none")return;
+  /* 날짜·입력칸을 고르는 중이면 다시 그리지 않는다 */
+  var a=document.activeElement;if(a&&box.contains(a)&&a.tagName==="INPUT")return;
+  if(typeof _retScan==="function")_retScan(false);
+  var h=[];
+  A2R_SAIP.forEach(function(k){try{h.push(_a2rSaip(k));}catch(e){h.push('<div class="a2-card" style="color:#b91c1c">'+_escX(k)+' 칸 오류: '+_escX(e.message)+'</div>');}});
+  A2R_RET.forEach(function(k){try{h.push(_a2rRet(k));}catch(e){h.push('<div class="a2-card" style="color:#b91c1c">'+_escX(k)+' 칸 오류: '+_escX(e.message)+'</div>');}});
+  box.innerHTML=h.join("");
+}
 function _apCopy(from,to){var a=document.getElementById(from),b=document.getElementById(to);if(a&&b)b.innerHTML=a.innerHTML;}
 /* [🔄 상태 다시 확인 — 예전 이름 초기화](2026-10-22 영업2팀 "로그인 상태확인 초기화 버튼, 누르면 로그인 확인되게") — 보이던 상태를 지우고(🔄 확인 중)
    ws/plCheckReq {id, by, at}를 남기면 자동화 PC(saip-watch)가 1분을 기다리지 않고 바로 자동화 창을 다시 봐 ws/portalLogin을 새로 올린다.
@@ -10704,7 +10849,7 @@ function switchTab(tab){
   document.getElementById("page-unship").style.display=tab==="unship"?"block":"none";
   document.getElementById("page-auto2").style.display=tab==="auto2"?"block":"none";
   document.getElementById("tab-auto2").classList.toggle("active",tab==="auto2");
-  if(tab==="auto2"){try{renderPortalLogin();}catch(e){}try{whsRender();}catch(e){}try{wdsRender();}catch(e){}try{epRender();}catch(e){}}
+  if(tab==="auto2"){try{renderPortalLogin();}catch(e){}try{whsRender();}catch(e){}try{wdsRender();}catch(e){}try{a2rRender();}catch(e){}try{epRender();}catch(e){}}
   document.getElementById("page-auto").style.display=tab==="auto"?"block":"none";
   document.getElementById("tab-auto").classList.toggle("active",tab==="auto");
   if(tab==="auto"){try{_retScan(false);}catch(e){}try{renderSaipAuto();}catch(e){}try{renderRetAuto();}catch(e){}renderAutoPage();}
@@ -25562,7 +25707,7 @@ function _retScan(force){
       .then(function(){if(--left===0){_retScanBusy=false;renderRetAuto();}});
   });
 }
-setInterval(function(){var vis=function(id){var pg=document.getElementById(id);return pg&&pg.style.display!=="none";};if(vis("page-hsreturn")||vis("page-auto"))_retScan(false);},60*1000);
+setInterval(function(){var vis=function(id){var pg=document.getElementById(id);return pg&&pg.style.display!=="none";};if(vis("page-hsreturn")||vis("page-auto")||vis("page-auto2"))_retScan(false);},60*1000);
 /* 마지막으로 저장한 등록(같은 at으로 묶인 줄) — 카드 1·2줄 */
 function _retLastRun(k){
   var L=_retLogOf(k),g={};
