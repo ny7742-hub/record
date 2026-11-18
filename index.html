@@ -13085,7 +13085,7 @@ function _ecSalLines(R0,C0){
         var S=M.d[dd][sc];if(!S||!C[S.c]||man[day+"_"+sc])return;
         Object.keys(S.i||{}).forEach(function(k){
           var v=S.i[k],code=k.replace(/~r$/,""),it=P[code];
-          out.push({day:day,ch:S.c,sc:sc,sn:S.n||sc,code:it?it.code:code,name:it?it.label:((M.nm||{})[code]||code),qty:+v[0]||0,amt:+v[1]||0});
+          out.push({day:day,ch:S.c,sc:sc,sn:S.n||sc,code:it?it.code:code,name:it?it.label:((M.nm||{})[code]||code),pn:it&&it.pn||"",qty:+v[0]||0,amt:+v[1]||0});
         });
       });
     });
@@ -13215,10 +13215,15 @@ function _a2sChTables(CL){
       var k=x.day+"_"+x.sc;cell[k]=(cell[k]||0)+x.amt;
     });
     var scs=Object.keys(st).sort(function(a,b){return st[b].amt-st[a].amt;}),tot=L.reduce(function(a,x){return a+x.amt;},0),T={pm:0,ec:0,ws:0};
+    /* 홈쇼핑 비고(2026-11-18 영업2팀 "비고에 상품별 매출 1,2,3 홈쇼핑사, 상품명") — 그날 홈쇼핑사×상품명(칼라 합침)별 금액 큰 순 3개 */
+    var hsNote=c==="홈쇼핑",top={};
+    if(hsNote){var pa={};L.forEach(function(x){var p=x.pn||String(x.name||"").trim()||"?",k=x.day+"|"+x.sc+"|"+p,o=pa[k]||(pa[k]={day:x.day,sn:(st[x.sc]||{}).sn||x.sn,p:p,amt:0});o.amt+=x.amt;});
+      Object.keys(pa).forEach(function(k){var o=pa[k];if(o.amt>0)(top[o.day]||(top[o.day]=[])).push(o);});
+      Object.keys(top).forEach(function(d){top[d]=top[d].sort(function(a,b){return b.amt-a.amt;}).slice(0,3);});}
     var h='<div style="margin:4px 0 14px"><div style="font-weight:800;font-size:14px;color:#0f4c5c;margin:6px 2px">'+_escX(_ecSalChLab(c))+' <span style="font-weight:600;color:#5b6675;font-size:12.5px">'+scs.length+'개 매장 · '+nf(tot)+'원</span></div>';
     h+='<div style="overflow:auto;border:1px solid #e2e8f0;border-radius:8px;max-height:520px;width:fit-content;max-width:100%"><table style="border-collapse:collapse;width:auto"><thead><tr><th style="'+th+'">일자</th>';
     scs.forEach(function(sc){h+='<th style="'+th+'" title="'+_escX(sc)+'">'+_escX(st[sc].sn)+'</th>';});
-    h+='<th style="'+th+'">일 합계</th><th style="'+th+';text-align:right">PlayMD</th><th style="'+th+';text-align:right">이카운트</th><th style="'+th+';text-align:right">세매</th></tr></thead><tbody>';
+    h+='<th style="'+th+'">일 합계</th><th style="'+th+';text-align:right">PlayMD</th><th style="'+th+';text-align:right">이카운트</th><th style="'+th+';text-align:right">세매</th>'+(hsNote?'<th style="'+th+'" title="그날 상품별 판매금액 1~3위 (홈쇼핑사 · 상품명 · 금액)">비고 <span style="font-weight:600;color:#5b6675;font-size:11.5px">상품별 매출 1~3위</span></th>':'')+'</tr></thead><tbody>';
     Object.keys(days).sort().forEach(function(day){
       var d=days[day],w=new Date(day+"T00:00:00").getDay();
       h+='<tr><td style="'+td+(w===0?';color:#b91c1c':w===6?';color:#1d4ed8':'')+'">'+(+day.slice(5,7))+'/'+(+day.slice(8,10))+' <span style="font-size:11px">('+wk[w]+')</span></td>';
@@ -13258,11 +13263,12 @@ function _a2sChTables(CL){
         else if(H&&H.state==="done"&&+H.step>=4)h+='<td style="'+td+';text-align:right;color:#047857;font-weight:700" title="⚡ AUTO 세매 등록 완료 — 금액은 다음 세매 확인 때 채워집니다">등록됨</td>';
         else h+='<td style="'+td+';text-align:right;color:#5b6675" title="세매 금액 기록 없음 — 🤖 자동화 탭 세일즈 매니지먼트 [🔍 미등록 확인]을 누르면 채워집니다">?</td>';
       }
+      if(hsNote)h+='<td style="'+td+';font-size:12px;line-height:1.5">'+((top[day]||[]).map(function(o,i){return '<div><b style="color:#0f4c5c">'+(i+1)+'.</b> '+_escX(o.sn)+' · '+_escX(o.p)+' <span style="color:#5b6675">'+nf(o.amt)+'</span></div>';}).join('')||'<span style="color:#5b6675">–</span>')+'</td>';
       h+='</tr>';
     });
     h+='<tr style="background:#f6fafb"><td style="'+td+';font-weight:800">합계</td>';
     scs.forEach(function(sc){h+='<td style="'+td+';font-weight:800">'+nf(st[sc].amt)+'</td>';});
-    h+='<td style="'+td+';font-weight:800">'+nf(tot)+'</td>'+[T.pm,T.ec,T.ws].map(function(v){return '<td style="'+td+';font-weight:800;text-align:right">'+nf(v)+'</td>';}).join('')+'</tr></tbody></table></div></div>';
+    h+='<td style="'+td+';font-weight:800">'+nf(tot)+'</td>'+[T.pm,T.ec,T.ws].map(function(v){return '<td style="'+td+';font-weight:800;text-align:right">'+nf(v)+'</td>';}).join('')+(hsNote?'<td style="'+td+'"></td>':'')+'</tr></tbody></table></div></div>';
     out+=h;
   });
   return out;
@@ -13349,7 +13355,7 @@ function a2sRender(){
     var CL=[];
     lines.forEach(function(x){var c=chOf(x);if(A2S_CH.indexOf(c)<0||!_a2s.ch[c])return;if(sv&&x.sc!==sv)return;
       if(q&&String(x.name||"").toLowerCase().indexOf(q)<0&&String(x.code||"").toLowerCase().indexOf(q)<0)return;
-      CL.push({day:x.day,ch:c,sc:x.sc,sn:x.sn||x.sc,sc0:x.sc0,sn0:x.sn0,on:x.on,qty:+x.qty||0,amt:Math.round(+x.amt||0),pm:x.ch!=="매장판매"&&x.ch!=="트래블메이트"&&!x._job});});
+      CL.push({day:x.day,ch:c,sc:x.sc,sn:x.sn||x.sc,name:x.name||x.code,pn:x.pn||"",sc0:x.sc0,sn0:x.sn0,on:x.on,qty:+x.qty||0,amt:Math.round(+x.amt||0),pm:x.ch!=="매장판매"&&x.ch!=="트래블메이트"&&!x._job});});
     CL._sv=sv;CL._q=q;
     _a2sRows={view:"ch",rows:CL,R:R};
     var cq=CL.reduce(function(a,x){return a+x.qty;},0),ca=CL.reduce(function(a,x){return a+x.amt;},0),nf0=function(n){return Math.round(n).toLocaleString();};
@@ -20632,7 +20638,7 @@ function _ocProdList(){
   var seen={},list=[];
   src.forEach(function(x){
     var c=String(x["자사코드"]||"").trim();if(!c||seen[c])return;seen[c]=1;
-    list.push({code:c,label:(String(x["상품명"]||"").trim()+" "+String(x["칼라명"]||"").trim()).trim()});
+    list.push({code:c,pn:String(x["상품명"]||"").trim(),label:(String(x["상품명"]||"").trim()+" "+String(x["칼라명"]||"").trim()).trim()});
   });
   _ocProdIdx={sig:src.length,list:list,by:Object.fromEntries(list.map(function(o){return [o.code.toUpperCase(),o];}))};
   return _ocProdIdx;
