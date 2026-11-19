@@ -10034,7 +10034,7 @@ function whsCancel(){
    날짜를 고르면 한 번 자동으로 확인을 요청한다(_wsChkReq — 30분 안에 본 건 다시 안 함). 이카운트·세매를 확인 못 하면 큰 단추가 [🔎 0. 등록 여부 확인]이 된다 */
 var _x0Asked={};
 function _x0State(k,v){var X=v?_saipXsys(k,v):null;return {X:X,ok:!!(X&&X.ws!=null&&X.ec!=null),run:!!(X&&X.wsRun)};}
-function _x0Html(k,v,rnd){
+function _x0Html(k,v,rnd,okMsg){
   if(!v)return "";
   var S=_x0State(k,v),X=S.X||{},e=_escX,f=function(n){return (Number(n)||0).toLocaleString();},L=_saipLogOf(k,v);
   if(!S.ok&&!S.run&&!_x0Asked[k+v]){_x0Asked[k+v]=1;setTimeout(function(){try{_wsChkReq(v);}catch(er){}},0);}
@@ -10048,7 +10048,7 @@ function _x0Html(k,v,rnd){
   var st=!S.ok?(S.run?"run":"bad"):(X.any||L)?"warn":"ok";
   var body='<table style="border-collapse:collapse;font-size:12.5px">'+tr("🚚 PlayMD",pm)+tr("🧮 이카운트",cell(X.ec,X.ecAt,X.ecFail))+tr("📊 세매",cell(X.ws,X.wsAt,X.wsFail))+'</table>'
     +(S.ok?(X.any||L?'<div style="color:#b91c1c;font-weight:800;margin-top:3px">⛔ 그 날 이미 들어간 매출이 있습니다 — 아래 단계는 겹치는 곳에 등록하지 않습니다</div>'
-        :'<div style="color:#047857;font-weight:800;margin-top:3px">✔ 세 곳 모두 그 날 매출 없음 — 아래 1. PlayMD부터 등록합니다</div>')
+        :'<div style="color:#047857;font-weight:800;margin-top:3px">'+(okMsg||'✔ 세 곳 모두 그 날 매출 없음 — 아래 1. PlayMD부터 등록합니다')+'</div>')
       :'<div style="color:#b91c1c;font-weight:700;margin-top:3px">이카운트·세매를 확인해야 다음 단계로 갑니다</div>')
     +'<div style="margin-top:5px"><button class="a2-btn sub" '+(S.run?'disabled style="opacity:.55" ':'')+'onclick="_wsChkReq(\''+v+'\',true);'+rnd+'()">🔄 세 곳 다시 확인</button></div>';
   return '<div style="font-weight:800;color:#1b6e82;margin-top:2px">🔎 0. 등록 여부 확인 (PlayMD · 이카운트 · 세매)</div>'+_a2rRow("⓪",(+v.slice(5,7))+"/"+(+v.slice(8,10))+" 그 날 이미 등록됐는지",st,body)+'<div style="height:10px"></div>';
@@ -27181,6 +27181,10 @@ function ccApproveGo(d){
   if(!L||L.state!=="sent"){alert(md+" 코스트코 발주 메일을 보낸 기록이 없습니다 — ②③을 먼저 해 주세요.");return;}
   var it=_saipReadyOf("cc").filter(function(x){return x.date===d&&!x.more;})[0];
   if(!it){alert(md+" 물류 회신(운송장) 메일이 아직 없습니다.\n\n회신이 오면(자동화 PC가 5분마다 살핌) 이 단추로 승인합니다.");return;}
+  /* 0. 등록 여부 확인 먼저(2026-11-19 영업2팀 "코코도") — 이카운트·세매를 확인 못 했으면 승인 안 됨, 이미 있으면 한 번 더 묻는다 */
+  var Z=_x0State("cc",d),ZX=Z.X||{},zf=function(n){return (Number(n)||0).toLocaleString();};
+  if(!Z.ok){if(!Z.run)_wsChkReq(d,true);alert(md+" 코스트코 온라인이 이카운트·세매에 이미 있는지 아직 확인하지 못했습니다.\n\n자동화 PC에 0. 등록 여부 확인을 요청했습니다 — 결과가 오면(20초쯤) 다시 승인해 주세요.");ccAutoRender();return;}
+  if(ZX.any&&!confirm("⛔ "+md+" 코스트코 온라인 매출이 이미 있습니다.\n\nPlayMD 판매일보 "+zf(ZX.pm)+"원 · 이카운트 "+zf(ZX.ec)+"원 · 세매 "+zf(ZX.ws)+"원\n\n겹치면 매출이 두 번 잡힙니다. 그래도 승인할까요?"))return;
   var u=it.unship,ut=!u||!u.said?"미출고: 회신에 언급 없음(모두 출고로 봄)":!u.has?"미출고 없음":u.unknown?"⚠ 미출고가 있다는데 송장번호를 못 읽었습니다 — 승인해도 DSS 송장 입력은 멈춥니다":"⚠ 미출고 "+u.nos.length+"개: "+u.nos.join(", ")+"\n   → 이 송장(주문)은 DSS26·31에 올리지 않습니다";
   if(!confirm("코스트코 "+md+" 물류 회신을 승인하고 이어서 진행합니다.\n\n회신: "+(it.files||[]).join(", ")+" ("+_saipFmtAt(it.received||it.modified)+")\n"+ut+(u&&u.text?"\n   회신 본문: '"+String(u.text).slice(0,100)+"'":"")
     +"\n\n⑤ DSS26·31 송장 입력(미출고 빼고) [발송완료 진행] → 코스트코탭 판매현황\n⑥ PlayMD 사입출고 → 세매(코코 온라인) 등록\n\nDSS 발송완료·PlayMD 등록은 되돌리기 어렵습니다. 승인할까요?\n(승인: "+_saipMe()+")"))return;
@@ -27372,6 +27376,8 @@ function ccStepDss(){
   var u6=sb(k6,'↗ 매출등록 카드',"apOpen('ccorder','saipAutoCc')",'사입출고등록 🛒 코스트코 매출등록 카드에서 확인 · 등록합니다');
   var u7=sb(k7,'↗ 이카운트 탭',"switchTab('ecount')",'이카운트 탭 💰 매출 등록에서 직접 넣습니다');
   var row=function(n,t,st,k,b,u){return '<div class="cc-step cc-step-'+k+'"><div class="cc-step-h"><span class="cc-step-n">'+n+'</span>'+t+(k==="done"?' <span class="cc-step-ok">완료</span>':k==="on"?' <span class="cc-step-now">지금</span>':'')+'</div><div class="cc-step-s">'+st+'</div>'+bar(b,k)+(u?'<div class="cc-step-u">'+u+'</div>':'')+'</div>';};
+  /* 0. 등록 여부 확인(2026-11-19 영업2팀 "코코도") — 오늘 발주 날짜의 코스트코 온라인(COSO)이 PlayMD·이카운트·세매에 이미 있는지. 확인 못 하면 ⑤ 승인 안 됨(ccApproveGo) */
+  if(typeof _x0Html==="function")h+='<div style="margin-bottom:8px">'+_x0Html("cc",gd,"ccAutoRender","✔ 세 곳 모두 그 날 코스트코 온라인 매출 없음 — ⑤ 승인 뒤 ⑥에서 PlayMD · 세매에 등록합니다")+'</div>';
   h+='<div class="cc-steps">'+row('①','🔢 건수 확인',s1,k1,b1,u1)+row('②','🚚 발주하기',s2,k2,b2,u2)+row('③','✉️ 메일 보내기',s3,k3,b3,u3)+row('④','💬 슬랙 CX팀',s4,k4,b4,u4)+row('⑤','🚚 DSS 송장 · 판매현황',s5,k5,b5,u5)+row('⑥',wsNeed?'📒 PlayMD 사입출고 · 📊 세매':'📒 PlayMD 사입출고',s6,k6,b6,u6)+row('⑦','🧮 이카운트 판매등록',s7,k7,b7,u7)+'</div>';
   /* 지난 발주 날짜의 회신이 늦게 와 승인을 기다리는 것(최근 4일) */
   var apOld=_saipReadyOf("cc").filter(function(x){var o=(ccOrderLog||{})[x.date];return x.date!==gd&&!x.more&&_ccApproveNeed(x.date)&&o&&o.state==="sent"&&!((ccApprove||{})[x.date]||{}).by&&(new Date(gd)-new Date(x.date))<=4*864e5;});
