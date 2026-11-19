@@ -4024,7 +4024,8 @@ function fbListen(){
   });
   apply("ws/ecStock","ecStock",
     function(d){if(d&&typeof d==="object"&&d.wh)ecStock=d;},
-    function(){if(typeof renderEcount==="function")renderEcount();if(typeof _ecRes!=="undefined"&&_ecRes.length&&typeof ecRenderSearch==="function")ecRenderSearch();if(_epNeedOpen&&typeof epRender==="function")try{epRender();}catch(e){}}
+    function(){if(typeof renderEcount==="function")renderEcount();if(typeof _ecRes!=="undefined"&&_ecRes.length&&typeof ecRenderSearch==="function")ecRenderSearch();if(_epNeedOpen&&typeof epRender==="function")try{epRender();}catch(e){}
+      try{var _hp=document.getElementById("homePsIn");if(_hp&&_hp.value.trim()&&typeof hpsSearch==="function")hpsSearch();}catch(e){}}
   );
   apply("ws/ecStockReq","ecStockReq",
     function(d){if(d&&typeof d==="object")ecStockReq=d;},
@@ -22561,6 +22562,20 @@ function _hpsCountry(code){
   if(!seen.length)return '<span style="color:#5b6675" title="PlayMD 상품코드리스트에 생산국가가 없습니다">제조국 —</span>';
   return '<span title="PlayMD 상품코드리스트 생산국가'+(bk?'(백업)':'')+'">제조국 <b>'+_escX(seen.join(" / "))+'</b></span>';
 }
+/* 이카운트 컬러별 재고(2026-11-19 영업2팀 "이카운트 재고도 같이") — ws/ecStock(자동화 PC가 7~21시 5분마다)의 본사 창고(_ecHq, NH).
+   품목코드 = 자사코드(상품코드+칼라코드+사이즈 한 글자)라 상품코드+칼라코드로 시작하는 품목(+0~1글자)을 더한다. 자료가 없으면 null */
+var _hpsEcIdx=null;
+function _hpsEcColor(code,cc){
+  if(typeof ecStock==="undefined"||!ecStock||!ecStock.wh||typeof _ecStockKey!=="function")return null;
+  var k=_ecStockKey(_ecHq());if(!k)return null;
+  var m=ecStock.wh[k]||{};
+  if(!_hpsEcIdx||_hpsEcIdx.m!==m){
+    var by={};Object.keys(m).forEach(function(s){var S=s.toUpperCase(),v=+m[s]||0;by[S]=(by[S]||0)+v;var c=S.slice(0,-1);if(c)by["~"+c]=(by["~"+c]||0)+v;});
+    _hpsEcIdx={m:m,by:by};
+  }
+  var p=(String(code||"")+String(cc||"")).trim().toUpperCase();
+  return (_hpsEcIdx.by[p]||0)+(_hpsEcIdx.by["~"+p]||0);
+}
 function _hpsCard(o){
   var M=((mallLinkDB||{}).codes||{})[o.code]||null;
   var img=M&&M.i?MALL+"/web/product/medium/"+M.i:(typeof _bestImgFor==="function"?_bestImgFor(o.code,o.name):"");
@@ -22585,8 +22600,11 @@ function _hpsCard(o){
     var oc=ORD&&ORD.pick&&Object.keys(ORD.q||{}).length?ORD.q:null,rows=S.list.map(function(x){return {name:x.name,cc:x.cc,qty:x.qty};});
     if(oc)Object.keys(oc).forEach(function(cc){if(!rows.some(function(r){return String(r.cc).toUpperCase()===cc;}))rows.push({name:ORD.names[cc]||cc,cc:cc,qty:null});});
     var ftd='padding:6px 8px;white-space:nowrap;font-weight:800;color:#0f172a;background:#f1f5f9;border-top:2px solid #cbd5e1;position:sticky;bottom:0';
+    var ecOn=_hpsEcColor(o.code,"")!==null,ecTot=0;
+    if(ecOn)rows.forEach(function(r){r.ec=_hpsEcColor(o.code,r.cc);ecTot+=r.ec;});
     tbl='<div style="max-height:480px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px"><table style="border-collapse:collapse;width:100%;font-size:14.5px">'
-      +'<tr><th style="'+th+'">컬러</th><th style="'+th+'">컬러코드</th><th style="'+th+'">자사코드</th><th style="'+th+';text-align:right">'+(S.has?_escX(S.basis)+' 재고':'재고')+'</th>'
+      +'<tr><th style="'+th+'">컬러</th><th style="'+th+'">컬러코드</th><th style="'+th+'">자사코드</th><th style="'+th+';text-align:right" title="PlayMD 창고재고현황">'+(S.has?'PlayMD '+_escX(S.basis)+' 재고':'재고')+'</th>'
+      +(ecOn?'<th style="'+th+';text-align:right;color:#6d28d9" title="이카운트 창고별재고현황 '+_escX(_ecHq())+' 창고(자동화 PC가 5분마다)">이카운트 '+_escX(_ecHq())+' 재고</th>':'')
       +(oc?'<th style="'+th+';text-align:right;color:#6d28d9">발주수량</th><th style="'+th+';color:#6d28d9">입고예정</th>':'')+'</tr>'
       +rows.map(function(x){
         var z=S.has&&x.qty!=null&&x.qty<=0,g=oc?oc[String(x.cc).toUpperCase()]:null;
@@ -22594,15 +22612,18 @@ function _hpsCard(o){
           +'<td style="'+tp+';font-family:ui-monospace,Consolas,monospace">'+_escX(x.cc)+'</td>'
           +'<td style="'+tp+';font-family:ui-monospace,Consolas,monospace;color:#475569">'+_escX(_hpsJasa(o.code,x.cc))+'</td>'
           +'<td style="'+tp+';text-align:right;font-weight:800;color:'+(z?'#b91c1c':'#1b6e82')+'">'+(S.has&&x.qty!=null?x.qty.toLocaleString():'—')+'</td>'
+          +(ecOn?'<td style="'+tp+';text-align:right;font-weight:800;color:'+(x.ec<=0?'#b91c1c':'#6d28d9')+'">'+x.ec.toLocaleString()+'</td>':'')
           +(oc?'<td style="'+tp+';text-align:right;font-weight:800;color:#6d28d9">'+(g?g.qty.toLocaleString():'—')+'</td>'
             +'<td style="'+tp+';font-weight:700;color:#0f172a">'+(g?_hpsOrdArr(g):'')+'</td>':'')+'</tr>';
       }).join("")
       /* 합계는 표 맨 아래 재고 칸 오른쪽 끝에 진하게(2026-10-22 영업2팀 "합계수량 재고수량에 맞게 오른쪽 끝에") — 컬러가 많아 표가 스크롤돼도 보이게 아래에 붙인다 */
       +(S.has||oc?'<tr><td colspan="3" style="'+ftd+'">합계</td>'
         +'<td style="'+ftd+';text-align:right;font-size:16px">'+(S.has?S.total.toLocaleString():'—')+'</td>'
+        +(ecOn?'<td style="'+ftd+';text-align:right;font-size:16px;color:#6d28d9">'+ecTot.toLocaleString()+'</td>':'')
         +(oc?'<td style="'+ftd+';text-align:right;font-size:16px;color:#6d28d9">'+ORD.tot.toLocaleString()+'</td><td style="'+ftd+'"></td>':'')+'</tr>':'')
       +'</table></div>'
-      +'<div style="font-size:13.5px;color:#5b6675;margin-top:4px">'+(S.has?(S.date?_escX(S.date)+' 기준':''):'창고재고현황이 아직 없습니다(홈 📤 PlayMD 자료 업로드)')+'</div>'
+      +'<div style="font-size:13.5px;color:#5b6675;margin-top:4px">'+(S.has?(S.date?'PlayMD '+_escX(S.date)+' 기준':''):'창고재고현황이 아직 없습니다(홈 📤 PlayMD 자료 업로드)')
+        +(ecOn&&ecStock.at?' · 이카운트 '+_escX(typeof _saipFmtAt==="function"?_saipFmtAt(ecStock.at):ecStock.at)+' 기준':'')+'</div>'
       +_hpsOrdNote(ORD);
   }
   return '<div style="border:1px solid #cfe0e5;border-radius:12px;padding:16px;background:#fff;min-width:0">'   /* 컬러 표는 카드 폭 전체로(2026-10-22 영업2팀 "한 화면에 다 보이게") — 위 줄 = 이미지 + 상품 정보 */
