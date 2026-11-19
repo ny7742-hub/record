@@ -13747,11 +13747,15 @@ function _a2sChTables(CL){
   A2S_CH.forEach(function(c){
     var L=CL.filter(function(x){return x.ch===c;});if(!L.length)return;
     var st={},days={},cell={};
+    /* 온라인·오프라인으로 나눈 매장(청량리)은 이 표에서는 한 열로 합쳐 보인다(2026-11-19 영업2팀 "청량리는 온라인과 오프라인 합계로") —
+       열 키 = 원래 매장코드(sc0), 이름 = 원래 매장명(sn0). 이카운트·세매 칸도 매장 전체로 본다. 온라인/오프라인 한쪽만 골랐을 때(CL._sv)는 그대로 나눠 둔다 */
+    var mg=!CL._sv;
     L.forEach(function(x){
-      var s=st[x.sc]||(st[x.sc]={sn:x.sn,sn0:x.sn0,on:x.on,amt:0});s.amt+=x.amt;
+      var ck=mg&&x.sc0?x.sc0:x.sc;
+      var s=st[ck]||(st[ck]=mg&&x.sc0?{sn:x.sn0,amt:0}:{sn:x.sn,sn0:x.sn0,on:x.on,amt:0});s.amt+=x.amt;
       var sk=x.day+"_"+x.sc;   /* 이카운트 전표도 온라인은 따로(일자_매장~on, 구분 01) */
-      var d=days[x.day]||(days[x.day]={amt:0,qty:0,slips:{},slipAmt:{},pm:0,pmAmt:0,scs:{}});d.amt+=x.amt;d.qty+=x.qty;d.slips[sk]=1;d.slipAmt[sk]=(d.slipAmt[sk]||0)+x.amt;d.scs[x.sc]=1;if(x.pm){d.pm++;d.pmAmt+=x.amt;}
-      var k=x.day+"_"+x.sc;cell[k]=(cell[k]||0)+x.amt;
+      var d=days[x.day]||(days[x.day]={amt:0,qty:0,slips:{},slipAmt:{},pm:0,pmAmt:0,scs:{}});d.amt+=x.amt;d.qty+=x.qty;d.slips[sk]=1;d.slipAmt[sk]=(d.slipAmt[sk]||0)+x.amt;d.scs[ck]=1;if(x.pm){d.pm++;d.pmAmt+=x.amt;}
+      var k=x.day+"_"+ck;cell[k]=(cell[k]||0)+x.amt;
     });
     var scs=Object.keys(st).sort(function(a,b){return st[b].amt-st[a].amt;}),tot=L.reduce(function(a,x){return a+x.amt;},0),T={pm:0,ec:0,ws:0};
     /* 홈쇼핑 비고(2026-11-18 영업2팀 "비고에 상품별 매출 1,2,3 홈쇼핑사, 상품명") — 그날 홈쇼핑사×상품명(칼라 합침)별 금액 큰 순 3개 */
