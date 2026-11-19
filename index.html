@@ -4113,6 +4113,10 @@ function fbListen(){
     function(){if(typeof renderWsAuto==="function")renderWsAuto();if(typeof ccAutoRender==="function")try{ccAutoRender();}catch(e){}try{a2rRender();}catch(e){}}   /* .cc = 코스트코 자동발주 ⑥ 세매 · .ret = AUTO 반품 ⑤ 세매 */
   );
   /* 세매 날짜·채널별 등록 상태(자동화 PC wssales-upload.mjs가 확인할 때마다 쌓음, 2026-11-17) — 홈 판매조회 채널별 일자표의 세매 칸 */
+  apply("ws/wssalesDayChk","wssalesDayChk",   /* 세매 그 날 바로 확인(wssales-daychk.mjs, 2026-11-19) */
+    function(d){if(d&&typeof d==="object")wssalesDayChk=d;},
+    function(){try{a2rRender();}catch(e){}try{whsRender();}catch(e){}try{wdsRender();}catch(e){}if(typeof renderSaipAuto==="function")try{renderSaipAuto();}catch(e){}}
+  );
   apply("ws/wssalesDays","wssalesDays",
     function(d){if(d&&typeof d==="object")wssalesDays=d;},
     function(){try{a2sRender();}catch(e){}try{ecSalRender();}catch(e){}try{a2rRender();}catch(e){}}
@@ -9873,6 +9877,7 @@ function _whsDone(mmdd,date){
   var H=(wssalesHs||{})[mmdd]||null,S=(H&&H.steps)||{};
   var mine=!!(H&&H.state==="done"&&H.mode==="save"&&S.reg&&S.reg.ok);
   var wd=date&&typeof wssalesDays==="object"&&wssalesDays?wssalesDays[date+"|홈쇼핑"]:null;
+  var ck=date?_wsChkOf(date,"홈쇼핑"):null;if(ck&&(!wd||Number(ck.d)>Number(wd.d||0)))wd=Object.assign({},wd||{},{d:ck.d,s:wd&&wd.s||(ck.d>0?"in":"miss")});   /* 세매 바로 확인이 더 크면 그 금액 */
   var inWs=!!(wd&&Number(wd.d)>0);
   var L=date&&typeof _saipLogOf==="function"?_saipLogOf("hs",date):null;
   return {H:H,mine:mine,wd:wd,inWs:inWs,ws:mine||inWs,wsFull:mine||!!(wd&&wd.s==="ok"&&Number(wd.d)>0),L:L};
@@ -10155,7 +10160,7 @@ function _wdsDone(mmdd,date){
   var H=(wssalesDs||{})[mmdd]||null,S=(H&&H.steps)||{};
   var mine=!!(H&&H.state==="done"&&H.mode==="save"&&S.reg&&S.reg.ok);
   /* 세매 중복(2026-11-18 "중복검사는 필수") — ws/wssalesDays[날짜|백화점].st 의 세 매장(SAIP_XS.ds.wsn) 합이 0보다 크면 이미 들어간 날 */
-  var W=date&&typeof wssalesDays==="object"&&wssalesDays?wssalesDays[date+"|"+SAIP_XS.ds.ws]:null,wd=null;
+  var W=date?(_wsChkOf(date,SAIP_XS.ds.ws)||(typeof wssalesDays==="object"&&wssalesDays?wssalesDays[date+"|"+SAIP_XS.ds.ws]:null)):null,wd=null;
   if(W){var a0=0;SAIP_XS.ds.wsn.forEach(function(n){a0+=+((W.st||{})[n])||0;});wd={d:a0,s:a0>0?"in":"miss"};}
   var inWs=!!(wd&&Number(wd.d)>0);
   var L=date&&typeof _saipLogOf==="function"?_saipLogOf("ds",date):null;
@@ -10466,16 +10471,18 @@ function _saipXsys(k,day){
   var pm=null;if(M&&M.d){pm=0;codes.forEach(function(c){pm+=sum((M.d[dd]||{})[c]);});}
   var V=ecSalView,ec=null;
   if(V&&V.s&&V.from&&day>=V.from&&day<=V.to){ec=0;var seen={};codes.forEach(function(c){var cu=_ecSalCust(c);if(seen[cu])return;seen[cu]=1;(V.s[day+"_"+cu]||[]).forEach(function(x){ec+=+x[0]||0;});});}
-  var W=(wssalesDays||{})[day+"|"+X.ws],ws=null;
+  var C=_wsChkOf(day,X.ws),W=C||(wssalesDays||{})[day+"|"+X.ws],ws=null;
   if(W){if(X.wsn){ws=0;X.wsn.forEach(function(n){ws+=+((W.st||{})[n])||0;});}else ws=+W.d||0;}
-  return {pm:pm,ec:ec,ws:ws,pmAt:M&&M.at||"",ecAt:V&&V.at||"",any:!!(pm||ec||ws)};
+  var wq=(saipReq||{}).wsck,wsRun=!!(wq&&_saipReqActive(wq)&&wq.date===day),wsFail=!!(wq&&wq.date===day&&wq.state==="실패"&&!C);
+  return {pm:pm,ec:ec,ws:ws,pmAt:M&&M.at||"",ecAt:V&&V.at||"",wsAt:C?C.at:(W&&W.at)||"",wsRun:wsRun,wsFail:wsFail?(wq.error||"세매 확인 실패"):"",day:day,any:!!(pm||ec||ws)};
 }
 function _saipXsysHtml(X){
   if(!X)return "";
   var f=function(n){return (Number(n)||0).toLocaleString();},e=_escX;
   var cell=function(nm,v,at){var t=at?' <span style="color:#5b6675;font-weight:400">('+e(_saipFmtAt(at))+')</span>':'';
     return v==null?'<span style="color:#5b6675">'+nm+' 확인 못 함'+t+'</span>':v?'<b style="color:#b91c1c">'+nm+' '+f(v)+'원 있음</b>'+t:'<span style="color:#047857">'+nm+' 없음</span>'+t;};
-  return '<div>'+cell("PlayMD 판매일보",X.pm,X.pmAt)+' · '+cell("이카운트",X.ec,X.ecAt)+' · '+cell("세매",X.ws)+'</div>'
+  var wsCell=X.ws==null?(X.wsRun?'<span style="color:#1b6e82;font-weight:700">⏳ 세매 확인 중(자동화 PC)…</span>':'<b style="color:#b91c1c">세매 확인 못 함'+(X.wsFail?' — '+e(X.wsFail):'')+'</b> <a href="javascript:void(0)" onclick="_wsChkReq(\''+X.day+'\',true)" style="color:#1b6e82;font-weight:700">🔄 세매 확인</a>'):cell("세매",X.ws,X.wsAt);
+  return '<div>'+cell("PlayMD 판매일보",X.pm,X.pmAt)+' · '+cell("이카운트",X.ec,X.ecAt)+' · '+wsCell+'</div>'
     +(X.any?'<div style="color:#b91c1c;font-weight:800">⛔ 그 날 이미 등록된 매출이 있습니다 — 겹치는지 먼저 확인하세요</div>':'');
 }
 /* ── 세 곳 등록 확인 + 세매·이카운트 등록(2026-11-19 영업2팀 "등록건은 모두 플레이엠디, 세매, 이카운트 등록여부 먼저 확인하고 표시해주세요 —
@@ -10724,7 +10731,8 @@ function _a2rSaip(k,dv){
   var v=dv||_a2rDate(k),md=v?(+v.slice(5,7))+"/"+(+v.slice(8,10)):"",R=(saipReq||{})[k],act=_saipReqActive(R),mine=act&&(!R.date||R.date===v||(R.dates||[]).indexOf(v)>=0);
   var it=v?_saipItemOf(k,v):null,L=v?_saipLogOf(k,v):null;
   var fresh=!!(it&&it.at&&Date.now()-new Date(it.at).getTime()<2*3600*1000),stale=!!(it&&it.date&&_saipFixStaleOf(k,it));
-  var canReg=!!(it&&!L&&it.mode==="preview"&&it.status==="preview"&&(k==="mv"||!it.already)&&!act&&fresh&&!stale);
+  var XS0=!L&&SAIP_XS[k]?_saipXsys(k,v):null,wsNo=!!(XS0&&XS0.ws==null);   /* 세매 확인 못 함 → 승인 안 됨(2026-11-19) */
+  var canReg=!!(it&&!L&&it.mode==="preview"&&it.status==="preview"&&(k==="mv"||!it.already)&&!act&&fresh&&!stale&&!wsNo);
   var ready=_saipReadyOf(k).map(function(x){return x.date;}),isReady=v&&ready.indexOf(v)>=0;
   /* ①② 원본·중복 */
   var s1="",b1="",s2="",b2="";
@@ -10746,6 +10754,8 @@ function _a2rSaip(k,dv){
     b3='<b>'+(it.rows||[]).length+'줄 · '+f(it.qty)+'개 · '+f(_saipItemAmt(k,it))+'원</b> — 미리보기를 보고 승인하면 플레이엠디에 저장합니다(되돌리기 어려움)'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px"><button class="a2-btn whs-blink" onclick="a2rSaipOk(\''+k+'\',\''+v+'\')">✅ 승인 — PlayMD 저장</button>'
       +'<button class="a2-btn sub" onclick="a2rSaipView(\''+k+'\',\''+v+'\')">🔍 미리보기 보기</button></div>';
+  }else if(it&&!L&&it.status==="preview"&&!act&&wsNo&&fresh&&!stale){
+    s3="bad";b3='<b style="color:#b91c1c">⛔ 세매에 그 날 매출이 있는지 확인하지 못해 승인할 수 없습니다</b> — ②의 [🔄 세매 확인]을 누르고 결과가 오면 승인 단추가 뜹니다';
   }else if(it&&!L&&it.status==="preview"&&!act){
     s3="warn";b3=stale?'고친 값이 있습니다 — [등록요망]으로 다시 검사한 뒤 승인할 수 있습니다':!fresh?'검사한 지 2시간이 지났습니다 — [등록요망]으로 다시 검사해 주세요':'';
     if(it.already&&k!=="mv")b3='중복이라 저장하지 않습니다 — <a href="javascript:void(0)" onclick="a2rSaipView(\''+k+'\',\''+v+'\')">자세히</a>';
@@ -13495,6 +13505,18 @@ function a2sOpen(k){_a2sOpen[k]=!_a2sOpen[k];a2sRender();}
    이카운트 = 그날 그 채널 전표(일자_매장) 중 ws/ecSalLog에 있는 수. 세매 = 세일즈 매니지먼트 미등록 확인(ws/wssalesUpload after|check의 ok·partial·missing, 백화점·홈쇼핑·코코 온라인·코코 직매입)
    + 홈쇼핑은 ⚡ AUTO 세매 등록 기록(ws/wssalesHs[MMDD] state done · step 4). 아난티·팩토리·트래블메이트는 세매에 안 올려 – */
 var wssalesDays=(function(){try{return JSON.parse(localStorage.getItem("wssalesDays")||"null")||{};}catch(e){return {};}})();
+/* 세매 그 날 바로 확인(2026-11-19 영업2팀 "세매 확인 못하면 안됩니다") — 자동화 PC wssales-daychk.mjs가 세매 sales_data를 그 날짜로 직접 읽어 적는다(0원도 적음).
+   ws/wssalesDayChk = {"YYYY-MM-DD|채널": {d, n, st{매장명:금액}, at}}. 요청 = ws/saipReq.wsck {date} — 판매등록 [중복 검사]를 누를 때(_wsChkReq) */
+var wssalesDayChk=(function(){try{return JSON.parse(localStorage.getItem("wssalesDayChk")||"null")||{};}catch(e){return {};}})();
+var WS_CHK_FRESH=6*3600*1000;   /* 6시간 지난 확인은 다시 */
+function _wsChkOf(day,ch){var c=(wssalesDayChk||{})[day+"|"+ch];return c&&c.at&&Date.now()-new Date(c.at).getTime()<WS_CHK_FRESH?c:null;}
+function _wsChkReq(day,force){
+  if(!day)return;var R=(saipReq||{}).wsck;
+  if(R&&_saipReqActive(R)&&R.date===day)return;
+  if(!force&&["홈쇼핑","백화점","코코 온라인"].every(function(ch){var c=(wssalesDayChk||{})[day+"|"+ch];return c&&c.at&&Date.now()-new Date(c.at).getTime()<30*60*1000;}))return;   /* 30분 안에 확인했으면 */
+  if(R&&_saipReqActive(R))return;
+  _saipReqSet("wsck",{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",date:day});
+}
 function _a2sWsMap(){
   var W=wssalesUpload||{},S=W.after||W.check||W.before,m={};
   if(S){
@@ -27877,6 +27899,7 @@ function _saipItemOf(k,date){
 function saipConfirmGo(kind){
   var el=_saipDateEl(kind),v=el&&el.value;
   if(!v){alert("등록 날짜를 골라 주세요.");return;}
+  if(SAIP_XS[kind])try{_wsChkReq(v);}catch(e){}   /* 세매 그 날 바로 확인(2026-11-19) */
   if(_saipLogOf(kind,v)||((kind==="hs"||kind==="ds")&&v<=SAIP_BASELINE)||_saipReqBusy((saipReq||{})[kind])){
     var w0=_saipCfWait[kind];
     if(w0&&w0.date===v&&(saipReq||{})[kind]&&saipReq[kind].id===w0.id){_saipCfShow(kind,v,{wait:true});return;}   /* 내가 건 검사가 도는 중 — 진행 창만 다시 */
@@ -27909,6 +27932,7 @@ function _saipCfPoll(){
 function saipCfClose(){var m=document.getElementById("saipCfModal");if(m)m.remove();}
 function saipCfSave(kind,date){
   var XS=_saipXsys(kind,date);
+  if(XS&&XS.ws==null){_wsChkReq(date,true);alert((+date.slice(5,7))+"/"+(+date.slice(8,10))+" 세매에 매출이 있는지 확인하지 못했습니다.\n\n세매를 확인해야 저장할 수 있습니다 — 자동화 PC에 세매 확인을 요청했습니다. 결과가 오면(1~2분) 다시 눌러 주세요.");return;}
   if(XS&&XS.any&&!confirm((+date.slice(5,7))+"/"+(+date.slice(8,10))+" "+_saipBase(kind)+" 매출이 이미 있습니다\n\n· PlayMD 판매일보: "+(XS.pm==null?"확인 못 함":(XS.pm||0).toLocaleString()+"원")
     +"\n· 이카운트: "+(XS.ec==null?"확인 못 함":(XS.ec||0).toLocaleString()+"원")+"\n· 세매: "+(XS.ws==null?"확인 못 함":(XS.ws||0).toLocaleString()+"원")
     +"\n\n겹치지 않는 것을 확인했을 때만 [확인]을 누르세요. 그래도 플레이엠디에 저장할까요?"))return;
