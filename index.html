@@ -10734,6 +10734,7 @@ function a2rWsRetGo(k,day){
 }
 /* ⑥ 이카운트 반품 등록 — 판매일보 반품 줄(~r)로 매장마다 전표 1장(키 날짜_매장~r) */
 function a2rEcRetGo(k,day){
+  if(A2R_EC_CHECKONLY[k]){alert("코스트코 반품은 이카운트에 넣지 않습니다 — PlayMD·세매 등록 여부만 확인합니다.");return;}
   var X=_a2rX(k,day),P=X.P,codes=Object.keys(P.items);
   if(X.pm.st!=="ok"&&!(X.P.ra<0)){alert("PlayMD에 먼저 반품이 등록돼야 합니다(지금: "+X.pm.txt+").");return;}
   if(!codes.length){alert("PlayMD 판매일보에 "+day+" 반품 줄이 아직 없습니다 — [🔄 세 곳 다시 확인]으로 판매일보를 다시 받은 뒤 눌러 주세요.");return;}
@@ -10834,6 +10835,7 @@ function _a2rSaip(k,dv){
   if(dv)return {inner:inner,need:need,lab:lab,L:L,act:act,it:it,canReg:canReg};
   return _a2rCard(k,false,inner,btns);
 }
+var A2R_EC_CHECKONLY={cr:1};
 function _a2rRet(k){
   var e=_escX,f=function(n){return (Number(n)||0).toLocaleString();},K=RET_KINDS[k];
   var R=(saipReq||{})[k],act=_saipReqActive(R),P=_retPendingOf(k),E=_retPend[k],S=_retStatusOf(k);
@@ -10884,8 +10886,8 @@ function _a2rRet(k){
     +_a2rRow("③","미리보기 확인 → 승인",s3,b3)
     +_a2rRow("④","플레이엠디 저장"+(k==="hr"||k==="cr"?" (불량은 NH→BAD 이동까지)":""),s4,b4);
   /* 세 곳 확인표 + ⑤ 세매 반품 · ⑥ 이카운트 반품(2026-11-19) — 날짜는 표에서 고름(기본 = PlayMD는 됐는데 세매·이카운트가 안 된 가장 이른 날) */
-  var days=_a2rRetDays(k),dsel=_a2rRetDay[k];
-  if(!dsel||days.indexOf(dsel)<0){dsel="";days.forEach(function(d){if(dsel)return;var X0=_a2rX(k,d);if((X0.pm.st==="ok"||X0.P.ra<0)&&(X0.ec.st!=="ok"||X0.ws.st!=="ok"))dsel=d;});if(!dsel)dsel=days[days.length-1]||"";}
+  var days=_a2rRetDays(k),dsel=_a2rRetDay[k],ecOnly=!!A2R_EC_CHECKONLY[k];   /* 코스트코 반품: 이카운트는 등록 안 하고 확인만(2026-11-19 영업2팀) */
+  if(!dsel||days.indexOf(dsel)<0){dsel="";days.forEach(function(d){if(dsel)return;var X0=_a2rX(k,d);if((X0.pm.st==="ok"||X0.P.ra<0)&&((!ecOnly&&X0.ec.st!=="ok")||X0.ws.st!=="ok"))dsel=d;});if(!dsel)dsel=days[days.length-1]||"";}
   if(dsel){
     var X=_a2rX(k,dsel),md=_a2rMd(dsel),s5="",b5="",s6="",b6="",W5=(wssalesUpload||{}).ret,E6=ecSalStatus;
     var RL5=_a2rReqLine("wsu",k,dsel),RL6=_a2rReqLine("es",k,dsel);
@@ -10898,13 +10900,17 @@ function _a2rRet(k){
     else{s5="wait";b5=md+' '+e(X.ws.txt)+' — 판매일보 반품 줄만 세매 「데이터 관리」에 올립니다'+btn("a2rWsRetGo","✅ 승인 — 세매 반품 등록",true);}
     if(W5&&W5.day===dsel&&W5.only&&W5.only.indexOf(A2R_RET_CH[k].ws)>=0&&!RL5)b5+='<div style="color:'+(W5.ok?'#047857':'#b91c1c')+'">마지막 올리기 '+e(_saipFmtAt(W5.at))+' — '+(W5.ok?((W5.results||[]).map(function(r){return e(r.file+" "+r.msg);}).join(" · ")||"올릴 것 없음(이미 있음)"):e(W5.err||"실패"))+'</div>';
     /* ⑥ 이카운트 */
-    if(RL6){s6=RL6.st;b6=RL6.txt;}
+    if(ecOnly){var pmOk=X.pm.st==="ok",wsOk=X.ws.st==="ok";
+      s6=pmOk&&wsOk?"ok":"";
+      b6=(pmOk&&wsOk?md+' PlayMD·세매 반품 등록 확인 — 이카운트는 따로 넣지 않습니다':md+' PlayMD'+(pmOk?' ✅':' ❔')+' · 세매'+(wsOk?' ✅':' ❔')+' — 둘 다 등록되면 끝(이카운트는 넣지 않음)')
+        +' <span style="color:#5b6675">· 지금 이카운트: '+e(X.ec.txt)+'</span>';}
+    else if(RL6){s6=RL6.st;b6=RL6.txt;}
     else if(X.ec.st==="ok"){s6="ok";b6=md+' '+e(X.ec.txt);}
     else if(X.pm.st!=="ok"&&!(X.P.ra<0)){b6=md+' PlayMD 반품 등록 뒤 — 지금 이카운트: '+e(X.ec.txt);}
     else if(!Object.keys(X.P.items).length){s6="warn";b6=md+' PlayMD 판매일보에 반품 줄이 아직 없습니다 — [🔄 세 곳 다시 확인] 뒤';}
     else{s6="wait";b6=md+' '+e(X.ec.txt)+' — 판매일보 반품 줄로 이카운트 판매입력에 반품 전표(수량 −)를 넣습니다(되돌리기 어려움)'+btn("a2rEcRetGo","✅ 승인 — 이카운트 반품 저장",X.ws.st==="ok");}
     if(E6&&E6.mode==="save"&&E6.slips&&E6.slips.some(function(x){return String(x.key||"").indexOf(dsel+"_")===0&&/~r$/.test(x.key||"");})&&E6.state!=="끝"&&!RL6){s6="bad";b6='<span style="color:#b91c1c">'+e((E6.state||"")+" — "+(E6.msg||""))+'</span>';}
-    inner=_a2rXTable(k,days,dsel)+inner+_a2rRow("⑤","세매 반품 등록 ("+md+")",s5,b5)+_a2rRow("⑥","이카운트 반품 등록 ("+md+")",s6,b6);
+    inner=_a2rXTable(k,days,dsel)+inner+_a2rRow("⑤","세매 반품 등록 ("+md+")",s5,b5)+_a2rRow("⑥",ecOnly?"이카운트 — 등록 여부 확인만 ("+md+")":"이카운트 반품 등록 ("+md+")",s6,b6);
   }else inner=_a2rXTable(k,days,"")+inner;
   return _a2rCard(k,true,inner,btns);
 }
