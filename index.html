@@ -20550,14 +20550,26 @@ function ordLotteDropInit(){
   zone.addEventListener("dragleave",function(){zone.classList.remove("dragover");});
   zone.addEventListener("drop",function(e){e.preventDefault();zone.classList.remove("dragover");_ordProcessLotteFile((e.dataTransfer.files||[])[0]);});
 }
+/* 매장명 → 매장코드(주분배분장배분내역처럼 매장코드 칸이 없는 파일용) — ① 기본 주소록(ORDER_STORES) 이름 ② 이카운트 창고명 ③ storeNameToCode.
+   이름은 공백·'백화점'·끝의 '점'을 떼고 맞춘다(롯데백화점 부산본점 ↔ 롯데 부산본점). storeNameToCode는 '부산본점'을 본점 LDA로 잡으므로 부산본점은 LSM으로 먼저 거른다 */
+function _ocStoreCodeByName(name){
+  var nk=function(x){return String(x||"").replace(/\s/g,"").replace(/백화점/g,"").replace(/점$/,"");};
+  var k=nk(name);if(!k)return "";
+  for(var i=0;i<ORDER_STORES.length;i++){if(ORDER_STORES[i].code&&nk(ORDER_STORES[i].name)===k)return ORDER_STORES[i].code;}
+  var EN=(typeof ecStock!=="undefined"&&ecStock&&ecStock.names)||{};
+  for(var c in EN){if(nk(EN[c])===k)return c;}
+  if(/부산본점/.test(String(name).replace(/\s/g,"")))return "LSM";
+  try{return storeNameToCode(name)||"";}catch(e){return "";}
+}
 function ocParse(rows){
   var hRow=-1,H={};
   for(var r=0;r<Math.min(15,rows.length);r++){
     var row=rows[r]||[];
-    var cStore=_ocCol(row,["매장코드"]),cName=_ocCol(row,["상품명"]);
-    if(cStore>=0&&cName>=0){
+    var cStore=_ocCol(row,["매장코드"]),cName=_ocCol(row,["상품명"]),cSName=_ocCol(row,["매장명"]);
+    /* 매장코드 칸이 없는 '주분배분장배분내역'(매장명·배분창고·배분수량, 2026-11-19 영업2팀)도 받는다 — 매장명으로 코드를 찾는다(_ocStoreCodeByName) */
+    if((cStore>=0||cSName>=0)&&cName>=0){
       hRow=r;H.store=cStore;H.pname=cName;
-      H.storeName=_ocCol(row,["매장명"]);
+      H.storeName=cSName;
       H.color=_ocCol(row,["칼라명","컬러명","색상명"]);
       H.qty=_ocCol(row,["주문수량","배분수량","출고수량","수량"]);
       H.bar=_ocCol(row,["자사바코드","자사코드"]);
@@ -20568,7 +20580,7 @@ function ocParse(rows){
       break;
     }
   }
-  if(hRow<0){alert("주문배분현황 형식을 인식할 수 없습니다.\n(매장코드·상품명 컬럼이 필요합니다)");return;}
+  if(hRow<0){alert("주문배분현황 형식을 인식할 수 없습니다.\n(매장코드(또는 매장명)·상품명 컬럼이 필요합니다)");return;}
   var keepAn=orderConvRows.filter(function(r){return r.an;});   /* 따로 올린 아난티 줄은 PlayMD 주문배분현황을 새로 받아도 남긴다 */
   orderConvRows=[];
   for(var r=hRow+1;r<rows.length;r++){
@@ -20576,13 +20588,16 @@ function ocParse(rows){
     var nm=String(row[H.pname]||"").trim();if(!nm)continue;
     /* PlayMD 파일 맨 아래 '합계 >>>'·'소계 >>' 집계 줄은 상품이 아니다(2026-10-02 — 발주서에 '합계 >>> 279' 줄로 나갔다) */
     if(/^(소계|합계|총계)\s*>/.test(nm)||row.some(function(c){return /^(소계|합계|총계)\s*>{2,}/.test(String(c||"").trim());}))continue;
-    var storeCode=String(row[H.store]||"").trim();
+    var _sNm=H.storeName>=0?String(row[H.storeName]||"").trim():"";
+    var storeCode=H.store>=0?String(row[H.store]||"").trim():_ocStoreCodeByName(_sNm);
     var st=_ordStoreByCode(storeCode);
+    /* 기본 주소록에 없는 매장(롯데 부산본점 LSM 등)은 백화점 발주처럼 ✏️ 직접 입력·팝업 탭에서 수령인·주소를 찾는다 */
+    if(!st&&storeCode&&typeof _epStore==="function"){try{var _es=_epStore({wh:storeCode});if(_es&&(_es.recv||_es.addr))st=_es;}catch(e){}}
     var col=H.color>=0?String(row[H.color]||"").trim():"";
     var code=(H.bar>=0?String(row[H.bar]||"").trim():"")||(H.pcode>=0?String(row[H.pcode]||"").trim():"");
     orderConvRows.push({
       store:storeCode,
-      storeName: st?st.name:(H.storeName>=0?String(row[H.storeName]||"").trim():""),
+      storeName: (st&&st.name)||_sNm,
       recv: st?st.recv:(H.recv>=0?String(row[H.recv]||"").trim():""),
       tel: st?st.tel:(H.tel>=0?String(row[H.tel]||"").trim():""),
       addr: st?st.addr:(H.addr>=0?String(row[H.addr]||"").trim():""),
