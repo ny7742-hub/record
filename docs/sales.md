@@ -121,6 +121,9 @@
     PlayMD = `saipCfSave('hs')`(세 곳 중복이면 거기서 한 번 더 묻는다) → 세매는 저장 뒤 `_whsChain`으로 `whsGo({auto:true})` — **이제 `step:false`(승인 없이 끝까지)**, 못 채운 줄·이중 계상·확인 필요면 wssales-hs가 등록하지 않는 건 그대로.
     이카운트 = 그 날 판매일보(`ws/ecSalSrc`) 홈쇼핑 줄을 일자+매장 전표로(`_whsEcSlips`, 💰 매출 등록과 같은 `_ecSalRows`·`_ecSalCust`·`_ecSalSlipWh`, 적요 `홈쇼핑 매출(자비스 AUTO)`) → `ws/ecSalJob` + `saipReq.es`{whs:날짜} → ecount-sales.mjs --save.
     PlayMD를 같이 골랐으면 저장 뒤 판매일보 수량이 saipLog 수량과 같아질 때 보낸다 — 없으면 그 달 판매일보 받기(`saipReq.pms`{whs})를 한 번 걸고 기다림(`_whsRunTick`, 이 창이 열려 있어야 이어진다). 1분 뒤에도 안 맞으면 ⚠ + `🔄 판매일보 다시 받기`.
+  **백화점온라인몰 칸도 3단계(2026-11-19 영업2팀 "백화점온라인몰 판매등록도 홈쇼핑판매등록처럼 간단하게 — 진행하면서 밑으로 칸을 내릴 수는 있는데 완료되면 간단하게")**: 위 홈쇼핑 3단계를 그대로 본뜬 `wds*`(`wdsRender`·`wdsMainGo`·`wdsRegGo`·`_wdsSys`·`_wdsRunTick`, localStorage `wdsRun`). 다른 점 —
+  ① OneDrive만(메일·미출고 없음, 매칭표 시트 단추 없음 · 빈 코드·금액은 `✏️ 미리보기에서 고치기`) · 이카운트 전표 = 판매일보에서 세 매장(`SAIP_XS.ds.codes` LTOA·HDOC·LGY) 줄만, 💰 매출 등록처럼 `_a2sSplitOn`(온라인 나눔·`gb`) · 적요 `백화점몰 매출(자비스 AUTO)` · `wdsGo`도 `step:false`.
+  예전 1.(①~④)·2.(⑤~⑧) 단계 칸·⑥ 표에서 고치기는 이 칸에서 안 보인다(함수는 남김). **홈쇼핑 쪽을 고치면 여기도 같이.**
   **0. 등록 여부 확인(2026-11-19 영업2팀 "플레이엠디, 세매, 이카운트 등록여부 확인 절차부터")** — 홈쇼핑·백화점온라인몰 칸 맨 위 `_x0Html(종류, 날짜, 그리는함수)`: 그 날 PlayMD(사입출고 기록 `saipLog` + 판매일보 `ecSalSrc`)·이카운트(`ws/ecSalDayChk`)·세매(`ws/wssalesDayChk`)를 표로. 날짜마다 한 번 자동으로 `_wsChkReq`(`_x0Asked`), [🔄 세 곳 다시 확인]은 강제 요청. 이카운트·세매 중 하나라도 확인 못 하면(`_x0State().ok` false) 큰 단추가 `🔎 0. 등록 여부 확인`이 되고 `whsMainGo`/`wdsMainGo`는 확인만 요청하고 멈춘다 — 결과가 오면 `▶ 1. PlayMD 중복 검사`로 바뀐다.
   `whsGo`는 세매에 다 들어간 날(이 칸 등록 성공 또는 wssalesDays s=ok)이면 **요청하지 않고 멈춘다**. 세매가 원본보다 적은 날(part)만 확인창 뒤 진행(같은 거래는 세매가 건너뜀). 이 카드의 `🚚 PlayMD 사입출고등록`은 `whsSaipGo` — 카드에서 고른 날짜로 `saipAutoGo('hs',{date})`(예전엔 사입출고 탭 날짜를 썼다).
   세매 쪽 안전장치(스크립트): ⛔이중 계상·확인 필요면 안 누름, 같은 파일명 확인창은 취소, 같은 거래는 세매가 건너뜀. 11/17 확인: 1116 사입출고 전표 0011~0013 50개 · 세매 50건 1,583,529원 = 원본(중복 없음).
