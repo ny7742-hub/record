@@ -2075,11 +2075,11 @@ label{font-size:14px!important}
   <div class="card" style="margin-bottom:12px;padding:12px 16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
       <div class="sec-title" style="margin:0;font-size:13px">📦 코스트코 직매입 이익계산</div>
-      <label style="font-size:12px;color:#1b6e82;font-weight:600">수수료율(%) <input type="number" id="cdFee" step="0.1" oninput="cdSet('fee',this.value)" onchange="saveCd()" style="width:60px;font-size:12px;padding:4px 8px;text-align:right"></label>
+      <label style="font-size:12px;color:#1b6e82;font-weight:600" title="줄마다 수수료율 칸이 비어 있으면 이 값을 씁니다. 새 행에는 이 값이 들어갑니다">기본 수수료율(%) <input type="number" id="cdFee" step="0.1" oninput="cdSet('fee',this.value)" onchange="saveCd()" style="width:60px;font-size:12px;padding:4px 8px;text-align:right"></label>
       <button onclick="cdAddRow()" class="bg" style="padding:5px 12px;font-size:12px">+ 행 추가</button>
       <button onclick="cdExport()" class="bs" style="padding:5px 12px;font-size:12px">📥 엑셀</button>
       <button onclick="cdReset()" class="bs" style="padding:5px 12px;font-size:12px" title="중우산·600AIR 기본값으로 되돌립니다(지금 입력값은 지워집니다)">↩ 기본값</button>
-      <span style="font-size:11px;color:#5b6675">직매입 — <b>판매가만 VAT 포함</b>이고, 나머지 금액과 공급가·총원가·이익금은 모두 <b>VAT 별도</b>입니다. 입고비는 <b>부가세를 뺀 판매가의 4%</b>로 자동 계산합니다. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). 미정값은 비워 두세요.</span>
+      <span style="font-size:11px;color:#5b6675">직매입 — <b>판매가만 VAT 포함</b>이고, 나머지 금액과 공급가·총원가·이익금은 모두 <b>VAT 별도</b>입니다. 입고비는 <b>부가세를 뺀 판매가의 4%</b>로 자동 계산합니다. 원가·스트랩은 <b>구성수량</b>만큼 곱합니다(600AIR=2개세트). <b>수수료율은 상품(줄)마다</b> 넣으면 수수료(원) = 판매가 × 수수료율 ÷ 1.1로 자동 계산합니다(비우면 기본 수수료율). 미정값은 비워 두세요.</span>
     </div>
     <div id="cdWrap" style="overflow-x:auto"></div>
   </div>
@@ -22995,6 +22995,8 @@ var CD_COLS=[
   {k:"name",lab:"상품명",w:150,in:1,txt:1},
   {k:"qty",lab:"구성(개)",w:58,in:1},
   {k:"sale",lab:"판매가(VAT포함)",w:104,in:1,money:1},
+  {k:"fee",lab:"수수료율(%)",w:76,in:1},
+  {k:"feeAmt",lab:"수수료(원)",w:84},
   {k:"won",lab:"원가(원/개)",w:94,in:1,money:1},
   {k:"strap",lab:"스트랩(원/개)",w:98,in:1,money:1},
   {k:"pack",lab:"패키지(원)",w:84,in:1,money:1},
@@ -23009,19 +23011,22 @@ var CD_COLS=[
   {k:"rate",lab:"이익률",w:70},
   {k:"cRate",lab:"원가대비",w:74}
 ];
+/* 수수료율은 줄마다(r.fee, 2026-11-19 영업2팀 "수수료는 상품별 개별로") — 비면 위쪽 기본 수수료율(cdDB.fee) */
+function _cdFeePct(r){var v=String(r&&r.fee!=null?r.fee:"").trim();return v!==""?_cdN(v):_cdN(cdDB.fee);}
 function _cdCalc(r){
-  var fee=_cdN(cdDB.fee)/100;
+  var feePct=_cdFeePct(r),fee=feePct/100;
   var sale=_cdN(r.sale),qty=_cdN(r.qty)||1;
   var supplyNet=sale*(1-fee)/1.1;               /* 공급가(매출) = 판매가 − 수수료, 부가세 별도(2026-11-02 영업2팀) */
   var inbound=sale/1.1*0.04;                    /* 입고비 = VAT 별도 판매가의 4% */
   var cost=(_cdN(r.won)+_cdN(r.strap))*qty+_cdN(r.pack)+_cdN(r.rrp)+_cdN(r.logi)+inbound+_cdN(r.coupon)+_cdN(r.extra);   /* 원가·스트랩은 ×구성, 나머지는 세트 */
   var profit=supplyNet-cost;
-  return {supplyNet:supplyNet,inbound:inbound,cost:cost,profit:profit,
+  return {feePct:feePct,feeAmt:sale*fee/1.1,supplyNet:supplyNet,inbound:inbound,cost:cost,profit:profit,
     rate:supplyNet>0?profit/supplyNet:null,cRate:supplyNet>0?cost/supplyNet:null,has:sale>0};
 }
 function _cdCell(k,c){
   if(!c.has)return "–";
   if(k==="inbound")return Math.round(c.inbound).toLocaleString();
+  if(k==="feeAmt")return Math.round(c.feeAmt).toLocaleString();
   if(k==="supply")return Math.round(c.supplyNet).toLocaleString();
   if(k==="cost")return Math.round(c.cost).toLocaleString();
   if(k==="profit")return Math.round(c.profit).toLocaleString();
@@ -23031,7 +23036,7 @@ function _cdCell(k,c){
 }
 function _cdPaint(i){
   var r=cdDB.rows[i];if(!r)return;var c=_cdCalc(r);
-  ["inbound","supply","cost","profit","rate","cRate"].forEach(function(k){
+  ["feeAmt","inbound","supply","cost","profit","rate","cRate"].forEach(function(k){
     var el=document.getElementById("cd_"+i+"_"+k);if(!el)return;
     el.textContent=_cdCell(k,c);
     var neg=(k==="profit"||k==="rate")&&c.has&&c.profit<0;
@@ -23054,7 +23059,7 @@ function cdRender(){
       if(col.in){
         var v=r[col.k]==null?"":String(r[col.k]);
         if(col.money)v=_cdFmt(v);
-        var ph=(col.k==="strap"||col.k==="pack"||col.k==="rrp"||col.k==="logi"||col.k==="coupon"||col.k==="extra")?"미정":"";
+        var ph=col.k==="fee"?String(cdDB.fee==null?"":cdDB.fee):(col.k==="strap"||col.k==="pack"||col.k==="rrp"||col.k==="logi"||col.k==="coupon"||col.k==="extra")?"미정":"";
         h+='<td style="border:1px solid #e1e6ee;padding:2px"><input id="cdi_'+i+'_'+col.k+'" value="'+_escX(v)+'"'
           +(col.txt?' placeholder="상품명" title="'+_escX(v)+'"':' inputmode="decimal" placeholder="'+ph+'"')
           +' oninput="cdInput('+i+',\''+col.k+'\',this.value)" onchange="saveCd()"'
@@ -23076,8 +23081,10 @@ function cdInput(i,k,v){var r=cdDB.rows[i];if(!r)return;
   if(_cdMoney(k)){var raw=String(v).replace(/,/g,"");r[k]=raw;var el=document.getElementById("cdi_"+i+"_"+k);if(el){el.value=_cdFmt(raw);try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
   else r[k]=String(v);
   _cdPaint(i);}
-function cdSet(k,v){cdDB[k]=(k==="vat")?!!v:String(v);cdDB.rows.forEach(function(r,i){_cdPaint(i);});}
-function cdAddRow(){cdDB.rows.push({name:"",qty:"1",sale:"",won:"",strap:"",pack:"",rrp:"",logi:"",coupon:"",extra:""});saveCd();cdRender();}
+function cdSet(k,v){cdDB[k]=(k==="vat")?!!v:String(v);
+  if(k==="fee")cdDB.rows.forEach(function(r,i){var el=document.getElementById("cdi_"+i+"_fee");if(el)el.placeholder=String(v);});   /* 빈 줄 수수료율 칸의 흐린 값 */
+  cdDB.rows.forEach(function(r,i){_cdPaint(i);});}
+function cdAddRow(){cdDB.rows.push({name:"",qty:"1",sale:"",fee:String(cdDB.fee==null?"":cdDB.fee),won:"",strap:"",pack:"",rrp:"",logi:"",coupon:"",extra:""});saveCd();cdRender();}
 function cdDelRow(i){if(!confirm("이 행을 삭제할까요?"))return;cdDB.rows.splice(i,1);saveCd();cdRender();}
 /* 기본값(중우산·600AIR)으로 되돌리기 — 팀 공유라 누른 사람이 로그인돼 있으면 전체에 반영된다(2026-10-29 영업2팀) */
 function cdReset(){
@@ -23091,17 +23098,16 @@ function cdReset(){
 }
 function cdExport(){
   if(!cdDB.rows.length){alert("계산한 상품이 없습니다.");return;}
-  var aoa=[["상품명","구성(개)","판매가(VAT포함)","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","입고비(4%)","쿠폰비용(원)","추가비용(원)","공급가(원)","총원가(원)","이익금(원)","이익률","원가대비","수수료율","비고"]];
+  var aoa=[["상품명","구성(개)","판매가(VAT포함)","수수료율","수수료(원)","원가(원/개)","스트랩(원/개)","패키지(원)","RRP박스(원)","물류·관세(원)","입고비(4%)","쿠폰비용(원)","추가비용(원)","공급가(원)","총원가(원)","이익금(원)","이익률","원가대비","비고"]];
   cdDB.rows.forEach(function(r){var c=_cdCalc(r);
-    aoa.push([r.name||"",_cdN(r.qty)||1,_cdN(r.sale)||"",_cdN(r.won)||"",_cdN(r.strap)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",
+    aoa.push([r.name||"",_cdN(r.qty)||1,_cdN(r.sale)||"",c.feePct+"%",c.has?Math.round(c.feeAmt):"",_cdN(r.won)||"",_cdN(r.strap)||"",_cdN(r.pack)||"",_cdN(r.rrp)||"",_cdN(r.logi)||"",
       c.has?Math.round(c.inbound):"",_cdN(r.coupon)||"",_cdN(r.extra)||"",
       c.has?Math.round(c.supplyNet):"",c.has?Math.round(c.cost):"",c.has?Math.round(c.profit):"",
-      c.rate==null?"":(c.rate*100).toFixed(1)+"%",c.cRate==null?"":(c.cRate*100).toFixed(1)+"%",
-      _cdN(cdDB.fee)+"%",""]);
+      c.rate==null?"":(c.rate*100).toFixed(1)+"%",c.cRate==null?"":(c.cRate*100).toFixed(1)+"%",""]);
   });
   var ws=XLSX.utils.aoa_to_sheet(aoa);
-  for(var R=1;R<aoa.length;R++)for(var C=2;C<=13;C++){var a=XLSX.utils.encode_cell({r:R,c:C});if(ws[a]&&typeof ws[a].v==="number")ws[a].z="#,##0";}
-  ws["!cols"]=[{wch:18},{wch:8},{wch:13},{wch:12},{wch:12},{wch:10},{wch:11},{wch:12},{wch:13},{wch:15},{wch:13},{wch:13},{wch:13},{wch:10},{wch:8},{wch:9},{wch:9},{wch:6}];
+  for(var R=1;R<aoa.length;R++)for(var C=2;C<=15;C++){var a=XLSX.utils.encode_cell({r:R,c:C});if(ws[a]&&typeof ws[a].v==="number")ws[a].z="#,##0";}
+  ws["!cols"]=[{wch:18},{wch:8},{wch:13},{wch:9},{wch:11},{wch:12},{wch:12},{wch:10},{wch:11},{wch:12},{wch:13},{wch:15},{wch:13},{wch:13},{wch:13},{wch:10},{wch:8},{wch:9},{wch:6}];
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"직매입이익계산");
   var d=new Date();XLSX.writeFile(wb,"코스트코직매입이익("+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0")+").xlsx");
 }
