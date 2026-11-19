@@ -110,6 +110,7 @@
   - AUTO 탭 `#auto2CcCard` — 칸 안은 `ccAutoRender`를 `_apCopy("ccAutoStatus","auto2CcStatus")`로 복사(자동화 탭 `#autoCcStatus`와 같은 방식). 흐름은 하나라 **승인은 세 화면(코스트코 발주 탭·자동화 탭·AUTO 탭) 어디서 눌러도 같다**.
   - **⑤ 승인**: `saip-watch CC_CHAIN.approve`(approveSince 2026-11-17) — 물류 회신이 와도 `ws/ccApprove[날짜] = {by,at,unship}`이 있어야 cc save를 건다(서명 = 승인한 사람, `ccChainLog[날짜].approved`).
     자비스 `ccApproveGo(날짜)`(⑤ 칸 `✅ 승인`, 회신이 `saipReady.cc`에 있고 그날 발주 메일 `sent`일 때만). 지난 날짜(4일 안) 회신 승인 대기도 카드 위에 줄로. 승인 전 날짜(11/16 이전)는 예전처럼 바로.
+    **0. 등록 여부 확인(2026-11-19 영업2팀 "코코도")** — 카드 맨 위에 홈쇼핑 칸과 같은 `_x0Html("cc", 오늘 발주 날짜)`(코스트코 온라인 COSO가 PlayMD 사입출고·판매일보 · 이카운트 `ws/ecSalDayChk` · 세매 `ws/wssalesDayChk[날짜|코코 온라인]`에 있는지). `ccApproveGo`는 이카운트·세매를 확인 못 했으면 확인만 요청하고 승인하지 않고(`_x0State().ok`), 어디라도 이미 있으면 금액을 보여 주고 한 번 더 묻는다.
     수동 ⑤ `ccStepDss`·매출등록 카드 [등록]은 승인 없이 그대로(사람이 누른 것).
   - **미출고**: `hiworks-cc.mjs parseUnship` — 회신 본문(`text_content`, `--- 원본 메일` 위쪽)에서 '미출고'를 찾는다. `미출고 없습니다`면 없음, 언급이 없으면 없음으로 본다.
     '미출고'가 있는데 '없'이 아니면 위쪽의 10~15자리 숫자(하이픈 빼고, 0으로 시작하는 전화번호 제외)를 미출고 번호로 본다 — **9/21~11/17 회신에 실제 미출고가 한 번도 없어 적는 모양을 못 봤다**. 번호를 못 읽으면 `unknown` → DSS 송장 입력이 멈춘다(사람이 메일 보고).
