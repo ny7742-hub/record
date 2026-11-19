@@ -25516,12 +25516,42 @@ function _ccrMapRow(c){
     bad:bad
   };
 }
-/* 상품명 → 상품컬러코드, 공급가 = 결제가 ÷ 수량 — 붙여넣기와 자동 반품등록(_retCollect)이 같이 쓴다 */
+/* 상품명 → 상품컬러코드, 공급가 = PlayMD 판매등록가 — 붙여넣기와 자동 반품등록(_retCollect)이 같이 쓴다.
+   공급가는 코스트코 매출등록(사입출고 cc)과 같은 값: (행사가 › 코스트코 판매가) × 0.7(CC_PM_RATE)
+   (2026-11-19 영업2팀 "코스트코 반품 금액은 플레이엠디에 판매등록된 금액으로 — 바르셀 18,193원 · 모든 상품이 판매가의 30% 뺀 금액, 행사 때는 행사가의 30% 뺀 금액").
+   예전엔 결제가 ÷ 수량(코스트코 판매가 그대로)이라 바르셀이 25,990원, 결제가가 빈 줄은 '공급가 없음'으로 멈췄다.
+   행사가는 입고일이 세일 기간 안인지로 본다(매장 전용 inlineOnly 빼고, 여럿이면 늦게 시작한 것). 판매가를 못 찾으면 결제가 ÷ 수량 × 0.7. 결제가 0원 줄은 0원 그대로 */
+function _ccrPmPrice(m){
+  var rate=(typeof CC_PM_RATE!=="undefined"?CC_PM_RATE:0.7);
+  if(m.pay===0)return {price:0,from:"결제가 0원"};
+  var code=String(m.colorCode||"").toUpperCase();
+  var pn=(typeof ccMatchProd==="function")?ccMatchProd(m.prod):null;
+  var only=Object.keys(CC_ONLY_PRICE).filter(function(k){return code.indexOf(k)===0;})[0];
+  var same=Object.keys(CC_SAME_PROD).filter(function(k){return code.indexOf(k)===0;})[0];
+  var div=(pn&&CC_SET_PRODS.indexOf(pn)>=0)?2:1;
+  var pp=pn&&((costcoDB&&costcoDB.products)||[]).filter(function(x){return x.name===pn;})[0];
+  var list=only?CC_ONLY_PRICE[only]:(pp&&Number(pp.price)>0?Math.round(Number(pp.price)/div):0);
+  var d=_ccrRowDate(m),day=d?_hsrYmd(d).replace(/^(\d{4})(\d{2})(\d{2})$/,"$1-$2-$3"):"";
+  var best=null,sn="";
+  if(day)[same&&CC_SAME_PROD[same],pn].filter(Boolean).some(function(nm){
+    ((costcoDB&&costcoDB.salePeriods)||[]).forEach(function(sp){
+      if(sp.inlineOnly||!sp.items||!(Number(sp.items[nm])>0)||day<sp.start||day>sp.end)return;
+      if(!best||sp.start>=best.start)best=sp;
+    });
+    if(best)sn=nm;
+    return !!best;
+  });
+  var promo=best?Math.round(Number(best.items[sn])/div):0;
+  if(promo>0)return {price:Math.round(promo*rate),from:"행사가 "+promo.toLocaleString()+"원 × "+rate+" ("+sn+" "+best.start.slice(5)+"~"+best.end.slice(5)+")"};
+  if(list>0)return {price:Math.round(list*rate),from:"코스트코 판매가 "+list.toLocaleString()+"원 × "+rate};
+  if(m.pay!==""&&m.qty)return {price:Math.round(m.pay/m.qty*rate),from:"결제가 ÷ 수량 × "+rate+"(코스트코 판매가 못 찾음)"};
+  return {price:"",from:""};
+}
 function _ccrMatchRow(m){
   m.colorCode="";m.price="";m.matched=false;
   var hit=(typeof _hsFindMatchFromDefaultData==="function")?_hsFindMatchFromDefaultData(m.prod):null;
   if(hit&&hit.colorCode){m.colorCode=hit.colorCode;m.matched=true;}
-  if(m.pay!==""&&m.qty)m.price=Math.round(m.pay/m.qty);
+  var pr=_ccrPmPrice(m);m.price=pr.price;m.priceFrom=pr.from;
   return m;
 }
 function ccrPasteRows(){
