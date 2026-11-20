@@ -27338,6 +27338,11 @@ function ccAutoGo(mode){
   /* 오늘 초안까지 한 날(L.state draft) — [발주하기]는 메일 보내기로 바뀐다(2026-10-07 영업2팀: 발주한 사람 누구나 보낼 수 있게).
      자동화 PC가 그날 만든 도매발주서를 **누른 사람 서명**으로 보낸다(costco-order.mjs --send). 임시보관함 초안을 먼저 보냈으면 두 번 안 보낸다 */
   if(mode==="save"&&L&&L.state==="draft")mode="send";
+  /* 기록은 없는데 오늘 날짜 물류 회신이 와 있으면 = 자비스 밖에서 이미 발주한 것(2026-11-20 영업2팀 "수기로 진행 · 중복 발주 안 되게") */
+  if(mode==="save"&&!L&&_saipReadyOf("cc").some(function(x){return x.date===today;})){
+    if(confirm("오늘 날짜 물류 회신(운송장) 메일이 이미 와 있습니다 — 오늘 발주는 자비스 밖에서 이미 나간 것으로 보입니다.\n\n두 번 발주하면 물류가 두 번 출고합니다. 발주하지 않습니다.\n\n수기로 하셨으면 [확인] — 수기 발주로 기록합니다(그 뒤 ⑤ 승인으로 이어짐)."))_ccManualRecord(today);
+    return;
+  }
   if(mode==="save"&&L){alert("오늘 이미 발주했습니다.\n\n"+_saipFmtAt(L.sentAt||L.at)+" · "+(L.sentBy||L.by||"?")+" · "+(L.orders||0)+"건\n\n같은 날 두 번 보내면 물류가 두 번 출고합니다. 추가 주문은 내일 발주에 들어갑니다.");return;}
   if(mode==="send"&&!(L&&L.state==="draft")){alert(L?"오늘 발주 메일은 이미 보냈습니다("+(L.sentBy||L.by||"?")+").":"오늘 만든 발주서가 없습니다 — 먼저 [발주하기]를 눌러 주세요.");return;}
   if(mode==="send"){
@@ -27386,8 +27391,15 @@ function ccApproveGo(d){
   d=d||_ccToday();
   var md=(+d.slice(5,7))+"/"+(+d.slice(8,10)),L=(ccOrderLog||{})[d];
   if(ccApprove[d]&&ccApprove[d].by){alert(md+" 코스트코는 이미 승인했습니다 ("+ccApprove[d].by+" · "+_saipFmtAt(ccApprove[d].at)+").");return;}
-  if(!L||L.state!=="sent"){alert(md+" 코스트코 발주 메일을 보낸 기록이 없습니다 — ②③을 먼저 해 주세요.");return;}
   var it=_saipReadyOf("cc").filter(function(x){return x.date===d&&!x.more;})[0];
+  /* ②③을 자비스 밖에서(DSS·하이웍스 직접) 한 날(2026-11-20 영업2팀 "2,3번을 자비스에서 진행 안 해도 진행되게 — 수기로 진행. 중복 발주 안 되게") —
+     회신이 왔으면 발주는 이미 나간 것이니 수기 발주로 기록(ccOrderLog sent·manual)하고 승인을 이어 간다. 기록이 생기면 같은 날 [발주하기]·[메일 보내기]는 막힌다 */
+  if(!L||L.state!=="sent"){
+    if(!it){alert(md+" 코스트코 발주 메일을 보낸 기록이 없습니다 — ②③을 먼저 해 주세요.\n\n수기로 발주했으면 ②의 🖐 수기로 했음을 누르세요.");return;}
+    if(!confirm(md+" 코스트코 발주 메일을 자비스로 보낸 기록은 없지만 물류 회신이 와 있습니다.\n\n②③(DSS 출력 · 도매발주서 · 메일)을 수기로 하셨으면 [확인] — 수기 발주로 기록하고 승인을 이어 갑니다.\n(기록하면 오늘 [발주하기]·[메일 보내기]는 막혀 두 번 발주되지 않습니다)"))return;
+    if(!_ccManualRecord(d))return;
+    L=(ccOrderLog||{})[d];
+  }
   if(!it){alert(md+" 물류 회신(운송장) 메일이 아직 없습니다.\n\n회신이 오면(자동화 PC가 5분마다 살핌) 이 단추로 승인합니다.");return;}
   /* 0. 등록 여부 확인 먼저(2026-11-19 영업2팀 "코코도") — 이카운트·세매를 확인 못 했으면 승인 안 됨, 이미 있으면 한 번 더 묻는다 */
   var Z=_x0State("cc",d),ZX=Z.X||{},zf=function(n){return (Number(n)||0).toLocaleString();};
@@ -27410,6 +27422,45 @@ function ccApproveGo(d){
     },function(err){if(err)alert("승인 저장 오류: "+err.message);},false);
   }catch(e){alert("승인 저장 오류: "+e.message);}
   if(!_saipWatchOk())alert("승인을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 진행합니다.");
+}
+/* 🖐 ②③ 수기로 했음(2026-11-20 영업2팀) — DSS 출력·도매발주서·메일을 자비스 밖에서 한 날, 오늘 발주 기록(ws/ccOrderLog[날짜])을 'sent'로 남긴다(manual:true).
+   그러면 ① 같은 날 [발주하기]·[메일 보내기]가 막히고(자동화 PC costco-order.mjs도 ccOrderLog로 막음) ② 물류 회신이 오면 ⑤ 승인 → ⑥까지 자동으로 이어진다(saip-watch는 sent 날짜만 이어 감).
+   건수는 ⑤가 '0건이라 없음'으로 빠지지 않게 1건 이상. 슬랙 CX팀 글을 직접 올렸으면 slackAt을 같이 남겨 자동으로 두 번 올리지 않게 한다 */
+function _ccManualRecord(d){
+  d=d||_ccToday();
+  var md=(+d.slice(5,7))+"/"+(+d.slice(8,10)),L=(ccOrderLog||{})[d],cur=(saipReq||{}).co;
+  if(L&&L.state==="sent"){alert(md+" 코스트코는 이미 발주 메일을 보낸 기록이 있습니다 ("+(L.sentBy||L.by||"?")+" · "+_saipFmtAt(L.sentAt||L.at)+").");return false;}
+  if(_saipReqActive(cur)&&cur.date===d&&cur.mode!=="preview"){alert("자비스 자동 발주가 지금 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").\n\n수기 발주와 겹치면 물류가 두 번 출고합니다 — 그 요청이 끝난 뒤(또는 실패한 뒤) 다시 눌러 주세요.");return false;}
+  if(WS_LOCAL_ONLY||(_authState!=="member"&&_authState!=="open")){alert("로그인(승인된 회원)이 필요합니다 — 팀 공유에 기록하지 못하면 자동화 PC가 이어 가지 못합니다.");return false;}
+  var Q=ccOrderReady,qOk=Q&&Q.at&&_ccDayOf(Q.at)===d&&+Q.total>0;
+  var n=prompt(md+" 수기로 발주한 주문 건수를 넣어 주세요(1 이상).\n\n"+(qOk?"자비스가 마지막으로 읽은 새 주문: "+Q.total+"건 ("+_saipFmtAt(Q.at)+")":"모르면 대략이라도 — 화면 표시용이고 등록은 물류 회신 파일로 합니다"),qOk?String(Q.total):(L&&+L.orders?String(L.orders):""));
+  if(n==null)return false;
+  n=parseInt(String(n).replace(/[^0-9]/g,""),10);
+  if(!(n>0)){alert("1 이상 숫자로 넣어 주세요.");return false;}
+  var sl=confirm("슬랙 CX팀 채널에 '"+md+" 코스트코 "+n+"건 발주했습니다.' 글도 직접 올렸나요?\n\n[확인] 올렸음(자동으로 다시 안 올림) · [취소] 아직(자동 설정이 있으면 자동화 PC가 올림)");
+  var now=new Date().toISOString(),me=_saipMe();
+  var v={state:"sent",manual:true,orders:n,qty:(L&&L.qty)||0,by:(L&&L.by)||me,at:(L&&L.at)||now,sentBy:me+"(수기)",sentAt:now};
+  if(L&&L.slackAt)v.slackAt=L.slackAt;else if(sl){v.slackAt=now;v.slackManual=true;}
+  if(!ccOrderLog||typeof ccOrderLog!=="object")ccOrderLog={};
+  ccOrderLog[d]=v;try{localStorage.setItem("ccOrderLog",JSON.stringify(ccOrderLog));}catch(e){}
+  try{
+    fbDB.ref("ws/ccOrderLog").transaction(function(c){
+      var str=typeof c==="string",o={};
+      if(str){try{o=JSON.parse(c)||{};}catch(e){o={};}}else if(c&&typeof c==="object")o=c;
+      if(o[d]&&o[d].state==="sent")return;   /* 그새 자동화 PC나 다른 사람이 보낸 기록을 남김 — 덮지 않는다 */
+      var x={};Object.keys(v).forEach(function(k){x[k]=v[k];});
+      if(o[d])Object.keys(o[d]).forEach(function(k){if(x[k]==null||k==="qty"&&!x[k])x[k]=o[d][k];});
+      o[d]=x;
+      return str||c==null?JSON.stringify(o):o;
+    },function(err){if(err)alert("수기 발주 기록 저장 오류: "+err.message);},false);
+  }catch(e){alert("수기 발주 기록 저장 오류: "+e.message);return false;}
+  ccAutoRender();
+  return true;
+}
+function ccManualGo(){
+  var d=_ccToday(),md=(+d.slice(5,7))+"/"+(+d.slice(8,10));
+  if(!confirm(md+" 코스트코 ②③(DSS 출력 · 도매발주서 · 발주 메일)을 자비스 밖에서 직접 하셨나요?\n\n[확인]을 누르면 오늘 발주를 '수기로 보냄'으로 기록합니다.\n· 오늘 [🚚 발주하기]·[✉️ 메일 보내기]는 막혀 두 번 발주되지 않습니다.\n· 물류 회신(운송장)이 오면 ⑤ 미출고 확인 → ✅ 승인 → ⑥ PlayMD 사입출고 → 세매까지 이어집니다."))return;
+  if(_ccManualRecord(d))alert(md+" 수기 발주로 기록했습니다.\n\n물류 회신이 오면 ⑤에서 ✅ 승인을 눌러 주세요.");
 }
 var CC_EC_HOLD=true;   /* ⑦ 이카운트 판매등록 보류(2026-11-12 영업2팀) — 자동화 PC saip-watch CC_CHAIN.ecOff와 같이 바꾼다 */
 function ccAutoRender(){
@@ -27451,7 +27502,8 @@ function ccStepDss(){
   var s1=_ccCountWaiting()?'<span style="color:#1d4ed8;font-weight:700">⏳ 확인 중…</span>'
     :fresh?(Q.total?'<span style="color:'+(L?'#5b6675':'#6d28d9')+';font-weight:700">'+(L?(L.state==="draft"?'아직 안 보낸 주문 ':'다음 발주 대기 '):'새 주문 ')+(Q.accounts||[]).map(function(a){return _escX(a.who)+' '+a.orders+'건'+(a.printedUnsent?' <span style="color:#b91c1c">(DSS 출력은 됐는데 발주서 안 보냄 '+a.printedUnsent+')</span>':'');}).join(' · ')+'</span>':OK.replace('✅ ','')+'새 주문 0건</span>')+' '+GRAY+'('+_escX(_saipFmtAt(Q.at))+')</span>'
     :GRAY+'눌러서 DSS 두 아이디의 새 주문 수를 먼저 보세요</span>';
-  var s2=L?OK+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"?")+' · '+(L.orders||0)+'건 '+(L.qty||0)+'개</span>'
+  var s2=L&&L.manual?OK+'🖐 수기로 발주 · '+_escX(String(L.sentBy||L.by||"").replace(/\(수기\)$/,""))+' · '+(L.orders||0)+'건</span> '+GRAY+'('+_escX(_saipFmtAt(L.sentAt||L.at))+' 기록 — 오늘 [발주하기]는 막힘)</span>'
+    :L?OK+_escX(_saipFmtAt(L.at))+' · '+_escX(L.by||"?")+' · '+(L.orders||0)+'건 '+(L.qty||0)+'개</span>'
     :busy&&R.mode==="save"?'<span style="color:#1d4ed8;font-weight:700">⏳ 진행 중</span>'
     :gN===0?GRAY+'새 주문 0건이라 오늘은 없음</span>':WAIT+'아직</span> '+GRAY+'— DSS [출력] · 도매발주서 · 메일 <b>초안</b>(임시보관함)까지</span>';
   var s3=L&&L.state==="sent"?OK+'보냄 · '+_escX(L.sentBy||L.by||"")+' · '+_escX(_saipFmtAt(L.sentAt||L.at))+'</span>'
@@ -27578,6 +27630,8 @@ function ccStepDss(){
   var u1=sb(k1,'🔢 건수 확인','ccCountGo()','DSS 두 아이디의 새 주문 수를 다시 읽습니다');
   var u2=sb(k2,'🚚 발주하기',"ccAutoGo('save')",'DSS 출력 · 도매발주서 · 메일까지 — 오늘 이미 발주했으면 막습니다');
   var u3=sb(k3,'✉️ 메일 보내기',"ccAutoGo('send')",'오늘 만든 도매발주서를 누른 사람 서명으로 보냅니다(초안만 있는 날)');
+  /* 🖐 수기로 했음(2026-11-20 영업2팀) — ②③을 자비스 밖에서 한 날 기록만 남겨 ⑤ 승인 → ⑥으로 이어 가게, 같은 날 다시 발주 못 하게 */
+  if(!d3&&!(busy&&R.mode!=="preview")){var um='<button class="bs cc-step-b" onclick="ccManualGo()" title="DSS 출력 · 도매발주서 · 메일을 직접 했으면 누르세요 — 오늘 발주로 기록해 [발주하기]를 막고, 물류 회신이 오면 ⑤ 승인으로 이어집니다">🖐 수기로 했음</button>';if(d2)u3+=' '+um;else u2+=' '+um;}
   var u4=gN==null?'':'<button class="bs cc-step-b'+(k4==="on"&&!d4?' cc-step-b-on':'')+'" onclick="_ccCopySlack(this)" data-t="'+_escX(gsl)+'" title="슬랙 CX팀 채널에 올릴 문구를 복사합니다">📋 문구 복사</button>';
   var u5=apWait?'<button class="bs cc-step-b cc-step-b-on" onclick="ccApproveGo(\''+gd+'\')" title="미출고를 확인했으면 누르세요 — 자동화 PC가 DSS26·31 송장 입력(미출고 빼고) → 판매현황 → PlayMD 사입출고 → 세매까지 이어 갑니다">✅ 승인</button>'
     :sb(d5?"done":k5,(DD||CSs)&&!d5?'🔁 송장 · 판매현황 다시':'▶ 송장 · 판매현황 실행','ccStepDss()','오늘 발주의 물류 회신 운송장으로 DSS 송장 입력 → 코스트코탭 판매현황 (PlayMD 사입출고는 건너뜀)');
