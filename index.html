@@ -10844,7 +10844,7 @@ function _a2rXHead(){
   var st=function(k,lab){var s=A&&A.steps&&A.steps[k];if(!s)return '<span style="color:#5b6675">'+lab+' –</span>';if(s.run)return '<span style="color:#1d4ed8">'+lab+' ⏳</span>';
     return '<span style="color:'+(s.ok?'#047857':'#b91c1c')+'" title="'+_escX(s.msg||"")+'">'+lab+' '+(s.ok?'✓':'✖')+'</span>';};
   return '<div class="a2-card" style="grid-column:1/-1;padding:8px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px">'
-    +'<b>🔎 세 곳 등록 확인</b><span style="color:#475569">등록건마다 PlayMD · 이카운트 · 세매에 들어갔는지 먼저 보고, PlayMD 저장 뒤 이카운트·세매까지 등록합니다</span>'
+    +'<b>🔎 세 곳 등록 확인</b><span style="color:#475569">등록건마다 PlayMD · 이카운트 · 세매에 들어갔는지 먼저 보고, 없는 곳만 따로따로 등록합니다</span>'
     +'<button class="a2-btn sub" style="margin-left:auto" '+(act?'disabled style="opacity:.55;margin-left:auto" ':'')+'onclick="a2rXRefresh()">'+(act?'⏳ 확인 중…':'🔄 세 곳 다시 확인')+'</button>'
     +'<div style="flex-basis:100%;font-size:12px;color:#475569">'+(act?'<b style="color:#1d4ed8">⏳ '+_escX(R.state)+' · '+_escX(R.by||"")+(R.progress?' — '+_escX(String(R.progress).slice(0,80)):'')+'</b> · ':'')
     +(A&&A.at?'마지막 확인 '+_escX(_saipFmtAt(A.end||A.at))+' · '+_escX(A.by||"")+' · '+_escX((A.from||"")+" ~ "+(A.to||""))+' &nbsp;'+[st("pm","PlayMD"),st("ws","세매"),st("ec","이카운트 판매"),st("mv","이카운트 창고이동")].join(" · "):'아직 확인한 적 없음')+'</div></div>';
@@ -10852,8 +10852,10 @@ function _a2rXHead(){
 /* ⑤ 이카운트 창고이동(출고·이동) — PlayMD에 들어간 그 날 줄 그대로 */
 function a2rEcMoveGo(k,day){
   var it=_saipItemOf(k,day),R=_a2rRoutes(k,it),X=_a2rX(k,day);
-  if(!R.length){alert("PlayMD 검사 기록(줄)이 없습니다 — [중복 검사]부터 해 주세요.");return;}
-  if(X.pm.st!=="ok"){alert("PlayMD에 먼저 저장돼야 합니다(지금: "+X.pm.txt+").");return;}
+  if(!R.length){alert("원본 검사 기록(줄)이 없습니다 — [중복 검사]부터 해 주세요.");return;}
+  /* PlayMD와 따로 등록(2026-11-23 영업2팀 "중복검사 후 따로따로") — PlayMD 저장 여부와 상관없이 원본 줄로 넣는다. 단 원본 검사가 끝난 것(미리보기·이미 있음)만 */
+  if(!it||(it.status!=="preview"&&it.status!=="already")){alert("원본 검사가 끝나지 않았습니다(지금: "+X.pm.txt+") — 코드 매칭 등을 고친 뒤 [중복 검사]를 다시 해 주세요.");return;}
+  if(X.ec.st==="ok"){alert("이카운트에 이미 있습니다("+X.ec.txt+") — 넣지 않습니다.");return;}
   var bad=R.filter(function(x){return !x.fn||!x.tn;});
   if(bad.length){alert("이카운트 창고 코드를 못 찾은 경로가 있습니다: "+bad.map(function(x){return x.from+"→"+x.to;}).join(", ")+"\n\n이카운트 탭에서 직접 넣어 주세요.");return;}
   var cur=(saipReq||{}).em;
@@ -10960,10 +10962,12 @@ function _a2rSaip(k,dv){
     +'<button class="a2-btn'+(need?' whs-blink':'')+'" '+(act?'disabled ':'')+'style="'+(L||act?'opacity:.55':'')+'" onclick="a2rSaipGo(\''+k+'\',\''+v+'\')">'+lab+'</button>'
     +(it?'<button class="a2-btn sub" onclick="a2rSaipView(\''+k+'\',\''+v+'\')">🔍 미리보기</button>':'')
     +(ready.length?'<span style="font-size:12px;color:#5b6675">등록할 건: '+ready.map(function(d){return (+d.slice(5,7))+'/'+(+d.slice(8,10));}).join(", ")+'</span>':'');
+  var x3=!dv&&A2R_SAIP.indexOf(k)>=0&&!!v;   /* 창고간이동·매장출고: 세 곳 중복 검사 후 따로따로 등록(2026-11-23) */
+  if(x3&&it&&it.already)b2=b2.replace("⛔ 플레이엠디에 이미 있습니다 — 등록하지 마세요","⛔ 플레이엠디에 이미 있습니다 — PlayMD에는 등록하지 마세요(이카운트는 ⑤에서 따로)");
   var inner=(act?_saipProgBar(k,R):'')
     +_a2rRow("①",k==="mv"?"창고간이동 원본 받기":k==="so"?"매장출고 원본 받기":k==="hs"?"홈쇼핑 파일 받기 — OneDrive, 없으면 메일 (매칭표로 코드 채움)":"OneDrive 백화점몰 파일 받기",s1,b1)
-    +_a2rRow("②",SAIP_XS[k]?"중복 검사(플레이엠디·이카운트·세매에 이미 있는지)":"중복 검사(플레이엠디에 이미 있는지)",s2,b2)
-    +_a2rRow("③","미리보기 확인 → 승인",s3,b3)
+    +_a2rRow("②",SAIP_XS[k]||x3?"중복 검사(플레이엠디·이카운트·세매에 이미 있는지)":"중복 검사(플레이엠디에 이미 있는지)",s2,(x3?'@@A2R_X3@@':'')+b2)
+    +_a2rRow("③",x3?"PlayMD 등록 — 미리보기 확인 → 승인":"미리보기 확인 → 승인",s3,b3)
     +_a2rRow("④","플레이엠디 저장",s4,b4);
   /* 세 곳 확인표 + ⑤ 이카운트 창고이동(2026-11-19 — 창고간이동·매장출고만) */
   if(!dv&&A2R_SAIP.indexOf(k)>=0&&!v)inner=_a2rXTable(k,_a2rMvDays(k),"")+inner;
@@ -10972,12 +10976,18 @@ function _a2rSaip(k,dv){
     if(RL){s5=RL.st;b5=RL.txt;}
     else if(X.ec.st==="ok"){s5="ok";b5=e(X.ec.txt)+(X.E&&X.E.nos&&X.E.nos.length?' · 전표 '+e(X.E.nos.join(", ")):'');}
     else if(X.ec.st==="na"){s5="";b5="원본 없음 — 넣을 것 없음";}
-    else if(X.pm.st==="ok"){s5=X.ec.st==="warn"?"warn":"wait";
-      b5=e(X.ec.txt)+' — PlayMD에 들어간 줄 그대로 이카운트 창고이동입력에 넣습니다(되돌리기 어려움)'
+    else if(it&&(it.status==="preview"||it.status==="already")&&X.ec.st==="warn"){s5="warn";   /* 이카운트에 비슷한 전표가 있음 — 막지는 않고 확인 뒤 넣기 */
+      b5='<b style="color:#b45309">⚠ 이카운트에 이미 있을 수 있습니다 — '+e(X.ec.txt)+'</b> · 겹치지 않는 게 확실할 때만 넣으세요'
+        +'<div style="margin-top:5px"><button class="a2-btn sub" onclick="a2rEcMoveGo(\''+k+'\',\''+v+'\')">그래도 이카운트 창고이동 저장</button></div>';}
+    else if(it&&(it.status==="preview"||it.status==="already")){s5="wait";   /* PlayMD와 따로(2026-11-23) — PlayMD 저장 전이어도 원본 줄로 넣는다 */
+      b5=e(X.ec.txt)+' — 원본 줄 그대로 이카운트 창고이동입력에 넣습니다(PlayMD와 따로 · 되돌리기 어려움)'
         +'<div style="margin-top:5px"><button class="a2-btn'+(X.ec.st==="bad"?' whs-blink':'')+'" onclick="a2rEcMoveGo(\''+k+'\',\''+v+'\')">✅ 승인 — 이카운트 창고이동 저장</button></div>';}
-    else{b5="PlayMD 저장 뒤 — 지금 이카운트: "+e(X.ec.txt);}
+    else{b5=(it?"원본 검사가 끝나지 않았습니다(코드 매칭 등) — ":"[중복 검사] 뒤 — ")+"지금 이카운트: "+e(X.ec.txt);}
     if(ES&&ES.mode==="save"&&ES.slips&&ES.slips.some(function(x){return String(x.key||"").indexOf(k+"_"+v+"_")===0;})&&ES.state!=="끝"&&!RL){s5="bad";b5='<span style="color:#b91c1c">'+e(ES.state+" — "+(ES.msg||""))+'</span>';}
-    inner=_a2rXTable(k,_a2rMvDays(k),v)+inner+_a2rRow("⑤","이카운트 창고이동 저장",s5,b5)
+    /* ② 중복 검사에 세 곳을 한눈에(PlayMD·이카운트·세매 — 등록은 아래에서 따로따로) */
+    var xc=function(c){return ({ok:"✅",bad:"❌",warn:"⚠️",na:"➖"}[c.st]||"❔")+' '+e(c.txt);};
+    inner=inner.replace('@@A2R_X3@@','<div style="margin-top:3px;font-size:12.5px">PlayMD '+xc(X.pm)+' · 이카운트 '+xc(X.ec)+' · 세매 '+xc(X.ws)+'</div>');
+    inner=_a2rXTable(k,_a2rMvDays(k),v)+inner+_a2rRow("⑤","이카운트 창고이동 등록 (PlayMD와 따로)",s5,b5)
       +_a2rRow("⑥","세매","",'<span style="color:#5b6675">창고간이동·매장출고는 판매가 아니라 세매에 등록하지 않습니다</span>');
   }
   if(dv)return {inner:inner,need:need,lab:lab,L:L,act:act,it:it,canReg:canReg};
