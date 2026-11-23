@@ -10137,6 +10137,26 @@ function _whsRunTick(v,Y){
 /* ③ 누르면 중복 검사부터(2026-11-23 영업2팀 "먼저 중복검사를 체크합니다. 3군데 등록은 체크한 곳만") — 홈쇼핑·백화점몰 같이.
    이카운트·세매 확인이 5분 안에 한 게 아니면 _wsChkReq(새로) → 결과가 오면(그릴 때 _x3Tick) RegGo — 체크는 새 결과로 다시 정해진다(이미 있는 곳은 꺼짐) */
 var _x3Wait={};
+/* 세매에 올릴 줄 고치기(2026-11-23 영업2팀 "가격 수정되게 해주세요") — 3단계로 줄이며 빠졌던 표를 ③ 아래에 다시. 세매 자동화가 남긴 채운 줄(H.steps.fill.lines)을
+   보이고, 빈 줄은 처음부터 입력칸·나머지는 코드·금액 칸을 누르면 입력칸(_whsFx*·_wdsFx* 그대로) → 💾 고친 값으로 다시 채우기(whsFixGo/wdsFixGo → 세매 다시 요청 + 매칭표 기억) */
+function _x3FxTable(k,H,mmdd){
+  var P=k==="hs"?"whs":"wds",fl=(((H||{}).steps||{}).fill)||{},LN=fl.lines||[];if(!LN.length)return "";
+  var e=_escX,f=function(n){return (Number(n)||0).toLocaleString();};
+  window["_"+P+"FxInit"](mmdd,LN);
+  var th='padding:3px 6px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:12px;white-space:nowrap;position:sticky;top:0;z-index:1;',td='padding:3px 6px;border-bottom:1px solid #f1f5f9;font-size:12px;';
+  var thL='style="'+th+'text-align:left"',thR='style="'+th+'text-align:right"',tdL='style="'+td+'"',tdN='style="'+td+'white-space:nowrap"',tdC='font-family:monospace;white-space:nowrap;',tdR='text-align:right;white-space:nowrap;';
+  var bad=LN.filter(function(x){return !x.cc||!x.amt;}).length;
+  return '<div style="margin-top:8px;font-size:12.5px"><b style="color:#92400e">✏️ 세매에 올릴 줄 '+f(LN.length)+'개</b>'+(bad?' · <b style="color:#b91c1c">코드·금액 빈 줄 '+bad+'개</b>':'')+' · <span style="color:#1b6e82;font-weight:700">상품컬러코드·결제금액 칸을 누르면 고칠 수 있습니다</span></div>'
+    +'<div style="overflow:auto;max-height:420px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thR+'>행</th><th '+thL+'>쇼핑몰</th><th '+thL+'>주문번호</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>결제금액</th></tr>'
+    +LN.map(function(x){
+      if(window["_"+P+"FxEditing"](x))return window["_"+P+"FxRow"](x,LN,td,tdR,tdN,tdL,tdC);
+      var ck=' onclick="'+P+'FxOpen('+x.r+')" title="눌러서 고치기" ';
+      return '<tr><td style="'+td+tdR+'color:#5b6675">'+x.r+'</td><td '+tdN+'>'+e(x.shop)+'</td><td style="'+td+tdC+'">'+e(x.ord)+'</td><td '+tdL+'>'+e(x.name)+'</td>'
+        +'<td '+ck+' style="'+td+tdC+'cursor:pointer">'+e(x.cc)+' <span style="color:#5b6675">✏️</span></td><td style="'+td+tdC+'">'+e(x.pc)+'</td>'
+        +'<td style="'+td+tdR+'">'+f(x.qty)+'</td><td '+ck+' style="'+td+tdR+'cursor:pointer">'+f(x.amt)+' <span style="color:#5b6675">✏️</span></td></tr>';}).join("")
+    +'<tr><td colspan="6" style="'+td+'font-weight:800;text-align:right">합계</td><td style="'+td+tdR+'font-weight:800">'+f(LN.reduce(function(a,x){return a+(Number(x.qty)||0);},0))+'</td><td style="'+td+tdR+'font-weight:800">'+f(fl.amount)+'</td></tr></table></div>'
+    +window["_"+P+"FxBar"]();
+}
 /* ① 표 줄마다 세 곳 등록 여부(2026-11-23 영업2팀 "플레이엠디, 세매, 이카운트 등록여부 보여지게") —
    PlayMD = 줄 단위(had = 추가분 때 이미 있는 줄, 아니면 PlayMD 등록완료) · 세매 = 그 날 그 쇼핑몰 금액(wssalesDayChk st, 홈쇼핑은 이름·백화점몰은 SAIP_XS.ds.wsn) ·
    이카운트 = 그 날 그 거래처(_ecSalCust(매장코드)) 전표 또는 AUTO가 넣은 전표 기록(ecSalLog 날_매장). 세매·이카운트는 품목별이 아니라 매장 단위다 */
@@ -10290,7 +10310,7 @@ function whsRender(){
     return '<label style="display:flex;gap:7px;align-items:center;padding:4px 2px;border-top:1px solid #eef2f7;cursor:'+(dis?'default':'pointer')+'"><input type="checkbox" '+(pk[k]&&!y.done?'checked ':'')+(dis?'disabled ':'')+'onchange="whsPickSet(\''+k+'\',this.checked)" style="width:16px;height:16px">'
       +'<b style="min-width:70px">'+nm+'</b>'+stc("",y)+' <span style="font-size:12.5px">'+line(k)+'</span></label>';};
   var s3=all?"ok":runAct?"run":stage<3?"":"wait";
-  var b3='<div>'+cb("pm","플레이엠디")+cb("ws","세매")+cb("ec","이카운트")+'</div>'
+  var b3='<div>'+cb("pm","플레이엠디")+cb("ws","세매")+cb("ec","이카운트")+'</div>'+(H&&!busy&&!Y.ws.done?_x3FxTable("hs",H,mmdd):'')
     +(stage<3?'<div style="font-size:12px;color:#5b6675;margin-top:3px">①②가 끝나면 체크할 수 있습니다 — 이미 등록된 곳은 체크가 꺼져 있습니다</div>':'<div style="font-size:12px;color:#5b6675;margin-top:3px">[③]을 누르면 세 곳 중복 검사를 먼저 새로 하고, 체크한 곳만 등록합니다(검사에서 이미 있는 곳은 체크가 꺼집니다) — 세매·이카운트는 플레이엠디를 체크했으면 그 저장 뒤 이어집니다</div>');
   box.innerHTML=sum+_a2rRow("①","파일 받기 — OneDrive, 없으면 메일 (메일이면 미출고 확인)",s1,b1)+_a2rRow("②","중복 검사 — 플레이엠디 · 이카운트 · 세매",s2,b2)+_a2rRow("③","등록 — 체크한 곳만",s3,b3);
 }
@@ -10657,7 +10677,7 @@ function wdsRender(){
     return '<label style="display:flex;gap:7px;align-items:center;padding:4px 2px;border-top:1px solid #eef2f7;cursor:'+(dis?'default':'pointer')+'"><input type="checkbox" '+(pk[k]&&!y.done?'checked ':'')+(dis?'disabled ':'')+'onchange="wdsPickSet(\''+k+'\',this.checked)" style="width:16px;height:16px">'
       +'<b style="min-width:70px">'+nm+'</b>'+stc("",y)+' <span style="font-size:12.5px">'+line(k)+'</span></label>';};
   var s3=all?"ok":runAct?"run":stage<3?"":"wait";
-  var b3='<div>'+cb("pm","플레이엠디")+cb("ws","세매")+cb("ec","이카운트")+'</div>'
+  var b3='<div>'+cb("pm","플레이엠디")+cb("ws","세매")+cb("ec","이카운트")+'</div>'+(H&&!busy&&!Y.ws.done?_x3FxTable("ds",H,mmdd):'')
     +(stage<3?'<div style="font-size:12px;color:#5b6675;margin-top:3px">①②가 끝나면 체크할 수 있습니다 — 이미 등록된 곳은 체크가 꺼져 있습니다</div>':'<div style="font-size:12px;color:#5b6675;margin-top:3px">[③]을 누르면 세 곳 중복 검사를 먼저 새로 하고, 체크한 곳만 등록합니다(검사에서 이미 있는 곳은 체크가 꺼집니다) — 세매·이카운트는 플레이엠디를 체크했으면 그 저장 뒤 이어집니다</div>');
   box.innerHTML=sum+_a2rRow("①","파일 받기 — OneDrive (백화점몰.xlsx · 매장 이름 → LGY·LTOA·HDOC)",s1,b1)+_a2rRow("②","중복 검사 — 플레이엠디 · 이카운트 · 세매",s2,b2)+_a2rRow("③","등록 — 체크한 곳만",s3,b3);
 }
