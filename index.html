@@ -2492,10 +2492,10 @@ label{font-size:14px!important}
     <div class="a2-card" style="grid-column:1/-1"><div class="a2-h"><b>🔑 로그인 상태</b><span id="auto2PlAge" style="font-size:12.5px;color:#475569"></span>
       <button class="a2-btn sub" id="auto2PlCheckBtn" style="margin-left:auto;font-size:12.5px;padding:5px 11px" onclick="plCheckGo()" title="로그인을 다시 하지 않습니다 — 자동화 PC가 자동화 창의 로그인 상태를 지금 바로 다시 읽어 이 칸을 새로 고칩니다">🔄 상태 다시 확인</button></div>
       <div id="auto2PlSites"></div></div>
-    <!-- 🏬 이카운트 백화점 발주(2026-11-17 영업2팀) — 이카운트 발주요청조회(11/18부터) → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'. docs/ecount.md -->
-    <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 이카운트 백화점 발주</b><span style="font-size:12.5px;color:#475569">이카운트 [재고 I › 구매관리 › 발주요청조회]에 들어온 발주요청 → 도매발주서 → 김구남 센터장 메일 → 이카운트 '확인'</span>
+    <!-- 🏬 백화점 발주(2026-11-17 영업2팀 · 2026-11-23 "이카운트에서 빼고, 세매 매장판매 > 발주에서 미처리 건만") — 세매 미처리 발주 → 도매발주서 → 김구남 센터장 메일 → 세매 '처리 완료'. docs/ecount.md -->
+    <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 백화점 발주</b><span style="font-size:12.5px;color:#475569">세매 [매장 판매 › 발주]의 미처리 발주 → 도매발주서 → 김구남 센터장 메일 → 세매 '처리 완료'</span>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epPullGo()" title="자동화 PC가 이카운트 발주요청조회를 지금 다시 읽습니다(평소엔 7~21시 5분마다 자동) — 이카운트에는 아무것도 쓰지 않습니다">🔄 지금 확인</button>
+        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epPullGo()" title="자동화 PC가 세매 [매장 판매 › 발주]의 미처리 발주를 지금 다시 읽습니다(평소엔 7~21시 5분마다 자동) — 읽기만 합니다">🔄 지금 확인</button>
         <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="체크한 발주서로 도매발주서(물류 양식)를 받습니다 — 같은 매장·같은 품목은 한 줄로 합칩니다. 메일로 보내는 파일과 같습니다">⬇ 도매발주서</button>
         <button class="a2-btn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 이카운트 발주서를 '확인'으로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
       <div id="epAddSlot" style="margin-bottom:8px"></div>
@@ -9376,6 +9376,8 @@ function _bigInitApCards(){
   });
 }
 document.addEventListener("DOMContentLoaded",_bigInitApCards);
+/* ⛔ 2026-11-23 영업2팀 "이카운트 백화점 발주는 이카운트에서 빼고, 세매에 매장판매 > 발주에서 미처리 건만" — 아래 설명의 이카운트 발주요청 대신 ecount-po.mjs가 세매 store_sale_order_list_all의 미처리 발주를
+   ws/ecPo {src:"ss", slips:[{key:"ss-ID", lab, wh, whNm, lines}]}로 올리고, 메일 뒤 세매 store_sale_order_done(처리 완료). ws 열쇠·함수 이름은 그대로. 상세 docs/ecount.md */
 /* 🏬 이카운트 백화점 발주(2026-11-17 영업2팀 "이카운트 구매관리 발주서 조회에서 들어오는 걸 확인하고, 도매 발주서 양식으로 변환하고, 메일로 김구남 센터장에게").
    자동화 PC automation/ecount-po.mjs가 7~21시 5분마다 이카운트 [재고 I › 구매관리 › 발주요청조회](E040315 — 2026-11-18 영업2팀 "매장은 발주요청에 넣는다", 그전엔 발주서조회 E040302)를 읽어
    ws/ecPo {src:'req', slips:[{key, date, no, wh(입고창고 코드), whNm, gb(Y 확인·N 미확인), st(진행상태 미확인·진행중·완료), lines:[{code,name,size,qty,due,memo}]}]}.
@@ -9422,7 +9424,8 @@ function _epInfoRow(s){
     +'<button class="a2-btn" style="font-size:12px;padding:5px 11px" onclick="epInfoSave(\''+k+'\',\''+s.wh+'\')">저장</button>'
     +'<button class="a2-btn sub" style="font-size:12px;padding:5px 11px" onclick="epInfoEdit(\''+k+'\')">닫기</button></div></td></tr>';
 }
-function _epSlips(){return ((ecPo&&ecPo.slips)||[]).filter(function(s){return s&&s.key;});}
+/* 2026-11-23 영업2팀 "이카운트에서 빼고, 세매 매장판매 > 발주에서 미처리 건만" — 세매에서 받은 것(src 'ss')만. 예전 이카운트 발주요청 자료는 안 보인다 */
+function _epSlips(){return (ecPo&&ecPo.src==="ss"&&ecPo.slips||[]).filter(function(s){return s&&s.key;});}
 function _epSentOf(k){return (ecPoSent||{})[k]||null;}
 /* 매장 수령인·연락처·주소(2026-11-17 영업2팀 "팝업탭에서 확인하고 자동으로 들어가게" · 붙여 준 기본 주소록 19곳 = ORDER_STORES 그대로):
    ① 기본 주소록(ORDER_STORES + ✏️ 직접 입력 ws/ordStoreInfo)에 수령인·연락처·주소가 다 있으면 그대로
@@ -9534,7 +9537,8 @@ function _epNeedPanel(){
 function _epCanSend(s){return !!_epStore(s)&&(s.lines||[]).some(function(x){return +x.qty>0;});}
 function _epIsSel(s){if(!_epCanSend(s))return false;if(s.key in _epSel)return !!_epSel[s.key];return !_epSentOf(s.key);}
 function _epPicked(){return _epSlips().filter(_epIsSel).sort(function(a,b){return a.key<b.key?-1:1;});}
-function _epKeyLab(s){return String(s.date||"").replace(/-/g,"/")+"-"+s.no;}
+function _epKeyLab(s){return s.lab||String(s.date||"").replace(/-/g,"/")+"-"+s.no;}
+function _epKeyLabK(k){var s=_epSlips().filter(function(y){return y.key===k;})[0];return s?_epKeyLab(s):String(k).replace(/^ss-/,"#");}
 function _epItemName(x){var P=(typeof _ocProdList==="function")?_ocProdList().by[String(x.code||"").toUpperCase()]:null;return P&&P.label?P.label:(x.name||"")+(x.size?" "+x.size:"");}
 /* 도매발주서 줄(27칸) — ecDlWholesale(매장 발주)와 같은 자리 */
 function _epRows(L){
@@ -9551,7 +9555,7 @@ function epOpenSlip(k){_epOpen[k]=!_epOpen[k];epRender();}
 function epShowSent(){_epShowSent=!_epShowSent;epRender();}
 function epPullGo(){
   _epNeedOpen=_epNeedSplit().ord.length>0;epRender();try{var c=document.getElementById("epCard");if(c)c.scrollIntoView({behavior:"smooth",block:"start"});}catch(e){}
-  var q=ecPoReq;if(q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000){alert("이카운트 발주서를 확인하는 중입니다 — 잠시 뒤 이 칸이 바뀝니다.");return;}
+  var q=ecPoReq;if(q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000){alert("세매 발주를 확인하는 중입니다 — 잠시 뒤 이 칸이 바뀝니다.");return;}
   ecPoReq={id:Date.now().toString(36),by:_saipMe(),at:new Date().toISOString()};
   wsSetItem("ecPoReq",JSON.stringify(ecPoReq));epRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 확인합니다.");
@@ -9789,9 +9793,9 @@ function epDl(){
 }
 function epMail(){
   var L=_epPicked(),X=_epExtraOk(),rows=_epMergeRows(_epRows(L).concat(_epExtraRows()));
-  if(!rows.length){alert("보낼 발주서를 체크하거나, ＋ 상품 추가·🏨 아난티 발주로 줄을 넣어 주세요.\n\n(매장 정보가 없거나 수량이 없는 발주서는 체크되지 않습니다)");return;}
+  if(!rows.length){alert("보낼 발주를 체크하거나, ＋ 상품 추가·🏨 아난티 발주로 줄을 넣어 주세요.\n\n(매장 정보가 없거나 수량이 없는 발주는 체크되지 않습니다)");return;}
   var cur=(saipReq||{}).ep;
-  if(_saipReqActive(cur)){alert("이카운트 백화점 발주 메일이 이미 "+(cur.state==="처리중"?"보내지는 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").");return;}
+  if(_saipReqActive(cur)){alert("백화점 발주 메일이 이미 "+(cur.state==="처리중"?"보내지는 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").");return;}
   var dup=L.filter(function(x){return _epSentOf(x.key);});
   var sl=_epAllStoresLine(L),qty=rows.reduce(function(a,r){return a+(+r[12]||0);},0);
   var noAddr={};rows.forEach(function(r){if(!r[4]||!r[7]||!r[9])noAddr[r[3]||r[2]]=1;});noAddr=Object.keys(noAddr);
@@ -9801,9 +9805,9 @@ function epMail(){
   var d=new Date(),subj="[도매] 발주서 - "+(d.getMonth()+1)+"/"+d.getDate()+"("+"일월화수목금토".charAt(d.getDay())+")";
   if(!confirm((dup.length?"⚠ 이미 보낸 발주서가 있습니다: "+dup.map(function(x){var y=_epSentOf(x.key);return _epKeyLab(x)+"("+(y.by||"")+" "+_saipFmtAt(y.at)+")";}).join(", ")+"\n자동화 PC는 이미 보낸 발주서가 섞여 있으면 보내지 않습니다 — 취소 후 체크를 빼 주세요.\n\n":"")
     +"김구남 센터장(gnkim72@daum.net)께 도매 발주 메일을 보냅니다.\n\n제목: "+subj+"\n참조: 강민준·이유진·이다겸·김민희\n첨부: "+_wholesaleFileName()+" ("+rows.length+"줄 "+qty+"개 · "+sl+")"
-    +(L.length?"\n이카운트 발주서: "+L.map(_epKeyLab).join(", ")+" → 보낸 뒤 '확인'으로 바꿉니다":"")
+    +(L.length?"\n세매 발주: "+L.map(function(x){return _epKeyLab(x)+" "+(x.whNm||x.wh);}).join(", ")+" → 보낸 뒤 세매에서 '처리 완료'로 바꿉니다":"")
     +(X.length?"\n＋ 추가·🏨 아난티 줄: "+X.length+"줄":"")+"\n서명: "+_saipMe()
-    +"\n(이카운트 창고이동은 넣지 않습니다)"
+    +"\n(이카운트에는 아무것도 넣지 않습니다)"
     +(noAddr.length?"\n\n⚠ 수령인·연락처·주소가 비어 있는 매장: "+noAddr.join(", ")+" — 물류에서 보낼 곳을 모릅니다. 취소 후 매장 정보를 채워 주세요.":"")
     +(noSku?"\n\n⚠ 아난티 바코드를 못 찾은 줄(❗코드없음) "+noSku+"줄은 빼고 보냅니다.":"")
     +(anW?"\n\n⚠ 아난티 품목명과 바코드 상품이 다른 줄이 "+anW+"줄 있습니다. 아난티에 확인했는지 다시 봐 주세요.":"")
@@ -9831,29 +9835,29 @@ function _epRender0(){
   var E=_esc,S=_epSlips(),R=(saipReq||{}).ep,act=_saipReqActive(R),q=ecPoReq,T=epStatus,h="";
   var pulling=q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000;
   h+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:#475569;margin-bottom:6px">'
-    +'<span>'+(ecPo&&ecPo.at?'마지막 확인 '+E(_saipFmtAt(ecPo.pullAt||ecPo.at))+' · 발주요청 '+S.length+'건'+(ecPo.from?' ('+E(ecPo.from.slice(4,6)+'/'+ecPo.from.slice(6,8))+' 이후)':''):'아직 받은 발주요청 목록이 없습니다')+'</span>'
+    +'<span>'+(ecPo&&ecPo.at&&ecPo.src==="ss"?'마지막 확인 '+E(_saipFmtAt(ecPo.pullAt||ecPo.at))+' · 세매 미처리 발주 '+S.length+'건'+(ecPo.from?' ('+E(ecPo.from.slice(4,6)+'/'+ecPo.from.slice(6,8))+' 이후)':''):'아직 세매에서 받은 발주 목록이 없습니다')+'</span>'
     +(pulling?'<span style="color:#1d4ed8;font-weight:700">🔄 확인 중… ('+E(q.by||"?")+')</span>':q&&q.note&&q.doneAt&&Date.now()-new Date(q.doneAt).getTime()<30*60*1000?'<span style="color:#b91c1c;font-weight:700">'+E(q.note)+'</span>':'')
     +(ecPo&&ecPo.pullErr?'<span style="color:#b91c1c;font-weight:700">⚠ '+E(ecPo.pullErr)+'</span>':'')
     +(_saipWatchOk()?'':'<span style="color:#b45309;font-weight:700">🤖 자동화 PC 신호 없음</span>')+'</div>';
   h+=_epNeedPanel();
   if(act)h+='<div style="margin:4px 0 8px;padding:7px 10px;border-radius:8px;background:#ede9fe;color:#5b21b6;font-weight:700">⏳ 발주 메일 '+E(R.state)+' · '+E(R.by||"")+' · '+E((R.keys||[]).length)+'건'+(R.progress?' — '+E(R.progress):'')+'</div>';
   else if(T&&T.at&&Date.now()-new Date(T.at).getTime()<24*3600*1000){
-    var cf=(T.confirm||[]).map(function(c){return c.key.slice(4,6)+'/'+c.key.slice(6,8)+c.key.slice(8)+' '+c.res+(c.err?'('+c.err+')':'');}).join(' · ');
+    var cf=(T.confirm||[]).map(function(c){return _epKeyLabK(c.key)+' '+c.res+(c.err?'('+c.err+')':'');}).join(' · ');
     h+='<div style="margin:4px 0 8px;padding:7px 10px;border-radius:8px;background:'+(T.ok?'#ecfdf5':'#fef2f2')+';color:'+(T.ok?'#047857':'#b91c1c')+';font-weight:700">'
       +(T.ok?'✅ ':'❌ ')+'발주 메일 '+(T.mode==='draft'?'임시저장':'보냄')+(T.ok?'':' 실패')+' · '+E(_saipFmtAt(T.at))+' · '+E(T.by||"")+' · '+E(T.subject||"")+' · '+E(T.lines||0)+'줄 ('+E(T.stores||"")+')'
-      +(T.error?'<div style="font-weight:600">'+E(T.error)+'</div>':'')+(cf?'<div style="font-weight:600;color:#334155">이카운트: '+E(cf)+'</div>':'')
+      +(T.error?'<div style="font-weight:600">'+E(T.error)+'</div>':'')+(cf?'<div style="font-weight:600;color:#334155">세매: '+E(cf)+'</div>':'')
       +_ecMoveResHtml(T.move)+'</div>';
   }
   h+=_epExtraTable();
   var un=S.filter(function(s){return !_epSentOf(s.key);}),sent=S.filter(function(s){return _epSentOf(s.key);});
   var list=un.concat(_epShowSent?sent:[]);
-  if(!S.length){box.innerHTML=h+'<div style="color:#5b6675;padding:6px 0">들어온 발주요청이 없습니다. 매장이 이카운트 [재고 I › 구매관리 › 발주요청입력]에 <b>입고창고 = 매장 창고</b>로 발주요청을 넣으면 5분 안에 여기에 나옵니다.</div>';return;}
+  if(!S.length){box.innerHTML=h+'<div style="color:#5b6675;padding:6px 0">세매에 미처리 발주가 없습니다. 매장이 세매 [매장 판매 › 입력]의 🛒 발주 바구니로 보내면 5분 안에 여기에 나옵니다.</div>';return;}
   var pk=_epPicked(),pq=0;pk.forEach(function(s){(s.lines||[]).forEach(function(x){pq+=+x.qty||0;});});
   h+='<div style="font-size:12.5px;margin-bottom:4px">보낼 것 <b>'+un.length+'건</b> · 체크 <b>'+pk.length+'건 '+pq+'개</b>'
-    +(sent.length?' · <a href="javascript:void(0)" onclick="epShowSent()" style="color:#1b6e82">보낸 발주요청 '+sent.length+'건 '+(_epShowSent?'숨기기 ▴':'보기 ▾')+'</a>':'')+'</div>';
+    +(sent.length?' · <a href="javascript:void(0)" onclick="epShowSent()" style="color:#1b6e82">보낸 발주 '+sent.length+'건 '+(_epShowSent?'숨기기 ▴':'보기 ▾')+'</a>':'')+'</div>';
   h+='<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:auto;max-height:520px"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
-    +'<thead><tr style="background:#f1f5f9;position:sticky;top:0"><th style="padding:5px 6px;width:28px"></th><th style="padding:5px 6px;text-align:left">일자-No.</th><th style="padding:5px 6px;text-align:left">매장(입고창고)</th><th style="padding:5px 6px;text-align:left">품목</th><th style="padding:5px 6px;text-align:right">수량</th><th style="padding:5px 6px;text-align:left">이카운트</th><th style="padding:5px 6px;text-align:left">메일</th></tr></thead><tbody>';
-  if(!list.length)h+='<tr><td colspan="7" style="padding:8px;color:#5b6675">새로 들어온 발주요청이 없습니다(모두 보냄).</td></tr>';
+    +'<thead><tr style="background:#f1f5f9;position:sticky;top:0"><th style="padding:5px 6px;width:28px"></th><th style="padding:5px 6px;text-align:left">세매 발주</th><th style="padding:5px 6px;text-align:left">매장(창고)</th><th style="padding:5px 6px;text-align:left">품목</th><th style="padding:5px 6px;text-align:right">수량</th><th style="padding:5px 6px;text-align:left">세매</th><th style="padding:5px 6px;text-align:left">메일</th></tr></thead><tbody>';
+  if(!list.length)h+='<tr><td colspan="7" style="padding:8px;color:#5b6675">새로 들어온 발주가 없습니다(모두 보냄).</td></tr>';
   list.forEach(function(s){
     var st=_epStore(s),ok=_epCanSend(s),sn=_epSentOf(s.key),L=(s.lines||[]),q2=L.reduce(function(a,x){return a+(+x.qty||0);},0),op=!!_epOpen[s.key];
     var first=L[0]?_epItemName(L[0]):'';
@@ -9866,7 +9870,7 @@ function _epRender0(){
       +'<td style="padding:5px 6px">'+E(first)+(L.length>1?' <span style="color:#5b6675">외 '+(L.length-1)+'품목</span>':'')+(L.length?'':'<span style="color:#b91c1c">품목을 읽지 못함</span>')+'</td>'
       +'<td style="padding:5px 6px;text-align:right;font-weight:700">'+q2+'</td>'
       +'<td style="padding:5px 6px;white-space:nowrap;color:'+(s.gb==="Y"?'#047857':'#b45309')+';font-weight:700">'+E(s.st||(s.gb==="Y"?'확인':'미확인'))+'</td>'
-      +'<td style="padding:5px 6px;white-space:nowrap">'+(sn?'✉️ '+E(sn.by||"")+' '+E(_saipFmtAt(sn.at))+(sn.ec&&sn.ec!=="확인"&&sn.ec!=="이미 확인"?' <span style="color:#b91c1c">이카운트 '+E(sn.ec)+'</span>':''):'<span style="color:#b45309">안 보냄</span>')+'</td></tr>';
+      +'<td style="padding:5px 6px;white-space:nowrap">'+(sn?'✉️ '+E(sn.by||"")+' '+E(_saipFmtAt(sn.at))+(sn.ec&&sn.ec!=="처리 완료"&&sn.ec!=="이미 처리"&&sn.ec!=="처리 중"?' <span style="color:#b91c1c">세매 '+E(sn.ec)+'</span>':''):'<span style="color:#b45309">안 보냄</span>')+'</td></tr>';
     if(_epEdit[s.key])h+=_epInfoRow(s);
     if(op)h+='<tr><td></td><td colspan="6" style="padding:2px 6px 8px"><table style="border-collapse:collapse;font-size:12px;width:100%">'
       +'<tr style="color:#5b6675"><td style="padding:2px 6px">품목코드</td><td style="padding:2px 6px">품목명</td><td style="padding:2px 6px;text-align:right">수량</td><td style="padding:2px 6px">납기</td><td style="padding:2px 6px">적요</td></tr>'
