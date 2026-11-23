@@ -11172,7 +11172,8 @@ function _a2rRetList(k,day,X){
   else if(pend.length)bt.push(B("retPreviewGo("+q+d8+"')","🔍 "+_a2rMd(day)+" PlayMD 미리보기 ("+pend.length+"줄)"," whs-blink"));
   if(X.ws.st!=="ok"&&P.ra<0)bt.push(B("a2rWsRetGo("+q+day+"')","📤 "+_a2rMd(day)+" 세매 반품 등록"));
   if(!A2R_EC_CHECKONLY[k]&&X.ec.st!=="ok"&&Object.keys(P.items).length)bt.push(B("a2rEcRetGo("+q+day+"')","🧮 "+_a2rMd(day)+" 이카운트 반품 저장"," sub"));
-  if(!bt.length&&X.pm.st==="ok"&&X.ws.st==="ok"&&(A2R_EC_CHECKONLY[k]||X.ec.st==="ok"))bt.push('<b style="color:#047857">✅ '+_a2rMd(day)+' 세 곳 모두 등록됨</b>');
+  if(!bt.length&&X.pm.st==="ok"&&X.ws.st==="ok"&&(A2R_EC_CHECKONLY[k]||X.ec.st==="ok"))bt.push('<b style="color:#047857">✅ '+_a2rMd(day)+(A2R_EC_HOLD[k]?' PlayMD·세매 등록됨</b> <span style="color:#b45309">(이카운트 보류)</span>':A2R_EC_CHECKONLY[k]?' PlayMD·세매 등록됨</b>':' 세 곳 모두 등록됨</b>'));
+  else if(A2R_EC_HOLD[k])bt.push('<span style="color:#b45309;font-weight:700">⏸ 이카운트 반품 등록 보류 중</span>');
   var bar=bt.length?'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:5px">'+bt.join("")+'</div>':'';
   return bar+tbl+'<div style="margin-top:5px;font-size:12px;line-height:1.6">'
     +'<div><b>🔎 중복 확인</b> — PlayMD '+_a2rXIc(X.pm)+' · 세매 '+_a2rXIc(X.ws)+' · 이카운트 '+_a2rXIc(X.ec)+'</div>'
@@ -11240,6 +11241,7 @@ function a2rWsRetGo(k,day){
 }
 /* ⑥ 이카운트 반품 등록 — 판매일보 반품 줄(~r)로 매장마다 전표 1장(키 날짜_매장~r) */
 function a2rEcRetGo(k,day){
+  if(A2R_EC_HOLD[k]){alert("홈쇼핑 반품 이카운트 등록은 보류 중입니다 — 넣지 않습니다.");return;}
   if(A2R_EC_CHECKONLY[k]){alert("코스트코 반품은 이카운트에 넣지 않습니다 — PlayMD·세매 등록 여부만 확인합니다.");return;}
   var X=_a2rX(k,day),P=X.P,codes=Object.keys(P.items);
   if(X.pm.st!=="ok"&&!(X.P.ra<0)){alert("PlayMD에 먼저 반품이 등록돼야 합니다(지금: "+X.pm.txt+").");return;}
@@ -11349,7 +11351,9 @@ function _a2rSaip(k,dv){
   if(dv)return {inner:inner,need:need,lab:lab,L:L,act:act,it:it,canReg:canReg};
   return _a2rCard(k,false,inner,btns);
 }
-var A2R_EC_CHECKONLY={cr:1};
+var A2R_EC_CHECKONLY={cr:1,hr:1};
+/* 홈쇼핑 반품 이카운트 등록 보류(2026-11-23 영업2팀 "보류 해주세요") — 등록 단추를 빼고 확인만. 다시 하려면 hr를 두 곳에서 지운다 */
+var A2R_EC_HOLD={hr:1};
 /* ② 미리보기 표(2026-11-23 영업2팀 "미리보기에서 홈쇼핑사, 상품, 금액 보이게") — 자동화 PC 미리보기 결과 줄(rows) + 처리보류 줄(holdRows) */
 function _retPrevTable(k,S){
   var e=_escX,f=_a2rF,all=((S&&S.rows)||[]).map(function(r){return [r,0];}).concat(((S&&S.holdRows)||[]).map(function(r){return [r,1];}));
@@ -11431,7 +11435,7 @@ function _a2rRet(k){
     /* ⑥ 이카운트 */
     if(ecOnly){var pmOk=X.pm.st==="ok",wsOk=X.ws.st==="ok";
       s6=pmOk&&wsOk?"ok":"";
-      b6=(pmOk&&wsOk?md+' PlayMD·세매 반품 등록 확인 — 이카운트는 따로 넣지 않습니다':md+' PlayMD'+(pmOk?' ✅':' ❔')+' · 세매'+(wsOk?' ✅':' ❔')+' — 둘 다 등록되면 끝(이카운트는 넣지 않음)')
+      b6=A2R_EC_HOLD[k]?'<b style="color:#b45309">⏸ 보류 — 이카운트 반품 등록은 보류 중입니다(넣지 않음)</b> · '+md+' PlayMD'+(pmOk?' ✅':' ❔')+' · 세매'+(wsOk?' ✅':' ❔'):(pmOk&&wsOk?md+' PlayMD·세매 반품 등록 확인 — 이카운트는 따로 넣지 않습니다':md+' PlayMD'+(pmOk?' ✅':' ❔')+' · 세매'+(wsOk?' ✅':' ❔')+' — 둘 다 등록되면 끝(이카운트는 넣지 않음)')
         +' <span style="color:#5b6675">· 지금 이카운트: '+e(X.ec.txt)+'</span>';}
     else if(RL6){s6=RL6.st;b6=RL6.txt;}
     else if(X.ec.st==="ok"){s6="ok";b6=md+' '+e(X.ec.txt);}
@@ -11439,7 +11443,7 @@ function _a2rRet(k){
     else if(!Object.keys(X.P.items).length){s6="warn";b6=md+' PlayMD 판매일보에 반품 줄이 아직 없습니다 — [🔄 세 곳 다시 확인] 뒤';}
     else{s6="wait";b6=md+' '+e(X.ec.txt)+' — 판매일보 반품 줄로 이카운트 판매입력에 반품 전표(수량 −)를 넣습니다(되돌리기 어려움)'+btn("a2rEcRetGo","✅ 승인 — 이카운트 반품 저장",X.ws.st==="ok");}
     if(E6&&E6.mode==="save"&&E6.slips&&E6.slips.some(function(x){return String(x.key||"").indexOf(dsel+"_")===0&&/~r$/.test(x.key||"");})&&E6.state!=="끝"&&!RL6){s6="bad";b6='<span style="color:#b91c1c">'+e((E6.state||"")+" — "+(E6.msg||""))+'</span>';}
-    inner=_a2rXTable(k,days,dsel)+inner+_a2rRow("⑤","세매 반품 등록 ("+md+")",s5,b5)+_a2rRow("⑥",ecOnly?"이카운트 — 등록 여부 확인만 ("+md+")":"이카운트 반품 등록 ("+md+")",s6,b6);
+    inner=_a2rXTable(k,days,dsel)+inner+_a2rRow("⑤","세매 반품 등록 ("+md+")",s5,b5)+_a2rRow("⑥",A2R_EC_HOLD[k]?"이카운트 반품 등록 — ⏸ 보류 ("+md+")":ecOnly?"이카운트 — 등록 여부 확인만 ("+md+")":"이카운트 반품 등록 ("+md+")",s6,b6);
   }else inner=_a2rXTable(k,days,"")+inner;
   return _a2rCard(k,true,inner,btns);
 }
