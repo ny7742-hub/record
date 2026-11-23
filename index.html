@@ -11372,7 +11372,10 @@ function _retPrevTable(k,S){
 function _a2rRet(k){
   var e=_escX,f=function(n){return (Number(n)||0).toLocaleString();},K=RET_KINDS[k];
   var R=(saipReq||{})[k],act=_saipReqActive(R),P=_retPendingOf(k),E=_retPend[k],S=_retStatusOf(k);
-  var MV=_retMovesPending(k).length,LF=_retLeftInSheet(k).length,n=(P?P.length:0);
+  /* 등록요망 = 새로 등록할 줄만(2026-11-23 영업2팀 "등록요망 693건이 맞는지" — 691건이 이미 등록된 시트 정리 대기, 2건이 처리보류였다).
+     처리보류(HN)·시트 정리 대기(LF)는 따로 보인다 */
+  var HN=P?P.filter(function(r){return _retIsHold(k,r);}).length:0;
+  var MV=_retMovesPending(k).length,LF=_retLeftInSheet(k).length,n=(P?P.length-HN:0);
   var fresh=!!(S&&S.at&&Date.now()-new Date(S.at).getTime()<2*3600*1000);
   var FX=(retFix||{})[k]||{},rows=(S&&S.rows)||[],anyFix=rows.concat((S&&S.holdRows)||[]).some(function(r){return r.key&&FX[r.key];});
   var canReg=!!(S&&S.mode==="preview"&&S.status==="preview"&&!act&&fresh&&!anyFix&&rows.length);
@@ -11381,8 +11384,8 @@ function _a2rRet(k){
   var s1="",b1="";
   if(E&&E.err){s1="bad";b1='<span style="color:#b91c1c">반품리스트를 못 읽었습니다 — '+e(E.err)+'</span>';}
   else if(!E){s1="run";b1="반품리스트 확인 중…";}
-  else{s1=n?"ok":"ok";b1=n?'<b>등록 대상 '+f(n)+'건</b> ('+(k==="hr"?'홈쇼핑 탭 · 해체일 있는 건':'온라인 탭 · 코스트코')+')':'등록할 반품 없음'
-    +(MV?' · 불량 창고간이동 대기 '+MV+'건':'')+(LF?' · 시트 정리 대기 '+LF+'건':'');}
+  else{s1=n?"ok":"ok";b1=n?'<b>등록 대상 '+f(n)+'건</b> ('+(k==="hr"?'홈쇼핑 탭 · 해체일 있는 건':'온라인 탭 · 코스트코')+')':'새로 등록할 반품 없음'
+    +(HN?' · <span style="color:#b45309">처리보류 '+HN+'건(등록 안 함)</span>':'')+(MV?' · 불량 창고간이동 대기 '+MV+'건':'')+(LF?' · 시트 정리 대기 '+LF+'건':'');}
   /* ② 미리보기 */
   var s2="",b2="";
   if(act&&R.mode==="preview"){s2="run";b2=e(String(R.progress||"자동화 PC가 미리보기 중").replace(/^▷\s*/,"").slice(0,80));}
@@ -11409,8 +11412,8 @@ function _a2rRet(k){
     b4='<span style="color:'+t4[2]+';font-weight:700">'+t4[0]+' '+e(t4[1])+'</span>'+(S.error?' — '+e(S.error):'')+(S.at?' <span style="color:#5b6675">· '+e(_saipFmtAt(S.at))+'</span>':'');}
   if(last)b4+=(b4?'<div>':'<div>')+'<span style="color:#047857">마지막 저장 '+e(_saipFmtAt(last.at))+' · '+e(_saipWho(last.by))+' · '+last.n+'건 · '+last.qty+'개 · '+Math.round(last.amt).toLocaleString()+'원</span></div>';
   if(last&&!s4)s4="ok";
-  var need=!act&&!canReg&&(n>0||MV>0||LF>0);
-  var lab=act?(R.mode==="preview"?"⏳ 미리보기 중…":"⏳ 저장 중…"):need?"🚨 등록요망 ("+(n+MV+LF)+"건)":"🔍 미리보기";
+  var need=!act&&!canReg&&(n>0||MV>0);
+  var lab=act?(R.mode==="preview"?"⏳ 미리보기 중…":"⏳ 저장 중…"):need?"🚨 등록요망 ("+(n+MV)+"건)":LF&&!canReg?"🧹 시트 정리 ("+LF+"건 · 이미 등록됨)":"🔍 미리보기";
   var btns='<button class="a2-btn'+(need?' whs-blink':'')+'" '+(act?'disabled style="opacity:.55" ':'')+'onclick="retPreviewGo(\''+k+'\')">'+lab+'</button>'
     +'<button class="a2-btn sub" onclick="_retScan(true)" title="반품리스트를 다시 읽습니다">🔄 다시 읽기</button>';
   var inner=(act?_saipProgBar(k,R):'')
@@ -27050,10 +27053,10 @@ function _retCardBody(kind){
   }
   return h+'</div>';
 }
-function _retBtnPaint(k,st,n){
+function _retBtnPaint(k,st,n,lf){
   var b=document.getElementById("retAuto"+k.charAt(0).toUpperCase()+k.slice(1));if(!b)return;
   var K=RET_KINDS[k],base=K.label+"등록";
-  var S={busy:["#e0f2fe","#7dd3fc","#075985","⏳ "+base+" 중"],pbusy:["#e0f2fe","#7dd3fc","#075985","⏳ "+K.label+" 미리보기 중"],done:["#1b6e82","#1b6e82","#fff","✅ "+base+"완료"],
+  var S={clean:["#ede9fe","#a78bfa","#5b21b6","🧹 "+K.label+" 시트 정리 ("+(lf||0)+"건 · 이미 등록됨)"],busy:["#e0f2fe","#7dd3fc","#075985","⏳ "+base+" 중"],pbusy:["#e0f2fe","#7dd3fc","#075985","⏳ "+K.label+" 미리보기 중"],done:["#1b6e82","#1b6e82","#fff","✅ "+base+"완료"],
          todo:["#7c3aed","#6d28d9","#fff",K.icon+" "+base+" 요망 ("+n+"건)"],idle:["#1b6e82","#1b6e82","#fff",K.icon+" "+base]}[st]||null;
   if(!S)return;
   b.style.background=S[0];b.style.borderColor=S[1];b.style.color=S[2];b.textContent=S[3];b.dataset.state=st;
@@ -27067,8 +27070,9 @@ function renderRetAuto(){
   ["hr","cr"].forEach(function(k){
     var R0=(saipReq||{})[k],P=_retPendingOf(k),E=_retPend[k];
     var MV=_retMovesPending(k).length,LF=_retLeftInSheet(k).length;
-    var st=_saipReqActive(R0)?(R0.mode==="preview"?"pbusy":"busy"):((P&&P.length)||MV||LF?"todo":P==null?"idle":"done");
-    _retBtnPaint(k,st,(P?P.length:0)+MV+LF);
+    var PN=P?P.filter(function(r){return !_retIsHold(k,r);}).length:0;   /* 요망 건수 = 새로 등록할 줄 + 불량 이동 대기(처리보류·시트 정리 대기는 뺌, 2026-11-23) */
+    var st=_saipReqActive(R0)?(R0.mode==="preview"?"pbusy":"busy"):(PN||MV?"todo":LF?"clean":P==null?"idle":"done");
+    _retBtnPaint(k,st,PN+MV,LF);
     var note=document.getElementById("retNote_"+k);if(!note)return;
     if(E&&E.err)note.innerHTML='<span style="color:#b91c1c">반품리스트를 못 읽었습니다 — '+_escX(E.err)+'</span>';
     else if(!E)note.textContent="반품리스트 확인 중…";
