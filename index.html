@@ -2495,7 +2495,7 @@ label{font-size:14px!important}
     <!-- 🏬 백화점 발주(2026-11-17 영업2팀 · 2026-11-23 "이카운트에서 빼고, 세매 매장판매 > 발주에서 미처리 건만") — 세매 미처리 발주 → 도매발주서 → 김구남 센터장 메일 → 세매 '처리 완료'. docs/ecount.md -->
     <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 백화점 도매 발주</b><span style="font-size:12.5px;color:#475569">세매 [매장 판매 › 발주]의 미처리 발주 → 도매발주서 → 김구남 센터장 메일 → 세매 '처리 완료'</span>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epPullGo()" title="자동화 PC가 세매 [매장 판매 › 발주]의 미처리 발주를 지금 다시 읽습니다(평소엔 7~21시 5분마다 자동) — 읽기만 합니다">🔄 지금 확인</button>
+        <button class="a2-btn" id="epPullBtn" style="font-size:12.5px;padding:5px 11px;background:#ea580c;border-color:#ea580c" onclick="epPullGo()" title="자동화 PC가 세매 [매장 판매 › 발주]의 미처리 발주를 지금 가져옵니다(10초쯤, 평소엔 7~21시 5분마다 자동) — 세매는 읽기만 합니다">📥 발주 가져오기</button>
         <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="체크한 발주서로 도매발주서(물류 양식)를 받습니다 — 같은 매장·같은 품목은 한 줄로 합칩니다. 메일로 보내는 파일과 같습니다">⬇ 도매발주서</button>
         <button class="a2-btn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 세매 발주를 '처리 완료'로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
       <div id="epAddSlot" style="margin-bottom:8px"></div>
@@ -9555,7 +9555,7 @@ function epOpenSlip(k){_epOpen[k]=!_epOpen[k];epRender();}
 function epShowSent(){_epShowSent=!_epShowSent;epRender();}
 function epPullGo(){
   _epNeedOpen=_epNeedSplit().ord.length>0;epRender();try{var c=document.getElementById("epCard");if(c)c.scrollIntoView({behavior:"smooth",block:"start"});}catch(e){}
-  var q=ecPoReq;if(q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000){alert("세매 발주를 확인하는 중입니다 — 잠시 뒤 이 칸이 바뀝니다.");return;}
+  var q=ecPoReq;if(q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000){alert("세매에서 발주를 가져오는 중입니다 — 잠시 뒤 이 칸이 바뀝니다.");return;}
   ecPoReq={id:Date.now().toString(36),by:_saipMe(),at:new Date().toISOString()};
   wsSetItem("ecPoReq",JSON.stringify(ecPoReq));epRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 확인합니다.");
@@ -9835,7 +9835,8 @@ function _epRender0(){
   var pulling=q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000;
   h+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:#475569;margin-bottom:6px">'
     +'<span>'+(ecPo&&ecPo.at&&ecPo.src==="ss"?'마지막 확인 '+E(_saipFmtAt(ecPo.pullAt||ecPo.at))+' · 세매 미처리 발주 '+S.length+'건'+(ecPo.from?' ('+E(ecPo.from.slice(4,6)+'/'+ecPo.from.slice(6,8))+' 이후)':''):'아직 세매에서 받은 발주 목록이 없습니다')+'</span>'
-    +(pulling?'<span style="color:#1d4ed8;font-weight:700">🔄 확인 중… ('+E(q.by||"?")+')</span>':q&&q.note&&q.doneAt&&Date.now()-new Date(q.doneAt).getTime()<30*60*1000?'<span style="color:#b91c1c;font-weight:700">'+E(q.note)+'</span>':'')
+    +(pulling?'<span style="color:#1d4ed8;font-weight:700">📥 세매에서 발주 가져오는 중… ('+E(q.by||"?")+')</span>':q&&q.note&&q.doneAt&&Date.now()-new Date(q.doneAt).getTime()<30*60*1000?'<span style="color:#b91c1c;font-weight:700">'+E(q.note)+'</span>'
+      :q&&q.doneAt&&Date.now()-new Date(q.doneAt).getTime()<10*60*1000?'<span style="color:#047857;font-weight:700">✅ 가져옴 '+E(_saipFmtAt(q.doneAt))+' · 미처리 '+S.length+'건 ('+E(q.by||"")+')</span>':'')
     +(ecPo&&ecPo.pullErr?'<span style="color:#b91c1c;font-weight:700">⚠ '+E(ecPo.pullErr)+'</span>':'')
     +(_saipWatchOk()?'':'<span style="color:#b45309;font-weight:700">🤖 자동화 PC 신호 없음</span>')+'</div>';
   h+=_epNeedPanel();
