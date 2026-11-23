@@ -9990,7 +9990,8 @@ function whsFixGo(){
   var X=window._whsFx;if(!X||X.mmdd!==_whsMmdd()){whsGo();return;}
   var L=_whsFxLines(),fix={},n=0,errs=[],learn=[];
   L.forEach(function(x){
-    var o=X.rows[x.r];if(!o||!(!x.cc||!x.amt||X.open[x.r]))return;
+    var o=X.rows[x.r];if(o&&o.del){fix[x.r]={name:x.name,del:true};n++;return;}   /* 🗑 뺀 줄(2026-11-23) — 세매에 안 올림 */
+    if(!o||!(!x.cc||!x.amt||X.open[x.r]))return;
     if(!o.cc||!(Number(o.amt)>0)){errs.push(x.r+"행 "+x.name+" — "+(!o.cc?"상품컬러코드":"결제금액")+" 비어 있음");return;}
     if(o.cc===x.cc&&Number(o.amt)===Number(x.amt))return;
     var rr=_whsRawOf(o.cc),pc=rr?String(rr[1]):(x.pc||String(o.cc).slice(0,-3));
@@ -10139,22 +10140,27 @@ function _whsRunTick(v,Y){
 var _x3Wait={};
 /* 세매에 올릴 줄 고치기(2026-11-23 영업2팀 "가격 수정되게 해주세요") — 3단계로 줄이며 빠졌던 표를 ③ 아래에 다시. 세매 자동화가 남긴 채운 줄(H.steps.fill.lines)을
    보이고, 빈 줄은 처음부터 입력칸·나머지는 코드·금액 칸을 누르면 입력칸(_whsFx*·_wdsFx* 그대로) → 💾 고친 값으로 다시 채우기(whsFixGo/wdsFixGo → 세매 다시 요청 + 매칭표 기억) */
+function _x3FxDel(P,r){var X=window["_"+P+"Fx"];if(!X)return;var o=X.rows[r]||(X.rows[r]={});o.del=!o.del;window[P+"Render"]();}   /* 🗑 세매에 안 올릴 줄(2026-11-23 영업2팀 "삭제도 가능한가요" — 삽지·쿠폰 0원 줄) */
 function _x3FxTable(k,H,mmdd){
   var P=k==="hs"?"whs":"wds",fl=(((H||{}).steps||{}).fill)||{},LN=fl.lines||[];if(!LN.length)return "";
   var e=_escX,f=function(n){return (Number(n)||0).toLocaleString();};
   window["_"+P+"FxInit"](mmdd,LN);
   var th='padding:3px 6px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:12px;white-space:nowrap;position:sticky;top:0;z-index:1;',td='padding:3px 6px;border-bottom:1px solid #f1f5f9;font-size:12px;';
   var thL='style="'+th+'text-align:left"',thR='style="'+th+'text-align:right"',tdL='style="'+td+'"',tdN='style="'+td+'white-space:nowrap"',tdC='font-family:monospace;white-space:nowrap;',tdR='text-align:right;white-space:nowrap;';
-  var bad=LN.filter(function(x){return !x.cc||!x.amt;}).length;
+  var FX0=window["_"+P+"Fx"]||{rows:{}},nDel=LN.filter(function(x){return (FX0.rows[x.r]||{}).del;}).length;
+  var bad=LN.filter(function(x){return (!x.cc||!x.amt)&&!(FX0.rows[x.r]||{}).del;}).length;
   return '<div style="margin-top:8px;font-size:12.5px"><b style="color:#92400e">✏️ 세매에 올릴 줄 '+f(LN.length)+'개</b>'+(bad?' · <b style="color:#b91c1c">코드·금액 빈 줄 '+bad+'개</b>':'')+' · <span style="color:#1b6e82;font-weight:700">상품컬러코드·결제금액 칸을 누르면 고칠 수 있습니다</span></div>'
-    +'<div style="overflow:auto;max-height:420px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thR+'>행</th><th '+thL+'>쇼핑몰</th><th '+thL+'>주문번호</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>결제금액</th></tr>'
+    +'<div style="overflow:auto;max-height:420px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thR+'>행</th><th '+thL+'>쇼핑몰</th><th '+thL+'>주문번호</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>결제금액</th><th style="'+th+'text-align:center">빼기</th></tr>'
     +LN.map(function(x){
-      if(window["_"+P+"FxEditing"](x))return window["_"+P+"FxRow"](x,LN,td,tdR,tdN,tdL,tdC);
+      var FX=window["_"+P+"Fx"]||{rows:{}},dl=(FX.rows[x.r]||{}).del,delB='<td style="'+td+'text-align:center"><button onclick="_x3FxDel(\''+P+'\','+x.r+')" title="'+(dl?'되살리기':'이 줄은 세매에 올리지 않습니다(삽지·쿠폰 등)')+'" style="font-size:12px;padding:1px 7px;border:1px solid '+(dl?'#cbd5e1':'#fecaca')+';background:'+(dl?'#fff':'#fef2f2')+';color:'+(dl?'#334155':'#b91c1c')+';border-radius:5px;cursor:pointer">'+(dl?'↩':'🗑')+'</button></td>';
+      if(dl)return '<tr style="background:#f1f5f9;color:#5b6675;text-decoration:line-through"><td style="'+td+tdR+'">'+x.r+'</td><td '+tdN+'>'+e(x.shop)+'</td><td style="'+td+tdC+'">'+e(x.ord)+'</td><td '+tdL+'>'+e(x.name)+' <b style="color:#b91c1c;text-decoration:none">뺌</b></td><td style="'+td+tdC+'">'+e(x.cc)+'</td><td style="'+td+tdC+'">'+e(x.pc)+'</td><td style="'+td+tdR+'">'+f(x.qty)+'</td><td style="'+td+tdR+'">'+f(x.amt)+'</td>'+delB+'</tr>';
+      if(window["_"+P+"FxEditing"](x))return window["_"+P+"FxRow"](x,LN,td,tdR,tdN,tdL,tdC).replace(/<\/tr>$/,delB+'</tr>');
       var ck=' onclick="'+P+'FxOpen('+x.r+')" title="눌러서 고치기" ';
       return '<tr><td style="'+td+tdR+'color:#5b6675">'+x.r+'</td><td '+tdN+'>'+e(x.shop)+'</td><td style="'+td+tdC+'">'+e(x.ord)+'</td><td '+tdL+'>'+e(x.name)+'</td>'
         +'<td '+ck+' style="'+td+tdC+'cursor:pointer">'+e(x.cc)+' <span style="color:#5b6675">✏️</span></td><td style="'+td+tdC+'">'+e(x.pc)+'</td>'
-        +'<td style="'+td+tdR+'">'+f(x.qty)+'</td><td '+ck+' style="'+td+tdR+'cursor:pointer">'+f(x.amt)+' <span style="color:#5b6675">✏️</span></td></tr>';}).join("")
-    +'<tr><td colspan="6" style="'+td+'font-weight:800;text-align:right">합계</td><td style="'+td+tdR+'font-weight:800">'+f(LN.reduce(function(a,x){return a+(Number(x.qty)||0);},0))+'</td><td style="'+td+tdR+'font-weight:800">'+f(fl.amount)+'</td></tr></table></div>'
+        +'<td style="'+td+tdR+'">'+f(x.qty)+'</td><td '+ck+' style="'+td+tdR+'cursor:pointer">'+f(x.amt)+' <span style="color:#5b6675">✏️</span></td>'+delB+'</tr>';}).join("")
+    +'<tr><td colspan="6" style="'+td+'font-weight:800;text-align:right">합계</td><td style="'+td+tdR+'font-weight:800">'+f(LN.reduce(function(a,x){return a+(Number(x.qty)||0);},0))+'</td><td style="'+td+tdR+'font-weight:800">'+f(fl.amount)+'</td><td></td></tr></table></div>'
+    +(nDel?'<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-top:3px">🗑 뺀 줄 '+nDel+'개 — [💾 고친 값으로 다시 채우기]를 누르면 이 줄을 빼고 세매에 올립니다</div>':'')
     +window["_"+P+"FxBar"]();
 }
 /* ① 표 줄마다 세 곳 등록 여부(2026-11-23 영업2팀 "플레이엠디, 세매, 이카운트 등록여부 보여지게") —
@@ -10438,7 +10444,8 @@ function wdsFixGo(){
   var X=window._wdsFx;if(!X||X.mmdd!==_wdsMmdd()){wdsGo();return;}
   var L=_wdsFxLines(),fix={},n=0,errs=[],learn=[];
   L.forEach(function(x){
-    var o=X.rows[x.r];if(!o||!(!x.cc||!x.amt||X.open[x.r]))return;
+    var o=X.rows[x.r];if(o&&o.del){fix[x.r]={name:x.name,del:true};n++;return;}   /* 🗑 뺀 줄(2026-11-23) — 세매에 안 올림 */
+    if(!o||!(!x.cc||!x.amt||X.open[x.r]))return;
     if(!o.cc||!(Number(o.amt)>0)){errs.push(x.r+"행 "+x.name+" — "+(!o.cc?"상품컬러코드":"결제금액")+" 비어 있음");return;}
     if(o.cc===x.cc&&Number(o.amt)===Number(x.amt))return;
     var rr=_wdsRawOf(o.cc),pc=rr?String(rr[1]):(x.pc||String(o.cc).slice(0,-3));
