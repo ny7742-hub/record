@@ -1409,7 +1409,7 @@ label{font-size:14px!important}
       <button onclick="openDsFocusModal()" class="bs" style="padding:5px 12px;font-size:12px;background:#fef3c7;border-color:#fbbf24;color:#92400e" title="기간·매장을 지정하면 온라인 칸이 노랗게 표시됩니다">🟡 온라인 주력주차</button>
       <span id="dsFocusBadges" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></span>
       <button onclick="dsEdiRun()" class="bg" style="padding:5px 12px;font-size:12px;font-weight:700" title="롯데 파트너포탈·현대 H-Partners에서 이번 달 1일~어제 매출을 받아 백화점·온라인·EDI 칸(수량 포함)을 채웁니다 — 자동화가 설치된 PC에서만 동작">📥 일별매출 등록</button>
-      <button onclick="dsPmsGo()" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700" title="자동화 PC가 PlayMD에서 이 달 매장판매일보를 바로 받아(2~4분) 매장코드가 같은 매장의 PLAY MD 칸을 채웁니다 — 이미 적힌 값과 다른 칸은 받은 뒤 따로 묻습니다">📥 PlayMD 판매일보 → PLAY MD</button>
+      <button id="dsPmsBtn" onclick="dsPmsGo()" class="bs" style="padding:5px 12px;font-size:12px;font-weight:700" title="자동화 PC가 PlayMD에서 이 달 매장판매일보를 바로 받아(2~4분) 매장코드가 같은 매장의 PLAY MD 칸을 채웁니다 — 이미 적힌 값과 다른 칸은 받은 뒤 따로 묻습니다">📥 PlayMD 판매일보 → PLAY MD</button>
       <span id="dsPmsInfo" style="font-size:11px;font-weight:700"></span>
       <datalist id="dsCodeList"></datalist>
       <span id="dsMsg" style="font-size:11px;color:#059669;font-weight:600"></span>
@@ -4116,7 +4116,7 @@ function fbListen(){
   /* 세매 날짜·채널별 등록 상태(자동화 PC wssales-upload.mjs가 확인할 때마다 쌓음, 2026-11-17) — 홈 판매조회 채널별 일자표의 세매 칸 */
   apply("ws/ecSalDayChk","ecSalDayChk",   /* 이카운트 그 날 바로 확인(ecount-view.mjs --day-check, 2026-11-19) */
     function(d){if(d&&typeof d==="object")ecSalDayChk=d;},
-    function(){try{a2rRender();}catch(e){}try{whsRender();}catch(e){}try{wdsRender();}catch(e){}if(typeof renderSaipAuto==="function")try{renderSaipAuto();}catch(e){}}
+    function(){try{_dsAutoPlaymd();}catch(e){}try{a2rRender();}catch(e){}try{whsRender();}catch(e){}try{wdsRender();}catch(e){}if(typeof renderSaipAuto==="function")try{renderSaipAuto();}catch(e){}}
   );
   apply("ws/wssalesDayChk","wssalesDayChk",   /* 세매 그 날 바로 확인(wssales-daychk.mjs, 2026-11-19) */
     function(d){if(d&&typeof d==="object")wssalesDayChk=d;},
@@ -4204,7 +4204,7 @@ function fbListen(){
   );
   apply("ws/ecSalView","ecSalView",
     function(d){if(d&&typeof d==="object")ecSalView=d;},
-    function(){try{a2sRender();}catch(e){}try{a2rRender();}catch(e){}}
+    function(){try{a2sRender();}catch(e){}try{a2rRender();}catch(e){}try{_dsAutoPlaymd();}catch(e){}}   /* 일별매출 이카운트 칸(2026-11-23) */
   );
   /* ⚡ AUTO 등록 단계표 세 곳 확인(2026-11-19) — 이카운트 창고이동조회(ecount-move-view.mjs) · AUTO에서 넣은 이카운트 창고이동 기록 */
   apply("ws/ecMoveView","ecMoveView",
@@ -10132,19 +10132,34 @@ function _whsRunTick(v,Y){
   _whsRunSet(W);
   return W;
 }
+/* ③ 누르면 중복 검사부터(2026-11-23 영업2팀 "먼저 중복검사를 체크합니다. 3군데 등록은 체크한 곳만") — 홈쇼핑·백화점몰 같이.
+   이카운트·세매 확인이 5분 안에 한 게 아니면 _wsChkReq(새로) → 결과가 오면(그릴 때 _x3Tick) RegGo — 체크는 새 결과로 다시 정해진다(이미 있는 곳은 꺼짐) */
+var _x3Wait={};
+function _x3Fresh(k,v,since){var X=_saipXsys(k,v);if(!X||X.ec==null||X.ws==null||X.wsRun)return false;var t=function(a){var n=a?new Date(a).getTime():0;return isNaN(n)?0:n;};return t(X.ecAt)>=since&&t(X.wsAt)>=since;}
+function _x3Tick(k,v,go){
+  var W=_x3Wait[k];if(!W)return;
+  if(W.v!==v){delete _x3Wait[k];return;}
+  var X=_saipXsys(k,v)||{};
+  if(_x3Fresh(k,v,W.at-60000)){delete _x3Wait[k];setTimeout(go,0);return;}
+  if(X.wsRun)return;
+  if(X.wsFail||X.ecFail||Date.now()-W.at>5*60000){delete _x3Wait[k];setTimeout(function(){alert("중복 검사를 끝내지 못해 등록하지 않았습니다"+(X.wsFail||X.ecFail?" — "+(X.ecFail||X.wsFail):" (5분 동안 결과가 오지 않음)")+".
+
+자동화 PC를 확인한 뒤 다시 눌러 주세요.");},0);}
+}
 function whsMainGo(){
   var v=_whsDate();if(!v){alert("날짜를 골라 주세요.");return;}
   var Y=_whsSys(v),it=Y.it,P=_a2rSaip("hs",v),Z=_x0State("hs",v);
   var fresh=!!(it&&it.at&&Date.now()-new Date(it.at).getTime()<2*3600*1000);
   var ms=_whsMiss(it),fixNeed=!!it&&(ms.code>0||ms.amt>0||it.status==="unmatched");
   if(!Y.pm.done&&(!it||!fresh||_whsNoFile(v)||fixNeed)){if(!Z.ok&&!Z.run)_wsChkReq(v,true);a2rSaipGo("hs",v);return;}   /* ① 파일 받기(+② PlayMD 중복) · ② 이카운트·세매 확인 같이 */
-  if(!Z.ok){_wsChkReq(v,true);whsRender();return;}
+  if(!Z.ok){_wsChkReq(v,true);whsRender();return;}   /* ② 중복 검사(처음) — 결과 보고 체크를 고른 뒤 ③ */
+  if(!_x3Fresh("hs",v,Date.now()-5*60000)){_x3Wait.hs={v:v,at:Date.now()};_wsChkReq(v,true);whsRender();return;}   /* ③ = 중복 검사부터 새로(5분 안에 한 게 없으면) → 끝나면 whsRegGo */
   whsRegGo();
 }
 function whsRegGo(){
   var v=_whsDate();if(!v)return;
   var Y=_whsSys(v),pk=_whsPickOf(v,Y),P=_a2rSaip("hs",v),md=(+v.slice(5,7))+"/"+(+v.slice(8,10)),ms=_whsMiss(Y.it);
-  if(!pk.pm&&!pk.ws&&!pk.ec){alert("등록할 곳을 체크해 주세요.");return;}
+  if(!pk.pm&&!pk.ws&&!pk.ec){alert(Y.pm.done&&Y.ws.done&&Y.ec.done?"홈쇼핑 "+md+" — 중복 검사 결과 세 곳 모두 이미 등록돼 있습니다.":"등록할 곳을 체크해 주세요 — 중복 검사에서 이미 등록된 곳은 체크가 꺼집니다.");return;}
   if(_saipReqActive((saipReq||{}).whs)||(P&&P.act)){alert("진행 중인 등록이 있습니다 — 끝난 뒤 눌러 주세요.");return;}
   if(pk.pm&&!P.canReg){alert("PlayMD는 지금 저장할 수 없습니다 — "+(ms.code||ms.amt?"코드·금액이 빈 줄이 있습니다.":"[① 파일 받기]로 다시 받아 주세요(검사한 지 2시간이 지났거나 중복이 있음)."));return;}
   if((pk.pm||pk.ws)&&(ms.code||ms.amt)){alert("코드 없음 "+ms.code+"줄 · 금액 없음 "+ms.amt+"줄 — 채운 뒤 등록해 주세요.");return;}
@@ -10168,6 +10183,7 @@ function whsRender(){
   /* 세매 이어 달리기(PlayMD 저장 뒤) */
   var ch=_whsChainGet();
   if(ch&&ch===v&&(Y.D.wsFull||(Y.L&&!busy))){_whsChainSet("");if(!Y.D.wsFull)setTimeout(function(){whsGo({auto:true});},0);}
+  _x3Tick("hs",v,whsRegGo);
   var W=_whsRunTick(v,Y);
   var pk=_whsPickOf(v,Y);
   var all=Y.pm.done&&Y.ws.done&&Y.ec.done,fin=all||!!(W&&W.day===v&&W.fin);
@@ -10186,8 +10202,8 @@ function whsRender(){
   var stage=Y.pm.done?(!Z.ok?2:3):(!it||!fresh||nofile||fixNeed?1:!Z.ok?2:3);   /* 플레이엠디가 이미 끝난 날은 파일을 다시 안 받아도 세매·이카운트를 고를 수 있다 */
   var btn=document.getElementById("whsBtn");
   if(btn){
-    var lab=runAct?"⏳ 진행 중…":all?"✅ "+md+" 세 곳 등록완료":stage===1?(nofile?"📭 파일 없음 — 다시 받기":fixNeed?"🔄 코드·금액 채운 뒤 다시 받기":"📥 ① 파일 받기"):stage===2?(Z.run?"⏳ ② 중복 검사 중…":"🔎 ② 중복 검사"):anyPick?"▶ ③ 체크한 곳 등록":"③ 등록할 곳을 체크하세요";
-    btn.textContent=lab;btn.disabled=runAct||(stage===2&&Z.run)||all||(stage===3&&!anyPick);
+    var x3w=_x3Wait.hs&&_x3Wait.hs.v===v;var lab=runAct?"⏳ 진행 중…":x3w?"⏳ 중복 검사 먼저 — 끝나면 등록":all?"✅ "+md+" 세 곳 등록완료":stage===1?(nofile?"📭 파일 없음 — 다시 받기":fixNeed?"🔄 코드·금액 채운 뒤 다시 받기":"📥 ① 파일 받기"):stage===2?(Z.run?"⏳ ② 중복 검사 중…":"🔎 ② 중복 검사"):anyPick?"▶ ③ 체크한 곳 등록":"③ 등록할 곳을 체크하세요";
+    btn.textContent=lab;btn.disabled=runAct||x3w||(stage===2&&Z.run)||all||(stage===3&&!anyPick);
     btn.style.opacity=btn.disabled?".55":"1";
     btn.classList.toggle("whs-blink",!btn.disabled&&!all&&!fin&&!fixNeed);
     btn.title="① 파일 받기(OneDrive → 없으면 메일 · 미출고 확인) → ② 중복 검사(플레이엠디·이카운트·세매) → ③ 체크한 곳만 등록";
@@ -10253,7 +10269,7 @@ function whsRender(){
       +'<b style="min-width:70px">'+nm+'</b>'+stc("",y)+' <span style="font-size:12.5px">'+line(k)+'</span></label>';};
   var s3=all?"ok":runAct?"run":stage<3?"":"wait";
   var b3='<div>'+cb("pm","플레이엠디")+cb("ws","세매")+cb("ec","이카운트")+'</div>'
-    +(stage<3?'<div style="font-size:12px;color:#5b6675;margin-top:3px">①②가 끝나면 체크할 수 있습니다 — 이미 등록된 곳은 체크가 꺼져 있습니다</div>':'<div style="font-size:12px;color:#5b6675;margin-top:3px">체크한 곳만 등록합니다 — 세매·이카운트는 플레이엠디 저장 뒤 자동으로 이어집니다</div>');
+    +(stage<3?'<div style="font-size:12px;color:#5b6675;margin-top:3px">①②가 끝나면 체크할 수 있습니다 — 이미 등록된 곳은 체크가 꺼져 있습니다</div>':'<div style="font-size:12px;color:#5b6675;margin-top:3px">[③]을 누르면 세 곳 중복 검사를 먼저 새로 하고, 체크한 곳만 등록합니다(검사에서 이미 있는 곳은 체크가 꺼집니다) — 세매·이카운트는 플레이엠디를 체크했으면 그 저장 뒤 이어집니다</div>');
   box.innerHTML=sum+_a2rRow("①","파일 받기 — OneDrive, 없으면 메일 (메일이면 미출고 확인)",s1,b1)+_a2rRow("②","중복 검사 — 플레이엠디 · 이카운트 · 세매",s2,b2)+_a2rRow("③","등록 — 체크한 곳만",s3,b3);
 }
 function whsEcRetry(){var v=_whsDate(),W=_whsRunGet();if(!v||!W||W.day!==v)return;W.pmsAt="";W.ecWait="";W.ecErr="";_whsRunSet(W);whsRender();}
@@ -10498,13 +10514,14 @@ function wdsMainGo(){
   var fresh=!!(it&&it.at&&Date.now()-new Date(it.at).getTime()<2*3600*1000);
   var ms=_wdsMiss(it),fixNeed=!!it&&(ms.code>0||ms.amt>0||it.status==="unmatched");
   if(!Y.pm.done&&(!it||!fresh||_wdsNoFile(v)||fixNeed)){if(!Z.ok&&!Z.run)_wsChkReq(v,true);a2rSaipGo("ds",v);return;}   /* ① 파일 받기(+② PlayMD 중복) · ② 이카운트·세매 확인 같이 */
-  if(!Z.ok){_wsChkReq(v,true);wdsRender();return;}
+  if(!Z.ok){_wsChkReq(v,true);wdsRender();return;}   /* ② 중복 검사(처음) — 결과 보고 체크를 고른 뒤 ③ */
+  if(!_x3Fresh("ds",v,Date.now()-5*60000)){_x3Wait.ds={v:v,at:Date.now()};_wsChkReq(v,true);wdsRender();return;}   /* ③ = 중복 검사부터 새로(5분 안에 한 게 없으면) → 끝나면 wdsRegGo */
   wdsRegGo();
 }
 function wdsRegGo(){
   var v=_wdsDate();if(!v)return;
   var Y=_wdsSys(v),pk=_wdsPickOf(v,Y),P=_a2rSaip("ds",v),md=(+v.slice(5,7))+"/"+(+v.slice(8,10)),ms=_wdsMiss(Y.it);
-  if(!pk.pm&&!pk.ws&&!pk.ec){alert("등록할 곳을 체크해 주세요.");return;}
+  if(!pk.pm&&!pk.ws&&!pk.ec){alert(Y.pm.done&&Y.ws.done&&Y.ec.done?"백화점몰 "+md+" — 중복 검사 결과 세 곳 모두 이미 등록돼 있습니다.":"등록할 곳을 체크해 주세요 — 중복 검사에서 이미 등록된 곳은 체크가 꺼집니다.");return;}
   if(_saipReqActive((saipReq||{}).wds)||(P&&P.act)){alert("진행 중인 등록이 있습니다 — 끝난 뒤 눌러 주세요.");return;}
   if(pk.pm&&!P.canReg){alert("PlayMD는 지금 저장할 수 없습니다 — "+(ms.code||ms.amt?"코드·금액이 빈 줄이 있습니다.":"[① 파일 받기]로 다시 받아 주세요(검사한 지 2시간이 지났거나 중복이 있음)."));return;}
   if((pk.pm||pk.ws)&&(ms.code||ms.amt)){alert("코드 없음 "+ms.code+"줄 · 금액 없음 "+ms.amt+"줄 — 채운 뒤 등록해 주세요.");return;}
@@ -10528,6 +10545,7 @@ function wdsRender(){
   /* 세매 이어 달리기(PlayMD 저장 뒤) */
   var ch=_wdsChainGet();
   if(ch&&ch===v&&(Y.D.wsFull||(Y.L&&!busy))){_wdsChainSet("");if(!Y.D.wsFull)setTimeout(function(){wdsGo({auto:true});},0);}
+  _x3Tick("ds",v,wdsRegGo);
   var W=_wdsRunTick(v,Y);
   var pk=_wdsPickOf(v,Y);
   var all=Y.pm.done&&Y.ws.done&&Y.ec.done,fin=all||!!(W&&W.day===v&&W.fin);
@@ -10546,8 +10564,8 @@ function wdsRender(){
   var stage=Y.pm.done?(!Z.ok?2:3):(!it||!fresh||nofile||fixNeed?1:!Z.ok?2:3);   /* 플레이엠디가 이미 끝난 날은 파일을 다시 안 받아도 세매·이카운트를 고를 수 있다 */
   var btn=document.getElementById("wdsBtn");
   if(btn){
-    var lab=runAct?"⏳ 진행 중…":all?"✅ "+md+" 세 곳 등록완료":stage===1?(nofile?"📭 파일 없음 — 다시 받기":fixNeed?"🔄 코드·금액 채운 뒤 다시 받기":"📥 ① 파일 받기"):stage===2?(Z.run?"⏳ ② 중복 검사 중…":"🔎 ② 중복 검사"):anyPick?"▶ ③ 체크한 곳 등록":"③ 등록할 곳을 체크하세요";
-    btn.textContent=lab;btn.disabled=runAct||(stage===2&&Z.run)||all||(stage===3&&!anyPick);
+    var x3w=_x3Wait.ds&&_x3Wait.ds.v===v;var lab=runAct?"⏳ 진행 중…":x3w?"⏳ 중복 검사 먼저 — 끝나면 등록":all?"✅ "+md+" 세 곳 등록완료":stage===1?(nofile?"📭 파일 없음 — 다시 받기":fixNeed?"🔄 코드·금액 채운 뒤 다시 받기":"📥 ① 파일 받기"):stage===2?(Z.run?"⏳ ② 중복 검사 중…":"🔎 ② 중복 검사"):anyPick?"▶ ③ 체크한 곳 등록":"③ 등록할 곳을 체크하세요";
+    btn.textContent=lab;btn.disabled=runAct||x3w||(stage===2&&Z.run)||all||(stage===3&&!anyPick);
     btn.style.opacity=btn.disabled?".55":"1";
     btn.classList.toggle("whs-blink",!btn.disabled&&!all&&!fin&&!fixNeed);
     btn.title="① 파일 받기(OneDrive) → ② 중복 검사(플레이엠디·이카운트·세매) → ③ 체크한 곳만 등록";
@@ -10613,7 +10631,7 @@ function wdsRender(){
       +'<b style="min-width:70px">'+nm+'</b>'+stc("",y)+' <span style="font-size:12.5px">'+line(k)+'</span></label>';};
   var s3=all?"ok":runAct?"run":stage<3?"":"wait";
   var b3='<div>'+cb("pm","플레이엠디")+cb("ws","세매")+cb("ec","이카운트")+'</div>'
-    +(stage<3?'<div style="font-size:12px;color:#5b6675;margin-top:3px">①②가 끝나면 체크할 수 있습니다 — 이미 등록된 곳은 체크가 꺼져 있습니다</div>':'<div style="font-size:12px;color:#5b6675;margin-top:3px">체크한 곳만 등록합니다 — 세매·이카운트는 플레이엠디 저장 뒤 자동으로 이어집니다</div>');
+    +(stage<3?'<div style="font-size:12px;color:#5b6675;margin-top:3px">①②가 끝나면 체크할 수 있습니다 — 이미 등록된 곳은 체크가 꺼져 있습니다</div>':'<div style="font-size:12px;color:#5b6675;margin-top:3px">[③]을 누르면 세 곳 중복 검사를 먼저 새로 하고, 체크한 곳만 등록합니다(검사에서 이미 있는 곳은 체크가 꺼집니다) — 세매·이카운트는 플레이엠디를 체크했으면 그 저장 뒤 이어집니다</div>');
   box.innerHTML=sum+_a2rRow("①","파일 받기 — OneDrive (백화점몰.xlsx · 매장 이름 → LGY·LTOA·HDOC)",s1,b1)+_a2rRow("②","중복 검사 — 플레이엠디 · 이카운트 · 세매",s2,b2)+_a2rRow("③","등록 — 체크한 곳만",s3,b3);
 }
 function wdsEcRetry(){var v=_wdsDate(),W=_wdsRunGet();if(!v||!W||W.day!==v)return;W.pmsAt="";W.ecWait="";W.ecErr="";_wdsRunSet(W);wdsRender();}
@@ -16733,10 +16751,58 @@ function _dsMsg(t,err){
    매시 받는 판매일보의 **영업 중 금액**(10/20 잠실 56,700 → 마감 139,700)이 그대로 굳어 EDI와 안 맞았다.
    이제 손으로 고친 칸(cell.pmHand, dsEdit가 남김)만 건드리지 않는다. 표시가 없는 예전 칸은 자동으로 넣은 것으로 본다.
    그 달뿐 아니라 판매일보가 올라온 **모든 달**을 본다(달이 바뀌는 날 지난달도 같이 올라온다). */
+/* ── 이카운트 칸 (2026-11-23 영업2팀 "플레이엠디가 아닌 이카운트 매출 입력금액으로 — 모든 매장, 이름도 이카운트로") ──
+   DS_EC_FROM 달부터는 PLAY MD 칸(playmd 키 그대로)에 **이카운트 판매조회 금액**을 넣고 칸 이름을 '이카운트'로 보인다(_dsFldsOf).
+   자료: 이카운트 판매조회를 읽은 ws/ecSalView {from,to,at,s:{'일자_거래처코드':[[금액,전표번호],…]}}(홈 판매조회 최신화)
+   · ws/ecSalDayChk[일자] {at,s:{거래처코드:[[금액,전표번호],…]}}(그 날 바로 확인) — 둘 다 있으면 나중에 읽은 쪽.
+   읽은 날만 바꾼다: 그 날 그 매장(거래처 = _ecSalCust(매장코드)) 전표 합, 전표가 없으면 비운다. 손으로 고친 칸(pmHand)은 그대로.
+   그 전 달(10월까지)은 이카운트 자료가 없어 예전처럼 PlayMD 판매일보 금액이다. */
+var DS_EC_FROM="2026-11";
+function _dsEcMonth(mk){return String(mk||"")>=DS_EC_FROM;}
+function _dsEcDayMap(day){
+  var V=(typeof ecSalView!=="undefined")?ecSalView:null,C=((typeof ecSalDayChk!=="undefined"&&ecSalDayChk)||{})[day];
+  var vIn=!!(V&&V.s&&V.from&&day>=V.from&&day<=V.to);
+  var sum=function(L){return (L||[]).reduce(function(a,x){return a+(+x[0]||0);},0);};
+  var m={};
+  if(C&&C.at&&(!vIn||String(C.at)>String(V.at||""))){Object.keys(C.s||{}).forEach(function(k){m[k]=sum(C.s[k]);});return m;}
+  if(vIn){var pre=day+"_";Object.keys(V.s).forEach(function(k){if(k.indexOf(pre)===0)m[k.slice(pre.length)]=sum(V.s[k]);});return m;}
+  return null;
+}
+function _dsEcDays(){
+  var out={},V=(typeof ecSalView!=="undefined")?ecSalView:null;
+  if(V&&V.from&&V.to){var d=new Date(V.from+"T00:00:00"),e=new Date(V.to+"T00:00:00");for(var i=0;d<=e&&i<400;i++){out[d.toLocaleDateString("sv-SE")]=1;d.setDate(d.getDate()+1);}}
+  Object.keys((typeof ecSalDayChk!=="undefined"&&ecSalDayChk)||{}).forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(k))out[k]=1;});
+  return Object.keys(out).filter(function(k){return _dsEcMonth(k.slice(0,7));}).sort();
+}
+function _dsAutoEcount(){
+  var n=0,byMk={};
+  if(typeof dailySalesDB!=="object"||!dailySalesDB||!dailySalesDB.data)return 0;
+  _dsEcDays().forEach(function(ymd){
+    var map=_dsEcDayMap(ymd);if(!map)return;
+    var mk=ymd.slice(0,7),day=String(+ymd.slice(8,10));
+    if(!dailySalesDB.data[mk]&&!(dailySalesDB.monthStores||{})[mk])return;   /* 표가 없는 달은 만들지 않는다 */
+    var list=byMk[mk]||(byMk[mk]=dsStores(mk)||[]);
+    list.forEach(function(st){
+      var c=_dsStoreCode(st);if(!c)return;
+      var amt=map[_ecSalCust(c)],nv=amt?String(Math.round(amt)):"";
+      var dd=(dailySalesDB.data[mk]||{})[day]||{},cell=dd[st.name];
+      if(!cell&&nv==="")return;
+      if(cell&&cell.pmHand&&cell.playmd!==""&&cell.playmd!=null)return;
+      var cur=cell&&cell.playmd!=null?String(cell.playmd):"";
+      if(cur===nv)return;
+      if(!dailySalesDB.data[mk])dailySalesDB.data[mk]={};
+      if(!dailySalesDB.data[mk][day])dailySalesDB.data[mk][day]={};
+      cell=dailySalesDB.data[mk][day][st.name]||(dailySalesDB.data[mk][day][st.name]={});
+      cell.playmd=nv;n++;
+    });
+  });
+  return n;
+}
 function _dsAutoPlaymd(){
-  if(typeof storeSalesDB!=="object"||!storeSalesDB)return 0;
   var n=0;
-  Object.keys(storeSalesDB).forEach(function(mk){
+  try{n+=_dsAutoEcount();}catch(e){console.warn("이카운트 칸",e);}
+  if(typeof storeSalesDB==="object"&&storeSalesDB)Object.keys(storeSalesDB).forEach(function(mk){
+    if(_dsEcMonth(mk))return;   /* 11월부터는 이카운트 칸 — PlayMD 판매일보로 덮지 않는다 */
     var by=_dsSalesByCode(mk);if(!by)return;
     var list=dsStores(mk)||[];
     list.forEach(function(st){
@@ -16835,6 +16901,20 @@ function _dsEdiInfo(){
 var _dsPmsMine="";
 function _dsYmd(d){return d.getFullYear()+_ds2(d.getMonth()+1)+_ds2(d.getDate());}
 function dsPmsGo(){
+  /* 11월부터는 이카운트 칸(2026-11-23) — 홈 판매조회 최신화와 같은 요청(ws/saipReq.a2r)으로 이 달 1일~오늘 이카운트 판매조회를 다시 읽는다.
+     ecSalView가 바뀌면 _dsAutoPlaymd(→ _dsAutoEcount)가 칸을 채운다 */
+  if(_dsEcMonth(dsKey())){
+    var ar=(saipReq||{}).a2r;
+    if(_saipReqActive(ar)){alert("판매조회 최신화가 이미 "+(ar.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(ar.by||"?")+" · "+ar.from+" ~ "+ar.to+").\n\n끝나면 이카운트 칸이 저절로 바뀝니다.");return;}
+    var emk=dsKey(),f=emk+"-01",today=new Date().toLocaleDateString("sv-SE"),last=new Date(+emk.slice(0,4),+emk.slice(5,7),0).toLocaleDateString("sv-SE"),t=last<today?last:today;
+    if(f>today){alert(emk+"은 아직 오지 않은 달입니다.");return;}
+    if(!confirm("["+f+" ~ "+t+"] 이카운트 판매조회를 다시 읽어 이카운트 칸을 채웁니다.\n\n홈 판매조회 [🔄 최신화]와 같은 작업입니다(자동화 PC, 읽기만 · 3~6분).\n손으로 고친 칸은 그대로 둡니다."))return;
+    var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",from:f,to:t};
+    _saipReqSet("a2r",R);
+    _dsMsg("⏳ 이카운트 판매조회 읽는 중 — 끝나면 이카운트 칸이 저절로 바뀝니다");
+    if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 확인합니다.");
+    return;
+  }
   var cur=(saipReq||{}).pms;
   if(_saipReqActive(cur)){alert("PlayMD 판매일보 받기가 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+(cur.ym||"")+").");return;}
   var mk=dsKey(),y=+mk.slice(0,4),m=+mk.slice(5,7),now=new Date();
@@ -17308,6 +17388,7 @@ function _dsFldsOf(name,mk){
      늘 비어 있는 두 칸이 자리만 차지했다. 백화점 매출이 한 건이라도 생기면 칸이 다시 나온다. */
   if(showOnline&&on&&!dept)flds=flds.filter(function(f){return f.k!=="dept"&&f.k!=="deptQ";});
   if(_dsPlaymdOnly(name))flds=flds.filter(function(f){return f.k!=="dept"&&f.k!=="deptQ"&&f.k!=="edi"&&f.k!=="ediQ";});
+  if(_dsEcMonth(mk))flds=flds.map(function(f){return f.k==="playmd"?{k:"playmd",t:"이카운트"}:f;});   /* 2026-11-23 — 이카운트 칸 */
   return flds;
 }
 /* 표 위쪽의 가로 스크롤바(그림자 스크롤) — 안쪽 div 폭을 표 폭에 맞춰야 움직인다.
@@ -17511,6 +17592,9 @@ function dsWriteImport(byMonth,storeName,count){
 }
 function renderDaily(){
   try{_dsEdiInfo();}catch(e){}
+  try{var _pb=document.getElementById("dsPmsBtn");if(_pb){var _ec=_dsEcMonth(dsKey());
+    _pb.textContent=_ec?"📥 이카운트 판매조회 → 이카운트":"📥 PlayMD 판매일보 → PLAY MD";
+    _pb.title=_ec?"자동화 PC가 이카운트 판매조회를 이 달 1일~오늘로 다시 읽어(3~6분) 매장코드(=이카운트 거래처)가 같은 매장의 이카운트 칸을 채웁니다 — 손으로 고친 칸은 그대로":"자동화 PC가 PlayMD에서 이 달 매장판매일보를 바로 받아(2~4분) 매장코드가 같은 매장의 PLAY MD 칸을 채웁니다 — 이미 적힌 값과 다른 칸은 받은 뒤 따로 묻습니다";}}catch(e){}
   dsSyncOrderFromDept();
   dsFillSelectors();
   var wrap=document.getElementById("dailyTableWrap");if(!wrap)return;
