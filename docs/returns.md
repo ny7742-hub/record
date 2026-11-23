@@ -45,7 +45,9 @@
   등록한 줄이 시트에 남아 있을 수 있다. 카드에 `📝 시트 정리 필요 N건`으로 알린다. 200일 지난 기록은 자동화가 정리한다.
 - 요망 여부는 **이 화면을 연 사람의 브라우저가** 시트를 직접 읽어 센다(`_retScan`, 탭 열 때 + 5분마다 — 반품등록 화면이나 🤖 자동화 탭이 열려 있을 때, 2026-10-07 예전 10분). 자동화 PC의 `saip-ready`와는 따로다.
 - 요청은 사입출고와 같은 `ws/saipReq[hr|cr]`(날짜 없음, `expect` = 미리보기 때 줄 열쇠 묶음) → `automation/saip-watch.mjs` →
-  `playmd-return.mjs --kind --save --by --expect`. 결과 `ws/hrRetStatus`·`ws/crRetStatus`(status: preview·saved·savecheck·none·allfound·partial·unmatched·changed·error).
+  `playmd-return.mjs --kind --save --by --expect`.
+  **날짜 하나만**(2026-11-23 영업2팀 "일자별로 반품등록되게"): 요청에 `day`(YYYYMMDD)를 실으면(`retPreviewGo(k,day)`·`retAutoGo(k,{expect,day})`) `playmd-return.mjs`가
+  `ws/saipReq.{kind}.day`(처리중)를 직접 읽어(또는 `--day=`) 그 날 줄만 미리보기·저장·불량 이동·시트 정리한다(saip-watch는 안 고침, 결과 `st.day`). 백업 `_backup-playmd-return-1123-day.mjs`. 결과 `ws/hrRetStatus`·`ws/crRetStatus`(status: preview·saved·savecheck·none·allfound·partial·unmatched·changed·error).
 - `playmd-return.mjs` 순서: 자비스에서 `_retCollect` → 기록에 있는 줄 빼기 → 코드·공급가가 빈 줄은 **반품등록 표(ws/hsrShare·ccrShare)에 사람이 채운 값**을 가져옴
   → 하나라도 비면 멈춤 → 매장출고반품현황(xpro6030q)을 **달마다** 조회해 같은 입고일·매장·상품의 사입반품(`SGREPGID=xpro4710a`, 음수)이 있으면
   수량까지 다 있으면 뺌(`found`, 저장 때 기록) · 일부만 있으면 멈춤 → 사입반품양식(`_retBuildXlsx`, 4단계 다운로드와 같은 7칸) →
