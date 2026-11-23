@@ -4539,6 +4539,9 @@ var STORE_MAP=[
   {keys:["동대문","hddm"],code:"HDDM",name:"현대아울렛 동대문점"},
   {keys:["서울역"],code:"LOS",name:"롯데아울렛 서울역점"},   /* 2026-11-13 영업2팀 */
   {keys:["천호","hch"],code:"HCH",name:"현대 천호점"},
+  {keys:["무역센터","hmc"],code:"HMC",name:"현대백화점 무역센터점"},   /* 2026-11-23 영업2팀 — 팝업으로 자동 추가된 매장에 코드가 비어 EDI·PLAY MD가 안 들어갔다 */
+  /* 부산본점은 `본점`(LDA)보다 먼저 — 예전엔 LDA로 잡혀 일별매출 EDI·PLAY MD가 안 들어갔다(2026-11-23 영업2팀) */
+  {keys:["부산본점","lsm"],code:"LSM",name:"롯데 부산본점"},
   {keys:["본점","lda"],code:"LDA",name:"롯데 본점"},
 ];
 
@@ -16688,9 +16691,13 @@ function saveDaily(){wsSetItem("dailySalesDB",JSON.stringify(dailySalesDB));}
 function _dsStoreCode(st){
   if(!st)return "";
   var c=String(st.code||"").trim();
+  /* 예전에 부산본점이 본점 코드 LDA로 들어간 목록을 바로잡는다(2026-11-23) */
+  if(/^lda$/i.test(c)&&/부산본점/.test(String(st.name||"").replace(/\s/g,""))){st.code=c="LSM";}
   if(c)return c.toUpperCase();
   var m=/\s([A-Za-z][A-Za-z0-9]{1,7})$/.exec(String(st.name||"").replace(/\u00a0/g," ").trim());
-  return m?m[1].toUpperCase():"";
+  if(m)return m[1].toUpperCase();
+  /* \ucf54\ub4dc \uce78\uc774 \ube48 \ub9e4\uc7a5(\ud31d\uc5c5 \uc790\ub3d9 \ucd94\uac00 \ub4f1)\uc740 \ub9e4\uc7a5\uba85\uc73c\ub85c STORE_MAP\uc5d0\uc11c \ucc3e\ub294\ub2e4(2026-11-23 \uc601\uc5c52\ud300 \u2014 \ud604\ub300 \ubb34\uc5ed\uc13c\ud130\uc810) */
+  return typeof storeNameToCode==="function"?storeNameToCode(st.name):"";
 }
 function _dsSalesByCode(mk){
   var ss=storeSalesDB[mk];
@@ -27384,6 +27391,28 @@ function _ccCopySlack(btn){
   var done=function(){var o=btn.textContent;btn.textContent="✔ 복사됨";setTimeout(function(){btn.textContent=o;},1500);};
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,function(){prompt("복사하세요",t);});else prompt("복사하세요",t);
 }
+/* ⑤ 단추 — 오늘 발주의 DSS 송장 입력 → 판매현황만 다시(2026-11-16 영업2팀 "단계별로 버튼", 11/16 2번 창 로그인 화면에서 송장이 멈췄다).
+   매출등록 카드의 '송장 입력만 다시'와 같은 요청(ws/saipReq.cc mode:'dss' — 자동화 PC가 PlayMD는 건너뛰고 dss-invoice --save → cc-sales-register --save).
+   이미 올린 주문은 DSS 대기 목록에 없어 다시 안 올라가고, 판매현황은 ccPdfDone으로 두 번 안 더한다 */
+function ccStepDss(){
+  var gd=_ccToday(),mmdd=gd.slice(5,7)+gd.slice(8,10),md=(+gd.slice(5,7))+"/"+(+gd.slice(8,10));
+  var cur=(saipReq||{}).cc;
+  if(_saipReqBusy(cur)){alert("코스트코 작업이 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").\n\n끝난 뒤 다시 눌러 주세요.");return;}
+  var L=(ccOrderLog||{})[gd];
+  if(!L||L.state!=="sent"){alert(L?"오늘 발주 메일을 아직 보내지 않았습니다 — ③ 메일 보내기를 먼저 해 주세요.":"오늘 발주한 기록이 없습니다 — ② 발주하기를 먼저 해 주세요.\n\n지난 날짜 송장은 사입출고등록 탭 🛒 코스트코 매출등록 카드에서 그 날짜로 합니다.");return;}
+  var D=_ccDssSaveOf(mmdd),dOk=!!(D&&D.ok&&!(D.errors||[]).length&&!(D.accounts||[]).some(function(a){return !a.same&&+a.still;}));
+  var C=ccSalesStatus,cOk=!!(C&&C.mmdd===mmdd&&C.mode==="save"&&C.ok&&/^(saved|already)$/.test(C.state));
+  if(dOk&&cOk){alert("오늘("+md+") DSS 송장 · 판매현황은 이미 끝났습니다.");return;}
+  if(!confirm("코스트코 "+md+" DSS 송장 → 판매현황을 "+(D||C?"다시 ":"")+"실행합니다.\n\n"
+    +"· DSS 송장: "+(dOk?"이미 끝남(대기 목록에 남은 것만 다시 봅니다)":D?"멈춤 — "+String((D.errors||[])[0]||"남은 주문 있음").slice(0,90):"아직")+"\n"
+    +"· 판매현황: "+(cOk?"이미 끝남(두 번 더하지 않습니다)":"아직")+"\n\n"
+    +"물류 회신 메일의 운송장번호를 두 DSS 아이디(자동화 창)에 넣고 [발송완료 진행]까지 합니다. 되돌리기 어렵습니다.\n이미 올린 주문은 다시 올라가지 않습니다. PlayMD 사입출고는 하지 않습니다.\n\n진행할까요?"))return;
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:gd,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"dss"};
+  if(!saipReq||typeof saipReq!=="object")saipReq={};
+  _saipReqSet("cc",R);ccAutoRender();
+  if(typeof renderSaipAuto==="function")renderSaipAuto();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 처리됩니다.");
+}
 /* ⑤ 승인(2026-11-17 영업2팀 "오토탭에 코스트코 자동발주 — 5단계에서 승인 받고 진행. 미출고가 있으면 메일에서 미출고 송장번호를 확인하고 DSS26·31 출고건에서 등록하지 않음. 6단계 사입출고 및 세매 등록까지").
    물류 회신(운송장)이 와도 자동화 PC는 이 승인(ws/ccApprove[날짜])을 기다린다. 승인하면 승인한 사람 이름으로 PlayMD 사입출고 → DSS 송장(미출고는 뺌) → 판매현황 → 세매(코코 온라인).
    미출고 = 회신 본문(saip-ready가 읽어 ws/saipReady.cc[].unship). CC_APPROVE_SINCE 전 날짜는 예전처럼 승인 없이 이어졌다 */
@@ -27480,28 +27509,6 @@ function ccAutoRender(){
   var Q=ccOrderReady,CQ=ccCountReq;
   if(_ccCountWaiting())h+='<div style="color:#1d4ed8;font-weight:700">🔢 건수 확인 중… ('+_escX(CQ.by||"?")+' · '+_escX(_saipFmtAt(CQ.at))+') — '+(_saipWatchOk()?'자동화 PC가 DSS에서 읽는 중':'<span style="color:#b91c1c">자동화 PC 신호 없음</span>')+'</div>';
   else if(CQ&&CQ.doneAt&&CQ.note&&Date.now()-new Date(CQ.doneAt).getTime()<30*60*1000)h+='<div style="color:#b91c1c;font-weight:700">🔢 건수 확인: '+_escX(CQ.note)+'</div>';
-/* ⑤ 단추 — 오늘 발주의 DSS 송장 입력 → 판매현황만 다시(2026-11-16 영업2팀 "단계별로 버튼", 11/16 2번 창 로그인 화면에서 송장이 멈췄다).
-   매출등록 카드의 '송장 입력만 다시'와 같은 요청(ws/saipReq.cc mode:'dss' — 자동화 PC가 PlayMD는 건너뛰고 dss-invoice --save → cc-sales-register --save).
-   이미 올린 주문은 DSS 대기 목록에 없어 다시 안 올라가고, 판매현황은 ccPdfDone으로 두 번 안 더한다 */
-function ccStepDss(){
-  var gd=_ccToday(),mmdd=gd.slice(5,7)+gd.slice(8,10),md=(+gd.slice(5,7))+"/"+(+gd.slice(8,10));
-  var cur=(saipReq||{}).cc;
-  if(_saipReqBusy(cur)){alert("코스트코 작업이 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").\n\n끝난 뒤 다시 눌러 주세요.");return;}
-  var L=(ccOrderLog||{})[gd];
-  if(!L||L.state!=="sent"){alert(L?"오늘 발주 메일을 아직 보내지 않았습니다 — ③ 메일 보내기를 먼저 해 주세요.":"오늘 발주한 기록이 없습니다 — ② 발주하기를 먼저 해 주세요.\n\n지난 날짜 송장은 사입출고등록 탭 🛒 코스트코 매출등록 카드에서 그 날짜로 합니다.");return;}
-  var D=_ccDssSaveOf(mmdd),dOk=!!(D&&D.ok&&!(D.errors||[]).length&&!(D.accounts||[]).some(function(a){return !a.same&&+a.still;}));
-  var C=ccSalesStatus,cOk=!!(C&&C.mmdd===mmdd&&C.mode==="save"&&C.ok&&/^(saved|already)$/.test(C.state));
-  if(dOk&&cOk){alert("오늘("+md+") DSS 송장 · 판매현황은 이미 끝났습니다.");return;}
-  if(!confirm("코스트코 "+md+" DSS 송장 → 판매현황을 "+(D||C?"다시 ":"")+"실행합니다.\n\n"
-    +"· DSS 송장: "+(dOk?"이미 끝남(대기 목록에 남은 것만 다시 봅니다)":D?"멈춤 — "+String((D.errors||[])[0]||"남은 주문 있음").slice(0,90):"아직")+"\n"
-    +"· 판매현황: "+(cOk?"이미 끝남(두 번 더하지 않습니다)":"아직")+"\n\n"
-    +"물류 회신 메일의 운송장번호를 두 DSS 아이디(자동화 창)에 넣고 [발송완료 진행]까지 합니다. 되돌리기 어렵습니다.\n이미 올린 주문은 다시 올라가지 않습니다. PlayMD 사입출고는 하지 않습니다.\n\n진행할까요?"))return;
-  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:gd,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"dss"};
-  if(!saipReq||typeof saipReq!=="object")saipReq={};
-  _saipReqSet("cc",R);ccAutoRender();
-  if(typeof renderSaipAuto==="function")renderSaipAuto();
-  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 처리됩니다.");
-}
   /* 순서대로 ①~④(2026-10-15 영업2팀 "발주하기, 메일전송 등 순서대로") — 단계마다 오늘 상태를 붙인다 */
   var fresh=Q&&Q.at&&Date.now()-new Date(Q.at).getTime()<3*3600*1000;
   var gN=L?(+L.orders||0):(fresh&&!Q.total?0:null);
