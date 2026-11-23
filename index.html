@@ -10231,6 +10231,20 @@ function _x3Tick(k,v,go){
   if(W.v!==v){delete _x3Wait[k];return;}
   var X=_saipXsys(k,v)||{};
   if(_x3Fresh(k,v,W.at-60000)){delete _x3Wait[k];setTimeout(go,0);return;}
+  /* 이번 검사 요청이 실패로 끝났으면 바로 알린다(2026-11-23 영업2팀 "언제 끝나나요? 왜 오래걸리죠?" — 이카운트 로그인 필요로 19:43 실패했는데
+     예전 이카운트 결과(19:06)가 남아 있어 실패로 안 보고 5분을 기다렸다). 세매는 새로 확인됐고 이카운트 예전 결과가 '없음'이면 그걸로 등록할지 묻는다 */
+  var wq=(saipReq||{}).wsck,tm=function(a){var n=a?new Date(a).getTime():0;return isNaN(n)?0:n;};
+  if(wq&&wq.date===v&&wq.state==="실패"&&tm(wq.at)>=W.at-60000){
+    delete _x3Wait[k];
+    var err=String(wq.error||((wq.progressErr||[])[0])||wq.progress||"이유를 못 받았습니다").replace(/^\[[^\]]*\]\s*[\d:]*\s*✖?\s*/,"");
+    var wsNew=X.ws!=null&&tm(X.wsAt)>=W.at-60000,ecOld=X.ec!=null&&!X.ec&&tm(X.ecAt)>Date.now()-12*3600*1000;
+    setTimeout(function(){
+      if(wsNew&&ecOld&&/이카운트/.test(err)){
+        if(confirm("이카운트 확인이 실패했습니다 — "+err+"\n\n세매는 방금 확인했고("+(X.ws?X.ws.toLocaleString()+"원 있음":"없음")+"), 이카운트는 "+_saipFmtAt(X.ecAt)+" 확인 결과 '없음'입니다.\n이 결과로 보고 등록을 계속할까요?\n\n(이카운트는 자동화 PC 자동화 창에서 로그인해 두세요)"))go();
+      }else alert("중복 검사가 실패해 등록하지 않았습니다 — "+err+"\n\n자동화 PC를 확인한 뒤 다시 눌러 주세요.");
+    },0);
+    return;
+  }
   if(X.wsRun)return;
   if(X.wsFail||X.ecFail||Date.now()-W.at>5*60000){delete _x3Wait[k];setTimeout(function(){alert("중복 검사를 끝내지 못해 등록하지 않았습니다"+(X.wsFail||X.ecFail?" — "+(X.ecFail||X.wsFail):" (5분 동안 결과가 오지 않음)")+". 자동화 PC를 확인한 뒤 다시 눌러 주세요.");},0);}
 }
