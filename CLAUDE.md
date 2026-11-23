@@ -47,7 +47,7 @@
   `↗ 세매 열기`(새 탭) · `🚚 PlayMD 사입출고등록` = `saipAutoGo('hs')` · OneDrive 판매자료. PlayMD 자료 업로드는 넣지 않는다. 🤖 자동화 탭은 그대로 둔다.
   **칸 순서(2026-11-18): 로그인 상태(전체 폭) → 🏬 백화점 발주 → 🛒 코스트코 자동발주 → 🛍 홈쇼핑 판매등록(PlayMD → 세매 한 흐름, 백화점온라인몰과 같은 방식 `whsMainGo`) → 🏬 백화점온라인몰 판매등록(PlayMD → 세매 한 칸, 세매 쪽은 홈쇼핑 칸을 본뜬 `wds*` — 홈쇼핑 칸을 고치면 같이 고칠 것, `docs/sales.md`) → PlayMD 등록 단계표 4칸(`#auto2Reg`·`a2rRender`, 2칸씩: 창고간이동·매장출고·홈쇼핑 반품·코스트코 반품 — 원래 등록 함수 saipConfirmGo·saipCfSave·retPreviewGo·retAutoGo를 그대로 부름, `docs/orders.md`) → 세매(전체 폭)**.
   `🛒 코스트코 자동발주`(2026-11-17, `#auto2CcCard` — ccAutoRender 복사, ⑤ 회신 오면 미출고 확인 후 `✅ 승인` · 미출고 송장은 DSS에 안 올림 · ⑥ 사입출고+세매, 상세 `docs/costco.md`).
-  그 아래 `🏬 백화점 발주`(2026-11-17, `epRender`) — **2026-11-23부터 세매 [매장 판매 › 발주]의 미처리 건**(이카운트에서 뺌) → 도매발주서 → 김구남 센터장 메일(도매와 같은 형식) → 세매 '처리 완료'. 자동화 PC `automation/ecount-po.mjs`(상세 `docs/ecount.md` 끝).
+  그 아래 `🏬 백화점 도매 발주`(2026-11-17, `epRender`) — **2026-11-23부터 세매 [매장 판매 › 발주]의 미처리 건**(이카운트에서 뺌) → 도매발주서 → 김구남 센터장 메일(도매와 같은 형식) → 세매 '처리 완료'. 자동화 PC `automation/ecount-po.mjs`(상세 `docs/ecount.md` 끝).
 
 ## 🤖 자동화 탭
 - 홈 다음 탭(`page-auto`, `renderAutoPage`, 2026-10-02 영업2팀) — 로그인 상태 · PlayMD 자료 업로드 4종 · 코스트코 자동 발주 · 도매 발주(주문배분현황) ·

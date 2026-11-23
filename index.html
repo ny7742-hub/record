@@ -2493,11 +2493,11 @@ label{font-size:14px!important}
       <button class="a2-btn sub" id="auto2PlCheckBtn" style="margin-left:auto;font-size:12.5px;padding:5px 11px" onclick="plCheckGo()" title="로그인을 다시 하지 않습니다 — 자동화 PC가 자동화 창의 로그인 상태를 지금 바로 다시 읽어 이 칸을 새로 고칩니다">🔄 상태 다시 확인</button></div>
       <div id="auto2PlSites"></div></div>
     <!-- 🏬 백화점 발주(2026-11-17 영업2팀 · 2026-11-23 "이카운트에서 빼고, 세매 매장판매 > 발주에서 미처리 건만") — 세매 미처리 발주 → 도매발주서 → 김구남 센터장 메일 → 세매 '처리 완료'. docs/ecount.md -->
-    <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 백화점 발주</b><span style="font-size:12.5px;color:#475569">세매 [매장 판매 › 발주]의 미처리 발주 → 도매발주서 → 김구남 센터장 메일 → 세매 '처리 완료'</span>
+    <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 백화점 도매 발주</b><span style="font-size:12.5px;color:#475569">세매 [매장 판매 › 발주]의 미처리 발주 → 도매발주서 → 김구남 센터장 메일 → 세매 '처리 완료'</span>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
         <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epPullGo()" title="자동화 PC가 세매 [매장 판매 › 발주]의 미처리 발주를 지금 다시 읽습니다(평소엔 7~21시 5분마다 자동) — 읽기만 합니다">🔄 지금 확인</button>
         <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="체크한 발주서로 도매발주서(물류 양식)를 받습니다 — 같은 매장·같은 품목은 한 줄로 합칩니다. 메일로 보내는 파일과 같습니다">⬇ 도매발주서</button>
-        <button class="a2-btn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 이카운트 발주서를 '확인'으로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
+        <button class="a2-btn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 세매 발주를 '처리 완료'로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
       <div id="epAddSlot" style="margin-bottom:8px"></div>
       <div id="epDlMsg" style="font-size:12px;color:#059669;font-weight:600;margin-bottom:4px"></div>
       <div id="epBox" style="font-size:13px"></div></div>
@@ -9795,7 +9795,7 @@ function epMail(){
   var L=_epPicked(),X=_epExtraOk(),rows=_epMergeRows(_epRows(L).concat(_epExtraRows()));
   if(!rows.length){alert("보낼 발주를 체크하거나, ＋ 상품 추가·🏨 아난티 발주로 줄을 넣어 주세요.\n\n(매장 정보가 없거나 수량이 없는 발주는 체크되지 않습니다)");return;}
   var cur=(saipReq||{}).ep;
-  if(_saipReqActive(cur)){alert("백화점 발주 메일이 이미 "+(cur.state==="처리중"?"보내지는 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").");return;}
+  if(_saipReqActive(cur)){alert("백화점 도매 발주 메일이 이미 "+(cur.state==="처리중"?"보내지는 중":"요청돼 있습니다")+" ("+(cur.by||"?")+" · "+_saipFmtAt(cur.at)+").");return;}
   var dup=L.filter(function(x){return _epSentOf(x.key);});
   var sl=_epAllStoresLine(L),qty=rows.reduce(function(a,r){return a+(+r[12]||0);},0);
   var noAddr={};rows.forEach(function(r){if(!r[4]||!r[7]||!r[9])noAddr[r[3]||r[2]]=1;});noAddr=Object.keys(noAddr);
@@ -9807,7 +9807,6 @@ function epMail(){
     +"김구남 센터장(gnkim72@daum.net)께 도매 발주 메일을 보냅니다.\n\n제목: "+subj+"\n참조: 강민준·이유진·이다겸·김민희\n첨부: "+_wholesaleFileName()+" ("+rows.length+"줄 "+qty+"개 · "+sl+")"
     +(L.length?"\n세매 발주: "+L.map(function(x){return _epKeyLab(x)+" "+(x.whNm||x.wh);}).join(", ")+" → 보낸 뒤 세매에서 '처리 완료'로 바꿉니다":"")
     +(X.length?"\n＋ 추가·🏨 아난티 줄: "+X.length+"줄":"")+"\n서명: "+_saipMe()
-    +"\n(이카운트에는 아무것도 넣지 않습니다)"
     +(noAddr.length?"\n\n⚠ 수령인·연락처·주소가 비어 있는 매장: "+noAddr.join(", ")+" — 물류에서 보낼 곳을 모릅니다. 취소 후 매장 정보를 채워 주세요.":"")
     +(noSku?"\n\n⚠ 아난티 바코드를 못 찾은 줄(❗코드없음) "+noSku+"줄은 빼고 보냅니다.":"")
     +(anW?"\n\n⚠ 아난티 품목명과 바코드 상품이 다른 줄이 "+anW+"줄 있습니다. 아난티에 확인했는지 다시 봐 주세요.":"")
