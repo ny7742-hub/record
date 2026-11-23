@@ -21600,7 +21600,7 @@ function ocAutoMail(){
   var anWarnN=orderConvRows.filter(function(r){return r.anWarn;}).length;
   var stores={};orderConvRows.forEach(function(r){var k=r.storeName||r.store||"?";stores[k]=(stores[k]||0)+1;});
   var sl=Object.keys(stores).map(function(k){return k+" "+stores[k]+"줄";}).join(", ");
-  var MV=_ocMoveSlips();
+  /* 2026-11-23 영업2팀 "이카운트 등록은 안되게" — 도매 발주 메일 뒤 이카운트 창고이동은 하지 않는다(mv를 싣지 않음) */
   var d=new Date(),subj="[도매] 발주서 - "+(d.getMonth()+1)+"/"+d.getDate()+"("+"일월화수목금토".charAt(d.getDay())+")";
   var L=wmStatus&&wmStatus.ok&&wmStatus.mode==="send"&&String(wmStatus.at).slice(0,10)===new Date().toISOString().slice(0,10)?wmStatus:null;
   if(!confirm((L?"⚠ 오늘 이미 보낸 발주 메일이 있습니다("+_saipFmtAt(L.at)+" · "+L.by+").\n\n":"")
@@ -21608,11 +21608,11 @@ function ocAutoMail(){
     +(bad?"\n\n⚠ 창고재고 부족(발주불가) 줄이 "+bad+"줄 있습니다. 빼고 보내려면 취소 후 🗑 발주불가 일괄삭제를 누르세요.":"")
     +(noSku?"\n\n⚠ 자사코드가 없는 줄(❗코드없음)이 "+noSku+"줄 있습니다. 물류에서 찾을 수 없으니 취소 후 ✕로 빼거나 코드를 넣어 주세요.":"")
     +(anWarnN?"\n\n⚠ 아난티 품목명과 바코드 상품이 다른 줄(⚠품목명 다름)이 "+anWarnN+"줄 있습니다. 아난티에 확인했는지 다시 봐 주세요.":"")
-    +_ecMoveConfirmTxt(MV,"보낸 뒤 ")
+    +"\n\n(이카운트 창고이동은 넣지 않습니다)"
     +"\n\n보낸 메일은 되돌릴 수 없습니다. 보낼까요?"))return;
   var b64=XLSX.write(_ocWorkbook(),{type:"base64",bookType:"xlsx"});
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send",
-    fileName:_wholesaleFileName(),b64:b64,lines:orderConvRows.length,stores:sl,mv:MV.slips};
+    fileName:_wholesaleFileName(),b64:b64,lines:orderConvRows.length,stores:sl};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   _saipReqSet("wm",R);
   ocAutoRender();

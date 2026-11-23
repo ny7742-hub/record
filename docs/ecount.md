@@ -304,7 +304,7 @@
   자동화 PC는 메일이 나간 뒤(임시저장은 안 함) 공통 **`automation/ecount-move-after.mjs` `saveMoveAfterMail`** → `ws/ecMoveJob/{em…}` {kind:'ep', epId:'ep:요청id', date:오늘, slips} → `ecount-move.mjs --id --save`(kind `ep`는 주문 `ws/ecOrders` 승인 확인·출고 처리를 건너뜀) →
   결과 `ws/epStatus.move {id, n, lines, ok, msg}` → 칸 위 결과 줄에 `이카운트 창고이동 NH → 매장: ✅ 넣음 / ❌ 실패`(`_ecMoveResHtml`). 실패해도 메일은 이미 나갔으므로 다시 보내지 말고 이카운트 창고이동조회에서 확인 후 손으로 넣는다.
   **같은 창고이동이 다른 발주에도 붙어 있다**(공통 `_ecMoveFromRows`·`_ecMoveConfirmTxt` — index.html `epDl` 바로 위):
-  · 📥 도매 발주(발주서 변환) `✉️ 발주 메일 전달`(`ocAutoMail` → `_ocMoveSlips`, 코드 없는 줄 뺌) → `wholesale-mail.mjs`가 보낸 뒤 같은 `saveMoveAfterMail` → `ws/wmStatus.move` — 팩토리·백화점 등 매장 코드의 이카운트 창고로.
+  · ~~📥 도매 발주(발주서 변환) `✉️ 발주 메일 전달` 뒤 창고이동~~ — **2026-11-23 영업2팀 "이카운트 등록은 안되게"로 껐다**: `ocAutoMail`이 요청에 `mv`를 싣지 않고(`_ocMoveSlips`는 남겨 둠), 자동화 PC `wholesale-mail.mjs`도 `mv`가 와도 무시하고 로그만 남긴다(예전 자비스 창 대비). 11/23 09:16 김민희 도매 발주로 들어간 창고이동(AVE 61줄·HDDM 27줄, `ws/ecMoveJob/emmwsin2kh`)은 이카운트에 그대로 있다.
   · 🧳 트래블메이트 발주 3단계 `🧮 이카운트 창고이동 NH → 트래블메이트`(`ecMoveFromTm`) · 📝 수기발주 `🧮 이카운트 창고이동`(`ecMoveFromOrd`, 온라인 고객 배송·CX·매장 없음 줄 뺌) —
     메일이 없어서 단추로 바로 `_ecMoveDirect`: `ws/ecMoveJob` {kind:'ep', epId:'tm'|'ord'} + `ws/saipReq.em`(mode save, oids 빈 칸) → saip-watch `em` → `ecount-move.mjs --save`. 결과는 단추 옆(`#ecMvDirect_tm`·`_ord`, `_ecMoveDirectPaint` — `ws/ecMoveStatus` id가 같을 때).
     오늘 같은 내용으로 이미 넣었으면(이 브라우저 `localStorage.ecMvDirect_tm|ord`) 확인창에 '두 번 빠집니다' 경고.
