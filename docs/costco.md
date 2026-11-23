@@ -121,6 +121,7 @@
     ⑤ `ccApproveGo`는 체크한 곳에 이미 있을 때만 한 번 더 묻고(전엔 어디라도 있으면 물음), 승인에 `pm`·`ws`를 남긴다(`ws/ccApprove[날짜] {by, at, unship, pm, ws}`) — 승인 뒤엔 체크칸이 잠긴다.
     자동화 PC `saip-watch.mjs` `ccChainTick`: `pm === false`면 PlayMD 사입출고 없이 `mode:'dss'`(DSS 송장 → 판매현황만), `ccChainWs`: `ws === false`면 세매 안 올림 · PlayMD를 안 했으면 승인 이어 하기 시각 뒤 판매일보를 기다려 올림.
     ⑥ 칸은 끈 곳을 `체크 안 함 — 등록하지 않음`으로, 둘 다 끄면 ⑥은 건너뜀. 예전 승인(pm·ws 없음)은 둘 다 등록. 이카운트 ⑦은 그대로 보류(`CC_EC_HOLD`·`ecOff`). 백업 `automation/_backup-saip-watch-1123-ccpick.mjs`.
+    승인 뒤 그 승인으로 등록이 끝난 곳은 `⚠ 이미 있는데 등록함` 대신 `✅ 등록 완료`(11/23 코스트코가 등록 뒤 중복처럼 보였다) — PlayMD = 승인 시각(`pick.at`) 뒤 사입출고 기록, 세매 = PlayMD가 끝났거나 안 하는 날 금액 있음. 둘 다 끝나면 ⓪ 표시가 초록, 아래 줄 `✅ 체크한 곳 등록 끝`.
     11/23 시험: 로컬 화면에서 가짜 값(판매일보 1,448,487원·세매 0)으로 기본 체크(PlayMD 끔·세매 켬)·승인 뒤 잠김 확인. 실제 승인 → `mode:'dss'` 이어 하기는 아직 안 돌려 봄.
     **②③ 수기로 한 날(2026-11-20 영업2팀 "2,3번을 자비스에서 진행 안 해도 진행되게 — 수기로 진행. 중복 발주 안 되게")**: ② 칸(초안만 있는 날은 ③ 칸)에 `🖐 수기로 했음`(`ccManualGo` → `_ccManualRecord`) —
     건수(1 이상, ⑤가 '0건이라 없음'으로 빠지지 않게)·슬랙 직접 올렸는지 묻고 `ws/ccOrderLog[오늘] = {state:'sent', manual:true, orders, sentBy:'이름(수기)', sentAt, slackAt?}`를 transaction으로 남긴다(그새 sent 기록이 있으면 덮지 않음, 자비스 자동 발주 요청이 도는 중이면 막음).
