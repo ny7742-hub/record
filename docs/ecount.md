@@ -303,6 +303,10 @@
   `EC_WHS`에 없는 창고(팝업 등)는 창고이동에서 빼고 확인창에 `⚠ 이카운트 창고가 없어 창고이동을 넣지 않는 매장`으로 알린다(메일은 그대로 나감). 적요 `매장명 발주 · 발주서 MM/DD-N, 추가, 아난티 · 누른 사람`.
   자동화 PC는 메일이 나간 뒤(임시저장은 안 함) 공통 **`automation/ecount-move-after.mjs` `saveMoveAfterMail`** → `ws/ecMoveJob/{em…}` {kind:'ep', epId:'ep:요청id', date:오늘, slips} → `ecount-move.mjs --id --save`(kind `ep`는 주문 `ws/ecOrders` 승인 확인·출고 처리를 건너뜀) →
   결과 `ws/epStatus.move {id, n, lines, ok, msg}` → 칸 위 결과 줄에 `이카운트 창고이동 NH → 매장: ✅ 넣음 / ❌ 실패`(`_ecMoveResHtml`). 실패해도 메일은 이미 나갔으므로 다시 보내지 말고 이카운트 창고이동조회에서 확인 후 손으로 넣는다.
+  **⛔ 2026-11-23 영업2팀 "모두 이카운트 등록은 빼주세요" — 발주 뒤 창고이동은 네 곳(백화점·도매·트래블메이트·수기발주) 모두 껐다.**
+  자비스: 백화점 발주 `epDl`·도매 `ocAutoMail`이 요청에 `mv`를 싣지 않고(확인창 "(이카운트 창고이동은 넣지 않습니다)"), `EC_MOVE_OFF=true`로 `ecMoveFromTm`·`ecMoveFromOrd`는 막고 단추는 `display:none`.
+  자동화 PC: `ecount-po.mjs`·`wholesale-mail.mjs`가 `mv`가 와도 저장하지 않고 로그만(예전 자비스 창 대비, 백업 `_backup-ecount-po-1123.mjs`). 함수(`_ecMoveFromRows`·`_epMoveSlips`·`_ocMoveSlips`·`saveMoveAfterMail`)는 남겨 두었다 — 다시 켜려면 이 네 곳을 되돌린다.
+  이카운트 발주서 '확인'으로 바꾸기와 🧮 매장 발주 승인(`ecApprove`)은 그대로다. 아래는 끄기 전 설명.
   **같은 창고이동이 다른 발주에도 붙어 있다**(공통 `_ecMoveFromRows`·`_ecMoveConfirmTxt` — index.html `epDl` 바로 위):
   · ~~📥 도매 발주(발주서 변환) `✉️ 발주 메일 전달` 뒤 창고이동~~ — **2026-11-23 영업2팀 "이카운트 등록은 안되게"로 껐다**: `ocAutoMail`이 요청에 `mv`를 싣지 않고(`_ocMoveSlips`는 남겨 둠), 자동화 PC `wholesale-mail.mjs`도 `mv`가 와도 무시하고 로그만 남긴다(예전 자비스 창 대비). 11/23 09:16 김민희 도매 발주로 들어간 창고이동(AVE 61줄·HDDM 27줄, `ws/ecMoveJob/emmwsin2kh`)은 이카운트에 그대로 있다.
   · 🧳 트래블메이트 발주 3단계 `🧮 이카운트 창고이동 NH → 트래블메이트`(`ecMoveFromTm`) · 📝 수기발주 `🧮 이카운트 창고이동`(`ecMoveFromOrd`, 온라인 고객 배송·CX·매장 없음 줄 뺌) —
