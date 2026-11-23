@@ -10122,9 +10122,12 @@ function _whsMiss(it){
   if(it.status==="unmatched"&&it.bad&&it.bad.length&&!o.rows.length){it.bad.forEach(function(b){if(/코드/.test(b))o.code++;if(/단가|금액|가격/.test(b))o.amt++;});if(!o.code&&!o.amt)o.code=it.bad.length;}
   return o;
 }
+/* 2026-11-23 영업2팀 "홈쇼핑도 바꿔줘"(이카운트는 등록여부 확인만) — 홈쇼핑 ③에서 이카운트 체크칸을 빼고 등록 여부만 보인다. 다시 켜려면 false */
+var WHS_EC_CHECK_ONLY=true;
 function _whsPickOf(v,Y){
   var U=_whsPick[v]||{},P={};   /* U = 사람이 바꾼 체크만 — 나머지는 그때 상태로(확인 못 함 → 확인되면 켜짐) */
   ["pm","ws","ec"].forEach(function(k){P[k]=Y[k].done?false:U[k]!==undefined?U[k]:!Y[k].part&&Y[k].txt!=="확인 못 함";});
+  if(WHS_EC_CHECK_ONLY)P.ec=false;
   return P;
 }
 function whsPickSet(k,on){var v=_whsDate();if(!v)return;(_whsPick[v]=_whsPick[v]||{})[k]=!!on;whsRender();}
@@ -10150,7 +10153,7 @@ function _whsEcSend(v){
 function _whsRunTick(v,Y){
   var W=_whsRunGet();if(!W||W.day!==v||W.fin)return W;
   var now=Date.now();
-  if(W.ec&&!Y.ec.done&&!W.ecSent&&(!W.pm||Y.pm.done)){
+  if(!WHS_EC_CHECK_ONLY&&W.ec&&!Y.ec.done&&!W.ecSent&&(!W.pm||Y.pm.done)){
     var S=_whsEcSlips(v),q=S.reduce(function(a,s){return a+s.qty;},0),L=Y.L;
     var ok=S.length&&(!L||q===+L.qty);   /* PlayMD 저장 수량과 판매일보가 같아져야 */
     if(ok){var r=_whsEcSend(v);if(r==="sent"){W.ecSent=new Date().toISOString();W.ecWait="";}else if(r.indexOf("err:")===0){W.ecErr=r.slice(4);}}
@@ -10158,7 +10161,7 @@ function _whsRunTick(v,Y){
     else if(W.pmsAt&&!_saipReqActive((saipReq||{}).pms)&&now-new Date(W.pmsAt).getTime()>60000&&!ok)W.ecWait="판매일보에 "+(+v.slice(5,7))+"/"+(+v.slice(8,10))+" 홈쇼핑 줄이 "+(S.length?"PlayMD 저장 수량과 다릅니다("+q+"개 / "+(L?L.qty:"?")+"개)":"아직 없습니다");
   }
   /* 끝났는지 — 고른 곳이 모두 등록됐으면 접는다 */
-  var done=(!W.pm||Y.pm.done)&&(!W.ws||Y.ws.done)&&(!W.ec||Y.ec.done);
+  var done=(!W.pm||Y.pm.done)&&(!W.ws||Y.ws.done)&&(WHS_EC_CHECK_ONLY||!W.ec||Y.ec.done);
   if(done){W.fin=new Date().toISOString();_whsOpen[v]=false;}
   _whsRunSet(W);
   return W;
@@ -10259,7 +10262,7 @@ function whsRender(){
   _x3Tick("hs",v,whsRegGo);
   var W=_whsRunTick(v,Y);
   var pk=_whsPickOf(v,Y);
-  var all=Y.pm.done&&Y.ws.done&&Y.ec.done,fin=all||!!(W&&W.day===v&&W.fin);
+  var all=Y.pm.done&&Y.ws.done&&(WHS_EC_CHECK_ONLY||Y.ec.done),fin=all||!!(W&&W.day===v&&W.fin);
   var open=_whsOpen[v]!==undefined?_whsOpen[v]:!fin;
   /* ── 요약 한 줄 ── */
   var stc=function(nm,y){var c=y.done?"#047857":y.part?"#b45309":"#b91c1c";return '<span style="color:'+c+';font-weight:800">'+nm+' '+e(y.txt)+'</span>'+(y.sub?' <span style="color:#5b6675;font-size:12px">('+e(y.sub)+')</span>':'');};
@@ -10344,8 +10347,10 @@ function whsRender(){
     return '<label style="display:flex;gap:7px;align-items:center;padding:4px 2px;border-top:1px solid #eef2f7;cursor:'+(dis?'default':'pointer')+'"><input type="checkbox" '+(pk[k]&&!y.done?'checked ':'')+(dis?'disabled ':'')+'onchange="whsPickSet(\''+k+'\',this.checked)" style="width:16px;height:16px">'
       +'<b style="min-width:70px">'+nm+'</b>'+stc("",y)+' <span style="font-size:12.5px">'+line(k)+'</span></label>';};
   var s3=all?"ok":runAct?"run":stage<3?"":"wait";
-  var b3='<div>'+cb("pm","플레이엠디")+cb("ws","세매")+cb("ec","이카운트")+'</div>'+(H&&!busy&&!Y.ws.done?_x3FxTable("hs",H,mmdd):'')
-    +(stage<3?'<div style="font-size:12px;color:#5b6675;margin-top:3px">①②가 끝나면 체크할 수 있습니다 — 이미 등록된 곳은 체크가 꺼져 있습니다</div>':'<div style="font-size:12px;color:#5b6675;margin-top:3px">[③]을 누르면 세 곳 중복 검사를 먼저 새로 하고, 체크한 곳만 등록합니다(검사에서 이미 있는 곳은 체크가 꺼집니다) — 세매·이카운트는 플레이엠디를 체크했으면 그 저장 뒤 이어집니다</div>');
+  /* 이카운트 = 등록 여부 확인만(체크칸 없음, WHS_EC_CHECK_ONLY) */
+  var ecRow=WHS_EC_CHECK_ONLY?'<div style="display:flex;gap:7px;align-items:center;padding:4px 2px;border-top:1px solid #eef2f7"><span style="display:inline-block;width:16px"></span><b style="min-width:70px">이카운트</b>'+stc("",Y.ec)+' <span style="font-size:12.5px;color:#5b6675">등록 여부 확인만 — 넣지 않습니다</span></div>':cb("ec","이카운트");
+  var b3='<div>'+cb("pm","플레이엠디")+cb("ws","세매")+ecRow+'</div>'+(H&&!busy&&!Y.ws.done?_x3FxTable("hs",H,mmdd):'')
+    +(stage<3?'<div style="font-size:12px;color:#5b6675;margin-top:3px">①②가 끝나면 체크할 수 있습니다 — 이미 등록된 곳은 체크가 꺼져 있습니다</div>':'<div style="font-size:12px;color:#5b6675;margin-top:3px">[③]을 누르면 세 곳 중복 검사를 먼저 새로 하고, 체크한 곳만 등록합니다(검사에서 이미 있는 곳은 체크가 꺼집니다) — 세매는 플레이엠디를 체크했으면 그 저장 뒤 이어집니다 · 이카운트는 등록 여부만 봅니다</div>');
   box.innerHTML=sum+_a2rRow("①","파일 받기 — OneDrive, 없으면 메일 (메일이면 미출고 확인)",s1,b1)+_a2rRow("②","중복 검사 — 플레이엠디 · 이카운트 · 세매",s2,b2)+_a2rRow("③","등록 — 체크한 곳만",s3,b3);
 }
 function whsEcRetry(){var v=_whsDate(),W=_whsRunGet();if(!v||!W||W.day!==v)return;W.pmsAt="";W.ecWait="";W.ecErr="";_whsRunSet(W);whsRender();}
