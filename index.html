@@ -10057,15 +10057,22 @@ function _x0Html(k,v,rnd,okMsg){
      pick {pm, ws, fn, lock}이 오면(코스트코 자동발주) PlayMD·세매 앞에 체크칸, 이카운트는 '확인만'. 체크는 fn(이름, 켬)으로 알린다 */
   var P=arguments[4],chk=function(key,lab){if(!P)return lab;var on=!!P[key];
     return '<label style="cursor:'+(P.lock?'default':'pointer')+';display:inline-flex;align-items:center;gap:5px"><input type="checkbox" '+(on?'checked ':'')+(P.lock?'disabled ':'')+'onchange="'+P.fn+'(\''+key+'\',this.checked'+(P.d?',\''+P.d+'\'':'')+')" style="width:15px;height:15px">'+lab+'</label>';};
+  /* 승인 뒤 그 승인으로 등록이 끝난 곳은 '이미 있는데 등록함' 대신 '✅ 등록 완료'(2026-11-23 영업2팀 — 11/23 코스트코가 등록 뒤에도 중복 경고로 보였다).
+     PlayMD = 승인 시각 뒤의 사입출고 기록, 세매 = 그 PlayMD가 끝났고(또는 PlayMD는 안 함) 세매에 금액이 있음 */
+  var pmDone=!!(P&&P.lock&&P.pm&&L&&(!P.at||!L.at||new Date(L.at).getTime()>=new Date(P.at).getTime()-60000));
+  var wsDone=!!(P&&P.lock&&P.ws&&X.ws>0&&(pmDone||!P.pm));
+  var allDone=!!(P&&P.lock&&(P.pm||P.ws)&&(!P.pm||pmDone)&&(!P.ws||wsDone));
+  if(allDone&&S.ok)st="ok";
   var reg=function(key,has){if(!P)return '';var on=!!P[key];
+    if(on&&(key==="pm"?pmDone:key==="ws"?wsDone:false))return ' <span style="font-size:11.5px;font-weight:700;color:#047857;background:#ecfdf5;border-radius:6px;padding:1px 6px">✅ 등록 완료</span>';
     return on?' <span style="font-size:11.5px;font-weight:700;color:'+(has?'#b91c1c':'#1d4ed8')+';background:'+(has?'#fef2f2':'#eff6ff')+';border-radius:6px;padding:1px 6px">'+(has?'⚠ 이미 있는데 등록함':'등록함')+'</span>'
       :' <span style="font-size:11.5px;color:#5b6675">등록 안 함</span>';};
   var body='<table style="border-collapse:collapse;font-size:12.5px">'
     +tr(chk("pm","🚚 PlayMD"),pm+reg("pm",!!L||X.pm>0))
     +tr(chk("ws","📊 세매"),cell(X.ws,X.wsAt,X.wsFail)+reg("ws",X.ws>0))
     +tr((P?'<span style="display:inline-block;width:20px"></span>':'')+"🧮 이카운트",cell(X.ec,X.ecAt,X.ecFail)+(P?' <span style="font-size:11.5px;color:#5b6675">등록 여부 확인만</span>':''))+'</table>'
-    +(P?(S.ok?'<div style="font-weight:800;margin-top:3px;color:'+((P.pm&&(L||X.pm>0))||(P.ws&&X.ws>0)?'#b91c1c':'#047857')+'">'
-          +(P.pm||P.ws?'✔ 체크한 곳만 등록합니다: '+[P.pm?'PlayMD':'',P.ws?'세매':''].filter(Boolean).join(' → ')+(P.lock?' (승인 때 정함)':' — ⑤ 승인 뒤 ⑥에서'):'체크한 곳이 없습니다 — ⑤ 승인 뒤 DSS 송장 · 판매현황만 합니다')+'</div>'
+    +(P?(S.ok?'<div style="font-weight:800;margin-top:3px;color:'+(!allDone&&((P.pm&&!pmDone&&(L||X.pm>0))||(P.ws&&!wsDone&&X.ws>0))?'#b91c1c':'#047857')+'">'
+          +(allDone?'✅ 체크한 곳 등록 끝: '+[P.pm?'PlayMD':'',P.ws?'세매':''].filter(Boolean).join(' → ')+' — 이카운트는 확인만':P.pm||P.ws?'✔ 체크한 곳만 등록합니다: '+[P.pm?'PlayMD':'',P.ws?'세매':''].filter(Boolean).join(' → ')+(P.lock?' (승인 때 정함)':' — ⑤ 승인 뒤 ⑥에서'):'체크한 곳이 없습니다 — ⑤ 승인 뒤 DSS 송장 · 판매현황만 합니다')+'</div>'
         :'<div style="color:#b91c1c;font-weight:700;margin-top:3px">세매·이카운트를 확인해야 다음 단계로 갑니다</div>')
     :S.ok?(X.any||L?'<div style="color:#b91c1c;font-weight:800;margin-top:3px">⛔ 그 날 이미 들어간 매출이 있습니다 — 아래 단계는 겹치는 곳에 등록하지 않습니다</div>'
         :'<div style="color:#047857;font-weight:800;margin-top:3px">'+(okMsg||'✔ 세 곳 모두 그 날 매출 없음 — 아래 1. PlayMD부터 등록합니다')+'</div>')
@@ -27686,7 +27693,7 @@ function _ccApproveNeed(d){return !!d&&d>=CC_APPROVE_SINCE;}
 var _ccPick={};
 function _ccPickOf(d){
   var A=(ccApprove||{})[d];
-  if(A&&A.by)return {pm:A.pm!==false,ws:A.ws!==false,lock:true,fn:"ccPickSet",d:d};
+  if(A&&A.by)return {pm:A.pm!==false,ws:A.ws!==false,lock:true,at:A.at||"",fn:"ccPickSet",d:d};
   var Z=_x0State("cc",d),X=Z.X||{},L=_saipLogOf("cc",d),p=_ccPick[d]||{};
   return {pm:"pm" in p?p.pm:!(L||X.pm>0),ws:"ws" in p?p.ws:!(X.ws>0),lock:false,fn:"ccPickSet",d:d};
 }
