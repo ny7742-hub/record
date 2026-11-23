@@ -28496,6 +28496,21 @@ function _saipCfShow(kind,date,o){
 var _saipChkSeq=0;
 /* 매출등록 줄 체크 → 등록 제외/해제(2026-10-30 영업2팀 "체크하고 삭제") — 팀 공유 saipFix[kind][mmdd][key].skip=true.
    ⚠ 자동화(automation/playmd-hs-saip.mjs 등)가 이 표시를 읽어 그 줄은 플레이엠디에 올리지 않아야 실제로 제외된다. 열쇠는 _saipFixKey와 같다. */
+/* 🗑 삭제 / ↩ 되살리기 한 줄(2026-11-23) — 저장(ws/saipFix) 뒤 [🔍 다시 검사]를 바로 할지 묻는다 */
+function _saipRowDel(b){
+  var kind=b.dataset.kind,mmdd=b.dataset.mmdd,key=b.dataset.key,ymd=b.dataset.ymd||"";if(!kind||!mmdd||!key)return;
+  if(!saipFix||typeof saipFix!=="object")saipFix={};
+  var K=saipFix[kind]=saipFix[kind]||{},D=K[mmdd]=K[mmdd]||{},cur=Object.assign({},D[key]||{}),on=!cur.skip,nm=key.split("|")[2]||"";
+  if(on&&!confirm("이 줄을 삭제할까요?\n\n"+nm+"\n\n플레이엠디에 올리지 않습니다(다시 누르면 되살립니다)."))return;
+  if(on)cur.skip=true;else delete cur.skip;
+  if(cur.code==null&&cur.unit==null&&cur.promo==null&&!cur.skip)delete D[key];else{cur.by=_saipMe();cur.at=new Date().toISOString();D[key]=cur;}
+  if(!Object.keys(D).length)delete K[mmdd];
+  wsSetItem("saipFix",JSON.stringify(saipFix));
+  if(typeof renderSaipAuto==="function")renderSaipAuto();
+  var date=/^\d{8}$/.test(ymd)?ymd.slice(0,4)+"-"+ymd.slice(4,6)+"-"+ymd.slice(6,8):"",m=document.getElementById("saipCfModal");
+  if(date&&m&&m.offsetParent!==null)_saipCfShow(kind,date);
+  if(date&&confirm((on?"삭제했습니다.":"되살렸습니다.")+"\n\n지금 [🔍 다시 검사]를 할까요? (자동화 PC가 1~2분 걸려 미리보기를 다시 만듭니다)"))saipCfRecheck(kind,date);
+}
 function _saipChkApply(lid,kind,mmdd,on){
   var box=document.getElementById(lid);if(!box)return;
   var chks=[].slice.call(box.querySelectorAll('input.saipChk:checked'));
@@ -28575,6 +28590,8 @@ function _saipRowList(kind,rows,maxH,mmdd){
       +(canFix?'<input type="checkbox" class="saipChk" data-grp="'+_escX(kind+"|"+mmdd)+'" data-key="'+_escX(rkey)+'"'+(((_saipChkSel[kind+"|"+mmdd]||{})[rkey])?' checked':'')+' onchange="_saipChkMark(this)" title="선택 — 아래 [등록 제외]/[제외 해제] 버튼" style="width:15px;height:15px;padding:0;margin:0 6px 0 0;flex:none;vertical-align:-2px;cursor:pointer">':'')
       +'<span'+(skipped?' style="color:#64748b;text-decoration:line-through"':'')+'>'+parts.join(', ')+'</span>'+(r.cancel?' <span style="color:#7c3aed;font-size:11px">취소</span>':'')+(r.free?' <span style="color:#5b6675;font-size:11px">무상</span>':'')
       +(skipped?' <span style="color:#b91c1c;font-size:11px;font-weight:700">🚫 등록 제외</span>':'')
+      /* 줄마다 🗑 삭제(2026-11-23 영업2팀 "이건 제가 삭제하게 해주세요" — 삽지·쿠폰 같은 줄을 직접 뺀다) — 체크 → [🚫 등록 제외]와 같은 saipFix skip, 다시 누르면 되살리기 */
+      +(canFix?' <button data-kind="'+_escX(kind)+'" data-mmdd="'+_escX(mmdd)+'" data-key="'+_escX(rkey)+'" data-ymd="'+_escX(r.ymd||"")+'" onclick="_saipRowDel(this)" title="'+(skipped?'되살리기 — 다시 플레이엠디에 올립니다':'이 줄을 삭제 — 플레이엠디에 올리지 않습니다')+'" style="font-size:11.5px;font-weight:700;padding:0 7px;margin-left:4px;border:1px solid '+(skipped?'#cbd5e1':'#fecaca')+';background:'+(skipped?'#fff':'#fef2f2')+';color:'+(skipped?'#334155':'#b91c1c')+';border-radius:5px;cursor:pointer;vertical-align:1px">'+(skipped?'↩ 되살리기':'🗑 삭제')+'</button>':'')
       /* 상품코드리스트 대조 메모(2026-10-21) — 고쳐 넣은 코드·색상/상품명 다름 */
       +(note?'<div style="font-size:11.5px;color:'+(r.chk==="conflict"||r.chk==="missing"?'#b91c1c':'#b45309')+'">'+(r.chk==="conflict"||r.chk==="missing"?'⛔ ':'💡 ')+_escX(note)+'</div>':'')
       +(canFix&&!skipped?_saipFixInput(kind,mmdd,r):'')+'</div>';
@@ -28987,7 +29004,7 @@ function _saipCardBody(kind,opt){
     var ok1=kind+'|'+it.date;
     if(multi)h+='<details'+_saipOpenAttr(ok1,it.date===dv)+' style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0"><summary onclick="_saipOpenClick(this,\''+ok1+'\')" style="cursor:pointer;list-style-position:inside">'+head+'</summary>';
     else h+='<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #e2e8f0">'+(nfKey?nfG:'')+head;
-    if(it.skipped&&it.skipped.length)h+='<div style="color:#5b6675">⏭ 뺀 줄 '+it.skipped.length+'개 — PlayMD에 올리지 않습니다(발송후취소 Cafe24 · 0원·코드 없는 판촉물)<div style="font-size:12px">'+it.skipped.slice(0,8).map(_escX).join("<br>")+'</div></div>';
+    if(it.skipped&&it.skipped.length)h+='<div style="color:#5b6675">⏭ 뺀 줄 '+it.skipped.length+'개 — PlayMD에 올리지 않습니다(발송후취소 Cafe24)<div style="font-size:12px">'+it.skipped.slice(0,8).map(_escX).join("<br>")+'</div></div>';
     if(kind==="mv"&&it.badRows&&it.badRows.length)h+='<div style="color:#b91c1c;font-weight:700">'+it.badRows.length+'줄이 멈췄습니다 — 아래 빨간 줄의 창고코드·상품코드·수량을 고친 뒤 [🔍 이 날짜 다시 확인]</div>';
     else if(kind==="so"&&it.badRows&&it.badRows.length)h+=_soBadRows(it);   /* 매장출고 — 멈춘 줄을 여기서 고친다(2026-10-26) */
     else if(it.bad&&it.bad.length)h+='<div style="color:#b91c1c">'+it.bad.map(_escX).join("<br>")+'<br><span style="color:#5b6675">'+(kind==="so"?'→ [🔍 다시 확인]을 누르면 멈춘 줄을 여기서 고칠 수 있습니다(매장코드·창고코드·상품코드·수량)':kind==="mv"?'→ 모르는 창고·매장 이름은 자동화 PC의 코드표(warehouse-codes.json·store-codes.json)에 더한 뒤 다시 누르세요':'→ 아래 홈쇼핑 코드매칭표에 추가한 뒤 다시 누르세요')+'</span></div>';
