@@ -14199,7 +14199,7 @@ function _a2sEcView(day,scList,st){
   });
   return {amt:tot,n:n,miss:miss,at:V.at};
 }
-function _a2sChTables(CL){
+function _a2sChTables(CL,R){
   var nf=function(n){return Math.round(n).toLocaleString();},wm=_a2sWsMap(),out='',wk="일월화수목금토";
   var th='padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-size:13px;font-weight:800;white-space:nowrap;text-align:left;position:sticky;top:0',td='padding:6px 10px;border-bottom:1px solid #eef2f6;font-size:13px;white-space:nowrap';
   A2S_CH.forEach(function(c){
@@ -14225,14 +14225,18 @@ function _a2sChTables(CL){
     h+='<div style="overflow:auto;border:1px solid #e2e8f0;border-radius:8px;max-height:520px;width:fit-content;max-width:100%"><table style="border-collapse:collapse;width:auto"><thead><tr><th style="'+th+'">일자</th>';
     scs.forEach(function(sc){h+='<th style="'+th+'" title="'+_escX(sc)+'">'+_escX(st[sc].sn)+'</th>';});
     h+='<th style="'+th+'">일 합계</th><th style="'+th+';text-align:right">PlayMD</th><th style="'+th+';text-align:right">이카운트</th><th style="'+th+';text-align:right">세매</th>'+(hsNote?'<th style="'+th+'" title="그날 상품별 판매금액 1~3위 (홈쇼핑사 · 상품명 · 금액)">비고 <span style="font-weight:600;color:#5b6675;font-size:11.5px">상품별 매출 1~3위</span></th>':'')+'</tr></thead><tbody>';
-    Object.keys(days).sort().forEach(function(day){
-      var d=days[day],w=new Date(day+"T00:00:00").getDay();
+    /* 판매 없는 날도 한 줄(2026-11-23 영업2팀 "코스트코 매출 등록이 안 보이는 날짜 11/20 · 토 일도 나오게") — 기간 안 모든 날(오늘까지).
+       판매 없는 날은 매장 칸 –, 이카운트·세매는 그날 들어간 금액이 있으면 보인다(판매 없는데 등록된 것 확인용) */
+    var dayList=R&&R[0]&&R[1]?_a2sDays(R):[];Object.keys(days).forEach(function(k){if(dayList.indexOf(k)<0)dayList.push(k);});
+    dayList.sort().forEach(function(day){
+      var d=days[day]||{amt:0,qty:0,slips:{},slipAmt:{},pm:0,pmAmt:0,scs:{},none:true},w=new Date(day+"T00:00:00").getDay();
+      if(d.none){var nscs={};scs.forEach(function(sc){nscs[sc]=1;});d.scs=nscs;}   /* 세매 종류(코코 온라인/직매입)는 표의 매장으로 */
       h+='<tr><td style="'+td+(w===0?';color:#b91c1c':w===6?';color:#1d4ed8':'')+'">'+(+day.slice(5,7))+'/'+(+day.slice(8,10))+' <span style="font-size:11px">('+wk[w]+')</span></td>';
       scs.forEach(function(sc){var k=day+"_"+sc,v=cell[k];
         h+=v==null?'<td style="'+td+';color:#5b6675">–</td>':'<td style="'+td+';cursor:pointer'+(v<0?';color:#b91c1c':'')+'" onclick="a2sGo(\''+_escX(sc)+'\',\''+day+'\')" title="'+_escX(st[sc].sn)+' '+day+' 상품 보기">'+nf(v)+'</td>';});
-      h+='<td style="'+td+';font-weight:800">'+nf(d.amt)+'</td>';
+      h+=d.none?'<td style="'+td+';color:#5b6675" title="판매일보에 이 날 판매가 없습니다">판매 없음</td>':'<td style="'+td+';font-weight:800">'+nf(d.amt)+'</td>';
       /* 등록 금액(2026-11-17 영업2팀 "등록여부가 아닌 등록금액") — 일 합계와 같으면 초록, 다르면 주황, 0이면 빨강, 기록 없음 ?, 해당 없음 – */
-      var amtTd=function(v,tip){if(v==null)return null;var df=Math.round(v)-Math.round(d.amt),col=Math.abs(df)<=1000?'#047857':v?'#b45309':'#b91c1c';
+      var amtTd=function(v,tip){if(v==null)return null;if(d.none&&!Math.round(v))return '<td style="'+td+';text-align:right;color:#5b6675" title="'+_escX(tip)+' — 0원">–</td>';var df=Math.round(v)-Math.round(d.amt),col=Math.abs(df)<=1000?'#047857':v?'#b45309':'#b91c1c';
         return '<td style="'+td+';text-align:right;font-weight:700;color:'+col+'" title="'+_escX(tip+(Math.abs(df)>1000?' · 일 합계와 차이 '+nf(df)+'원':''))+'">'+nf(v)+'</td>';};
       /* PlayMD = 판매일보(ecSalSrc)에 있는 금액 */
       h+=d.pm?amtTd(d.pmAmt,"PlayMD 매장판매일보 금액"):'<td style="'+td+';text-align:right;color:#5b6675" title="PlayMD 판매일보에 없는 판매(매장 판매등록·트래블메이트)">–</td>';
@@ -14362,7 +14366,7 @@ function a2sRender(){
     var cq=CL.reduce(function(a,x){return a+x.qty;},0),ca=CL.reduce(function(a,x){return a+x.amt;},0),nf0=function(n){return Math.round(n).toLocaleString();};
     document.getElementById("a2sSum").innerHTML='<b>'+R[0]+(R[1]!==R[0]?' ~ '+R[1]:'')+'</b> · 수량 <b>'+nf0(cq)+'</b>개 · 판매금액 <b>'+nf0(ca)+'</b>원 <span style="color:#5b6675;font-size:12px">— 이 보기는 이카운트에 안 넣은 판매도 다 보이고, 오른쪽 PlayMD·이카운트·세매 칸은 그곳에 들어간 금액(일 합계와 같으면 초록 · 다르면 주황 · 0 빨강 · ? 기록 없음 · – 해당 없음, 칸에 마우스를 올리면 설명)</span>';
     box.style.maxHeight="none";
-    box.innerHTML=CL.length?_a2sChTables(CL):'<div style="padding:16px;color:#5b6675;font-size:13px">이 기간·채널에 판매가 없습니다(판매일보를 읽는 중이거나 팀 공유 로그인 필요).</div>';
+    box.innerHTML=CL.length?_a2sChTables(CL,R):'<div style="padding:16px;color:#5b6675;font-size:13px">이 기간·채널에 판매가 없습니다(판매일보를 읽는 중이거나 팀 공유 로그인 필요).</div>';
     return;
   }
   box.style.maxHeight="560px";
