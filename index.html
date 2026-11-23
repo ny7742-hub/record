@@ -9833,6 +9833,18 @@ function _epRender0(){
   try{epAddRender();}catch(e){}
   var E=_esc,S=_epSlips(),R=(saipReq||{}).ep,act=_saipReqActive(R),q=ecPoReq,T=epStatus,h="";
   var pulling=q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000;
+  /* 진행 바 단계(2026-11-23, _a2ProgScan이 읽는다) — ① 발주 가져오기 ② 메일 보내기 ③ 세매 처리 완료 */
+  (function(){
+    var mk=function(st,t){return '<div hidden data-a2st="'+st+'" data-a2t="'+t+'"></div>';};
+    var fresh=ecPo&&ecPo.src==="ss"&&ecPo.pullAt&&Date.now()-new Date(ecPo.pullAt).getTime()<60*60*1000;
+    var unN=S.filter(function(s){return !_epSentOf(s.key);}).length,xN=_epExtraOk().length;
+    var Tt=T&&T.at&&Date.now()-new Date(T.at).getTime()<12*3600*1000&&T.mode!=="draft"?T:null;
+    var s1=pulling?"run":ecPo&&ecPo.pullErr?"bad":fresh?"ok":"";
+    var s2=act?"run":(unN||xN)?(Tt&&!Tt.ok?"bad":"wait"):Tt&&Tt.ok?"ok":fresh?"ok":"";
+    var cf=Tt&&Tt.ok?(Tt.confirm||[]):[],cBad=cf.some(function(c){return !/처리 완료|이미 처리/.test(c.res);});
+    var s3=act?"":(unN||xN)?"":Tt&&Tt.ok?(cBad?"bad":"ok"):fresh?"ok":"";
+    h+=mk(s1,"① 발주 가져오기")+mk(s2,(unN||xN)?"② 메일 보내기 ("+(unN+xN)+"건 대기)":"② 메일 보내기")+mk(s3,"③ 세매 처리 완료");
+  })();
   h+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:#475569;margin-bottom:6px">'
     +'<span>'+(ecPo&&ecPo.at&&ecPo.src==="ss"?'마지막 확인 '+E(_saipFmtAt(ecPo.pullAt||ecPo.at))+' · 세매 미처리 발주 '+S.length+'건'+(ecPo.from?' ('+E(ecPo.from.slice(4,6)+'/'+ecPo.from.slice(6,8))+' 이후)':''):'아직 세매에서 받은 발주 목록이 없습니다')+'</span>'
     +(pulling?'<span style="color:#1d4ed8;font-weight:700">📥 세매에서 발주 가져오는 중… ('+E(q.by||"?")+')</span>':q&&q.note&&q.doneAt&&Date.now()-new Date(q.doneAt).getTime()<30*60*1000?'<span style="color:#b91c1c;font-weight:700">'+E(q.note)+'</span>'
@@ -10830,8 +10842,53 @@ function a2rSaipOk(k,d){var v=d||_a2rDate(k);if(!v)return;if(k==="ds")_wdsChainS
 function _a2rRow(n,title,st,body){
   var ic=st==="ok"?"✅":st==="bad"?"❌":st==="warn"?"⚠️":st==="run"?"⏳":st==="wait"?"⏸":"⬜";
   var bc=st==="ok"?"#86efac":st==="bad"?"#fca5a5":st==="warn"?"#fcd34d":st==="run"?"#7dd3fc":st==="wait"?"#10b981":"#e2e8f0";
-  return '<div style="border:1px solid '+bc+';border-radius:8px;padding:5px 9px;margin-top:5px"><div style="font-weight:800;color:#1f2937">'+ic+' '+n+' '+title+'</div>'+(body?'<div style="margin-top:2px;font-size:12.5px">'+body+'</div>':'')+'</div>';
+  return '<div data-a2st="'+(st||'')+'" data-a2t="'+_escX(String(n+' '+title).replace(/<[^>]*>/g,''))+'" style="border:1px solid '+bc+';border-radius:8px;padding:5px 9px;margin-top:5px"><div style="font-weight:800;color:#1f2937">'+ic+' '+n+' '+title+'</div>'+(body?'<div style="margin-top:2px;font-size:12.5px">'+body+'</div>':'')+'</div>';
 }
+/* ── 진행 바(2026-11-23 영업2팀 "진행사항 바를 만들어주세요 위 탭에 있는곳은 모두 만들어주세요") ──
+   ⚡ AUTO 탭 칸마다 제목 아래에 한 줄 진행 바. 칸이 다시 그려질 때마다(MutationObserver) 그 칸의 단계 줄을 읽어 계산한다 —
+   단계 줄 = _a2rRow(data-a2st ok·run·wait·warn·bad·'') · 코스트코 .cc-step(done·on·todo·skip) · 백화점 도매 발주는 숨은 표시(_epRender0).
+   ✅ ok·skip = 끝, ⏳ run = 반쯤, ❌ bad = 빨강. 새 칸도 _a2rRow로 단계를 그리면 저절로 바가 생긴다 */
+function _a2ProgOf(card){
+  var L=[],cc=card.querySelectorAll(".cc-step");
+  if(cc.length)cc.forEach(function(el){var k=(el.className.match(/cc-step-(done|on|todo|skip)/)||[])[1]||"todo";
+    L.push({st:k==="done"||k==="skip"?"ok":k==="on"?"run":"",t:(el.querySelector(".cc-step-h")||el).textContent.replace(/\s*(완료|지금)\s*$/,"").trim()});});
+  else card.querySelectorAll("[data-a2st]").forEach(function(el){if(el.closest(".a2-prog"))return;L.push({st:el.getAttribute("data-a2st")||"",t:el.getAttribute("data-a2t")||""});});
+  return L;
+}
+function _a2ProgHtml(L){
+  if(!L.length)return "";
+  var n=L.length,ok=0,run=null,bad=null,warn=null;
+  L.forEach(function(x){if(x.st==="ok")ok++;else if(x.st==="run"&&!run)run=x;else if(x.st==="bad"&&!bad)bad=x;else if(x.st==="warn"&&!warn)warn=x;});
+  var p=Math.round((ok+(run?0.5:0))/n*100),all=ok===n;
+  var next=L.filter(function(x){return x.st!=="ok";})[0];
+  var col=all?"#16a34a":bad?"#dc2626":run?"repeating-linear-gradient(45deg,#f59e0b 0 8px,#fbbf24 8px 16px)":warn?"#f59e0b":"#0e7490";
+  var txt=all?"✅ 모두 끝":bad?"❌ 멈춤 — "+bad.t:run?"⏳ "+run.t+" 진행 중":warn?"⚠️ "+warn.t+" 확인 필요":next?"다음: "+next.t:"";
+  return '<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin:-2px 0 8px">'
+    +'<div style="flex:1;min-width:120px;height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden"><div style="height:100%;width:'+Math.max(p,all?100:3)+'%;background:'+col+';transition:width .4s"></div></div>'
+    +'<b style="white-space:nowrap;color:'+(all?"#047857":bad?"#b91c1c":"#334155")+'">'+ok+'/'+n+' · '+p+'%</b>'
+    +'<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%;color:'+(bad?"#b91c1c":run?"#b45309":"#5b6675")+';font-weight:700">'+_escX(txt)+'</span></div>';
+}
+var _a2ProgBusy=false;
+function _a2ProgScan(){
+  var pg=document.getElementById("page-auto2");if(!pg)return;
+  _a2ProgBusy=true;
+  try{
+    pg.querySelectorAll(".a2-card").forEach(function(card){
+      var h=card.querySelector(".a2-h");if(!h)return;
+      var bar=card.querySelector(":scope > .a2-prog"),html=_a2ProgHtml(_a2ProgOf(card));
+      if(!html){if(bar)bar.remove();return;}
+      if(!bar){bar=document.createElement("div");bar.className="a2-prog";h.insertAdjacentElement("afterend",bar);}
+      if(bar.getAttribute("data-h")!==html){bar.innerHTML=html;bar.setAttribute("data-h",html);}
+    });
+  }finally{_a2ProgBusy=false;}
+}
+(function(){
+  var t=0,go=function(){var pg=document.getElementById("page-auto2");if(!pg)return;
+    new MutationObserver(function(ms){if(_a2ProgBusy)return;if(ms.every(function(m){return m.target.closest&&m.target.closest(".a2-prog");}))return;
+      if(t)return;t=setTimeout(function(){t=0;_a2ProgScan();},150);}).observe(pg,{childList:true,subtree:true});
+    _a2ProgScan();};
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();
+})();
 /* 세 곳 중복 확인(2026-11-18 영업2팀 "세매, 이카운트, 플레이엠디 등록이 되었는지 무조건 중복 확인이 먼저 되어야 합니다") —
    PlayMD 저장 전에 그 날 그 매장이 PlayMD 판매일보(ws/ecSalSrc)·이카운트 판매조회(ws/ecSalView)·세매(ws/wssalesDays)에 이미 있는지 본다.
    하나라도 있으면 ② 중복 검사를 ❌로 두고, 저장(saipCfSave)할 때 한 번 더 묻는다. 이카운트·세매는 마지막 최신화 시각 기준(시각을 같이 보여 준다) */
@@ -27942,7 +27999,7 @@ function ccAutoRender(){
     :sb(d5?"done":k5,(DD||CSs)&&!d5?'🔁 송장 · 판매현황 다시':'▶ 송장 · 판매현황 실행','ccStepDss()','오늘 발주의 물류 회신 운송장으로 DSS 송장 입력 → 코스트코탭 판매현황 (PlayMD 사입출고는 건너뜀)');
   var u6=sb(k6,'↗ 매출등록 카드',"apOpen('ccorder','saipAutoCc')",'사입출고등록 🛒 코스트코 매출등록 카드에서 확인 · 등록합니다');
   var u7=sb(k7,'↗ 이카운트 탭',"switchTab('ecount')",'이카운트 탭 💰 매출 등록에서 직접 넣습니다');
-  var row=function(n,t,st,k,b,u){return '<div class="cc-step cc-step-'+k+'"><div class="cc-step-h"><span class="cc-step-n">'+n+'</span>'+t+(k==="done"?' <span class="cc-step-ok">완료</span>':k==="on"?' <span class="cc-step-now">지금</span>':'')+'</div><div class="cc-step-s">'+st+'</div>'+bar(b,k)+(u?'<div class="cc-step-u">'+u+'</div>':'')+'</div>';};
+  var row=function(n,t,st,k,b,u){return '<div class="cc-step cc-step-'+k+'" data-a2t="'+_escX(n)+'"><div class="cc-step-h"><span class="cc-step-n">'+n+'</span>'+t+(k==="done"?' <span class="cc-step-ok">완료</span>':k==="on"?' <span class="cc-step-now">지금</span>':'')+'</div><div class="cc-step-s">'+st+'</div>'+bar(b,k)+(u?'<div class="cc-step-u">'+u+'</div>':'')+'</div>';};
   /* 0. 등록 여부 확인(2026-11-19 영업2팀 "코코도") — 오늘 발주 날짜의 코스트코 온라인(COSO)이 PlayMD·이카운트·세매에 이미 있는지. 확인 못 하면 ⑤ 승인 안 됨(ccApproveGo) */
   if(typeof _x0Html==="function")h+='<div style="margin-bottom:8px">'+_x0Html("cc",gd,"ccAutoRender","",apNeed?PKg:null)+'</div>';   /* PlayMD · 세매 체크 → 승인 뒤 체크한 곳만 등록, 이카운트는 확인만(2026-11-23) */
   h+='<div class="cc-steps">'+row('①','🔢 건수 확인',s1,k1,b1,u1)+row('②','🚚 발주하기',s2,k2,b2,u2)+row('③','✉️ 메일 보내기',s3,k3,b3,u3)+row('④','💬 슬랙 CX팀',s4,k4,b4,u4)+row('⑤','🚚 DSS 송장 · 판매현황',s5,k5,b5,u5)+row('⑥',wsNeed?'📒 PlayMD 사입출고 · 📊 세매':'📒 PlayMD 사입출고',s6,k6,b6,u6)+row('⑦','🧮 이카운트 판매등록',s7,k7,b7,u7)+'</div>';
