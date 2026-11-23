@@ -10077,6 +10077,8 @@ function _whsSys(v){
   var X=_saipXsys("hs",v)||{},L=_saipLogOf("hs",v),it=_saipItemOf("hs",v),f=function(n){return (Number(n)||0).toLocaleString();};
   var mm=v?v.slice(5,7)+v.slice(8,10):"",D=_whsDone(mm,v);
   var pm=L?{done:true,txt:"등록완료",sub:f(L.qty)+"개 · "+f(L.amt)+"원"}:(it&&it.status==="already")||X.pm>0?{done:true,txt:"등록완료",sub:X.pm>0?f(X.pm)+"원(판매일보)":"플레이엠디에 이미 있음"}:{done:false,txt:"등록안됨"};
+  /* 추가분(2026-11-23 영업2팀 "2건 맞나요?" — 11/20 홈쇼핑: 4건은 11/20 등록, 11/23 원본에 현대홈쇼핑 2건이 더 붙음) — 앞 기록·판매일보가 있어도 새로 붙은 줄이 남았으면 등록완료가 아니다(체크 켜짐) */
+  if(it&&it.moreOf&&it.status==="preview"&&(it.rows||[]).length)pm={done:false,more:true,txt:"추가분 등록안됨",sub:"새로 붙은 "+it.rows.length+"줄 · "+f(it.amt)+"원"+(L||X.pm>0?" · 앞서 "+(L?f(L.qty)+"개 "+f(L.amt):f(X.pm))+"원 등록됨":"")};
   var ws=D.wsFull||(X.ws>0&&!D.wd)?{done:true,txt:"등록완료",sub:X.ws>0?f(X.ws)+"원":D.wd?f(D.wd.d)+"원":""}:(D.inWs||X.ws>0)?{done:false,part:true,txt:"일부만",sub:f(X.ws||(D.wd&&D.wd.d))+"원"}:{done:false,txt:X.ws==null?"확인 못 함":"등록안됨"};
   var S=_whsEcSlips(v),lg=S.filter(function(s){return s.log;});
   var ec=S.length&&lg.length===S.length?{done:true,txt:"등록완료",sub:f(lg.reduce(function(a,s){return a+(+s.log.amt||0);},0))+"원"}
@@ -10451,6 +10453,8 @@ function _wdsSys(v){
   var X=_saipXsys("ds",v)||{},L=_saipLogOf("ds",v),it=_saipItemOf("ds",v),f=function(n){return (Number(n)||0).toLocaleString();};
   var mm=v?v.slice(5,7)+v.slice(8,10):"",D=_wdsDone(mm,v);
   var pm=L?{done:true,txt:"등록완료",sub:f(L.qty)+"개 · "+f(L.amt)+"원"}:(it&&it.status==="already")||X.pm>0?{done:true,txt:"등록완료",sub:X.pm>0?f(X.pm)+"원(판매일보)":"플레이엠디에 이미 있음"}:{done:false,txt:"등록안됨"};
+  /* 추가분(2026-11-23 영업2팀 "2건 맞나요?" — 11/20 홈쇼핑: 4건은 11/20 등록, 11/23 원본에 현대홈쇼핑 2건이 더 붙음) — 앞 기록·판매일보가 있어도 새로 붙은 줄이 남았으면 등록완료가 아니다(체크 켜짐) */
+  if(it&&it.moreOf&&it.status==="preview"&&(it.rows||[]).length)pm={done:false,more:true,txt:"추가분 등록안됨",sub:"새로 붙은 "+it.rows.length+"줄 · "+f(it.amt)+"원"+(L||X.pm>0?" · 앞서 "+(L?f(L.qty)+"개 "+f(L.amt):f(X.pm))+"원 등록됨":"")};
   var ws=D.wsFull||(X.ws>0&&!D.wd)?{done:true,txt:"등록완료",sub:X.ws>0?f(X.ws)+"원":D.wd?f(D.wd.d)+"원":""}:(D.inWs||X.ws>0)?{done:false,part:true,txt:"일부만",sub:f(X.ws||(D.wd&&D.wd.d))+"원"}:{done:false,txt:X.ws==null?"확인 못 함":"등록안됨"};
   var S=_wdsEcSlips(v),lg=S.filter(function(s){return s.log;});
   var ec=S.length&&lg.length===S.length?{done:true,txt:"등록완료",sub:f(lg.reduce(function(a,s){return a+(+s.log.amt||0);},0))+"원"}
