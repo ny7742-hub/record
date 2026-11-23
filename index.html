@@ -10863,6 +10863,21 @@ function _a2rRoutes(k,it){
   });
   return o;
 }
+/* 📦 상품 · 어디서 → 어디로(2026-11-23 영업2팀 "상품이 뭔지 어디서 어디로 가는지 보이게") — 원본 검사 줄(it.rows)을 경로별로 */
+function _a2rWhLab(c,lab){c=String(c||"").trim();var n=lab||_a2rWhName(c)||(c?_saipStoreNm(_a2rWhCode(c)):"");return n&&n!==c?n+"("+c+")":(c||"?");}
+function _a2rGoods(k,it){
+  var e=_escX,R=_a2rRoutes(k,it);
+  if(!R.length)return _a2rRow("📦","상품 · 어디서 → 어디로","",'<span style="color:#5b6675">'+(it&&it.status==="nofile"?"원본 없음":"[중복 검사]로 원본을 받으면 상품·경로가 보입니다")+'</span>');
+  var nq=0,ni=0;R.forEach(function(x){nq+=x.qty;ni+=x.items.length;});
+  var h=R.map(function(x,ix){
+    var f=k==="so"?_a2rWhLab("NH"):_a2rWhLab(x.from||"",""),t=k==="so"?_a2rWhLab(x.to,x.lab):_a2rWhLab(x.to||"","");
+    var g={},o=[];x.items.forEach(function(i){var key=i.code||i.name;if(!g[key]){g[key]={code:i.code,name:i.name,qty:0};o.push(key);}g[key].qty+=i.qty;});
+    return '<div style="padding:4px 8px'+(ix?';border-top:1px solid #e2e8f0':'')+'"><div style="font-weight:800;color:#0f172a">🚚 '+e(f)+' <span style="color:#1d4ed8">→</span> '+e(t)+' <span style="color:#475569;font-weight:700">· '+o.length+'품목 '+_a2rF(x.qty)+'개</span></div>'
+      +'<div style="margin-top:2px;color:#334155;line-height:1.55">'+o.map(function(key){var i=g[key],mc=i.code?_saipModelColor({code:i.code}):"";
+        return '<span title="'+e((i.name||"")+" · "+(i.code||""))+'" style="display:inline-block;margin:0 10px 0 0">'+e(mc&&mc!==i.code?mc:(i.name||i.code||"?"))+' <b>'+_a2rF(i.qty)+'</b></span>';}).join("")+'</div></div>';
+  }).join("");
+  return _a2rRow("📦","상품 · 어디서 → 어디로 ("+R.length+"경로 · "+_a2rF(nq)+"개)","",'<div style="max-height:220px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;margin-top:3px">'+h+'</div>');
+}
 function _a2rNameHit(nm,wn,lab){nm=_a2rNorm(nm);if(!nm)return false;if(wn&&nm===_a2rNorm(wn))return true;return !!(lab&&nm.indexOf(_a2rNorm(lab))>=0);}
 /* 이카운트 창고이동 — 그 날 경로마다 맞는 전표(보내는·받는 창고 이름)의 수량 */
 function _a2rMvEc(k,day,it){
@@ -10979,10 +10994,10 @@ function _a2rXTable(k,days,cur){
   var isRet=!!A2R_RET_CH[k];
   var rows=days.map(function(d){var X=_a2rX(k,d),on=d===cur;
     return '<tr style="cursor:pointer;'+(on?'background:#ecfeff;':'')+'" onclick="a2rXPick(\''+k+'\',\''+d+'\')" title="'+d+' 고르기">'
-      +'<td style="padding:3px 6px;border-top:1px solid #eef2f7;font-weight:800;white-space:nowrap">'+(on?'▶ ':'')+_a2rMd(d)+'</td>'+_a2rXCell(X.pm)+_a2rXCell(X.ec)+_a2rXCell(X.ws)+'</tr>';}).join("");
+      +'<td style="padding:3px 6px;border-top:1px solid #eef2f7;font-weight:800;white-space:nowrap">'+(on?'▶ ':'')+_a2rMd(d)+'</td>'+_a2rXCell(X.pm)+_a2rXCell(X.ec)+(isRet?_a2rXCell(X.ws):'')+'</tr>';}).join("");
   var V=isRet?ecSalView:ecMoveView,ws=isRet?" · 세매 반품은 최신화 때 기준":"";
   return '<div style="margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
-    +'<tr style="background:#f1f5f9;text-align:left"><th style="padding:3px 6px">날짜</th><th style="padding:3px 6px">PlayMD</th><th style="padding:3px 6px">이카운트'+(isRet?' 판매':' 창고이동')+'</th><th style="padding:3px 6px">세매</th></tr>'+rows+'</table>'
+    +'<tr style="background:#f1f5f9;text-align:left"><th style="padding:3px 6px">날짜</th><th style="padding:3px 6px">PlayMD</th><th style="padding:3px 6px">이카운트'+(isRet?' 판매':' 창고이동')+'</th>'+(isRet?'<th style="padding:3px 6px">세매</th>':'')+'</tr>'+rows+'</table>'
     +'<div style="padding:2px 6px;font-size:11.5px;color:#5b6675">이카운트 '+(V&&V.at?_escX(_saipFmtAt(V.at))+' 조회':'조회 기록 없음')+ws+' — 맞지 않으면 [🔄 세 곳 다시 확인]</div></div>';
 }
 function a2rXPick(k,d){
@@ -11127,7 +11142,8 @@ function _a2rSaip(k,dv){
   if(x3&&it&&it.already)b2=b2.replace("⛔ 플레이엠디에 이미 있습니다 — 등록하지 마세요","⛔ 플레이엠디에 이미 있습니다 — PlayMD에는 등록하지 마세요(이카운트는 ⑤에서 따로)");
   var inner=(act?_saipProgBar(k,R):'')
     +_a2rRow("①",k==="mv"?"창고간이동 원본 받기":k==="so"?"매장출고 원본 받기":k==="hs"?"홈쇼핑 파일 받기 — OneDrive, 없으면 메일 (매칭표로 코드 채움)":"OneDrive 백화점몰 파일 받기",s1,b1)
-    +_a2rRow("②",SAIP_XS[k]||x3?"중복 검사(플레이엠디·이카운트·세매에 이미 있는지)":"중복 검사(플레이엠디에 이미 있는지)",s2,(x3?'@@A2R_X3@@':'')+b2)
+    +(x3?'@@A2R_GOODS@@':'')
+    +_a2rRow("②",x3?"중복 검사(플레이엠디·이카운트에 이미 있는지)":SAIP_XS[k]?"중복 검사(플레이엠디·이카운트·세매에 이미 있는지)":"중복 검사(플레이엠디에 이미 있는지)",s2,(x3?'@@A2R_X3@@':'')+b2)
     +_a2rRow("③",x3?"PlayMD 등록 — 미리보기 확인 → 승인":"미리보기 확인 → 승인",s3,b3)
     +_a2rRow("④","플레이엠디 저장",s4,b4);
   /* 세 곳 확인표 + ⑤ 이카운트 창고이동(2026-11-19 — 창고간이동·매장출고만) */
@@ -11147,9 +11163,8 @@ function _a2rSaip(k,dv){
     if(ES&&ES.mode==="save"&&ES.slips&&ES.slips.some(function(x){return String(x.key||"").indexOf(k+"_"+v+"_")===0;})&&ES.state!=="끝"&&!RL){s5="bad";b5='<span style="color:#b91c1c">'+e(ES.state+" — "+(ES.msg||""))+'</span>';}
     /* ② 중복 검사에 세 곳을 한눈에(PlayMD·이카운트·세매 — 등록은 아래에서 따로따로) */
     var xc=function(c){return ({ok:"✅",bad:"❌",warn:"⚠️",na:"➖"}[c.st]||"❔")+' '+e(c.txt);};
-    inner=inner.replace('@@A2R_X3@@','<div style="margin-top:3px;font-size:12.5px">PlayMD '+xc(X.pm)+' · 이카운트 '+xc(X.ec)+' · 세매 '+xc(X.ws)+'</div>');
-    inner=_a2rXTable(k,_a2rMvDays(k),v)+inner+_a2rRow("⑤","이카운트 창고이동 등록 (PlayMD와 따로)",s5,b5)
-      +_a2rRow("⑥","세매","",'<span style="color:#5b6675">창고간이동·매장출고는 판매가 아니라 세매에 등록하지 않습니다</span>');
+    inner=inner.replace('@@A2R_X3@@','<div style="margin-top:3px;font-size:12.5px">PlayMD '+xc(X.pm)+' · 이카운트 '+xc(X.ec)+'</div>');
+    inner=_a2rXTable(k,_a2rMvDays(k),v)+inner.replace('@@A2R_GOODS@@',_a2rGoods(k,it))+_a2rRow("⑤","이카운트 창고이동 등록 (PlayMD와 따로)",s5,b5);   /* 세매 ⑥ 줄은 뺐다(2026-11-23 영업2팀 "세매는 삭제") */
   }
   if(dv)return {inner:inner,need:need,lab:lab,L:L,act:act,it:it,canReg:canReg};
   return _a2rCard(k,false,inner,btns);
