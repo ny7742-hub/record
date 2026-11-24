@@ -10047,6 +10047,35 @@ function whsFxPart(r,i,k,v){
   X.open[r]=1;_whsFxSave();
   if(k==="add"||k==="del")whsRender();else setTimeout(whsRender,0);
 }
+/* ① PlayMD 표도 같은 상품이면 같이 고치기(2026-11-24 영업2팀 "같은 상품이면 동일하게") — 상품코드 = 같은 상품명, 개당 금액 = 같은 쇼핑몰·상품명.
+   원래 값이 비었던 줄에만(이미 있는 줄·삭제 줄·사람이 따로 고친 줄은 그대로). 따라 바뀐 칸은 ws/saipFix에 cp:true */
+function whsPmSame(el){
+  var mmdd=el.dataset.mmdd,key=el.dataset.key,field=el.dataset.field==="unit"?"unit":"code",v=_whsDate();if(!mmdd||!key||!v)return;
+  var it=_saipItemOf("hs",v);if(!it)return;
+  var rows=it.allRows&&it.allRows.length?it.allRows:(it.rows||[]),D=((saipFix||{}).hs||{})[mmdd]||{},src=null;
+  if(D[key]&&D[key].cp){delete D[key].cp[field];if(!Object.keys(D[key].cp).length)delete D[key].cp;}   /* 사람이 직접 고친 칸 — 이제 따라 바뀌지 않는다 */
+  rows.forEach(function(r){if(_saipFixKey(r)===key)src=r;});if(!src)return;
+  var nn=function(t){return String(t||"").replace(/\s/g,"");},sv=(D[key]||{})[field],n=0;
+  rows.forEach(function(r){
+    var k2=_saipFixKey(r);if(r===src||k2===key||r.had||nn(r.prod)!==nn(src.prod))return;
+    if(field==="unit"&&nn(r.shop)!==nn(src.shop))return;
+    if(field==="code"?!!r.code:(r.unit||0)>0)return;   /* 원래 값이 있는 줄은 그대로 */
+    var cur=Object.assign({},D[k2]||{});if(cur.skip)return;
+    if(cur[field]!=null&&!(cur.cp&&cur.cp[field]))return;   /* 사람이 따로 고친 칸 */
+    if(sv==null){if(!(cur.cp&&cur.cp[field]))return;delete cur[field];delete cur.cp[field];}
+    else{if(cur[field]===sv)return;cur[field]=sv;cur.cp=Object.assign({},cur.cp||{});cur.cp[field]=1;}
+    if(cur.cp&&!Object.keys(cur.cp).length)delete cur.cp;
+    if(cur.code==null&&cur.unit==null&&cur.promo==null&&!cur.skip)delete D[k2];else{cur.by=_saipMe();cur.at=new Date().toISOString();D[k2]=cur;}
+    n++;
+  });
+  if(!n)return;
+  saipFix.hs=saipFix.hs||{};saipFix.hs[mmdd]=D;
+  wsSetItem("saipFix",JSON.stringify(saipFix));
+  /* 커서가 다른 칸에 있어도 따라 바뀐 칸 값은 바로 보이게 */
+  [].forEach.call(document.querySelectorAll('#whsSteps input[data-saipfix][data-field="'+field+'"]'),function(x){
+    var c=D[x.dataset.key];if(!c||!c.cp||!c.cp[field]||x===el)return;
+    x.value=field==="unit"?Number(c.unit).toLocaleString():c.code;x.style.background="#ede9fe";});
+}
 function whsFxSet(r,k,v){
   var X=window._whsFx;if(!X)return;var o=X.rows[r]||(X.rows[r]={});
   var x=_whsFxLines().filter(function(y){return y.r===r;})[0]||{};
@@ -10273,7 +10302,8 @@ function _x3FxTable(k,H,mmdd){
   var bad=LN.filter(function(x){return (!x.cc||!x.amt)&&!(FX0.rows[x.r]||{}).del;}).length;
   return '<div style="margin-top:8px;font-size:12.5px"><b style="color:#92400e">✏️ 세매에 올릴 줄 '+f(LN.length)+'개</b>'+(bad?' · <b style="color:#b91c1c">코드·금액 빈 줄 '+bad+'개</b>':'')+' · <span style="color:#1b6e82;font-weight:700">상품컬러코드·결제금액 칸을 누르면 고칠 수 있습니다</span></div>'
     +'<div style="overflow:auto;max-height:420px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%"><tr><th '+thR+'>행</th><th '+thL+'>쇼핑몰</th><th '+thL+'>주문번호</th><th '+thL+'>상품명(주문)</th><th '+thL+'>상품컬러코드</th><th '+thL+'>상품코드</th><th '+thR+'>수량</th><th '+thR+'>결제금액</th><th style="'+th+'text-align:center">빼기</th></tr>'
-    +LN.map(function(x){
+    +LN.map(function(x,i){return {x:x,i:i};}).sort(function(a,b){   /* 상품컬러코드·결제금액이 빈 줄을 맨 위로(2026-11-24 영업2팀) — 원본(자동화) 값 기준이라 고치는 동안 줄이 안 움직인다 */
+      var rk=function(o){var d=(FX0.rows[o.x.r]||{}).del;return d?2:(!o.x.cc||!o.x.amt)?0:1;};return rk(a)-rk(b)||a.i-b.i;}).map(function(o){return o.x;}).map(function(x){
       var FX=window["_"+P+"Fx"]||{rows:{}},dl=(FX.rows[x.r]||{}).del,delB='<td style="'+td+'text-align:center"><button onclick="_x3FxDel(\''+P+'\','+x.r+')" title="'+(dl?'되살리기':'이 줄은 세매에 올리지 않습니다(삽지·쿠폰 등)')+'" style="font-size:12px;padding:1px 7px;border:1px solid '+(dl?'#cbd5e1':'#fecaca')+';background:'+(dl?'#fff':'#fef2f2')+';color:'+(dl?'#334155':'#b91c1c')+';border-radius:5px;cursor:pointer">'+(dl?'↩':'🗑')+'</button></td>';
       if(dl)return '<tr style="background:#f1f5f9;color:#5b6675;text-decoration:line-through"><td style="'+td+tdR+'">'+x.r+'</td><td '+tdN+'>'+e(x.shop)+'</td><td style="'+td+tdC+'">'+e(x.ord)+'</td><td '+tdL+'>'+e(x.name)+' <b style="color:#b91c1c;text-decoration:none">뺌</b></td><td style="'+td+tdC+'">'+e(x.cc)+'</td><td style="'+td+tdC+'">'+e(x.pc)+'</td><td style="'+td+tdR+'">'+f(x.qty)+'</td><td style="'+td+tdR+'">'+f(x.amt)+'</td>'+delB+'</tr>';
       if(window["_"+P+"FxEditing"](x))return window["_"+P+"FxRow"](x,LN,td,tdR,tdN,tdL,tdC).replace(/<\/tr>$/,delB+'</tr>');
@@ -10419,7 +10449,7 @@ function whsRender(){
       b1+='<div style="overflow:auto;max-height:340px;margin-top:4px;border:1px solid #e2e8f0;border-radius:6px"><table style="border-collapse:collapse;width:100%;font-size:12px"><tr style="background:#f1f5f9;text-align:left;position:sticky;top:0;z-index:1"><th style="padding:2px 6px">쇼핑몰</th><th style="padding:2px 6px">상품명</th><th style="padding:2px 6px">상품코드</th><th style="padding:2px 6px;text-align:right">수량</th><th style="padding:2px 6px;text-align:right">'+(canEd?'금액(개당)':'금액')+'</th><th style="padding:2px 6px;text-align:center">PlayMD</th><th style="padding:2px 6px;text-align:center" title="세매는 그 날 그 쇼핑몰(매장) 금액으로 봅니다">세매</th><th style="padding:2px 6px;text-align:center" title="이카운트는 그 날 그 거래처 전표로 봅니다">이카운트</th>'+(canEd?'<th style="padding:2px 6px"></th>':'')+'</tr>'
         +RR.map(function(o){
           var r=o.r,fx=o.fx,sk=o.sk,code=o.code,U=o.U,u=o.u,ed=canEd&&!r.had&&!sk,key=_saipFixKey(r),ou=r.origUnit!=null?r.origUnit:(r.unit||0);
-          var at=' data-saipfix="1" data-kind="hs" data-mmdd="'+e(it.mmdd)+'" data-key="'+e(key)+'" onchange="saipFixSet(this);setTimeout(function(){if(!_saipFixEditing())whsRender();},0)" onkeydown="if(event.key===\'Enter\')this.blur()" spellcheck="false"';
+          var at=' data-saipfix="1" data-kind="hs" data-mmdd="'+e(it.mmdd)+'" data-key="'+e(key)+'" onchange="saipFixSet(this);whsPmSame(this);setTimeout(function(){if(!_saipFixEditing())whsRender();},0)" onkeydown="if(event.key===\'Enter\')this.blur()" spellcheck="false"';
           var cC=ed?'<input'+at+' data-field="code" data-orig="'+e(r.origCode||r.code||"")+'" value="'+e(code)+'" placeholder="코드 없음" style="'+inp+'width:130px;background:'+(!code?'#fee2e2':fx.code?'#fef9c3':'#fffdf5')+'">':(code?e(code):'코드 없음');
           var cA=ed?'<input'+at+' data-field="unit" inputmode="numeric" data-orig="'+ou+'" value="'+(u>0?f(u):'')+'" placeholder="개당 금액" title="개당 금액 — 금액 = 개당 × 수량" style="'+inp+'width:78px;text-align:right;background:'+(!(u>0)?'#fee2e2':U.fixed?'#fef9c3':'#fffdf5')+'">'+((r.qty||0)>1&&u>0?' <span style="color:#5b6675">= '+f(u*r.qty)+'</span>':''):(u>0?f(u*(r.qty||0)):'금액 없음');
           var del=canEd&&!r.had?'<td style="'+td+'"><button data-kind="hs" data-mmdd="'+e(it.mmdd)+'" data-key="'+e(key)+'" onclick="wdsRowDel(this)" title="'+(sk?'되살리기 — 다시 등록합니다':'삭제 — 등록하지 않습니다')+'" style="font-size:11.5px;font-weight:700;padding:0 7px;border:1px solid '+(sk?'#cbd5e1':'#fecaca')+';background:'+(sk?'#fff':'#fef2f2')+';color:'+(sk?'#334155':'#b91c1c')+';border-radius:5px;cursor:pointer;width:auto">'+(sk?'↩ 되살리기':'🗑 삭제')+'</button></td>':canEd?'<td style="'+td+'"></td>':'';
