@@ -10018,7 +10018,34 @@ function _whsFxRow(x,LN,td,tdR,tdN,tdL,tdC){
     +'<datalist id="whsFxL'+x.r+'">'+C.map(function(r){return '<option value="'+e(r[7])+'">'+e(r[4])+' · '+e(r[2])+'</option>';}).join("")+'</datalist>'+info+'</td>'
     +'<td style="'+td+tdC+'">'+e(rr?rr[1]:(x.pc||""))+'</td>'
     +'<td style="'+td+tdR+'">'+(Number(x.qty)||0).toLocaleString()+'</td>'
-    +'<td style="'+td+tdR+'"><input data-whsfx="1" type="number" min="0" value="'+(Number(o.amt)||"")+'" onchange="whsFxSet('+x.r+',\'amt\',this.value)" style="'+ist+'width:90px;text-align:right" placeholder="결제금액"></td></tr>';
+    +'<td style="'+td+tdR+'"><input data-whsfx="1" type="number" min="0" value="'+(Number(o.amt)||"")+'" onchange="whsFxSet('+x.r+',\'amt\',this.value)" style="'+ist+'width:90px;text-align:right" placeholder="결제금액"></td></tr>'
+    +_whsFxPartRows(x,o,td,tdR,tdC);
+}
+/* 세트 상품 나누기(2026-11-24 영업2팀 "세트상품은 상품컬러를 상품 각각 등록되게") — 한 줄을 상품마다 한 줄씩(상품컬러코드·결제금액 따로).
+   o.parts = [{cc, amt}] = 두 번째 상품부터(첫 상품은 원래 칸 o.cc·o.amt). 세매 자동화(wssales-hs.mjs)가 같은 주문 줄을 복사해 상품마다 한 줄로 올린다 */
+function _whsFxPartRows(x,o,td,tdR,tdC){
+  var e=_escX,P=o.parts||[],f=function(n){return (Number(n)||0).toLocaleString();};
+  var ist='font:12px monospace;padding:2px 5px;border:2px solid #7c3aed;border-radius:5px;background:#fff;';
+  var h=P.map(function(p,i){var rr=_whsRawOf(p.cc);
+    return '<tr style="background:#f5f3ff"><td></td><td colspan="3" style="'+td+'text-align:right;color:#6d28d9;font-weight:700">└ 세트 상품 '+(i+2)+'</td>'
+      +'<td style="'+td+'"><input data-whsfx="1" value="'+e(p.cc||"")+'" onchange="whsFxPart('+x.r+','+i+',\'cc\',this.value)" style="'+ist+'width:130px" placeholder="상품컬러코드">'
+      +(p.cc?(rr?'<div style="font-size:11px;color:#047857">'+e(rr[2])+' · '+e(rr[4])+' · '+_whsRawPrice(rr).toLocaleString()+'원</div>':'<div style="font-size:11px;color:#b91c1c">상품 데이터에 없는 코드</div>'):'<div style="font-size:11px;color:#5b6675">코드를 입력하세요</div>')+'</td>'
+      +'<td style="'+td+tdC+'">'+e(rr?rr[1]:"")+'</td><td style="'+td+tdR+'">'+f(x.qty)+'</td>'
+      +'<td style="'+td+tdR+'"><input data-whsfx="1" type="number" min="0" value="'+(Number(p.amt)||"")+'" onchange="whsFxPart('+x.r+','+i+',\'amt\',this.value)" style="'+ist+'width:90px;text-align:right" placeholder="결제금액"></td>'
+      +'<td style="'+td+'text-align:center"><button onclick="whsFxPart('+x.r+','+i+',\'del\')" title="이 세트 상품 빼기" style="font-size:12px;padding:1px 7px;border:1px solid #ddd6fe;background:#fff;color:#6d28d9;border-radius:5px;cursor:pointer">✕</button></td></tr>';}).join("");
+  var tot=(Number(o.amt)||0)+P.reduce(function(a,p){return a+(Number(p.amt)||0);},0);
+  return h+'<tr style="background:'+(P.length?'#f5f3ff':'#fffbeb')+'"><td></td><td colspan="8" style="'+td+'padding-top:0">'
+    +'<button onclick="whsFxPart('+x.r+',-1,\'add\')" style="font-size:11.5px;font-weight:700;padding:1px 8px;border:1px dashed #7c3aed;background:#fff;color:#6d28d9;border-radius:5px;cursor:pointer">＋ 세트 상품 추가</button>'
+    +(P.length?' <span style="font-size:12px;color:#6d28d9">세트 '+(P.length+1)+'개 상품으로 나눠 올림 · 합계 <b>'+f(tot)+'원</b> — 상품마다 결제금액을 나눠 쓰세요(합계가 주문 금액이 되게)</span>':' <span style="font-size:11.5px;color:#5b6675">세트 상품이면 눌러서 상품마다 상품컬러코드를 따로 넣으세요</span>')+'</td></tr>';
+}
+function whsFxPart(r,i,k,v){
+  var X=window._whsFx;if(!X)return;var o=X.rows[r]||(X.rows[r]={cc:"",amt:0});var P=o.parts=o.parts||[];
+  if(k==="add")P.push({cc:"",amt:0});
+  else if(k==="del")P.splice(i,1);
+  else if(P[i]){if(k==="cc"){P[i].cc=String(v||"").trim().toUpperCase();var rr=_whsRawOf(P[i].cc),x=_whsFxLines().filter(function(y){return y.r===r;})[0]||{};if(rr&&!P[i].amtSet)P[i].amt=_whsRawPrice(rr)*(Number(x.qty)||1);}else{P[i].amt=Number(v)||0;P[i].amtSet=true;}}
+  if(!P.length)delete o.parts;
+  X.open[r]=1;_whsFxSave();
+  if(k==="add"||k==="del")whsRender();else setTimeout(whsRender,0);
 }
 function whsFxSet(r,k,v){
   var X=window._whsFx;if(!X)return;var o=X.rows[r]||(X.rows[r]={});
@@ -10044,11 +10071,15 @@ function _whsFixCollect(){
     var o=X.rows[x.r];if(o&&o.del){fix[x.r]={name:x.name,del:true};n++;return;}   /* 🗑 뺀 줄(2026-11-23) — 세매에 안 올림 */
     if(!o||!(!x.cc||!x.amt||X.open[x.r]))return;
     if(!o.cc||!(Number(o.amt)>0)){errs.push(x.r+"행 "+x.name+" — "+(!o.cc?"상품컬러코드":"결제금액")+" 비어 있음");return;}
-    if(o.cc===x.cc&&Number(o.amt)===Number(x.amt))return;
+    var PT=(o.parts||[]).filter(function(p){return p&&(p.cc||Number(p.amt)>0);});
+    if(PT.some(function(p){return !p.cc||!(Number(p.amt)>0);})){errs.push(x.r+"행 "+x.name+" — 세트 상품의 상품컬러코드·결제금액이 비어 있음");return;}
+    if(!PT.length&&o.cc===x.cc&&Number(o.amt)===Number(x.amt))return;
     var rr=_whsRawOf(o.cc),pc=rr?String(rr[1]):(x.pc||String(o.cc).slice(0,-3));
     fix[x.r]={name:x.name,cc:o.cc,pc:pc,amt:Number(o.amt)};n++;
+    if(PT.length)fix[x.r].parts=PT.map(function(p){var r2=_whsRawOf(p.cc);return {cc:p.cc,pc:r2?String(r2[1]):String(p.cc).slice(0,-3),amt:Number(p.amt)};});   /* 세트 — 상품마다 한 줄 */
     /* 고친 줄은 전부 매칭표에 '수정함'으로 기억(2026-11-18 영업2팀 "수정했으면 추후에도 수정한대로") — fixCc·fixAmt = 사람이 바꾼 칸 */
-    learn.push({x:x,cc:o.cc,pc:pc,rr:rr,unit:Math.round(Number(o.amt)/(Number(x.qty)||1)),fixCc:!x.cc||o.cc!==x.cc,fixAmt:!x.amt||Number(o.amt)!==Number(x.amt)});
+    learn.push({x:x,cc:o.cc,pc:pc,rr:rr,unit:Math.round(Number(o.amt)/(Number(x.qty)||1)),fixCc:!x.cc||o.cc!==x.cc,fixAmt:!x.amt||Number(o.amt)!==Number(x.amt),
+      parts:PT.length?fix[x.r].parts.map(function(p){return {colorCode:p.cc,prodCode:p.pc,price:Math.round(p.amt/(Number(x.qty)||1))};}):null});
   });
   if(errs.length)return {fix:fix,n:n,errs:errs};
   /* 비어 있던 줄은 자비스 매칭표에 배운다(쇼핑몰+주문 상품명 열쇠 — _hsCodeMatchProcessRows와 같은 합치기) */
@@ -10056,7 +10087,7 @@ function _whsFixCollect(){
     var k=function(q){return (q.normChannel||"")+"|"+(q.normName||"");},map={};
     hsCodeMatchDB.forEach(function(q){map[k(q)]=q;});
     learn.forEach(function(l){var rr=l.rr||[];var en={channel:l.x.shop,normChannel:_hsCodeNormChannel(l.x.shop),colorName:l.x.name,normName:_hsCodeNormName(l.x.name),colorCode:l.cc,prodCode:l.pc,prodName:String(rr[2]||""),price:l.unit,colorShort:String(rr[3]||""),colorKr:String(rr[4]||""),by:_saipMe(),at:new Date().toISOString(),fixed:true};
-      var old=map[k(en)];en.fixCc=l.fixCc||!!(old&&old.fixed&&old.fixCc);en.fixAmt=l.fixAmt||!!(old&&old.fixed&&old.fixAmt);map[k(en)]=en;});
+      var old=map[k(en)];en.fixCc=l.fixCc||!!(old&&old.fixed&&old.fixCc);en.fixAmt=l.fixAmt||!!(old&&old.fixed&&old.fixAmt);if(l.parts){en.parts=l.parts;en.fixCc=true;en.fixAmt=true;}map[k(en)]=en;});   /* 세트(parts) — 다음부터 같은 상품명이면 세매 자동화가 상품마다 나눠 올린다 */
     hsCodeMatchDB=Object.keys(map).map(function(q){return map[q];});
     try{saveHsCodeMatchDB();}catch(e){}
   }
