@@ -11024,7 +11024,16 @@ function a2rSaipGo(k,d){
 function a2rSaipRecheck(k,d){
   var v=d||_a2rDate(k);if(!v){alert("날짜를 골라 주세요.");return;}
   var src=_saipDateEl(k);if(src){src.value=v;_saipTouched[k]=true;}
-  saipConfirmGo(k,{force:true});setTimeout(a2rRender,0);
+  saipConfirmGo(k,{force:true});
+  /* 이카운트도 같이 다시 조회(2026-11-24 영업2팀 "재확인을 했으면 이카운트에 등록되는지 확인해야") — 창고간이동·매장출고는 ws/ecMoveView를 새로(emv, 읽기만).
+     ecMoveView는 통째로 바뀌므로 45일 범위로 받는다 */
+  if(k==="mv"||k==="so")a2rEcMvRefresh(v);
+  setTimeout(a2rRender,0);
+}
+function a2rEcMvRefresh(v){
+  var cur=(saipReq||{}).emv;if(_saipReqActive(cur))return;
+  var t=_a2rToday(),f=_a2rAgo(45);if(v&&v<f)f=v;
+  _saipReqSet("emv",{id:Date.now().toString(36)+"emv",by:_saipMe(),at:new Date().toISOString(),state:"요청",from:f,to:t});
 }
 function a2rSaipView(k,d){var v=d||_a2rDate(k);if(!v)return;if(_saipItemOf(k,v))_saipCfShow(k,v);else a2rSaipGo(k,v);}
 function a2rSaipOk(k,d){var v=d||_a2rDate(k);if(!v)return;if(k==="ds")_wdsChainSet(v);if(k==="hs")_whsChainSet(v);saipCfSave(k,v);setTimeout(a2rRender,0);}
@@ -11292,11 +11301,12 @@ function _a2rXTable(k,days,cur){
   var isRet=!!A2R_RET_CH[k];   /* 열 순서 PlayMD → 세매 → 이카운트(2026-11-23 영업2팀 "순서는 플레이엠디, 세매, 이카운트") */
   var rows=days.map(function(d){var X=_a2rX(k,d),on=d===cur,op=isRet&&_a2rRetOpen[k]===d;
     return '<tr style="cursor:pointer;'+(op?'background:#e0f2fe;':on?'background:#ecfeff;':'')+'" onclick="a2rXPick(\''+k+'\',\''+d+'\')" title="'+d+(isRet?' — 누르면 반품 상품 리스트를 펼치고/접습니다':' 고르기')+'">'
-      +'<td style="padding:3px 6px;border-top:1px solid #eef2f7;font-weight:800;white-space:nowrap">'+(isRet?(op?'▼ ':'▸ '):(on?'▶ ':''))+_a2rMd(d)+'</td>'+_a2rXCell(X.pm)+(isRet?_a2rXCell(X.ws):'')+_a2rXCell(X.ec)+'</tr>'
+      +'<td style="padding:3px 6px;border-top:1px solid #eef2f7;font-weight:800;white-space:nowrap">'+(isRet?(op?'▼ ':'▸ '):(on?'▶ ':''))+_a2rMd(d)+'</td>'+(isRet?_a2rXCell(X.pm)+_a2rXCell(X.ws)+_a2rXCell(X.ec):_a2rXCell(X.ec)+_a2rXCell(X.pm))+'</tr>'
       +(op?'<tr><td colspan="4" style="padding:4px 6px 8px;background:#f8fafc;border-top:1px solid #bae6fd">'+_a2rRetList(k,d,X)+'</td></tr>':'');}).join("");
   var V=isRet?ecSalView:ecMoveView,ws=isRet?" · 세매 반품은 최신화 때 기준":"";
   return '<div style="margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
-    +'<tr style="background:#f1f5f9;text-align:left"><th style="padding:3px 6px">날짜</th><th style="padding:3px 6px">PlayMD</th>'+(isRet?'<th style="padding:3px 6px">세매</th>':'')+'<th style="padding:3px 6px">이카운트'+(isRet?' 판매':' 창고이동')+'</th></tr>'+rows+'</table>'
+    +'<tr style="background:#f1f5f9;text-align:left"><th style="padding:3px 6px">날짜</th>'+(isRet?'<th style="padding:3px 6px">PlayMD</th><th style="padding:3px 6px">세매</th><th style="padding:3px 6px">이카운트 판매</th>':'<th style="padding:3px 6px">이카운트 창고이동</th><th style="padding:3px 6px">PlayMD</th>')+'</tr>'+rows+'</table>'
+    +(!isRet&&_saipReqActive((saipReq||{}).emv)?'<div style="padding:2px 6px;font-size:12px;color:#1d4ed8;font-weight:700">⏳ 이카운트 창고이동 다시 조회 중… (1분쯤)</div>':'')
     +'<div style="padding:2px 6px;font-size:11.5px;color:#5b6675">이카운트 '+(V&&V.at?_escX(_saipFmtAt(V.at))+' 조회':'조회 기록 없음')+ws+' — 맞지 않으면 [🔄 세 곳 다시 확인]</div></div>';
 }
 /* 반품 날짜 줄을 누르면 펼치는 상품 리스트(2026-11-23 영업2팀 "중복검사 먼저하고 일자별로 누르면 리스트 보이게")
@@ -11520,7 +11530,7 @@ function _a2rSaip(k,dv){
     if(ES&&ES.mode==="save"&&ES.slips&&ES.slips.some(function(x){return String(x.key||"").indexOf(k+"_"+v+"_")===0;})&&ES.state!=="끝"&&!RL){s5="bad";b5='<span style="color:#b91c1c">'+e(ES.state+" — "+(ES.msg||""))+'</span>';}
     /* ② 중복 검사에 세 곳을 한눈에(PlayMD·이카운트·세매 — 등록은 아래에서 따로따로) */
     var xc=function(c){return ({ok:"✅",bad:"❌",warn:"⚠️",na:"➖"}[c.st]||"❔")+' '+e(c.txt);};
-    inner=inner.replace('@@A2R_X3@@','<div style="margin-top:3px;font-size:12.5px">PlayMD '+xc(X.pm)+' · 이카운트 '+xc(X.ec)+'</div>');
+    inner=inner.replace('@@A2R_X3@@','<div style="margin-top:3px;font-size:12.5px">이카운트 '+xc(X.ec)+' · PlayMD '+xc(X.pm)+'</div>');
     inner=_a2rXTable(k,_a2rMvDays(k),v)+inner.replace('@@A2R_GOODS@@',_a2rGoods(k,it))+_a2rRow("⑤","이카운트 창고이동 등록 (PlayMD와 따로)",s5,b5);   /* 세매 ⑥ 줄은 뺐다(2026-11-23 영업2팀 "세매는 삭제") */
   }
   if(dv)return {inner:inner,need:need,lab:lab,L:L,act:act,it:it,canReg:canReg};
