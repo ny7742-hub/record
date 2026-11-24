@@ -9929,6 +9929,8 @@ function whsGo(opt){
       +"\n\n다시 올리면 매출이 두 번 잡힐 수 있어 요청하지 않습니다. 고쳐야 하면 세매 데이터 관리에서 직접 수정해 주세요.");
     return;
   }
+  /* 세매 표에서 고친 값 — 따로 안 눌러도 등록 요청에 같이 싣는다(2026-11-24 "버튼 하나로 등록") */
+  if(!(opt&&opt.fix)){var F=_whsFixCollect();if(F&&F.errs.length){alert("세매 표에 아직 비어 있는 칸이 있습니다 — 채우거나 🗑 뺀 뒤 다시 눌러 주세요.\n\n"+F.errs.slice(0,10).join("\n"));whsRender();return;}if(F&&F.n)opt=Object.assign({},opt||{},{fix:F.fix});}
   if(D.inWs&&!confirm("세매에 홈쇼핑 "+md0+" 매출이 일부 들어가 있습니다.\n세매 "+f0(D.wd.d)+"원 / 원본 "+f0(D.wd.f)+"원\n\n빠진 줄만 더 올리려는 경우에만 진행하세요(같은 거래는 세매가 건너뜁니다). 진행할까요?"))return;
   if(typeof _saipWatchOk==="function"&&!_saipWatchOk()){alert("자동화 PC 신호가 없습니다 — 자동화 PC가 켜져 있고 요청 받기 프로그램이 돌아야 합니다.");return;}
   var md=(+mmdd.slice(0,2))+"/"+(+mmdd.slice(2,4));
@@ -10006,11 +10008,14 @@ function whsFxSet(r,k,v){
 function _whsFxBar(){
   var X=window._whsFx||{},n=_whsFxLines().filter(function(x){return !x.cc||!x.amt||(X.open||{})[x.r];}).length;
   return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px">'
-    +'<b style="color:#92400e">✏️ 고치는 줄 '+n+'개</b><button class="a2-btn'+(n?' whs-blink':'')+'" style="background:#b45309" onclick="whsFixGo()">💾 고친 값으로 다시 채우기</button>'
-    +'<span style="font-size:11.5px;color:#5b6675">고친 값은 이번 등록에 바로 쓰고 자비스 홈쇼핑 매칭표에 「수정함」으로 기억해 다음부터도 그대로 넣습니다(시트·원본 파일 값보다 먼저).</span></div>';
+    +'<b style="color:#92400e">✏️ 고치는 줄 '+n+'개</b><span style="font-size:12px;color:#92400e;font-weight:700">칸을 고친 뒤 위 <u>[▶ ③ 체크한 곳 등록]</u> 하나만 누르면 고친 값으로 세매에 등록합니다</span>'
+    +'<span style="font-size:11.5px;color:#5b6675">고친 값은 자비스 홈쇼핑 매칭표에 「수정함」으로 기억해 다음부터도 그대로 넣습니다(시트·원본 파일 값보다 먼저).</span></div>';
 }
-function whsFixGo(){
-  var X=window._whsFx;if(!X||X.mmdd!==_whsMmdd()){whsGo();return;}
+function whsFixGo(){var F=_whsFixCollect();if(F&&F.errs.length){alert("아직 비어 있는 칸이 있습니다.\n\n"+F.errs.slice(0,10).join("\n"));return;}whsGo(F&&F.n?{fix:F.fix}:null);}
+/* 세매 표에서 고친 값 모으기(2026-11-24 영업2팀 "버튼 하나로 등록") — whsGo가 등록 요청 때 스스로 불러 고친 값을 같이 보낸다.
+   그래서 [▶ ③ 체크한 곳 등록] 하나로 끝난다(따로 [💾 고친 값으로 다시 채우기] 안 눌러도 됨). 고친 줄은 매칭표에 '수정함'으로 기억 */
+function _whsFixCollect(){
+  var X=window._whsFx;if(!X||X.mmdd!==_whsMmdd())return null;
   var L=_whsFxLines(),fix={},n=0,errs=[],learn=[];
   L.forEach(function(x){
     var o=X.rows[x.r];if(o&&o.del){fix[x.r]={name:x.name,del:true};n++;return;}   /* 🗑 뺀 줄(2026-11-23) — 세매에 안 올림 */
@@ -10022,7 +10027,7 @@ function whsFixGo(){
     /* 고친 줄은 전부 매칭표에 '수정함'으로 기억(2026-11-18 영업2팀 "수정했으면 추후에도 수정한대로") — fixCc·fixAmt = 사람이 바꾼 칸 */
     learn.push({x:x,cc:o.cc,pc:pc,rr:rr,unit:Math.round(Number(o.amt)/(Number(x.qty)||1)),fixCc:!x.cc||o.cc!==x.cc,fixAmt:!x.amt||Number(o.amt)!==Number(x.amt)});
   });
-  if(errs.length){alert("아직 비어 있는 칸이 있습니다.\n\n"+errs.slice(0,10).join("\n"));return;}
+  if(errs.length)return {fix:fix,n:n,errs:errs};
   /* 비어 있던 줄은 자비스 매칭표에 배운다(쇼핑몰+주문 상품명 열쇠 — _hsCodeMatchProcessRows와 같은 합치기) */
   if(learn.length&&typeof hsCodeMatchDB!=="undefined"){
     var k=function(q){return (q.normChannel||"")+"|"+(q.normName||"");},map={};
@@ -10032,7 +10037,7 @@ function whsFixGo(){
     hsCodeMatchDB=Object.keys(map).map(function(q){return map[q];});
     try{saveHsCodeMatchDB();}catch(e){}
   }
-  whsGo(n?{fix:fix}:null);
+  return {fix:fix,n:n,errs:errs};
 }
 var WHS_SHEET="https://docs.google.com/spreadsheets/d/13XVEK2GNDjNfddaMcRfwpuwlyh0gyynha-yGI9xqNCc/edit?gid=937142857#gid=937142857";
 function whsCopyBad(btn){
@@ -10206,7 +10211,7 @@ function _x3FxTable(k,H,mmdd){
         +'<td '+ck+' style="'+td+tdC+'cursor:pointer">'+e(x.cc)+' <span style="color:#5b6675">✏️</span></td><td style="'+td+tdC+'">'+e(x.pc)+'</td>'
         +'<td style="'+td+tdR+'">'+f(x.qty)+'</td><td '+ck+' style="'+td+tdR+'cursor:pointer">'+f(x.amt)+' <span style="color:#5b6675">✏️</span></td>'+delB+'</tr>';}).join("")
     +'<tr><td colspan="6" style="'+td+'font-weight:800;text-align:right">합계</td><td style="'+td+tdR+'font-weight:800">'+f(LN.reduce(function(a,x){return a+(Number(x.qty)||0);},0))+'</td><td style="'+td+tdR+'font-weight:800">'+f(fl.amount)+'</td><td></td></tr></table></div>'
-    +(nDel?'<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-top:3px">🗑 뺀 줄 '+nDel+'개 — [💾 고친 값으로 다시 채우기]를 누르면 이 줄을 빼고 세매에 올립니다</div>':'')
+    +(nDel?'<div style="font-size:12px;color:#b91c1c;font-weight:700;margin-top:3px">🗑 뺀 줄 '+nDel+'개 — [▶ ③ 체크한 곳 등록]을 누르면 이 줄을 빼고 세매에 올립니다</div>':'')
     +window["_"+P+"FxBar"]();
 }
 /* ① 표 줄마다 세 곳 등록 여부(2026-11-23 영업2팀 "플레이엠디, 세매, 이카운트 등록여부 보여지게") —
