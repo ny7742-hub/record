@@ -10877,6 +10877,27 @@ function a2rSaipGo(k,d){
   var src=_saipDateEl(k);if(src){src.value=v;_saipTouched[k]=true;}
   saipConfirmGo(k);setTimeout(a2rRender,0);
 }
+/* 🔍 모든 날짜 중복 검사(2026-11-24 영업2팀 "일자별로 중복 검사를 모든 날짜를 한번에") — '등록할 건' 날짜 전부(+고른 날짜)를
+   한 요청(dates:[…], merge)으로. 자동화 PC saip-watch runPreviewDates가 날짜마다 미리보기를 돌려 결과 카드에 날짜별로 끼운다(다른 날짜 결과는 그대로).
+   저장은 하지 않는다 — 승인은 지금처럼 날짜마다 */
+function a2rSaipAllGo(k){
+  var K=SAIP_KINDS[k]||{label:k},v=_a2rDate(k);
+  var dates=_saipReadyOf(k).map(function(x){return x.date;});
+  if(v&&dates.indexOf(v)<0)dates.push(v);
+  dates=dates.filter(function(d){return d&&!_saipLogOf(k,d)&&!((k==="hs"||k==="ds")&&d<=SAIP_BASELINE);}).sort();
+  if(!dates.length){alert("검사할 날짜가 없습니다 — 모두 등록됐습니다.");return;}
+  if(_saipReqBusy((saipReq||{})[k])){alert((K.label||k)+" 요청이 이미 진행 중입니다. 끝난 뒤 다시 눌러 주세요.");return;}
+  var md=dates.map(function(d){return (+d.slice(5,7))+"/"+(+d.slice(8,10));}).join(", ");
+  if(!confirm("["+(K.label||k)+"] "+dates.length+"개 날짜("+md+")를 한 번에 중복 검사합니다.\n\n저장은 하지 않습니다 — 결과를 보고 날짜마다 승인하세요."))return;
+  if(SAIP_XS[k])dates.forEach(function(d){try{_wsChkReq(d);}catch(e){}});
+  var last=dates[dates.length-1];
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:last.slice(5,7)+last.slice(8,10),date:last,dates:dates,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
+  if(!saipReq||typeof saipReq!=="object")saipReq={};
+  _saipReqSet(k,R);
+  try{renderSaipAuto();}catch(e){}
+  setTimeout(a2rRender,0);
+  if(!_saipWatchOk())alert("검사 요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다 — 자동화 PC가 켜지면 처리됩니다.");
+}
 function a2rSaipView(k,d){var v=d||_a2rDate(k);if(!v)return;if(_saipItemOf(k,v))_saipCfShow(k,v);else a2rSaipGo(k,v);}
 function a2rSaipOk(k,d){var v=d||_a2rDate(k);if(!v)return;if(k==="ds")_wdsChainSet(v);if(k==="hs")_whsChainSet(v);saipCfSave(k,v);setTimeout(a2rRender,0);}
 function _a2rRow(n,title,st,body){
@@ -11322,6 +11343,7 @@ function _a2rSaip(k,dv){
   var btns='<input type="date" id="a2rDate_'+k+'" value="'+e(v)+'" onchange="a2rDateSet(\''+k+'\')" onclick="try{if(this.showPicker)this.showPicker();}catch(e){}" style="cursor:pointer;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
     +'<button class="a2-btn'+(need?' whs-blink':'')+'" '+(act?'disabled ':'')+'style="'+(L||act?'opacity:.55':'')+'" onclick="a2rSaipGo(\''+k+'\',\''+v+'\')">'+lab+'</button>'
     +(it?'<button class="a2-btn sub" onclick="a2rSaipView(\''+k+'\',\''+v+'\')">🔍 미리보기</button>':'')
+    +(ready.filter(function(d){return d!==v;}).length?'<button class="a2-btn sub" '+(act?'disabled style="opacity:.55" ':'')+'onclick="a2rSaipAllGo(\''+k+'\')" title="등록할 건 날짜를 한 번에 중복 검사합니다(저장 안 함)">🔍 모든 날짜 검사</button>':'')
     +(ready.length?'<span style="font-size:12px;color:#5b6675">등록할 건: '+ready.map(function(d){return (+d.slice(5,7))+'/'+(+d.slice(8,10));}).join(", ")+'</span>':'');
   var x3=!dv&&A2R_SAIP.indexOf(k)>=0&&!!v;   /* 창고간이동·매장출고: 세 곳 중복 검사 후 따로따로 등록(2026-11-23) */
   if(x3&&it&&it.already)b2=b2.replace("⛔ 플레이엠디에 이미 있습니다 — 등록하지 마세요","⛔ 플레이엠디에 이미 있습니다 — PlayMD에는 등록하지 마세요(이카운트는 ⑤에서 따로)");
