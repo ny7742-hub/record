@@ -10244,6 +10244,8 @@ function _whsMiss(it){
 }
 /* 2026-11-23 영업2팀 "홈쇼핑도 바꿔줘"(이카운트는 등록여부 확인만) — 홈쇼핑 ③에서 이카운트 체크칸을 빼고 등록 여부만 보인다. 다시 켜려면 false */
 var WHS_EC_CHECK_ONLY=true;
+/* 이카운트는 등록 여부 확인만(2026-11-24 영업2팀) — 안 들어간 날도 빨간 '할 일'이 아니라 회색 정보로. 완료 = 플레이엠디·세매 */
+function _a2EcInfo(y){return '<span style="color:#5b6675;font-weight:700">이카운트 '+_escX(y.txt||"")+' <span style="font-weight:400;font-size:12px">(확인만)</span></span>';}
 function _whsPickOf(v,Y){
   var U=_whsPick[v]||{},P={};   /* U = 사람이 바꾼 체크만 — 나머지는 그때 상태로(확인 못 함 → 확인되면 켜짐) */
   ["pm","ws","ec"].forEach(function(k){P[k]=Y[k].done?false:U[k]!==undefined?U[k]:!Y[k].part&&Y[k].txt!=="확인 못 함";});
@@ -10406,7 +10408,7 @@ function whsRender(){
   var missTxt=ms.code||ms.amt?' · <b style="color:#b91c1c">⚠ '+[ms.code?"코드 없음 "+ms.code+"줄":"",ms.amt?"금액 없음 "+ms.amt+"줄":""].filter(Boolean).join(" · ")+'</b>':'';
   var un=it&&it.unship,unTxt=un&&(un.nos||[]).length?' · <b style="color:#b45309">미출고 '+un.nos.length+'건 뺌</b>':'';
   var sum='<div style="background:'+(all?'#ecfdf5':'#f8fafc')+';border:1px solid '+(all?'#10b981':'#cbd5e1')+';border-radius:8px;padding:7px 12px;display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center">'
-    +'<b>'+(all?'✅ ':'')+md+'</b>'+stc("플레이엠디",Y.pm)+'<span style="color:#cbd5e1">|</span>'+stc("세매",Y.ws)+'<span style="color:#cbd5e1">|</span>'+stc("이카운트",Y.ec)+missTxt+unTxt
+    +'<b>'+(all?'✅ ':'')+md+'</b>'+stc("플레이엠디",Y.pm)+'<span style="color:#cbd5e1">|</span>'+stc("세매",Y.ws)+'<span style="color:#cbd5e1">|</span>'+(!Y.ec.done?_a2EcInfo(Y.ec):stc("이카운트",Y.ec))+missTxt+unTxt
     +(fin?'<a href="javascript:void(0)" style="margin-left:auto;font-size:12px;color:#1b6e82;font-weight:700" onclick="_whsOpen[\''+v+'\']='+(open?'false':'true')+';whsRender()">'+(open?'접기 ▴':'단계 보기 ▾')+'</a>':'')+'</div>';
   /* ── 단추 ── */
   var fresh=!!(it&&it.at&&Date.now()-new Date(it.at).getTime()<2*3600*1000),nofile=_whsNoFile(v);
@@ -10415,7 +10417,7 @@ function whsRender(){
   var stage=Y.pm.done?(!Z.ok?2:3):(!it||!fresh||nofile||fixNeed?1:!Z.ok?2:3);   /* 플레이엠디가 이미 끝난 날은 파일을 다시 안 받아도 세매·이카운트를 고를 수 있다 */
   var btn=document.getElementById("whsBtn");
   if(btn){
-    var x3w=_x3Wait.hs&&_x3Wait.hs.v===v;var lab=runAct?"⏳ 진행 중…":x3w?"⏳ 중복 검사 먼저 — 끝나면 등록":all?"✅ "+md+(Y.ec.done?" 세 곳 등록완료":" 플레이엠디·세매 완료 · 이카운트 아직"):stage===1?(nofile?"📭 파일 없음 — 다시 받기":fixNeed?"🔄 코드·금액 채운 뒤 다시 받기":"📥 ① 파일 받기"):stage===2?(Z.run?"⏳ ② 중복 검사 중…":"🔎 ② 중복 검사"):anyPick?"▶ ③ 체크한 곳 등록":"③ 등록할 곳을 체크하세요";
+    var x3w=_x3Wait.hs&&_x3Wait.hs.v===v;var lab=runAct?"⏳ 진행 중…":x3w?"⏳ 중복 검사 먼저 — 끝나면 등록":all?"✅ "+md+(Y.ec.done?" 세 곳 등록완료":" 플레이엠디·세매 등록완료"):stage===1?(nofile?"📭 파일 없음 — 다시 받기":fixNeed?"🔄 코드·금액 채운 뒤 다시 받기":"📥 ① 파일 받기"):stage===2?(Z.run?"⏳ ② 중복 검사 중…":"🔎 ② 중복 검사"):anyPick?"▶ ③ 체크한 곳 등록":"③ 등록할 곳을 체크하세요";
     btn.textContent=lab;btn.disabled=runAct||x3w||(stage===2&&Z.run)||all||(stage===3&&!anyPick);
     btn.style.opacity=btn.disabled?".55":"1";
     btn.classList.toggle("whs-blink",!btn.disabled&&!all&&!fin&&!fixNeed);
@@ -10887,7 +10889,7 @@ function wdsRender(){
   var missTxt=ms.code||ms.amt?' · <b style="color:#b91c1c">⚠ '+[ms.code?"코드 없음 "+ms.code+"줄":"",ms.amt?"금액 없음 "+ms.amt+"줄":""].filter(Boolean).join(" · ")+'</b>':'';
   var un=it&&it.unship,unTxt=un&&(un.nos||[]).length?' · <b style="color:#b45309">미출고 '+un.nos.length+'건 뺌</b>':'';
   var sum='<div style="background:'+(all?'#ecfdf5':'#f8fafc')+';border:1px solid '+(all?'#10b981':'#cbd5e1')+';border-radius:8px;padding:7px 12px;display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center">'
-    +'<b>'+(all?'✅ ':'')+md+'</b>'+stc("플레이엠디",Y.pm)+'<span style="color:#cbd5e1">|</span>'+stc("세매",Y.ws)+'<span style="color:#cbd5e1">|</span>'+stc("이카운트",Y.ec)+missTxt+unTxt
+    +'<b>'+(all?'✅ ':'')+md+'</b>'+stc("플레이엠디",Y.pm)+'<span style="color:#cbd5e1">|</span>'+stc("세매",Y.ws)+'<span style="color:#cbd5e1">|</span>'+(!Y.ec.done?_a2EcInfo(Y.ec):stc("이카운트",Y.ec))+missTxt+unTxt
     +(fin?'<a href="javascript:void(0)" style="margin-left:auto;font-size:12px;color:#1b6e82;font-weight:700" onclick="_wdsOpen[\''+v+'\']='+(open?'false':'true')+';wdsRender()">'+(open?'접기 ▴':'단계 보기 ▾')+'</a>':'')+'</div>';
   /* ── 단추 ── */
   var fresh=!!(it&&it.at&&Date.now()-new Date(it.at).getTime()<2*3600*1000),nofile=_wdsNoFile(v);
@@ -10896,7 +10898,7 @@ function wdsRender(){
   var stage=Y.pm.done?(!Z.ok?2:3):(!it||!fresh||nofile||fixNeed||_wdsNeedGet(it)?1:!Z.ok?2:3);   /* 플레이엠디가 이미 끝난 날은 파일을 다시 안 받아도 세매·이카운트를 고를 수 있다 */
   var btn=document.getElementById("wdsBtn");
   if(btn){
-    var x3w=_x3Wait.ds&&_x3Wait.ds.v===v||!!AU;var lab=runAct?"⏳ 진행 중…":AU?"⏳ 다시 검사 중 — 끝나면 바로 등록":x3w?"⏳ 중복 검사 먼저 — 끝나면 등록":all?"✅ "+md+(Y.ec.done?" 세 곳 등록완료":" 플레이엠디·세매 완료 · 이카운트 아직"):stage===1?(nofile?"📭 파일 없음 — 다시 받기":fixNeed?"⚠ 빨간 줄 고치거나 삭제한 뒤 등록":it&&_wdsNeedGet(it)?"🔄 다시 받기":"📥 ① 파일 받기"):stage===2?(Z.run?"⏳ ② 중복 검사 중…":"🔎 ② 중복 검사"):anyPick?"▶ 등록 — "+[pk.pm?"플레이엠디":"",pk.ws?"세매":""].filter(Boolean).join(" → "):"등록할 곳 없음 — ② 다시 확인";
+    var x3w=_x3Wait.ds&&_x3Wait.ds.v===v||!!AU;var lab=runAct?"⏳ 진행 중…":AU?"⏳ 다시 검사 중 — 끝나면 바로 등록":x3w?"⏳ 중복 검사 먼저 — 끝나면 등록":all?"✅ "+md+(Y.ec.done?" 세 곳 등록완료":" 플레이엠디·세매 등록완료"):stage===1?(nofile?"📭 파일 없음 — 다시 받기":fixNeed?"⚠ 빨간 줄 고치거나 삭제한 뒤 등록":it&&_wdsNeedGet(it)?"🔄 다시 받기":"📥 ① 파일 받기"):stage===2?(Z.run?"⏳ ② 중복 검사 중…":"🔎 ② 중복 검사"):anyPick?"▶ 등록 — "+[pk.pm?"플레이엠디":"",pk.ws?"세매":""].filter(Boolean).join(" → "):"등록할 곳 없음 — ② 다시 확인";
     btn.textContent=lab;btn.disabled=runAct||x3w||(stage===2&&Z.run)||all||(stage===3&&!anyPick);
     btn.style.opacity=btn.disabled?".55":"1";
     btn.classList.toggle("whs-blink",!btn.disabled&&!all&&!fin&&!fixNeed);
