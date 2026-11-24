@@ -11517,9 +11517,13 @@ function _a2rSaip(k,dv){
   }else if(!mine&&!L)b1=isReady?'<b style="color:#b91c1c">'+md+' 등록할 건이 있습니다</b> — [등록요망]을 누르면 원본을 받아 중복 검사부터 합니다':(md?md+' 검사 기록 없음':'');
   var XS=!L?_saipXsys(k,v):null;   /* 세 곳(PlayMD·이카운트·세매) 중복 */
   if(XS){if(XS.any)s2="bad";b2=_saipXsysHtml(XS)+(b2?'<div>'+b2+'</div>':'');}
+  /* '확인했습니다 — 다음부터 안 보기'를 체크한 날(saipAck) — PlayMD엔 이미 있어 끝난 날로 보이고, [중복 검사]를 눌러도 창을 다시 띄우지 않는다(2026-11-24 영업2팀 "체크했는데 또 나옵니다") */
+  var ack=!!(!L&&it&&it.already&&k!=="mv"&&_saipAckOf(k,v)),AK=ack?_saipAckOf(k,v):null;
+  if(ack){s2="ok";b2='<b style="color:#047857">✅ PlayMD에 이미 있음 — 확인함</b> <span style="color:#5b6675">· '+e(_saipWho(AK.by))+' · '+e(_saipFmtAt(AK.at))+'</span><div>'+b2+'</div>';}
   /* ③ 미리보기 승인 */
   var s3="",b3="";
-  if(canReg){
+  if(ack){s3="ok";b3='중복 확인 완료 — PlayMD에는 등록하지 않습니다 <a href="javascript:void(0)" onclick="a2rSaipView(\''+k+'\',\''+v+'\')">자세히</a>';}
+  else if(canReg){
     s3="wait";
     b3='<b>'+(it.rows||[]).length+'줄 · '+f(it.qty)+'개 · '+f(_saipItemAmt(k,it))+'원</b> — 미리보기를 보고 승인하면 플레이엠디에 저장합니다(되돌리기 어려움)'
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px"><button class="a2-btn whs-blink" onclick="a2rSaipOk(\''+k+'\',\''+v+'\')">✅ 승인 — PlayMD 저장</button>'
@@ -11533,11 +11537,12 @@ function _a2rSaip(k,dv){
   /* ④ 저장 */
   var s4="",b4="";
   if(L){s4="ok";b4=f(L.qty)+'개 · '+f(L.amt)+'원'+(L.slips&&L.slips.length?' · 전표 '+e(L.slips.join(", ")):'')+' · '+e(_saipWho(L.by))+' · '+e(_saipFmtAt(L.at));}
+  else if(ack&&!act){s4="ok";b4='PlayMD에 이미 있어 저장할 것 없음';}
   else if(mine&&R.mode==="save"){s4="run";b4=e(String(R.progress||"자동화 PC가 플레이엠디에 저장하는 중").replace(/^▷\s*/,"").slice(0,80));}
   else if(R&&R.state==="실패"&&R.mode==="save"&&R.endedAt&&Date.now()-new Date(R.endedAt).getTime()<6*3600*1000){s4="bad";b4='<span style="color:#b91c1c">'+e(R.error||"저장 실패")+'</span>';}
   /* 단추 */
   var need=!L&&!act&&!canReg&&(isReady||(!it&&false)||(it&&it.status==="preview"&&(stale||!fresh)));
-  var lab=L?"✅ "+md+" 등록 완료":act?"⏳ 진행 중…":canReg?"🔍 다시 검사":need?"🚨 등록요망":"🔍 중복 검사";
+  var lab=L?"✅ "+md+" 등록 완료":ack&&!act?"✅ "+md+" 확인함(이미 있음)":act?"⏳ 진행 중…":canReg?"🔍 다시 검사":need?"🚨 등록요망":"🔍 중복 검사";
   var btns='<input type="date" id="a2rDate_'+k+'" value="'+e(v)+'" onchange="a2rDateSet(\''+k+'\')" onclick="try{if(this.showPicker)this.showPicker();}catch(e){}" style="cursor:pointer;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
     +'<button class="a2-btn'+(need?' whs-blink':'')+'" '+(act?'disabled ':'')+'style="'+(L||act?'opacity:.55':'')+'" onclick="a2rSaipGo(\''+k+'\',\''+v+'\')">'+lab+'</button>'
     +(it?'<button class="a2-btn sub" onclick="a2rSaipView(\''+k+'\',\''+v+'\')">🔍 미리보기</button>':'')
@@ -28939,6 +28944,7 @@ function saipConfirmGo(kind,opt){
   }
   var it=_saipItemOf(kind,v);
   var fixed=_saipFixStaleOf(kind,it);                         /* 창고간이동 표에서 검사 뒤에 고쳤으면 고친 값으로 다시 검사 */
+  if(!(opt&&opt.force)&&it&&it.already&&kind!=="mv"&&!fixed&&_saipAckOf(kind,v)){renderSaipAuto();return;}   /* '확인했습니다' 체크한 날 — 창을 다시 띄우지 않음([🔍 미리보기]·[🔄 재확인]으로는 볼 수 있다) */
   if(!(opt&&opt.force)&&it&&it.mode==="preview"&&it.at&&!fixed&&Date.now()-new Date(it.at).getTime()<SAIP_CF_FRESH){_saipCfShow(kind,v);return;}
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:v.slice(5,7)+v.slice(8,10),date:v,dates:[v],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
