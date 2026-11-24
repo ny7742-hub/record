@@ -10052,7 +10052,24 @@ function whsFxSet(r,k,v){
   var x=_whsFxLines().filter(function(y){return y.r===r;})[0]||{};
   if(k==="cc"){o.cc=String(v||"").trim().toUpperCase();o.sug=false;var rr=_whsRawOf(o.cc);if(rr&&!o.amtSet)o.amt=_whsRawPrice(rr)*(Number(x.qty)||0);}
   else{o.amt=Number(v)||0;o.amtSet=true;}
-  o.pm=false;_whsFxSave();
+  o.pm=false;o.man=true;o.cp=false;
+  /* 같은 상품이면 같이 고치기(2026-11-24 영업2팀 "동일한 상품이면 수정한대 모두 수정되게") — 같은 상품명의 빈 줄·앞서 따라 바뀐 줄에 같은 코드,
+     금액은 같은 쇼핑몰·상품명 줄에 개당 금액 × 그 줄 수량. 사람이 따로 고친 줄(man)·뺀 줄·원본에 값이 다 있는 줄은 그대로 */
+  var nn=function(t){return String(t||"").replace(/\s/g,"");},q0=Number(x.qty)||1,unit=Number(o.amt)>0?Number(o.amt)/q0:0,hit=[];
+  _whsFxLines().forEach(function(y){
+    if(y.r===r||nn(y.name)!==nn(x.name)||(y.cc&&y.amt))return;
+    var o2=X.rows[y.r]||(X.rows[y.r]={cc:y.cc||"",amt:y.amt||0,amtSet:!!y.amt});
+    if(o2.del||(o2.man&&!o2.cp))return;
+    var ch=false;
+    if(k==="cc"&&!y.cc&&o.cc&&o2.cc!==o.cc){o2.cc=o.cc;o2.sug=false;o2.pm=false;ch=true;}
+    if(unit>0&&nn(y.shop)===nn(x.shop)&&!y.amt){var a2=Math.round(unit*(Number(y.qty)||1));if(o2.amt!==a2){o2.amt=a2;o2.amtSet=true;ch=true;}}
+    if(ch){o2.cp=true;o2.man=true;hit.push(y.r);}
+  });
+  _whsFxSave();
+  /* 커서가 다른 칸에 있어 표를 다시 안 그리는 동안에도 따라 바뀐 칸 값은 바로 보이게 */
+  hit.forEach(function(r2){var o2=X.rows[r2];[].forEach.call(document.querySelectorAll('#whsSteps input[data-whsfx]'),function(el){var oc=el.getAttribute("onchange")||"";
+    if(oc.indexOf("whsFxSet("+r2+",'cc'")===0&&el.value!==o2.cc){el.value=o2.cc;el.style.background="#ede9fe";}
+    else if(oc.indexOf("whsFxSet("+r2+",'amt'")===0&&String(el.value)!==String(o2.amt||"")){el.value=o2.amt||"";el.style.background="#ede9fe";}});});
   setTimeout(whsRender,0);   /* 다른 칸으로 옮겨 갔으면 그리지 않는다(화면 고정) — 칸 밖을 누르면 그때 다시 그림 */
 }
 function _whsFxBar(){
