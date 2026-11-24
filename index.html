@@ -2496,8 +2496,8 @@ label{font-size:14px!important}
     <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 백화점 도매 발주</b><span style="font-size:12.5px;color:#475569">세매 [매장 판매 › 발주]의 미처리 발주 → 도매발주서 → 김구남 센터장 메일 → 세매 '처리 완료'</span>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
         <button class="a2-btn" id="epPullBtn" style="font-size:12.5px;padding:5px 11px;background:#ea580c;border-color:#ea580c" onclick="epPullGo()" title="자동화 PC가 세매 [매장 판매 › 발주]의 미처리 발주를 지금 가져옵니다(10초쯤, 평소엔 7~21시 5분마다 자동) — 세매는 읽기만 합니다">📥 발주 가져오기</button>
-        <button class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="체크한 발주서로 도매발주서(물류 양식)를 받습니다 — 같은 매장·같은 품목은 한 줄로 합칩니다. 메일로 보내는 파일과 같습니다">⬇ 도매발주서</button>
-        <button class="a2-btn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 세매 발주를 '처리 완료'로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
+        <button class="a2-btn sub" id="epDlBtn" style="font-size:12.5px;padding:5px 11px" onclick="epDl()" title="체크한 발주서로 도매발주서(물류 양식)를 받습니다 — 같은 매장·같은 품목은 한 줄로 합칩니다. 메일로 보내는 파일과 같습니다">⬇ 도매발주서</button>
+        <button class="a2-btn" id="epMailBtn" style="font-size:12.5px;padding:5px 11px" onclick="epMail()" title="체크한 발주서의 도매발주서를 김구남 센터장께 메일로 보내고(도매 발주 메일과 같은 제목·참조·첨부 이름), 보낸 뒤 세매 발주를 '처리 완료'로 바꿉니다">✉️ 발주 메일 전달</button></span></div>
       <div id="epAddSlot" style="margin-bottom:8px"></div>
       <div id="epDlMsg" style="font-size:12px;color:#059669;font-weight:600;margin-bottom:4px"></div>
       <div id="epBox" style="font-size:13px"></div></div>
@@ -9793,6 +9793,20 @@ function epDl(){
   XLSX.writeFile(_wholesaleWorkbook(rows),_wholesaleFileName());
   var q=rows.reduce(function(s,r){return s+(Number(r[12])||0);},0),el=document.getElementById("epDlMsg");
   if(el)el.textContent="⬇ 도매발주서 "+rows.length+"줄 "+q+"개"+(raw.length>rows.length?" (같은 품목 "+(raw.length-rows.length)+"줄 합침)":"");
+  _epDlSig=_epPickSig();_epBlink();
+}
+/* 다음에 누를 단추 깜빡임(2026-11-25 영업2팀 "발주 가져오기 → 도매발주서 → 발주 메일 전달 순서가 되면 깜빡이게") —
+   가져오는 중·메일 보내는 중이면 없음 / 보낼 것이 없고 최근 1시간 안 가져왔으면 📥 발주 가져오기 /
+   보낼 것이 있으면 ⬇ 도매발주서 → 지금 체크·추가 줄 그대로 받았으면(_epDlSig) ✉️ 발주 메일 전달. 체크를 바꾸면 다시 도매발주서부터 */
+var _epDlSig="";
+function _epPickSig(){return _epPicked().map(function(s){return s.key;}).join(",")+"|"+_epExtraOk().map(function(r){return r.code+"x"+r.qty+"@"+r.store;}).join(",");}
+function _epBlink(){
+  var bp=document.getElementById("epPullBtn"),bd=document.getElementById("epDlBtn"),bm=document.getElementById("epMailBtn");if(!bp||!bd||!bm)return;
+  var q=ecPoReq,pulling=q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000,act=_saipReqActive((saipReq||{}).ep);
+  var fresh=ecPo&&ecPo.src==="ss"&&ecPo.pullAt&&Date.now()-new Date(ecPo.pullAt).getTime()<60*60*1000;
+  var has=_epPicked().length>0||_epExtraOk().length>0,w="";
+  if(!pulling&&!act){if(has)w=_epDlSig&&_epDlSig===_epPickSig()?"m":"d";else if(!fresh)w="p";}
+  bp.classList.toggle("whs-blink",w==="p");bd.classList.toggle("whs-blink",w==="d");bm.classList.toggle("whs-blink",w==="m");
 }
 function epMail(){
   var L=_epPicked(),X=_epExtraOk(),rows=_epMergeRows(_epRows(L).concat(_epExtraRows()));
@@ -9828,6 +9842,7 @@ function epRender(){
   var keep={},ae=document.activeElement,foc=ae&&box.contains(ae)&&ae.id?{id:ae.id,a:ae.selectionStart,b:ae.selectionEnd}:null;
   box.querySelectorAll("input[id^=epNd_],input[id^=epInf_]").forEach(function(el){if(el.value!==el.defaultValue)keep[el.id]=el.value;});
   _epRender0();
+  try{_epBlink();}catch(e){}
   Object.keys(keep).forEach(function(id){var el=document.getElementById(id);if(el)el.value=keep[id];});
   if(foc){var el=document.getElementById(foc.id);if(el){el.focus();try{el.setSelectionRange(foc.a,foc.b);}catch(e){}}}
 }
