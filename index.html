@@ -11020,6 +11020,12 @@ function a2rSaipGo(k,d){
   var src=_saipDateEl(k);if(src){src.value=v;_saipTouched[k]=true;}
   saipConfirmGo(k);setTimeout(a2rRender,0);
 }
+/* [🔄 재확인](2026-11-24 영업2팀 "재확인 버튼 있으면 좋을 것 같습니다") — 2시간 안의 검사 결과가 있어도 원본을 다시 받아 중복 검사부터 다시(코드 매칭·매장코드를 고친 뒤 등) */
+function a2rSaipRecheck(k,d){
+  var v=d||_a2rDate(k);if(!v){alert("날짜를 골라 주세요.");return;}
+  var src=_saipDateEl(k);if(src){src.value=v;_saipTouched[k]=true;}
+  saipConfirmGo(k,{force:true});setTimeout(a2rRender,0);
+}
 function a2rSaipView(k,d){var v=d||_a2rDate(k);if(!v)return;if(_saipItemOf(k,v))_saipCfShow(k,v);else a2rSaipGo(k,v);}
 function a2rSaipOk(k,d){var v=d||_a2rDate(k);if(!v)return;if(k==="ds")_wdsChainSet(v);if(k==="hs")_whsChainSet(v);saipCfSave(k,v);setTimeout(a2rRender,0);}
 function _a2rRow(n,title,st,body){
@@ -11465,6 +11471,7 @@ function _a2rSaip(k,dv){
   var btns='<input type="date" id="a2rDate_'+k+'" value="'+e(v)+'" onchange="a2rDateSet(\''+k+'\')" onclick="try{if(this.showPicker)this.showPicker();}catch(e){}" style="cursor:pointer;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
     +'<button class="a2-btn'+(need?' whs-blink':'')+'" '+(act?'disabled ':'')+'style="'+(L||act?'opacity:.55':'')+'" onclick="a2rSaipGo(\''+k+'\',\''+v+'\')">'+lab+'</button>'
     +(it?'<button class="a2-btn sub" onclick="a2rSaipView(\''+k+'\',\''+v+'\')">🔍 미리보기</button>':'')
+    +(it&&!L&&!act?'<button class="a2-btn sub" title="원본을 다시 받아 중복 검사를 다시 합니다(코드 매칭·매장코드를 고친 뒤)" onclick="a2rSaipRecheck(\''+k+'\',\''+v+'\')">🔄 재확인</button>':'')
     +(ready.length?'<span style="font-size:12px;color:#5b6675">등록할 건: '+ready.map(function(d){return (+d.slice(5,7))+'/'+(+d.slice(8,10));}).join(", ")+'</span>':'');
   var x3=!dv&&A2R_SAIP.indexOf(k)>=0&&!!v;   /* 창고간이동·매장출고: 세 곳 중복 검사 후 따로따로 등록(2026-11-23) */
   if(x3&&it&&it.already)b2=b2.replace("⛔ 플레이엠디에 이미 있습니다 — 등록하지 마세요","⛔ 플레이엠디에 이미 있습니다 — PlayMD에는 등록하지 마세요(이카운트는 ⑤에서 따로)");
@@ -28850,7 +28857,7 @@ function _saipItemOf(k,date){
   var it=(S.items||[]).filter(function(x){return x&&x.date===date;})[0];
   return it?Object.assign({},it,{mode:it.mode||S.mode,at:it.at||S.at}):null;
 }
-function saipConfirmGo(kind){
+function saipConfirmGo(kind,opt){
   var el=_saipDateEl(kind),v=el&&el.value;
   if(!v){alert("등록 날짜를 골라 주세요.");return;}
   if(SAIP_XS[kind])try{_wsChkReq(v);}catch(e){}   /* 세매 그 날 바로 확인(2026-11-19) */
@@ -28861,7 +28868,7 @@ function saipConfirmGo(kind){
   }
   var it=_saipItemOf(kind,v);
   var fixed=_saipFixStaleOf(kind,it);                         /* 창고간이동 표에서 검사 뒤에 고쳤으면 고친 값으로 다시 검사 */
-  if(it&&it.mode==="preview"&&it.at&&!fixed&&Date.now()-new Date(it.at).getTime()<SAIP_CF_FRESH){_saipCfShow(kind,v);return;}
+  if(!(opt&&opt.force)&&it&&it.mode==="preview"&&it.at&&!fixed&&Date.now()-new Date(it.at).getTime()<SAIP_CF_FRESH){_saipCfShow(kind,v);return;}
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:v.slice(5,7)+v.slice(8,10),date:v,dates:[v],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   _saipReqSet(kind,R);
