@@ -11309,21 +11309,26 @@ function _a2rRetList(k,day,X){
   var lab=function(code,name){var mc=code?_saipModelColor({code:code}):"";return mc&&mc!==code?mc:(name||code||"?");};
   var td='padding:2px 6px;border-top:1px solid #e2e8f0',rows=[],tq=0,ta=0;
   Object.keys(P.items).forEach(function(c){(P.items[c]||[]).forEach(function(i){tq+=i.qty;ta+=i.amt;
-    rows.push('<tr><td style="'+td+'">'+e(cn(c))+'</td><td style="'+td+'" title="'+e(i.name||"")+'">'+e(lab(i.code,i.name))+'</td><td style="'+td+';color:#5b6675">'+e(i.code)+'</td><td style="'+td+';text-align:right">'+f(i.qty)+'</td><td style="'+td+';text-align:right">'+f(i.amt)+'</td><td style="'+td+';color:#047857">✅ PlayMD</td></tr>');});});
+    rows.push('<tr><td style="'+td+'">'+e(cn(c))+'</td><td style="'+td+'" title="'+e(i.name||"")+'">'+e(lab(i.code,i.name))+'</td><td style="'+td+';color:#5b6675">'+e(i.code)+'</td><td style="'+td+';text-align:right">'+f(i.qty)+'</td><td style="'+td+';text-align:right;color:#5b6675">'+(i.qty?f(Math.round(i.amt/i.qty)):'–')+'</td><td style="'+td+';text-align:right">'+f(i.amt)+'</td><td style="'+td+';color:#047857">✅ PlayMD</td></tr>');});});
   var src="판매일보 반품 줄";
   if(!rows.length){   /* 판매일보에 아직 반품 줄이 없으면 PlayMD 반품 등록 기록으로 */
     var L=_retLogOf(k),g={},o=[];
     Object.keys(L).forEach(function(key){var x=L[key];if(!x||x.d!==d8||!(x.s==="saved"||x.s==="savecheck"||x.s==="found"))return;var c=x.c||"?";if(!g[c]){g[c]={q:0,a:0};o.push(c);}g[c].q+=+x.q||0;g[c].a+=(+x.q||0)*(+x.p||0);});
-    o.forEach(function(c){tq-=g[c].q;ta-=g[c].a;rows.push('<tr><td style="'+td+'">–</td><td style="'+td+'">'+e(lab(c,""))+'</td><td style="'+td+';color:#5b6675">'+e(c)+'</td><td style="'+td+';text-align:right">'+f(-g[c].q)+'</td><td style="'+td+';text-align:right">'+f(-g[c].a)+'</td><td style="'+td+';color:#047857">✅ PlayMD 등록</td></tr>');});
+    o.forEach(function(c){tq-=g[c].q;ta-=g[c].a;rows.push('<tr><td style="'+td+'">–</td><td style="'+td+'">'+e(lab(c,""))+'</td><td style="'+td+';color:#5b6675">'+e(c)+'</td><td style="'+td+';text-align:right">'+f(-g[c].q)+'</td><td style="'+td+';text-align:right;color:#5b6675">'+(g[c].q?f(Math.round(g[c].a/g[c].q)):'–')+'</td><td style="'+td+';text-align:right">'+f(-g[c].a)+'</td><td style="'+td+';color:#047857">✅ PlayMD 등록</td></tr>');});
     src="PlayMD 반품 등록 기록";
   }
   var pendAll=(_retPendingOf(k)||[]).filter(function(r){return r.ymd===d8;}),pend=pendAll.filter(function(r){return !_retIsHold(k,r);});
-  pendAll.forEach(function(r){var q=+r.qty||0,a=q*(Number(r.price)||0);
-    if(_retIsHold(k,r)){rows.push('<tr style="background:#fffbeb;color:#92400e"><td style="'+td+'">'+e(r.shop||r.store||"")+'</td><td style="'+td+'" title="'+e(r.prod||"")+'">'+e(String(r.prod||"?").slice(0,30))+'</td><td style="'+td+'">–</td><td style="'+td+';text-align:right">'+f(-q)+'</td><td style="'+td+';text-align:right">–</td><td style="'+td+';font-weight:700">⏸ 처리보류(등록 안 함)</td></tr>');return;}
-    rows.push('<tr style="background:#fef2f2"><td style="'+td+'">'+e(r.shop||r.store||"")+'</td><td style="'+td+'" title="'+e(r.prod||"")+'">'+e(r.code?lab(r.code,r.prod):(r.prod||"?"))+'</td><td style="'+td+';color:#5b6675">'+e(r.code||"")+'</td><td style="'+td+';text-align:right">'+f(-q)+'</td><td style="'+td+';text-align:right">'+(a?f(-a):"–")+'</td><td style="'+td+';color:#b91c1c;font-weight:700">❌ PlayMD 미등록</td></tr>');});
+  /* 표 하나로(2026-11-24 영업2팀 "위 리스트와 아래 리스트 하나로 합쳐 주세요") — 이 날 미리보기를 했으면 미등록 줄 대신 미리보기 결과 줄(공급가 = PlayMD에 넣을 값)을 여기에 */
+  var S0=_retStatusOf(k),pv=!!(S0&&S0.day===d8&&S0.mode==="preview"&&S0.at&&Date.now()-new Date(S0.at).getTime()<2*3600*1000&&(S0.rows||[]).length);
+  var PR=function(r,st,bg,col){var q=+r.qty||0,p=Number(r.price),ok=r.price!==""&&r.price!=null&&!isNaN(p),a=ok?q*p:0;tq-=q;ta-=a;
+    rows.push('<tr style="background:'+bg+'"><td style="'+td+'">'+e(_retStoreNm?_retStoreNm(r.store||r.shop||""):(r.shop||r.store||""))+'</td><td style="'+td+'" title="'+e(r.prod||"")+'">'+e(r.code?lab(r.code,r.prod):(r.prod||"?"))+(r.bad?' <span style="color:#b91c1c">(불량)</span>':'')+'</td><td style="'+td+';color:#5b6675">'+e(r.code||"")+'</td><td style="'+td+';text-align:right">'+f(-q)+'</td><td style="'+td+';text-align:right;color:#5b6675">'+(ok?f(p):'–')+'</td><td style="'+td+';text-align:right">'+(ok?f(-a):"–")+'</td><td style="'+td+';color:'+col+';font-weight:700;white-space:nowrap">'+st+'</td></tr>');};
+  if(pv)(S0.rows||[]).forEach(function(r){if(!r.ymd||r.ymd===d8)PR(r,"🔍 등록할 것(미리보기 통과)","#eff6ff","#1d4ed8");});
+  pendAll.forEach(function(r){var q=+r.qty||0;
+    if(_retIsHold(k,r)){rows.push('<tr style="background:#fffbeb;color:#92400e"><td style="'+td+'">'+e(r.shop||r.store||"")+'</td><td style="'+td+'" title="'+e(r.prod||"")+'">'+e(String(r.prod||"?").slice(0,30))+'</td><td style="'+td+'">–</td><td style="'+td+';text-align:right">'+f(-q)+'</td><td style="'+td+';text-align:right">–</td><td style="'+td+';text-align:right">–</td><td style="'+td+';font-weight:700">⏸ 처리보류(등록 안 함)</td></tr>');return;}
+    if(!pv)PR(r,"❌ PlayMD 미등록","#fef2f2","#b91c1c");});
   var tbl=rows.length?'<div style="max-height:260px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:12px">'
-    +'<tr style="background:#f1f5f9;text-align:left;position:sticky;top:0"><th style="padding:2px 6px">거래처</th><th style="padding:2px 6px">상품</th><th style="padding:2px 6px">코드</th><th style="padding:2px 6px;text-align:right">수량</th><th style="padding:2px 6px;text-align:right">금액</th><th style="padding:2px 6px">상태</th></tr>'
-    +rows.join("")+'<tr style="font-weight:800;background:#f8fafc"><td style="'+td+'" colspan="3">합계 ('+e(src)+')</td><td style="'+td+';text-align:right">'+f(tq)+'</td><td style="'+td+';text-align:right">'+f(ta)+'</td><td style="'+td+'"></td></tr></table></div>'
+    +'<tr style="background:#f1f5f9;text-align:left;position:sticky;top:0"><th style="padding:2px 6px">거래처</th><th style="padding:2px 6px">상품</th><th style="padding:2px 6px">코드</th><th style="padding:2px 6px;text-align:right">수량</th><th style="padding:2px 6px;text-align:right">공급가</th><th style="padding:2px 6px;text-align:right">금액</th><th style="padding:2px 6px">상태</th></tr>'
+    +rows.join("")+'<tr style="font-weight:800;background:#f8fafc"><td style="'+td+'" colspan="3">합계 '+rows.length+'줄</td><td style="'+td+';text-align:right">'+f(tq)+'</td><td style="'+td+'"></td><td style="'+td+';text-align:right">'+f(ta)+'</td><td style="'+td+'"></td></tr></table></div>'
     :'<div style="color:#5b6675">이 날 반품 상품 줄이 없습니다 — [🔄 세 곳 다시 확인]으로 판매일보를 다시 받아 보세요</div>';
   /* 세 곳 중복 확인 — 이카운트 전표(거래처별) · 세매 */
   var cs={};(Object.keys(P.items).length?Object.keys(P.items):_a2rRetCodes(k,day)).forEach(function(c){cs[_ecSalCust(c)]=1;});
@@ -11567,7 +11572,8 @@ function _a2rRet(k){
       +(S.found&&S.found.length?'<div style="color:#b45309">⚠ 플레이엠디에 이미 있어 뺀 줄 '+S.found.length+'건</div>':'')
       +(S.bad&&S.bad.length?'<div style="color:#b91c1c">'+S.bad.slice(0,5).map(e).join("<br>")+(S.bad.length>5?'<br>… 외 '+(S.bad.length-5)+'줄':'')+'</div>':'')
       +(S.hold&&S.hold.length?'<div style="color:#b45309">⏸ 처리보류 '+S.hold.length+'건</div>':'')
-      +' <span style="color:#5b6675">· '+(S.day?_retMd(S.day)+' 하루만 · ':'')+e(_saipFmtAt(S.at))+'</span>'+_retPrevTable(k,S);
+      +' <span style="color:#5b6675">· '+(S.day?_retMd(S.day)+' 하루만 · ':'')+e(_saipFmtAt(S.at))+'</span>'+(S.day?'<div style="color:#1d4ed8">▲ 줄은 위 표 '+_retMd(S.day)+'에 있습니다(상태 「🔍 등록할 것」)</div>':_retPrevTable(k,S));
+    if(S.day&&_a2rRetOpen[k]===undefined)_a2rRetOpen[k]=S.day.slice(0,4)+"-"+S.day.slice(4,6)+"-"+S.day.slice(6,8);
   }else if(S&&S.mode==="preview"&&!fresh&&n){s2="warn";b2="미리보기한 지 2시간이 지났습니다 — [등록요망]으로 다시";}
   /* ③ 승인 */
   var s3="",b3="";
