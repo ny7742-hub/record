@@ -21303,7 +21303,7 @@ async function tmInvoicePdf(){
    '발주서 변환'·'수기발주'·'코스트코 발주'가 모두 같은 파일을 내도록 공용으로 쓴다.
    시트 구성: 발주서 + 매장주소록 */
 function _wholesaleWorkbook(dataRows){
-  var aoa=[ORDER_HEADERS.slice()].concat(dataRows||[]);
+  var aoa=[ORDER_HEADERS.slice()].concat(_wholesaleSortRows(dataRows||[]));
   var ws=XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"]=_xlFitCols(aoa);
   var ab=_ordAddrBookAoa(),wsA=XLSX.utils.aoa_to_sheet(ab);
@@ -21312,6 +21312,15 @@ function _wholesaleWorkbook(dataRows){
   XLSX.utils.book_append_sheet(wb,ws,"발주서");
   XLSX.utils.book_append_sheet(wb,wsA,"매장주소록");
   return wb;
+}
+/* 매장별로 모으기(2026-11-25 영업2팀 "매장별로 정렬해서 나오게") — C 매장코드가 매장주소록(ORDER_STORES)에 있으면 그 순서,
+   없으면(코스트코 온라인 주문번호·팝업 등) 주소록 뒤에 D 매장명 가나다순. 같은 매장 안 줄 순서는 그대로(안정 정렬) */
+function _wholesaleSortRows(rows){
+  var idx={};(typeof ORDER_STORES!=="undefined"?ORDER_STORES:[]).forEach(function(s,i){if(s&&s.code&&!(String(s.code).toUpperCase() in idx))idx[String(s.code).toUpperCase()]=i;});
+  var rk=function(r){var c=String(r[2]||"").toUpperCase();return c in idx?idx[c]:1e6;};
+  return rows.map(function(r,i){return {r:r,i:i,k:rk(r),n:String(r[3]||"")};})
+    .sort(function(a,b){return a.k-b.k||(a.k===1e6?a.n.localeCompare(b.n,"ko"):0)||a.i-b.i;})
+    .map(function(o){return o.r;});
 }
 /* 칸 넓이를 내용에 맞춘다(2026-10-02 영업2팀 — "엑셀에 기재된 내용이 다 보이게") — 칸마다 가장 긴 글자(한글·전각은 2칸)에 여유 2, 최소 6 · 최대 70 */
 function _xlFitCols(aoa){
