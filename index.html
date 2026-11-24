@@ -11314,10 +11314,10 @@ function _a2rXCell(c){
 function _a2rXTable(k,days,cur){
   if(!days.length)return '<div style="margin-top:6px;font-size:12.5px;color:#5b6675">최근 등록건 없음</div>';
   var isRet=!!A2R_RET_CH[k];   /* 열 순서 PlayMD → 세매 → 이카운트(2026-11-23 영업2팀 "순서는 플레이엠디, 세매, 이카운트") */
-  var rows=days.map(function(d){var X=_a2rX(k,d),on=d===cur,op=isRet&&_a2rRetOpen[k]===d;
-    return '<tr style="cursor:pointer;'+(op?'background:#e0f2fe;':on?'background:#ecfeff;':'')+'" onclick="a2rXPick(\''+k+'\',\''+d+'\')" title="'+d+(isRet?' — 누르면 반품 상품 리스트를 펼치고/접습니다':' 고르기')+'">'
-      +'<td style="padding:3px 6px;border-top:1px solid #eef2f7;font-weight:800;white-space:nowrap">'+(isRet?(op?'▼ ':'▸ '):(on?'▶ ':''))+_a2rMd(d)+'</td>'+(isRet?_a2rXCell(X.pm)+_a2rXCell(X.ws)+_a2rXCell(X.ec):_a2rXCell(X.ec)+_a2rXCell(X.pm))+'</tr>'
-      +(op?'<tr><td colspan="4" style="padding:4px 6px 8px;background:#f8fafc;border-top:1px solid #bae6fd">'+_a2rRetList(k,d,X)+'</td></tr>':'');}).join("");
+  var rows=days.map(function(d){var X=_a2rX(k,d),on=d===cur,op=isRet?_a2rRetOpen[k]===d:_a2rMvOpen[k]===d;
+    return '<tr style="cursor:pointer;'+(op?'background:#e0f2fe;':on?'background:#ecfeff;':'')+'" onclick="a2rXPick(\''+k+'\',\''+d+'\')" title="'+d+(isRet?' — 누르면 반품 상품 리스트를 펼치고/접습니다':' — 누르면 고르고 원드라이브 파일 내역을 펼치고/접습니다')+'">'
+      +'<td style="padding:3px 6px;border-top:1px solid #eef2f7;font-weight:800;white-space:nowrap">'+(op?'▼ ':'▸ ')+_a2rMd(d)+'</td>'+(isRet?_a2rXCell(X.pm)+_a2rXCell(X.ws)+_a2rXCell(X.ec):_a2rXCell(X.ec)+_a2rXCell(X.pm))+'</tr>'
+      +(op?'<tr><td colspan="4" style="padding:4px 6px 8px;background:#f8fafc;border-top:1px solid #bae6fd">'+(isRet?_a2rRetList(k,d,X):_a2rMvList(k,d))+'</td></tr>':'');}).join("");
   var V=isRet?ecSalView:ecMoveView,ws=isRet?" · 세매 반품은 최신화 때 기준":"";
   return '<div style="margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
     +'<tr style="background:#f1f5f9;text-align:left"><th style="padding:3px 6px">날짜</th>'+(isRet?'<th style="padding:3px 6px">PlayMD</th><th style="padding:3px 6px">세매</th><th style="padding:3px 6px">이카운트 판매</th>':'<th style="padding:3px 6px">이카운트 창고이동</th><th style="padding:3px 6px">PlayMD</th>')+'</tr>'+rows+'</table>'
@@ -11328,6 +11328,27 @@ function _a2rXTable(k,days,cur){
    · 상품 줄 = PlayMD 판매일보 반품 줄(~r, 거래처별) — 없으면 PlayMD 반품 등록 기록(retLog) · 반품리스트 미등록 줄은 ❌로 따로
    · 아래 = 세 곳 중복 확인: 이카운트 그 날 그 거래처 전표(음수 = 반품) · 세매 반품 금액 */
 var _a2rRetOpen={};
+/* 창고간이동·매장출고 날짜 줄을 누르면 펼치는 원드라이브 파일 내역(2026-11-24 영업2팀 "날짜를 누르면 온드라이브의 파일 내역이 보이게")
+   = 자동화 PC가 그 날 원본을 받아 검사한 줄(it.rows — 같은 경로·상품은 합친 것) + 멈춘 줄(it.badRows). 검사 기록이 없으면 [재확인]으로 받는다 */
+var _a2rMvOpen={};
+function _a2rMvList(k,day){
+  var e=_escX,f=_a2rF,it=_saipItemOf(k,day),R=(saipReq||{})[k],act=_saipReqActive(R);
+  var td='padding:2px 6px;border-top:1px solid #e2e8f0';
+  var rc='<button class="a2-btn sub" '+(act?'disabled style="opacity:.55" ':'')+'onclick="event.stopPropagation();a2rSaipRecheck(\''+k+'\',\''+day+'\')">🔄 '+_a2rMd(day)+' 파일 다시 받기</button>';
+  if(!it)return '<div style="color:#5b6675">'+_a2rMd(day)+' 검사 기록이 없어 파일 내역을 모릅니다 — '+rc+'</div>';
+  if(it.status==="nofile")return '<div style="color:#5b6675">📭 원드라이브에 '+_a2rMd(day)+' 파일 없음 · '+e(_saipFmtAt(it.at||""))+' 확인 '+rc+'</div>';
+  var hd='<div style="margin-bottom:4px;font-size:12px;color:#334155">📄 <b>'+e((it.src&&it.src.name)||"원본")+'</b>'+(it.src&&it.src.modified?' · 파일 수정 '+e(_saipFmtAt(it.src.modified)):'')+' · '+e(_saipFmtAt(it.at||""))+' 받음 &nbsp;'+rc+'</div>';
+  var L=[],tq=0;
+  (it.rows||[]).forEach(function(r){var q=+r.qty||0;tq+=q;var p=String(r.store||"").split(/→|->/),fr=k==="so"?"주희물류(NH)":_a2rWhLab(p[0]||"",""),to=k==="so"?r.store:_a2rWhLab((p[1]||"").trim(),"");
+    L.push('<tr><td style="'+td+'">'+e(fr)+'</td><td style="'+td+'">'+e(to||"")+'</td><td style="'+td+'" title="'+e(r.prod||"")+'">'+e(r.prod||"")+'</td><td style="'+td+';color:#5b6675">'+e(r.code||"")+'</td><td style="'+td+';text-align:right">'+f(q)+'</td><td style="'+td+';color:#5b6675">'+e(r.orderNo||r.recv||r.orderer||"")+'</td><td style="'+td+';color:#047857">✓</td></tr>');});
+  (it.badRows||[]).forEach(function(b){var q=+b.qty||0;tq+=q;
+    L.push('<tr style="background:#fef2f2"><td style="'+td+'">'+e(b.fromName||b.from||"")+'</td><td style="'+td+'">'+e(b.toName||b.to||"")+'</td><td style="'+td+'" title="'+e(b.prod||"")+'">'+e(b.prod||"")+'</td><td style="'+td+';color:#5b6675">'+e(b.code||"")+'</td><td style="'+td+';text-align:right">'+f(q)+'</td><td style="'+td+';color:#5b6675">'+e(b.orderNo||b.recv||b.orderer||"")+'</td><td style="'+td+';color:#b91c1c;font-weight:700">✖ '+e(b.why||"멈춤")+'</td></tr>');});
+  var more=(it.bad||[]).length>(it.badRows||[]).length?'<div style="color:#b91c1c;font-size:12px">'+(it.bad||[]).filter(function(x){return !(it.badRows||[]).some(function(b){return x.indexOf(b.why||"@@")>=0;});}).slice(0,10).map(e).join("<br>")+'</div>':'';
+  if(!L.length)return hd+'<div style="color:#5b6675">읽은 줄이 없습니다</div>'+more;
+  return hd+'<div style="max-height:260px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<tr style="background:#f1f5f9;text-align:left;position:sticky;top:0"><th style="padding:2px 6px">보내는 곳</th><th style="padding:2px 6px">받는 곳</th><th style="padding:2px 6px">상품</th><th style="padding:2px 6px">코드</th><th style="padding:2px 6px;text-align:right">수량</th><th style="padding:2px 6px">'+(k==="so"?"주문번호":"수령인")+'</th><th style="padding:2px 6px">읽기</th></tr>'
+    +L.join("")+'<tr style="font-weight:800;background:#f8fafc"><td style="'+td+'" colspan="4">합계 '+L.length+'줄</td><td style="'+td+';text-align:right">'+f(tq)+'</td><td style="'+td+'" colspan="2"></td></tr></table></div>'+more;
+}
 function _a2rRetList(k,day,X){
   var e=_escX,f=_a2rF,P=X.P,d8=day.replace(/-/g,""),V=ecSalView,nm=(V&&V.nm)||{};
   var cn=function(c){var cu=_ecSalCust(c);return nm[cu]||nm[c]||c;};
@@ -11381,6 +11402,7 @@ function _a2rRetList(k,day,X){
 function _a2rXIc(c){var col={ok:"#047857",bad:"#b91c1c",warn:"#b45309"}[c.st]||"#5b6675";return '<span style="color:'+col+';font-weight:700">'+({ok:"✅",bad:"❌",warn:"⚠️",na:"➖"}[c.st]||"❔")+' '+_escX(c.txt)+'</span>';}
 function a2rXPick(k,d){
   if(A2R_RET_CH[k]){_a2rRetDay[k]=d;_a2rRetOpen[k]=_a2rRetOpen[k]===d?"":d;a2rRender();return;}
+  _a2rMvOpen[k]=_a2rMvOpen[k]===d?"":d;
   var el=document.getElementById("a2rDate_"+k);if(el)el.value=d;_a2rTouched[k]=true;a2rRender();
 }
 /* [🔄 세 곳 다시 확인] — 판매조회 최신화(a2r)를 4칸 날짜 범위로 */
