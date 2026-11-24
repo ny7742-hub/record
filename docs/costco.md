@@ -77,6 +77,12 @@
   받은 뒤 5단계 안내에 `송장 있는 N줄만 담음 · M줄 뺌`을 띄운다. 뺀 주문은 송장이 나오면 그때 다시 올린다.
   같은 규칙을 자동화 `automation/dss-invoice.mjs`(DSS 송장 자동 입력, 만드는 중)도 쓴다.
 
+- **판매현황 금액 = 코스트코 판매가 × 0.7**(2026-11-24 영업2팀 "자비스 코스트코탭에 판매가의 0.7로 금액 변경" — PlayMD·세매 등록가와 같은 기준):
+  `_ccSalesRate()`(= `CC_PM_RATE` 0.7)를 발주 등록 계획(`_ccPdfBuildSalesPlan` — 5단계 '예'·`cc-sales-register.mjs` 공통)과 판매현황 파일 업로드(`ccMergeWeekMap`) 금액에 곱한다.
+  `_ccPdfCostcoAmount`(줄 금액)는 **도매발주서 결제금액에도 쓰여 판매가 그대로** 두고 판매현황에 넣을 때만 곱한다. 행사가는 보지 않는다(판매가 기준 — PlayMD는 행사 기간이면 행사가×0.7이라 그 날은 다를 수 있다).
+  **11/1~11/23 판매현황은 같은 날 한 번 ×0.7로 고쳤다**(자동화 PC에서 `ws/costco` 직접 — 날짜마다 `salesAt` 새 시각, 고친 날짜는 `costcoDB.rate07[날짜]`에 남김, 다시 곱하지 말 것). 10월 이전 금액은 판매가 그대로다 — 달을 넘겨 비교할 때 주의.
+  11월에는 판매현황 파일 업로드 날짜(`_uploaded`)가 없었다.
+
 - **코스트코 자동 발주**(2026-10-01 영업2팀, `automation/costco-order.mjs` · 화면 `#ccAutoBox` `ccAutoGo`/`ccAutoRender`):
   **2026-10-12 — 버튼으로만 · 건수 먼저**(영업2팀 "자동발주는 버튼을 누르면 되게, 그전에 미리 건수를 볼 수 있게"): 아침 자동 요청(`saip-watch ccAutoOrder`)은 `CC_AUTO.off=true`로 껐다(아래 8:30 설명은 다시 켤 때 참고).
   **멈춤은 두 겹이다** — ① 워처 `CC_AUTO.off=true` ② 작업 스케줄러 `Costco-Order-Auto` **사용 안 함(Disabled)**. 둘 다여야 아침에 안 돈다.

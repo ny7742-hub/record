@@ -25720,6 +25720,9 @@ function parseCostcoRows(rows){
   ccMergeWeekMap(weekMap,{skipDate:skipDate,skipProd:skipProd,skipColor:skipColor,skipReturn:skipReturn,skipZero:skipZero,autoAdded:autoAdded,costN:_costN},_ccSimple?{merge:true,year:_ccFileYear,month:_ccFileMonth}:null);
 }
 
+/* 코스트코 판매현황에 넣는 금액 비율 — 판매가 × 0.7(PlayMD 매출등록가 CC_PM_RATE와 같은 값, 2026-11-24 영업2팀).
+   발주 등록(_ccPdfBuildSalesPlan)·판매현황 파일 업로드(ccMergeWeekMap) 둘 다 이걸 곱한다. 11월 이전 금액은 그대로(11/1~11/23은 같은 날 ×0.7로 고침, costcoDB.rate07) */
+function _ccSalesRate(){return (typeof CC_PM_RATE!=="undefined"&&CC_PM_RATE>0)?CC_PM_RATE:0.7;}
 function ccMergeWeekMap(weekMap,skipInfo,opt){
   var _yr=new Date().getFullYear();
   var _merge=opt&&opt.merge;
@@ -25737,7 +25740,7 @@ function ccMergeWeekMap(weekMap,skipInfo,opt){
         var d=weekMap[period][prod][color];
         costcoDB.sales[period][prod][color]={
           qty:Math.round(d.qty),
-          amount:Math.round(d.amount)
+          amount:Math.round(d.amount*_ccSalesRate())   /* 판매현황 파일 금액도 × 0.7(2026-11-24 영업2팀) */
         };
       });
     });
@@ -30253,6 +30256,9 @@ function _ccPdfBuildSalesPlan(inclFileDup){
       var pp=costcoDB.products.find(function(x){return x.name===pn;});
       amt=Math.round(((pp&&pp.price)||0)*q);
     }
+    /* 판매현황 금액 = 코스트코 판매가 × 0.7(PlayMD·세매 등록가와 같은 기준, 2026-11-24 영업2팀 "자비스 코스트코탭에 판매가의 0.7로") —
+       r.amt(_ccPdfCostcoAmount)는 도매발주서 결제금액에도 쓰여 판매가 그대로 두고 여기서만 곱한다 */
+    amt=Math.round(amt*_ccSalesRate());
     var period=period0;
     if(!plan.map[period])plan.map[period]={};
     if(!plan.map[period][pn])plan.map[period][pn]={};
