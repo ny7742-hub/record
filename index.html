@@ -3273,7 +3273,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccSalesStatus":"ws/ccSalesStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","ecStockReq":"ws/ecStockReq","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","ecPo":"ws/ecPo","ecPoReq":"ws/ecPoReq","ecPoSent":"ws/ecPoSent","ordStoreInfo":"ws/ordStoreInfo","epStatus":"ws/epStatus","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccSalesStatus":"ws/ccSalesStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","ecStockReq":"ws/ecStockReq","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","ecPo":"ws/ecPo","ecPoReq":"ws/ecPoReq","ecPoSent":"ws/ecPoSent","ordStoreInfo":"ws/ordStoreInfo","epStatus":"ws/epStatus","epDel":"ws/epDel","epHist":"ws/epHist","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipFix":"ws/saipFix","saipAck":"ws/saipAck","saipSeen":"ws/saipSeen","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen","unshipSrc":"ws/unshipSrc","usSaipStatus":"ws/usSaipStatus",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix","mvFix":"ws/mvFix","soFix":"ws/soFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre",
@@ -4024,7 +4024,7 @@ function fbListen(){
   });
   apply("ws/ecStock","ecStock",
     function(d){if(d&&typeof d==="object"&&d.wh)ecStock=d;},
-    function(){if(typeof renderEcount==="function")renderEcount();if(typeof _ecRes!=="undefined"&&_ecRes.length&&typeof ecRenderSearch==="function")ecRenderSearch();if(_epNeedOpen&&typeof epRender==="function")try{epRender();}catch(e){}
+    function(){if(typeof renderEcount==="function")renderEcount();if(typeof _ecRes!=="undefined"&&_ecRes.length&&typeof ecRenderSearch==="function")ecRenderSearch();if(typeof epRender==="function")try{epRender();}catch(e){}
       try{var _hp=document.getElementById("homePsIn");if(_hp&&_hp.value.trim()&&typeof hpsSearch==="function")hpsSearch();}catch(e){}}
   );
   apply("ws/ecStockReq","ecStockReq",
@@ -4099,6 +4099,8 @@ function fbListen(){
   apply("ws/ecPoReq","ecPoReq",function(d){if(d&&typeof d==="object")ecPoReq=d;},function(){if(typeof epRender==="function")epRender();});
   apply("ws/ecPoSent","ecPoSent",function(d){if(d&&typeof d==="object")ecPoSent=d;},function(){if(typeof epRender==="function")epRender();});
   apply("ws/epStatus","epStatus",function(d){if(d&&typeof d==="object")epStatus=d;},function(){if(typeof epRender==="function")epRender();});
+  apply("ws/epDel","epDel",function(d){epDel=d&&typeof d==="object"?d:{};},function(){if(typeof epRender==="function")epRender();});
+  apply("ws/epHist","epHist",function(d){epHist=d&&typeof d==="object"?d:{};},function(){if(typeof epRender==="function")epRender();});
   /* 매장 수령인·연락처·주소 직접 입력(2026-11-17) — ORDER_STORES에 덮어 쓴다(수기발주·매장 발주·백화점 발주 도매발주서가 같이 씀) */
   apply("ws/ordStoreInfo","ordStoreInfo",function(d){if(d&&typeof d==="object"){ordStoreInfo=d;_ordStoreApplyInfo();}},function(){if(typeof epRender==="function")epRender();});
   apply("ws/portalLogin","portalLogin",
@@ -9392,6 +9394,69 @@ var ecPoReq=(function(){try{return JSON.parse(localStorage.getItem("ecPoReq")||"
 var ecPoSent=(function(){try{return JSON.parse(localStorage.getItem("ecPoSent")||"null");}catch(e){return null;}})()||{};
 var epStatus=(function(){try{return JSON.parse(localStorage.getItem("epStatus")||"null");}catch(e){return null;}})();
 var _epSel={},_epOpen={},_epShowSent=false,_epEdit={};
+/* 품목 줄 빼기 · 보낸 내역(2026-11-25 영업2팀 "내역 보여주고, 이카운트 재고와 매장재고 · 이카운트 재고 10개 미만이면 삭제 · 일괄 삭제").
+   epDel = ws/epDel {발주key:{품목코드:{by,at}}} — 뺀 줄은 도매발주서·메일에 안 나간다(세매 발주 자체는 그대로, 메일 뒤 '처리 완료'는 발주 단위).
+   epHist = ws/epHist {요청id:{at,by,subj,file,lines,qty,stores,slips:[{key,lab,wh,whNm,writer,lines,del}],extra}} — ✉️ 발주 메일을 누를 때 남긴다(최근 40건) */
+var epDel=(function(){try{return JSON.parse(localStorage.getItem("epDel")||"null");}catch(e){return null;}})()||{};
+var epHist=(function(){try{return JSON.parse(localStorage.getItem("epHist")||"null");}catch(e){return null;}})()||{};
+var EP_LOW=10,_epHistOpen=false,_epHistSel={};
+function _epIsDel(s,x){return !!((epDel||{})[s.key]||{})[String(x.code||"")];}
+function _epLines(s){return (s.lines||[]).filter(function(x){return !_epIsDel(s,x);});}
+function _epEcQ(code){return typeof ecStock!=="undefined"&&ecStock&&_ecStockKey(_ecHq())?ecStockQty(code,_ecHq()):null;}
+function _epStQ(wh,code){return typeof ecStock!=="undefined"&&ecStock&&wh&&_ecStockKey(wh)?ecStockQty(code,wh):null;}
+function _epIsLow(x){var q=_epEcQ(x.code);return q!==null&&q<EP_LOW;}
+function _epDelSave(){
+  Object.keys(epDel).forEach(function(k){if(!epDel[k]||!Object.keys(epDel[k]).length)delete epDel[k];});
+  wsSetItem("epDel",JSON.stringify(epDel));_epDlSig="";epRender();
+}
+function epLineDel(k,code,on){
+  if(on){(epDel[k]=epDel[k]||{})[code]={by:_saipMe(),at:new Date().toISOString()};}else if(epDel[k])delete epDel[k][code];
+  _epDelSave();
+}
+function _epLowList(){var R=[];_epSlips().forEach(function(s){if(_epSentOf(s.key))return;_epLines(s).forEach(function(x){if(+x.qty>0&&_epIsLow(x))R.push({s:s,x:x});});});return R;}
+function epLowDelAll(){
+  var R=_epLowList();if(!R.length){alert("이카운트 재고 "+EP_LOW+"개 미만인 줄이 없습니다.");return;}
+  if(!confirm("이카운트 "+_ecHq()+" 재고가 "+EP_LOW+"개 미만인 "+R.length+"줄을 이번 도매발주서·메일에서 뺍니다.\n\n"
+    +R.slice(0,25).map(function(o){return "· "+_epKeyLab(o.s)+" "+(o.s.whNm||o.s.wh)+" — "+_epItemName(o.x)+" "+o.x.qty+"개 (이카 "+_epEcQ(o.x.code)+")";}).join("\n")+(R.length>25?"\n… 외 "+(R.length-25)+"줄":"")
+    +"\n\n세매 발주는 그대로 두고, 메일 뒤 '처리 완료'는 발주 단위로 됩니다. 뺀 줄은 ↩ 되돌리기로 다시 넣을 수 있습니다. 뺄까요?"))return;
+  var me=_saipMe(),at=new Date().toISOString();R.forEach(function(o){(epDel[o.s.key]=epDel[o.s.key]||{})[String(o.x.code)]={by:me,at:at};});
+  _epDelSave();
+}
+function epDelUndoAll(){
+  var n=0;_epSlips().forEach(function(s){if(!_epSentOf(s.key)&&epDel[s.key]){n+=Object.keys(epDel[s.key]).length;delete epDel[s.key];}});
+  if(!n)return;if(!confirm("뺀 줄 "+n+"줄을 모두 다시 넣을까요?")){return;}_epDelSave();
+}
+function epHistToggle(id){if(id){_epHistSel[id]=!_epHistSel[id];}else _epHistOpen=!_epHistOpen;epRender();}
+function _epStockCells(wh,code){
+  var e=_epEcQ(code),m=_epStQ(wh,code),lo=e!==null&&e<EP_LOW;
+  return '<td style="padding:2px 6px;text-align:right;white-space:nowrap;font-weight:700;color:'+(e===null?'#5b6675':lo?'#b91c1c':'#6d28d9')+'" title="이카운트 '+_escX(_ecHq())+' 재고'+(ecStock&&ecStock.at?' ('+_escX(_saipFmtAt(ecStock.at))+' 기준)':'')+'">'+(e===null?'–':e)+(lo?' ⚠':'')+'</td>'
+    +'<td style="padding:2px 6px;text-align:right;white-space:nowrap;color:'+(m===null?'#5b6675':'#334155')+'" title="이카운트 매장 창고 '+_escX(wh||"")+' 재고">'+(m===null?'–':m)+'</td>';
+}
+/* 보낸 내역 칸 — 최근 것부터. 줄을 누르면 품목·수량·지금 이카운트 재고·매장 재고 */
+function _epHistHtml(){
+  var E=_escX,ids=Object.keys(epHist||{}).sort(function(a,b){return String((epHist[b]||{}).at).localeCompare(String((epHist[a]||{}).at));});
+  var h='<div style="margin-top:10px;border-top:1px dashed #cbd5e1;padding-top:8px"><a href="javascript:void(0)" onclick="epHistToggle()" style="color:#1b6e82;font-weight:800;font-size:13px">📜 보낸 내역 '+ids.length+'건 '+(_epHistOpen?'▴':'▾')+'</a>'
+    +(ids.length?'':' <span style="font-size:12px;color:#5b6675">— 2026-11-25부터 ✉️ 발주 메일을 누를 때 여기에 남습니다</span>');
+  if(!_epHistOpen||!ids.length)return h+'</div>';
+  var T=epStatus;
+  ids.forEach(function(id){
+    var H=epHist[id]||{},op=!!_epHistSel[id],res=T&&T.id===id?(T.ok?'<span style="color:#047857">✅ 보냄</span>':'<span style="color:#b91c1c">❌ 실패</span>'):((H.slips||[]).some(function(s){return _epSentOf(s.key);})?'<span style="color:#047857">✅ 보냄</span>':'<span style="color:#5b6675">요청함</span>');
+    h+='<div style="margin-top:6px;border:1px solid #e2e8f0;border-radius:8px;background:#fff">'
+      +'<div onclick="epHistToggle(\''+E(id)+'\')" style="cursor:pointer;padding:6px 10px;font-size:12.5px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>'+(op?'▴':'▾')+' '+E(_saipFmtAt(H.at))+'</b> · '+E(H.by||"")+' · '+res+' · <b>'+E(H.lines||0)+'줄 '+E(H.qty||0)+'개</b> <span style="color:#5b6675">('+E(H.stores||"")+')</span>'
+      +((H.slips||[]).length?' <span style="color:#5b6675">세매 '+E((H.slips||[]).map(function(s){return s.lab;}).join(", "))+'</span>':'')+'</div>';
+    if(op){
+      h+='<div style="padding:0 10px 8px;overflow:auto"><table style="border-collapse:collapse;font-size:12px;width:100%"><tr style="color:#5b6675;background:#f8fafc"><td style="padding:3px 6px">세매 발주</td><td style="padding:3px 6px">매장</td><td style="padding:3px 6px">품목코드</td><td style="padding:3px 6px">품목명</td><td style="padding:3px 6px;text-align:right">수량</td><td style="padding:3px 6px;text-align:right">이카운트 '+E(_ecHq())+'(지금)</td><td style="padding:3px 6px;text-align:right">매장 재고(지금)</td></tr>';
+      (H.slips||[]).forEach(function(s){
+        (s.lines||[]).forEach(function(x){h+='<tr style="border-top:1px dashed #e2e8f0"><td style="padding:2px 6px;white-space:nowrap">'+E(s.lab||"")+'</td><td style="padding:2px 6px">'+E(s.whNm||s.wh||"")+'</td><td style="padding:2px 6px;font-family:monospace">'+E(x.code)+'</td><td style="padding:2px 6px">'+E(_epItemName(x))+'</td><td style="padding:2px 6px;text-align:right;font-weight:700">'+E(x.qty)+'</td>'+_epStockCells(s.wh,x.code)+'</tr>';});
+        (s.del||[]).forEach(function(x){h+='<tr style="border-top:1px dashed #e2e8f0;color:#5b6675;text-decoration:line-through"><td style="padding:2px 6px">'+E(s.lab||"")+'</td><td style="padding:2px 6px">'+E(s.whNm||s.wh||"")+'</td><td style="padding:2px 6px;font-family:monospace">'+E(x.code)+'</td><td style="padding:2px 6px">'+E(_epItemName(x))+' (뺌)</td><td style="padding:2px 6px;text-align:right">'+E(x.qty)+'</td><td></td><td></td></tr>';});
+      });
+      (H.extra||[]).forEach(function(r){h+='<tr style="border-top:1px dashed #e2e8f0"><td style="padding:2px 6px">'+(r.an?'🏨 아난티':'＋ 추가')+'</td><td style="padding:2px 6px">'+E(r.store||"")+'</td><td style="padding:2px 6px;font-family:monospace">'+E(r.code)+'</td><td style="padding:2px 6px">'+E(r.name||"")+'</td><td style="padding:2px 6px;text-align:right;font-weight:700">'+E(r.qty)+'</td>'+_epStockCells(_ecWh(r.store),r.code)+'</tr>';});
+      h+='</table></div>';
+    }
+    h+='</div>';
+  });
+  return h+'</div>';
+}
 function epInfoEdit(k){_epEdit[k]=!_epEdit[k];epRender();if(_epEdit[k])setTimeout(function(){var el=document.getElementById("epInf_recv_"+k);if(el)el.focus();},0);}
 function epInfoSave(k,wh){
   var g=function(f){var el=document.getElementById("epInf_"+f+"_"+k);return el?String(el.value).trim():"";};
@@ -9537,7 +9602,7 @@ function _epNeedPanel(){
   if(_epNeedAll&&B.length){h+='<div style="margin-top:8px;font-size:12px;color:#5b6675;font-weight:700">발주 없는 매장 '+B.length+'곳 — 미리 넣어 두면 발주가 올 때 그대로 씁니다</div>';B.forEach(function(it){h+=_epNeedRow(it);});}
   return h+(B.length?'<div style="margin-top:6px;text-align:right">'+restLink()+'</div>':'')+'</div>';
 }
-function _epCanSend(s){return !!_epStore(s)&&(s.lines||[]).some(function(x){return +x.qty>0;});}
+function _epCanSend(s){return !!_epStore(s)&&_epLines(s).some(function(x){return +x.qty>0;});}
 function _epIsSel(s){if(!_epCanSend(s))return false;if(s.key in _epSel)return !!_epSel[s.key];return !_epSentOf(s.key);}
 function _epPicked(){return _epSlips().filter(_epIsSel).sort(function(a,b){return a.key<b.key?-1:1;});}
 function _epKeyLab(s){return s.lab||String(s.date||"").replace(/-/g,"/")+"-"+s.no;}
@@ -9546,15 +9611,16 @@ function _epItemName(x){var P=(typeof _ocProdList==="function")?_ocProdList().by
 /* 도매발주서 줄(27칸) — ecDlWholesale(매장 발주)와 같은 자리 */
 function _epRows(L){
   var rows=[];
-  L.forEach(function(s){var st=_epStore(s)||{};(s.lines||[]).forEach(function(x){if(!(+x.qty>0))return;
+  L.forEach(function(s){var st=_epStore(s)||{};_epLines(s).forEach(function(x){if(!(+x.qty>0))return;
     var row=[];for(var c=0;c<27;c++)row.push("");
     row[2]=st.code||s.wh;row[3]=st.name||"";row[4]=st.recv||"";row[7]=st.tel||"";row[9]=st.addr||"";
     row[11]=_epItemName(x);row[12]=String(x.qty);row[17]=String(x.code).slice(0,8);row[19]=x.code;rows.push(row);});});
   return rows;
 }
-function _epStoresLine(L){var m={};L.forEach(function(s){var st=_epStore(s),k=(st&&st.name)||s.wh;m[k]=(m[k]||0)+(s.lines||[]).filter(function(x){return +x.qty>0;}).length;});return Object.keys(m).map(function(k){return k+" "+m[k]+"줄";}).join(", ");}
+function _epStoresLine(L){var m={};L.forEach(function(s){var st=_epStore(s),k=(st&&st.name)||s.wh;m[k]=(m[k]||0)+_epLines(s).filter(function(x){return +x.qty>0;}).length;});return Object.keys(m).map(function(k){return k+" "+m[k]+"줄";}).join(", ");}
 function epToggle(k,on){_epSel[k]=!!on;epRender();}
-function epOpenSlip(k){_epOpen[k]=!_epOpen[k];epRender();}
+function _epIsOpen(s){return s.key in _epOpen?!!_epOpen[s.key]:!_epSentOf(s.key);}   /* 보낼 발주는 품목을 펼쳐 둔다(2026-11-25) */
+function epOpenSlip(k){var s=_epSlips().filter(function(y){return y.key===k;})[0];_epOpen[k]=!(s?_epIsOpen(s):!!_epOpen[k]);epRender();}
 function epShowSent(){_epShowSent=!_epShowSent;epRender();}
 function epPullGo(){
   _epNeedOpen=_epNeedSplit().ord.length>0;epRender();try{var c=document.getElementById("epCard");if(c)c.scrollIntoView({behavior:"smooth",block:"start"});}catch(e){}
@@ -9692,7 +9758,7 @@ function _epExtraTable(){
 /* 내가 보낸 요청이 보내졌나 — 보냈으면 추가 줄을 비운다 */
 function _epExtraSent(){var id="";try{id=localStorage.getItem("epExtraSent")||"";}catch(e){}return !!(id&&epStatus&&epStatus.id===id&&epStatus.ok&&epStatus.mode==="send");}
 function _epAllStoresLine(L){
-  var m={};L.forEach(function(x){var st=_epStore(x),k=(st&&st.name)||x.wh;m[k]=(m[k]||0)+(x.lines||[]).filter(function(y){return +y.qty>0;}).length;});
+  var m={};L.forEach(function(x){var st=_epStore(x),k=(st&&st.name)||x.wh;m[k]=(m[k]||0)+_epLines(x).filter(function(y){return +y.qty>0;}).length;});
   _epExtraOk().forEach(function(r){var st=_epStore({wh:r.store,date:_epToday()}),k=(st&&st.name)||r.store;m[k]=(m[k]||0)+1;});
   return Object.keys(m).map(function(k){return k+" "+m[k]+"줄";}).join(", ");
 }
@@ -9724,7 +9790,7 @@ function _ecMoveResHtml(m){
 /* 백화점 발주(⚡ AUTO) — 이카운트 발주서 줄은 그 발주서의 입고창고, ＋ 추가·🏨 아난티 줄은 매장 코드의 이카운트 창고 */
 function _epMoveSlips(L,X){
   var R=[];
-  L.forEach(function(s){var st=_epStore(s)||{};(s.lines||[]).forEach(function(x){R.push({wh:s.wh,nm:st.name||s.wh,code:x.code,name:_epItemName(x),qty:x.qty,tag:"발주서 "+_epKeyLab(s)});});});
+  L.forEach(function(s){var st=_epStore(s)||{};_epLines(s).forEach(function(x){R.push({wh:s.wh,nm:st.name||s.wh,code:x.code,name:_epItemName(x),qty:x.qty,tag:"발주서 "+_epKeyLab(s)});});});
   (X||[]).forEach(function(r){var st=_epStore({wh:r.store,date:_epToday()})||{};R.push({wh:_ecWh(r.store),nm:st.name||r.store,code:r.code,name:r.name,qty:r.qty,tag:r.an?"아난티":"추가"});});
   return _ecMoveFromRows(R);
 }
@@ -9833,6 +9899,16 @@ function epMail(){
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"send",
     keys:L.map(function(x){return x.key;}),fileName:_wholesaleFileName(),b64:b64,lines:rows.length,extra:X.length,stores:sl};
   _saipReqSet("ep",R);
+  try{   /* 📜 보낸 내역(2026-11-25) — 보낸 줄·뺀 줄을 팀 공유로 남긴다(최근 40건) */
+    epHist[R.id]={at:R.at,by:R.by,subj:subj,file:R.fileName,lines:rows.length,qty:qty,stores:sl,
+      slips:L.map(function(s){return {key:s.key,lab:_epKeyLab(s),wh:s.wh,whNm:(_epStore(s)||{}).name||s.whNm||s.wh,writer:s.writer||"",
+        lines:_epLines(s).filter(function(x){return +x.qty>0;}).map(function(x){return {code:x.code,name:x.name||"",size:x.size||"",qty:x.qty};}),
+        del:(s.lines||[]).filter(function(x){return _epIsDel(s,x);}).map(function(x){return {code:x.code,name:x.name||"",size:x.size||"",qty:x.qty};})};}),
+      extra:X.map(function(r){return {code:r.code,name:r.name||"",qty:r.qty,store:r.store,an:!!r.an};})};
+    var ids=Object.keys(epHist).sort(function(a,b){return String((epHist[b]||{}).at).localeCompare(String((epHist[a]||{}).at));});
+    ids.slice(40).forEach(function(k){delete epHist[k];});
+    wsSetItem("epHist",JSON.stringify(epHist));
+  }catch(e){console.warn("보낸 내역 저장 실패",e);}
   if(X.length)try{localStorage.setItem("epExtraSent",R.id);}catch(e){}
   epRender();
   if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 보냅니다.");
@@ -9881,15 +9957,22 @@ function _epRender0(){
   h+=_epExtraTable();
   var un=S.filter(function(s){return !_epSentOf(s.key);}),sent=S.filter(function(s){return _epSentOf(s.key);});
   var list=un.concat(_epShowSent?sent:[]);
-  if(!S.length){box.innerHTML=h+'<div style="color:#5b6675;padding:6px 0">세매에 미처리 발주가 없습니다. 매장이 세매 [매장 판매 › 입력]의 🛒 발주 바구니로 보내면 5분 안에 여기에 나옵니다.</div>';return;}
-  var pk=_epPicked(),pq=0;pk.forEach(function(s){(s.lines||[]).forEach(function(x){pq+=+x.qty||0;});});
+  if(!S.length){box.innerHTML=h+'<div style="color:#5b6675;padding:6px 0">세매에 미처리 발주가 없습니다. 매장이 세매 [매장 판매 › 입력]의 🛒 발주 바구니로 보내면 5분 안에 여기에 나옵니다.</div>'+_epHistHtml();return;}
+  var pk=_epPicked(),pq=0;pk.forEach(function(s){_epLines(s).forEach(function(x){pq+=+x.qty||0;});});
   h+='<div style="font-size:12.5px;margin-bottom:4px">보낼 것 <b>'+un.length+'건</b> · 체크 <b>'+pk.length+'건 '+pq+'개</b>'
     +(sent.length?' · <a href="javascript:void(0)" onclick="epShowSent()" style="color:#1b6e82">보낸 발주 '+sent.length+'건 '+(_epShowSent?'숨기기 ▴':'보기 ▾')+'</a>':'')+'</div>';
+  (function(){   /* 이카운트 재고 10개 미만 일괄 빼기 · 되돌리기(2026-11-25) */
+    var low=_epLowList(),dn=0;un.forEach(function(s){dn+=Object.keys(epDel[s.key]||{}).length;});
+    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:2px 0 6px;font-size:12.5px">'
+      +(ecStock&&_ecStockKey(_ecHq())?'<span style="color:#5b6675">재고 = 이카운트 '+E(_ecHq())+' · 매장 창고'+(ecStock.at?' ('+E(_saipFmtAt(ecStock.at))+' 기준)':'')+'</span>':'<span style="color:#b45309;font-weight:700">⚠ 이카운트 재고 자료가 없어 재고·빼기를 쓸 수 없습니다</span>')
+      +(low.length?'<button class="a2-btn" style="font-size:12px;padding:3px 10px;background:#dc2626;border-color:#dc2626" onclick="epLowDelAll()" title="이카운트 '+E(_ecHq())+' 재고가 '+EP_LOW+'개 미만인 줄을 이번 도매발주서·메일에서 모두 뺍니다">🗑 이카운트 '+EP_LOW+'개 미만 '+low.length+'줄 일괄 삭제</button>':'')
+      +(dn?'<button class="a2-btn sub" style="font-size:12px;padding:3px 10px" onclick="epDelUndoAll()">↩ 뺀 줄 '+dn+'줄 모두 되돌리기</button>':'')+'</div>';
+  })();
   h+='<div style="border:1px solid #e2e8f0;border-radius:8px;overflow:auto;max-height:520px"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
     +'<thead><tr style="background:#f1f5f9;position:sticky;top:0"><th style="padding:5px 6px;width:28px"></th><th style="padding:5px 6px;text-align:left">세매 발주</th><th style="padding:5px 6px;text-align:left">매장(창고)</th><th style="padding:5px 6px;text-align:left">품목</th><th style="padding:5px 6px;text-align:right">수량</th><th style="padding:5px 6px;text-align:left">세매</th><th style="padding:5px 6px;text-align:left">메일</th></tr></thead><tbody>';
   if(!list.length)h+='<tr><td colspan="7" style="padding:8px;color:#5b6675">새로 들어온 발주가 없습니다(모두 보냄).</td></tr>';
   list.forEach(function(s){
-    var st=_epStore(s),ok=_epCanSend(s),sn=_epSentOf(s.key),L=(s.lines||[]),q2=L.reduce(function(a,x){return a+(+x.qty||0);},0),op=!!_epOpen[s.key];
+    var st=_epStore(s),ok=_epCanSend(s),sn=_epSentOf(s.key),L=(s.lines||[]),LA=_epLines(s),q2=LA.reduce(function(a,x){return a+(+x.qty||0);},0),op=_epIsOpen(s),nDel=L.length-LA.length,nLow=sn?0:LA.filter(_epIsLow).length;
     var first=L[0]?_epItemName(L[0]):'';
     h+='<tr style="border-top:1px solid #eef2f7;'+(sn?'color:#5b6675;':'')+'">'
       +'<td style="padding:5px 6px;text-align:center"><input type="checkbox" '+(_epIsSel(s)?'checked ':'')+(ok?'':'disabled ')+'onchange="epToggle(\''+s.key+'\',this.checked)"></td>'
@@ -9897,16 +9980,20 @@ function _epRender0(){
       +'<td style="padding:5px 6px">'+(st?E(st.name)+' <span style="color:#5b6675">'+E(s.wh)+'</span>'+(!st.recv||!st.tel||!st.addr?' <span style="color:#b45309;font-weight:700">⚠ 주소 없음</span>':''):'<span style="color:#b91c1c;font-weight:700">'+E(s.wh||"창고 없음")+' — 매장 정보 없음</span>')
         +(st&&st.pop?' <span title="팝업 탭 '+E(String(st.pop.store||"").trim())+' '+E(_epPopRange(st.pop))+'에서 가져온 수령인·연락처·주소" style="font-size:11.5px;font-weight:700;color:#7c3aed;background:#f5f3ff;border-radius:6px;padding:1px 6px;white-space:nowrap">🏪 팝업 '+E(_epPopRange(st.pop))+'</span>':'')
         +(s.wh?' <a href="javascript:void(0)" onclick="epInfoEdit(\''+s.key+'\')" title="이 매장의 수령인·연락처·주소를 직접 넣거나 고칩니다(팀 전체 적용)" style="color:#1b6e82;font-weight:700;white-space:nowrap">✏️ '+(st&&st.recv&&st.tel&&st.addr?'수정':'입력')+'</a>':'')+'</td>'
-      +'<td style="padding:5px 6px">'+E(first)+(L.length>1?' <span style="color:#5b6675">외 '+(L.length-1)+'품목</span>':'')+(L.length?'':'<span style="color:#b91c1c">품목을 읽지 못함</span>')+'</td>'
+      +'<td style="padding:5px 6px">'+E(first)+(L.length>1?' <span style="color:#5b6675">외 '+(L.length-1)+'품목</span>':'')+(L.length?'':'<span style="color:#b91c1c">품목을 읽지 못함</span>')+(nLow?' <span style="color:#b91c1c;font-weight:700">⚠ 재고 부족 '+nLow+'줄</span>':'')+(nDel?' <span style="color:#5b6675;font-weight:700">🗑 '+nDel+'줄 뺌</span>':'')+'</td>'
       +'<td style="padding:5px 6px;text-align:right;font-weight:700">'+q2+'</td>'
       +'<td style="padding:5px 6px;white-space:nowrap;color:'+(s.gb==="Y"?'#047857':'#b45309')+';font-weight:700">'+E(s.st||(s.gb==="Y"?'확인':'미확인'))+'</td>'
       +'<td style="padding:5px 6px;white-space:nowrap">'+(sn?'✉️ '+E(sn.by||"")+' '+E(_saipFmtAt(sn.at))+(sn.ec&&sn.ec!=="처리 완료"&&sn.ec!=="이미 처리"&&sn.ec!=="처리 중"?' <span style="color:#b91c1c">세매 '+E(sn.ec)+'</span>':''):'<span style="color:#b45309">안 보냄</span>')+'</td></tr>';
     if(_epEdit[s.key])h+=_epInfoRow(s);
     if(op)h+='<tr><td></td><td colspan="6" style="padding:2px 6px 8px"><table style="border-collapse:collapse;font-size:12px;width:100%">'
-      +'<tr style="color:#5b6675"><td style="padding:2px 6px">품목코드</td><td style="padding:2px 6px">품목명</td><td style="padding:2px 6px;text-align:right">수량</td><td style="padding:2px 6px">납기</td><td style="padding:2px 6px">적요</td></tr>'
-      +L.map(function(x){return '<tr style="border-top:1px dashed #e2e8f0"><td style="padding:2px 6px;font-family:monospace">'+E(x.code)+'</td><td style="padding:2px 6px">'+E(_epItemName(x))+'</td><td style="padding:2px 6px;text-align:right">'+E(x.qty)+'</td><td style="padding:2px 6px">'+E(x.due?x.due.slice(4,6)+'/'+x.due.slice(6,8):'')+'</td><td style="padding:2px 6px">'+E(x.memo||"")+'</td></tr>';}).join("")+'</table></td></tr>';
+      +'<tr style="color:#5b6675"><td style="padding:2px 6px">품목코드</td><td style="padding:2px 6px">품목명</td><td style="padding:2px 6px;text-align:right">수량</td><td style="padding:2px 6px;text-align:right">이카운트 '+E(_ecHq())+'</td><td style="padding:2px 6px;text-align:right">매장 재고</td><td style="padding:2px 6px">납기</td><td style="padding:2px 6px">적요</td><td style="padding:2px 6px"></td></tr>'
+      +L.map(function(x){var del=_epIsDel(s,x),ck=E(String(x.code||"")).replace(/'/g,"\'"),low=_epIsLow(x);
+        var btn=sn?'':del?'<a href="javascript:void(0)" onclick="epLineDel(\x27'+s.key+'\x27,\x27'+ck+'\x27,false)" style="color:#1b6e82;font-weight:700;white-space:nowrap">↩ 되돌리기</a>'
+          :low?'<a href="javascript:void(0)" onclick="epLineDel(\x27'+s.key+'\x27,\x27'+ck+'\x27,true)" title="이카운트 재고 '+EP_LOW+'개 미만 — 이번 도매발주서·메일에서 뺍니다" style="color:#b91c1c;font-weight:700;white-space:nowrap">🗑 삭제</a>':'';
+        return '<tr style="border-top:1px dashed #e2e8f0;'+(del?'color:#5b6675;':low&&!sn?'background:#fef2f2;':'')+'"><td style="padding:2px 6px;font-family:monospace">'+E(x.code)+'</td><td style="padding:2px 6px;'+(del?'text-decoration:line-through':'')+'">'+E(_epItemName(x))+(del?' (뺌)':'')+'</td><td style="padding:2px 6px;text-align:right;font-weight:700;'+(del?'text-decoration:line-through':'')+'">'+E(x.qty)+'</td>'+_epStockCells(s.wh,x.code)+'<td style="padding:2px 6px">'+E(x.due?x.due.slice(4,6)+'/'+x.due.slice(6,8):'')+'</td><td style="padding:2px 6px">'+E(x.memo||"")+'</td><td style="padding:2px 6px;text-align:right">'+btn+'</td></tr>';}).join("")+'</table></td></tr>';
   });
   h+='</tbody></table></div>';
+  h+=_epHistHtml();
   box.innerHTML=h;
 }
 /* ⚡ AUTO 홈쇼핑 → 세매 테스트(2026-11-13 영업2팀 "단계별로 확인 · 세매 등록 버튼을 눌러도 세매 등록까지는 안 나게").
