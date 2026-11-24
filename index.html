@@ -11082,10 +11082,25 @@ function _a2ProgScan(){
 }
 (function(){
   var t=0,go=function(){var pg=document.getElementById("page-auto2");if(!pg)return;
+    /* 깜박임 없애기(2026-11-24 영업2팀 "화면이 깜박거리는 거 없애주세요") — 예전엔 150ms 뒤에 바를 다시 붙여 그 사이 바가 빠졌다 붙으며 칸이 출렁였다.
+       MutationObserver 콜백은 화면을 그리기 전에 돌므로 바로 다시 붙인다 */
     new MutationObserver(function(ms){if(_a2ProgBusy)return;if(ms.every(function(m){return m.target.closest&&m.target.closest(".a2-prog");}))return;
-      if(t)return;t=setTimeout(function(){t=0;_a2ProgScan();},150);}).observe(pg,{childList:true,subtree:true});
+      _a2ProgScan();}).observe(pg,{childList:true,subtree:true});
     _a2ProgScan();};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",go);else go();
+})();
+/* ⚡ AUTO 탭 깜박임 없애기(2026-11-24 영업2팀) — Firebase 값이 올 때마다 a2rRender·whsRender 등이 같은 내용을 innerHTML로 통째로 다시 넣어
+   칸이 지워졌다 다시 그려지며 깜박였다(펼친 줄도 접혔다). #page-auto2 안에서는 지난번에 넣은 글과 같고, 그 뒤로 자식이 바뀌지 않았으면(진행 바 .a2-prog는 빼고) 다시 넣지 않는다 */
+(function(){
+  var D=Object.getOwnPropertyDescriptor(Element.prototype,"innerHTML");if(!D||!D.set)return;
+  function kids(el){var a=[];for(var c=el.firstChild;c;c=c.nextSibling){if(c.nodeType===1&&c.classList.contains("a2-prog"))continue;a.push(c);}return a;}
+  function inA2(el){return el.isConnected&&el.closest&&el.closest("#page-auto2");}
+  Object.defineProperty(Element.prototype,"innerHTML",{configurable:true,enumerable:D.enumerable,get:D.get,set:function(v){
+    var s=String(v);
+    if(this.__a2h===s&&inA2(this)){var k=kids(this),o=this.__a2k||[];if(k.length===o.length&&k.every(function(c,i){return c===o[i];}))return;}
+    D.set.call(this,s);
+    if(inA2(this)){this.__a2h=s;this.__a2k=kids(this);}else if(this.__a2h!==undefined){this.__a2h=undefined;this.__a2k=null;}
+  }});
 })();
 /* 세 곳 중복 확인(2026-11-18 영업2팀 "세매, 이카운트, 플레이엠디 등록이 되었는지 무조건 중복 확인이 먼저 되어야 합니다") —
    PlayMD 저장 전에 그 날 그 매장이 PlayMD 판매일보(ws/ecSalSrc)·이카운트 판매조회(ws/ecSalView)·세매(ws/wssalesDays)에 이미 있는지 본다.

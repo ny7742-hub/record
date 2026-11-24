@@ -49,6 +49,7 @@
   `🛒 코스트코 자동발주`(2026-11-17, `#auto2CcCard` — ccAutoRender 복사, ⑤ 회신 오면 미출고 확인 후 `✅ 승인` · 미출고 송장은 DSS에 안 올림 · ⑥ 사입출고+세매, 상세 `docs/costco.md`).
   그 아래 `🏬 백화점 도매 발주`(2026-11-17, `epRender`) — **2026-11-23부터 세매 [매장 판매 › 발주]의 미처리 건**(이카운트에서 뺌) → 도매발주서 → 김구남 센터장 메일(도매와 같은 형식) → 세매 '처리 완료'. 자동화 PC `automation/ecount-po.mjs`(상세 `docs/ecount.md` 끝).
   **진행 바**(2026-11-23 영업2팀): 칸마다 제목 아래 한 줄(`.a2-prog`, `_a2ProgScan` — `#page-auto2`를 MutationObserver로 보고 다시 그림). 단계는 `_a2rRow`의 `data-a2st`·코스트코 `.cc-step`·백화점 도매 발주 숨은 표시에서 읽는다 — **새 칸도 단계를 `_a2rRow`로 그리면 바가 저절로 생긴다.**
+  **깜박임 막기**(2026-11-24): `#page-auto2` 안에서는 `innerHTML`에 지난번과 같은 글을 넣으면(그 뒤 자식이 안 바뀌었으면) 건너뛴다(`Element.prototype.innerHTML` 감쌈, `_a2ProgScan` 아래). 같은 글로 '초기화'하려면 먼저 `""`을 넣을 것.
 
 ## 🤖 자동화 탭
 - 홈 다음 탭(`page-auto`, `renderAutoPage`, 2026-10-02 영업2팀) — 로그인 상태 · PlayMD 자료 업로드 4종 · 코스트코 자동 발주 · 도매 발주(주문배분현황) ·
