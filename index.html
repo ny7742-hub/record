@@ -25558,7 +25558,6 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"루시아", code:"693954", price:19990, colors:["딥블루","코튼핑크"]},
     {name:"듀리에", code:"687979", price:21990, colors:["베이지","블랙"]},
     {name:"바르셀", code:"691716", price:25990, colors:["베이지","블랙","그레이"]},
-    {name:"바르셀 직매입", code:"691716", price:20656, colors:["베이지","블랙","그레이"]},
     {name:"장우산 850", code:"696151", price:18990, colors:["딥그린","블랙"]},
     {name:"장우산 850 직매입", code:"696151", price:16990, colors:["딥그린","블랙"]}
   ],
@@ -25615,7 +25614,6 @@ var _defaultNewProds=[
   {name:"듀리에",code:"687979",price:21990,colors:["베이지","블랙"]},
   /* 바르셀 — 온라인몰 판매(판매가)와 직매입(매입가)을 따로 집계한다 */
   {name:"바르셀",code:"691716",price:25990,colors:["베이지","블랙","그레이"]},
-  {name:"바르셀 직매입",code:"691716",price:20656,colors:["베이지","블랙","그레이"]},
   /* 장우산 850 — 바르셀처럼 온라인몰 판매(판매가 18,990원)와 직매입(16,990원)을 따로 집계한다 (2026-09-29 영업2팀) */
   {name:"장우산 850",code:"696151",price:18990,colors:["딥그린","블랙"]},
   {name:"장우산 850 직매입",code:"696151",price:16990,colors:["딥그린","블랙"]}
@@ -25653,8 +25651,9 @@ function ccApplyDataFixes(db){
   var ch=false;
   if(!db||!db.products)return false;
   if(!db.salePeriods)db.salePeriods=[];
-  /* 코스트코 탭에서 뺀 상품(2026-11-25 영업2팀 "오비크 삭제") — 팀 공유 자료에 남아 있어도 지운다. 지난 판매 기록(db.sales)은 그대로 둔다 */
-  ["오비크"].forEach(function(nm){
+  /* 코스트코 탭에서 뺀 상품(2026-11-25 영업2팀 "오비크 삭제" · "바르셀 직매입 삭제") — 팀 공유 자료에 남아 있어도 지운다.
+     지난 판매 기록(db.sales)·세일 기간(db.salePeriods — 반품 행사가 찾기 CC_SAME_PROD가 씀)은 그대로 둔다 */
+  ["오비크","바르셀 직매입"].forEach(function(nm){
     var i=db.products.findIndex(function(p){return p.name===nm;});
     if(i>=0){db.products.splice(i,1);ch=true;}
   });
@@ -32911,7 +32910,7 @@ var CC_PROD_GROUPS=[
   {label:"D26",   names:["아다나","린다우","메르신","우양산 2종","포시타","세팔로","루시아","장우산 850"]},
   {label:"D31",   names:["루시","크리스티","로슬라","소니아","케디리","일리안","듀리에","바르셀",
                          "헬로나","아르고","아말리"]},
-  {label:"직매입", names:["바르셀 직매입","장우산 850 직매입"]}
+  {label:"직매입", names:["장우산 850 직매입"]}
 ];
 var CC_PROD_ORDER=CC_PROD_GROUPS.reduce(function(a,g){return a.concat(g.names);},[]);
 var _CC_GRP_OF=(function(){
