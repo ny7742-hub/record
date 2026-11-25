@@ -335,6 +335,15 @@
   `{at, accounts:{'ckr.…':{at, rows:{'696151-DG':{q,s,o,d,n}}}}}`(못 읽은 아이디는 지난 값 유지). 수동: `node dss-stock.mjs [--dry]`.
   맞춤: 코스트코 코드 앞 6자리 + DSS 설명 끝 ` - 색이름`(정확 → 핵심 → 부분 일치는 후보 하나일 때만, 세팔로 '그레이' = DSS '그레이블루'),
   안 되면 SKU 색코드(`_ccPdfColor`)를 창고 칼라코드와. 헤더에 읽은 시각(1시간 넘으면 빨강), 칸에 마우스 → 아이디·SKU·수량·발송완료·미발송·DELTA.
+  **그 옆 `DSS 입력` 열**(2026-11-25 영업2팀 "이카운트재고와 DSS 재고 뒤에 수량을 기입하면 DSS 26과 DSS 31에 들어가서 넣어주세요", sticky `cc-sticky-8` / `--ccL8`,
+  `_ccDssInCell` · `ccDssInInput` · `ccDssSetGo` · `ccDssSetDone`): DSS 재고 칸이 SKU를 맞춘 줄에만 숫자 칸(못 맞춘 줄은 `–`, `_ccDssCell`이 `seen.cur`에 SKU·아이디를 남긴다).
+  적은 숫자는 이 브라우저 `localStorage.ccDssSetPend`에만 있다가(노란 칸, 같은 SKU 줄은 같은 값) 머리글 `📤 넣기 N` 또는 칸에서 Enter → 확인창(아이디·SKU·지금 수량 → 새 수량) →
+  `ws/ccDssSetReq {id,by,at,items:[{sku,who,qty,name}]}` → 자동화 PC `saip-watch dssSetReqTick` → `automation/dss-stock-set.mjs setDssStock`이
+  그 아이디 창(DSS26 9333 · DSS31 9334, 모르면 9333 → 9334)의 재고 업데이트를 뒤쪽 탭으로 열어 그 SKU 줄 `NEW CURR QTY`(input[name=newcurrentquantity])에 넣고 `저장`(#saveBtn) →
+  표를 다시 읽어 수량 = 넣은 값인지 확인 → `{doneAt, note, results:[{sku,who,want,before,after,ok,why}]}` → 이어서 `syncDssStock`으로 DSS 재고 칸도 다시 읽음. 성공한 칸은 비운다.
+  **넣은 숫자 = DSS '수량'**(DSS 화면 코드 `_saveData`가 `quantity: newcurrentquantity, updateType:'MANUAL'`로 보낸다 — DELTA는 그 수량 − 발송완료 − 미발송 주문).
+  송장 입력·자동 발주 lock 중이면 끝날 때까지(최대 10분) 기다리고, 15분 넘은 요청은 버린다. 머리글에 `⏳ 넣는 중` · `✅ N 넣음` · 빨간 `⚠ N 실패`(마우스 → 줄마다 결과).
+  수동 시험: `node dss-stock-set.mjs 696151-DG=0 --dry`(칸에 넣기만, 저장 안 함). 백업 `automation/_backup-saip-watch-1125-dssset.mjs`.
   **모바일(≤700px)은 구분·색상만 고정**하고 묶음·단종은 풀어 둔다 — 넷 다 고정하면 화면 절반을 덮어 일자별 수량·금액이 안 보였다.
   고정 칸 끝(PC는 단종, 모바일은 색상)에 그림자를 둔다.
   세일 모달 상품 목록도 같은 순서·묶음으로 보여준다(`renderSaleModal`).
