@@ -13629,19 +13629,26 @@ function fpRealSave(cv,base,msg,dl,photo){
    · 검은 테두리·타일 줄눈을 바탕색에 가깝게 옅게(선이 아니라 모서리처럼) · 배경은 비워 찍고(R3.photo → shot3d가 투명 배경으로 잘라 냄)
      따뜻한 매장 배경·가장자리 어둡게·살짝 대비를 깐다. 찍고 나면 빛·선·그림자를 모두 되돌린다.
    o = {scene, R3, sun, shot() → 캔버스, redraw()} — 두 3D 집기 탭이 같이 쓴다. 값은 FP_PHOTO에서 고친다 */
-/* 2026-11-25 영업2팀 "집기 출력하면 어둡습니다. 밝게" — 빛 올림(amb 0.6→0.75·hemi 0.75→0.9), 그림자 옅게(0.4→0.3), 가장자리 어둡게 거의 뺌(vig 0.24→0.06), 배경 밝게, 밝기 +10%(bright). 더 올리면 흰 집기 면이 날아간다 */
-var FP_PHOTO={amb:0.75,hemi:0.9,sun:1.25,sunPos:[-0.55,1,0.3],shadow:0.3,line:0.72,lineTo:0xe9e5de,vig:0.06,bright:1.1};
+/* 2026-11-25 영업2팀 "집기 출력하면 어둡습니다. 밝게" → "가장자리 어둡게 빼고" → "집기가 뚜렷하게" → "공간 밖은 화이트" → 사진 속 실제 집기 색(Ⓑ안 채택).
+   빛 올림(amb 0.75·hemi 0.9) · 밝기 +10%(bright) · 가장자리 어둡게 없음(vig 0) · 테두리 선을 검정 쪽으로 진하게(line 0.45→lineTo 검정) · 그림자 진하게(shadow 0.45) · 대비(con 1.12)
+   · white: 공간 밖 매장 바닥·바닥 반사(rebuild3d의 R3.env, userData.fpEnv)를 숨기고 흰 바탕 + 둘레 5% 흰 여백(pad)
+   · col: 민트 재질 색을 실제 집기(차분한 청록, 사진 #45A89F 안팎)로 — 큐브·테이블 살대(8fdccc)·카운터·라운드 받침(a6e3d8)·세로 골 아크릴(c6eeee)·안쪽 바닥(3fc9c0). 화면의 3D 색은 그대로 */
+var FP_PHOTO={amb:0.75,hemi:0.9,sun:1.25,sunPos:[-0.55,1,0.3],shadow:0.45,line:0.45,lineTo:0x000000,vig:0,bright:1.1,con:1.12,white:true,pad:0.05,
+  col:{0x8fdccc:0x4fb3a8,0xa6e3d8:0x4fb3a8,0xc6eeee:0x8fd0c8,0x3fc9c0:0x2f9d93}};
 window.fpPhotoShot=function(o){
   var T=window.THREE,sc=o.scene,P=FP_PHOTO;if(!T||!sc)return null;
-  var undo=[],lineMats=new Set(),c=null;
+  var undo=[],lineMats=new Set(),c=null,colMats=new Set();
   try{
+    if(P.white)sc.children.forEach(function(n){if(n.userData&&n.userData.fpEnv&&n.visible){n.visible=false;undo.push(function(){n.visible=true;});}});
     sc.traverse(function(n){
+      if(P.col&&n.isMesh&&n.material)[].concat(n.material).forEach(function(m){if(m&&m.color&&P.col[m.color.getHex()]!=null)colMats.add(m);});
       if(n.isLight){var oi=n.intensity,f=n.isAmbientLight?P.amb:n.isHemisphereLight?P.hemi:n.isDirectionalLight?P.sun:1;n.intensity=oi*f;undo.push(function(){n.intensity=oi;});return;}
       if((n.isLine||n.isLineSegments||n.isLineLoop)&&n.material)lineMats.add(n.material);
       if(n.isMesh&&n.material&&n.material.isShadowMaterial){var oo=n.material.opacity;n.material.opacity=P.shadow;undo.push(function(){n.material.opacity=oo;});}
     });
     var to=new T.Color(P.lineTo);
     lineMats.forEach(function(m){if(!m.color)return;var oc=m.color.clone();m.color.lerp(to,P.line);undo.push(function(){m.color.copy(oc);});});
+    colMats.forEach(function(m){var oc=m.color.getHex();m.color.setHex(P.col[oc]);undo.push(function(){m.color.setHex(oc);});});
     var sun=o.sun;
     if(sun&&sun.shadow){
       var op=sun.position.clone(),L=op.length()||8,oms=sun.shadow.mapSize.x,orr=sun.shadow.radius;
@@ -13656,13 +13663,14 @@ window.fpPhotoShot=function(o){
     try{o.redraw&&o.redraw();}catch(e){}
   }
   if(!c)return null;
-  /* 배경 — 위는 밝고 아래로 따뜻하게 · 살짝 대비 · 가장자리 어둡게(사진 느낌) */
-  var W=c.width,H=c.height,out=document.createElement("canvas");out.width=W;out.height=H;var g=out.getContext("2d");
-  var lg=g.createLinearGradient(0,0,0,H);lg.addColorStop(0,"#fbfaf7");lg.addColorStop(0.55,"#f3f0ea");lg.addColorStop(1,"#e8e3da");g.fillStyle=lg;g.fillRect(0,0,W,H);
-  try{g.filter="brightness("+(P.bright||1)+") contrast(1.04) saturate(1.05)";}catch(e){}
-  g.drawImage(c,0,0);g.filter="none";
-  var rg=g.createRadialGradient(W/2,H*0.48,Math.min(W,H)*0.4,W/2,H*0.5,Math.hypot(W,H)*0.6);rg.addColorStop(0,"rgba(0,0,0,0)");rg.addColorStop(1,"rgba(45,36,24,"+(P.vig==null?0.24:P.vig)+")");
-  g.fillStyle=rg;g.fillRect(0,0,W,H);
+  /* 배경 — white면 흰색 + 둘레 여백, 아니면 위는 밝고 아래로 따뜻하게 · 살짝 대비 · 가장자리 어둡게(사진 느낌) */
+  var pd=P.white?Math.round(c.width*(P.pad||0)):0,W=c.width+2*pd,H=c.height+2*pd,out=document.createElement("canvas");out.width=W;out.height=H;var g=out.getContext("2d");
+  if(P.white){g.fillStyle="#ffffff";g.fillRect(0,0,W,H);}
+  else{var lg=g.createLinearGradient(0,0,0,H);lg.addColorStop(0,"#fbfaf7");lg.addColorStop(0.55,"#f3f0ea");lg.addColorStop(1,"#e8e3da");g.fillStyle=lg;g.fillRect(0,0,W,H);}
+  try{g.filter="brightness("+(P.bright||1)+") contrast(1.04) saturate(1.05)"+(P.con&&P.con!==1?" contrast("+P.con+")":"");}catch(e){}
+  g.drawImage(c,pd,pd);g.filter="none";
+  if(P.vig){var rg=g.createRadialGradient(W/2,H*0.48,Math.min(W,H)*0.4,W/2,H*0.5,Math.hypot(W,H)*0.6);rg.addColorStop(0,"rgba(0,0,0,0)");rg.addColorStop(1,"rgba(45,36,24,"+P.vig+")");
+    g.fillStyle=rg;g.fillRect(0,0,W,H);}
   return out;
 };
 function _hgJobsRender(){
@@ -37645,7 +37653,7 @@ function rebuild3d(){
       mk(root,Math.abs(lx)||BT,0.1,Math.abs(lz)||BT,cx,0.05,cz,0x5f5d58);});
     /* 매장 밖 복도 바닥(가장자리로 흐려짐) + 광택 바닥 반사(집기·벽을 위아래로 뒤집어 바닥 아래에 한 벌 더) — R3.root 밖에 둬 사진 맞춤·집기 고르기에 끼지 않게 */
     if(R3.env){R3.scene.remove(R3.env);R3.env.children.forEach(function(c){if(c.userData.own){c.geometry.dispose();c.material.dispose();}});}
-    var env=new THREE.Group(),mf=mallFloor(w,d);mf.userData.own=1;env.add(mf);
+    var env=new THREE.Group(),mf=mallFloor(w,d);mf.userData.own=1;env.add(mf);env.userData.fpEnv=1;   /* 사진 모드(fpPhotoShot)가 공간 밖을 흰색으로 찍을 때 통째로 숨긴다 */
     if(!phF){var mir=new THREE.Group();mir.scale.y=-1;
       root.children.slice(nF).forEach(function(c){if(c.userData.fl)return;var k=c.clone();
         k.traverse(function(n){n.castShadow=n.receiveShadow=false;if(n.isLine)n.visible=false;delete n.userData.itemId;});mir.add(k);});
@@ -40062,7 +40070,7 @@ function rebuild3d(){
       mk(root,Math.abs(lx)||BT,0.1,Math.abs(lz)||BT,cx,0.05,cz,0x5f5d58);});
     /* 매장 밖 복도 바닥(가장자리로 흐려짐) + 광택 바닥 반사(집기·벽을 위아래로 뒤집어 바닥 아래에 한 벌 더) — R3.root 밖에 둬 사진 맞춤·집기 고르기에 끼지 않게 */
     if(R3.env){R3.scene.remove(R3.env);R3.env.children.forEach(function(c){if(c.userData.own){c.geometry.dispose();c.material.dispose();}});}
-    var env=new THREE.Group(),mf=mallFloor(w,d);mf.userData.own=1;env.add(mf);
+    var env=new THREE.Group(),mf=mallFloor(w,d);mf.userData.own=1;env.add(mf);env.userData.fpEnv=1;   /* 사진 모드(fpPhotoShot)가 공간 밖을 흰색으로 찍을 때 통째로 숨긴다 */
     if(!phF){var mir=new THREE.Group();mir.scale.y=-1;
       root.children.slice(nF).forEach(function(c){if(c.userData.fl)return;var k=c.clone();
         k.traverse(function(n){n.castShadow=n.receiveShadow=false;if(n.isLine)n.visible=false;delete n.userData.itemId;});mir.add(k);});
