@@ -25548,7 +25548,6 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
     {name:"린다우", code:"693952", price:15990, colors:["블랙","라이트그레이","스킨","화이트"]},
     {name:"메르신", code:"693953", price:17990, colors:["블랙","라이트그레이","화이트"]},
     {name:"아말리", code:"690569", price:25990, colors:["애쉬핑크","블랙","아이보리"]},
-    {name:"오비크", code:"690567", price:25990, colors:["블랙","크림","그레이"]},
     {name:"아르고", code:"690568", price:25990, colors:["챠콜","인디핑크","아이보리"]},
     {name:"헬로나", code:"690570", price:49990, colors:["블랙","브라운","카키"]},
     {name:"포시타", code:"694099", price:19990, colors:["블랙","세이지그린"]},
@@ -25566,7 +25565,7 @@ var costcoDB=JSON.parse(localStorage.getItem("costcoDB")||JSON.stringify({
 }));
 /* 기존 데이터 마이그레이션 */
 if(!costcoDB.salePeriods)costcoDB.salePeriods=[];
-var _codeMap={"루시":"672564","크리스티":"667634","로슬라":"679601","소니아":"672524","케디리":"694467","일리안":"694468","아다나":"693950","린다우":"693952","메르신":"693953","아말리":"690569","오비크":"690567","아르고":"690568","헬로나":"690570"};
+var _codeMap={"루시":"672564","크리스티":"667634","로슬라":"679601","소니아":"672524","케디리":"694467","일리안":"694468","아다나":"693950","린다우":"693952","메르신":"693953","아말리":"690569","아르고":"690568","헬로나":"690570"};
 var _needSave=false;
 /* 전체 상품 색상 기준표 — localStorage 오염 방어 */
 var _masterColors={
@@ -25580,7 +25579,6 @@ var _masterColors={
   "린다우": ["블랙","라이트그레이","스킨","화이트"],
   "메르신": ["블랙","라이트그레이","화이트"],
   "아말리": ["애쉬핑크","블랙","아이보리"],
-  "오비크": ["블랙","크림","그레이"],
   "아르고": ["챠콜","인디핑크","아이보리"],
   "헬로나": ["블랙","브라운","카키"]
 };
@@ -25606,7 +25604,6 @@ costcoDB.products.forEach(function(p){
 /* 신규 기본 상품 마이그레이션 */
 var _defaultNewProds=[
   {name:"아말리",code:"690569",price:25990,colors:["애쉬핑크","블랙","아이보리"]},
-  {name:"오비크",code:"690567",price:25990,colors:["블랙","크림","그레이"]},
   {name:"아르고",code:"690568",price:25990,colors:["챠콜","인디핑크","아이보리"]},
   {name:"헬로나",code:"690570",price:49990,colors:["블랙","브라운","카키"]},
   {name:"포시타",code:"694099",price:19990,colors:["블랙","세이지그린"]},
@@ -25653,6 +25650,11 @@ function ccApplyDataFixes(db){
   var ch=false;
   if(!db||!db.products)return false;
   if(!db.salePeriods)db.salePeriods=[];
+  /* 코스트코 탭에서 뺀 상품(2026-11-25 영업2팀 "오비크 삭제") — 팀 공유 자료에 남아 있어도 지운다. 지난 판매 기록(db.sales)은 그대로 둔다 */
+  ["오비크"].forEach(function(nm){
+    var i=db.products.findIndex(function(p){return p.name===nm;});
+    if(i>=0){db.products.splice(i,1);ch=true;}
+  });
   /* 신규 기본 상품 재적용 — Firebase 데이터로 통째 교체된 뒤에도 유실되지 않게 여기서 다시 넣는다
      (예전엔 최초 로드 때 한 번만 넣어서, 원격 데이터가 더 최신이면 새 상품이 사라졌다) */
   if(typeof _defaultNewProds!=="undefined"){
@@ -25697,8 +25699,7 @@ function ccApplyDataFixes(db){
     if(jw&&jw.price!==e[1]){jw.price=e[1];ch=true;}
   });
   /* 헬로나 49990원 · 아르고 25990원 · 아말리 25990원으로 강제 보정 (2026-10-22 영업2팀 지정 — 예전 값 40640·20840·22950) */
-  /* 오비크 25,990원(2026-10-23 영업2팀 — 예전 23,030) */
-  [["헬로나",49990],["아르고",25990],["아말리",25990],["오비크",25990]].forEach(function(e){
+  [["헬로나",49990],["아르고",25990],["아말리",25990]].forEach(function(e){
     var fp=db.products.find(function(x){return x.name===e[0];});
     if(fp&&fp.price!==e[1]){fp.price=e[1];ch=true;}
   });
@@ -32906,7 +32907,7 @@ function _ccProdHasAnySales(prod){
 var CC_PROD_GROUPS=[
   {label:"D26",   names:["아다나","린다우","메르신","우양산 2종","포시타","세팔로","루시아","장우산 850"]},
   {label:"D31",   names:["루시","크리스티","로슬라","소니아","케디리","일리안","듀리에","바르셀",
-                         "오비크","헬로나","아르고","아말리"]},
+                         "헬로나","아르고","아말리"]},
   {label:"직매입", names:["바르셀 직매입","장우산 850 직매입"]}
 ];
 var CC_PROD_ORDER=CC_PROD_GROUPS.reduce(function(a,g){return a.concat(g.names);},[]);
