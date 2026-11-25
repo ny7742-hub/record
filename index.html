@@ -2478,10 +2478,16 @@ label{font-size:14px!important}
       <button class="a2-btn sub" id="auto2PlCheckBtn" style="margin-left:auto;font-size:12.5px;padding:5px 11px" onclick="plCheckGo()" title="로그인을 다시 하지 않습니다 — 자동화 PC가 자동화 창의 로그인 상태를 지금 바로 다시 읽어 이 칸을 새로 고칩니다">🔄 상태 다시 확인</button></div>
       <div id="auto2PlSites"></div></div>
     <!-- 🏬 백화점 발주(2026-11-17 영업2팀 · 2026-11-23 "이카운트에서 빼고, 세매 매장판매 > 발주에서 미처리 건만") — 세매 미처리 발주 → 도매발주서 → 김구남 센터장 메일 → 세매 '처리 완료'. docs/ecount.md -->
-    <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 백화점 도매 발주</b><span style="font-size:12.5px;color:#475569">① 발주 가져오기 → ② 발주 내역 확인 · 품목 추가/삭제 → ③ 도매발주서 다운 → ④ 발주 메일 전달(보낸 뒤 세매 '처리 완료')</span></div>
+    <div class="a2-card" id="epCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 백화점 도매 발주</b><span class="ep-hd"><a id="epHd1" href="javascript:void(0)" onclick="epGoStep(1)">① 발주 가져오기</a>→<a id="epHd2" href="javascript:void(0)" onclick="epGoStep(2)">② 발주 내역 확인 · 품목 추가/삭제</a>→<a id="epHd3" href="javascript:void(0)" onclick="epGoStep(3)">③ 도매발주서 다운</a>→<a id="epHd4" href="javascript:void(0)" onclick="epGoStep(4)">④ 발주 메일 전달</a><span style="color:#5b6675">(보낸 뒤 세매 '처리 완료')</span></span></div>
       <style>/* 단계별 칸(2026-11-25 영업2팀 "1. 발주가져오기 2. 발주내역 > 품목 추가 및 삭제 3. 도매 발주서 다운 4. 발주 메일 전달 순으로 단계별로") — 지금 할 단계는 주황 테두리(_epBlink) */
         .ep-step{border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:8px;background:#fff}
         .ep-step.on{border:2px solid #f59e0b;background:#fffbeb}
+        /* 제목 줄 단계 메뉴(2026-11-26 영업2팀 "위에서도 메뉴가 보이게하고 깜빡이게") — 누르면 그 단계 칸으로, 지금 할 단계는 깜빡(_epBlink) */
+        .ep-hd{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:12.5px;color:#475569}
+        .ep-hd a{display:inline-block;padding:2px 9px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;color:#334155;font-weight:700;text-decoration:none}
+        .ep-hd a.done{border-color:#86efac;background:#dcfce7;color:#047857}
+        .ep-hd a.done::before{content:"✓ "}
+        .ep-hd a.on{border-color:#f59e0b;background:#fffbeb;color:#b45309}
         .ep-sh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px}
         .ep-no{width:22px;height:22px;border-radius:50%;background:#0e7490;color:#fff;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;flex:none}
         .ep-step.done .ep-no{background:#16a34a}
@@ -9896,7 +9902,12 @@ function _epBlink(){
   var T=epStatus,Tok=!!(T&&T.ok&&T.at&&Date.now()-new Date(T.at).getTime()<12*3600*1000),dl=has&&_epDlSig&&_epDlSig===_epPickSig();
   var on={1:w==="p",2:w==="d",3:w==="d",4:w==="m"||act},done={1:!!fresh&&!pulling,2:has?!!dl:Tok,3:has?!!dl:Tok,4:!has&&Tok&&!act};
   [1,2,3,4].forEach(function(i){var el=document.getElementById("epS"+i);if(!el)return;el.classList.toggle("on",!!on[i]);el.classList.toggle("done",!on[i]&&!!done[i]);});
+  /* 제목 줄 단계 메뉴 — 같은 on/done, 지금 누를 단추의 단계만 깜빡(p→①, d→③, m→④) */
+  var bl={p:1,d:3,m:4}[w]||0;
+  [1,2,3,4].forEach(function(i){var a=document.getElementById("epHd"+i);if(!a)return;a.classList.toggle("on",!!on[i]);a.classList.toggle("done",!on[i]&&!!done[i]);a.classList.toggle("whs-blink",bl===i);});
 }
+function epGoStep(i){var el=document.getElementById("epS"+i);if(!el)return;try{el.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){el.scrollIntoView();}
+  el.style.transition="box-shadow .3s";el.style.boxShadow="0 0 0 4px rgba(234,88,12,.45)";setTimeout(function(){el.style.boxShadow="";},1400);}
 function epMail(){
   var L=_epPicked(),X=_epExtraOk(),rows=_epMergeRows(_epRows(L).concat(_epExtraRows()));
   if(!rows.length){alert("보낼 발주를 체크하거나, ＋ 상품 추가·🏨 아난티 발주로 줄을 넣어 주세요.\n\n(매장 정보가 없거나 수량이 없는 발주는 체크되지 않습니다)");return;}
@@ -9985,6 +9996,8 @@ function _epRender0(){
   var E=_esc,S=_epSlips(),R=(saipReq||{}).ep,act=_saipReqActive(R),q=ecPoReq,T=epStatus,h="";
   var pulling=q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<3*60*1000;
   var un=S.filter(function(s){return !_epSentOf(s.key);}),sent=S.filter(function(s){return _epSentOf(s.key);});
+  /* 보낼 것 = 안 보낸 발주 중 뺀 줄 빼고 수량이 남은 것(2026-11-26 영업2팀 "완료 되는데 25% 맞나요?" — 품목을 다 뺀 발주가 남아 ②~④가 안 끝난 것으로 셌다) */
+  var unQ=un.filter(function(s){return _epLines(s).some(function(x){return +x.qty>0;});}),unZ=un.length-unQ.length;
   var fresh=ecPo&&ecPo.src==="ss"&&ecPo.pullAt&&Date.now()-new Date(ecPo.pullAt).getTime()<60*60*1000;
   var xN=_epExtraOk().length,has=_epPicked().length>0||xN>0,dl=has&&_epDlSig&&_epDlSig===_epPickSig();
   var Tt=T&&T.at&&Date.now()-new Date(T.at).getTime()<12*3600*1000&&T.mode!=="draft"?T:null;
@@ -9993,10 +10006,10 @@ function _epRender0(){
     var mk=function(st,t){return '<div hidden data-a2st="'+st+'" data-a2t="'+t+'"></div>';};
     var cf=Tt&&Tt.ok?(Tt.confirm||[]):[],cBad=cf.some(function(c){return !/처리 완료|이미 처리/.test(c.res);});
     var s1=pulling?"run":ecPo&&ecPo.pullErr?"bad":fresh?"ok":"";
-    var s2=(un.length||xN)?(dl?"ok":"wait"):fresh||Tt?"ok":"";
-    var s3=(un.length||xN)?(dl?"ok":""):fresh||Tt?"ok":"";
-    var s4=act?"run":(un.length||xN)?(Tt&&!Tt.ok?"bad":""):Tt&&Tt.ok?(cBad?"bad":"ok"):fresh?"ok":"";
-    h+=mk(s1,"① 발주 가져오기")+mk(s2,(un.length||xN)?"② 발주 내역 확인 ("+(un.length+xN)+"건)":"② 발주 내역 확인")+mk(s3,"③ 도매발주서 다운")+mk(s4,"④ 발주 메일 전달");
+    var s2=(unQ.length||xN)?(dl?"ok":"wait"):fresh||Tt?"ok":"";
+    var s3=(unQ.length||xN)?(dl?"ok":""):fresh||Tt?"ok":"";
+    var s4=act?"run":(unQ.length||xN)?(Tt&&!Tt.ok?"bad":""):Tt&&Tt.ok?(cBad?"bad":"ok"):fresh?"ok":"";
+    h+=mk(s1,"① 발주 가져오기")+mk(s2,(unQ.length||xN)?"② 발주 내역 확인 ("+(unQ.length+xN)+"건)":"② 발주 내역 확인")+mk(s3,"③ 도매발주서 다운")+mk(s4,"④ 발주 메일 전달");
   })();
   /* ① 가져오기 상태 */
   _epSetHtml("epS1Info",(ecPo&&ecPo.at&&ecPo.src==="ss"?'마지막 확인 '+E(_saipFmtAt(ecPo.pullAt||ecPo.at))+' · 미처리 <b>'+S.length+'건</b>':'아직 세매에서 받은 발주 목록이 없습니다')
@@ -10018,7 +10031,7 @@ function _epRender0(){
   }
   _epSetHtml("epS4Box",h4+_epHistHtml());
   /* ② 발주 내역 */
-  _epSetHtml("epS2Info",S.length||xN?' — 보낼 것 <b>'+un.length+'건</b>'+(xN?' · 추가 줄 '+xN+'줄':''):' — 새 발주 없음');
+  _epSetHtml("epS2Info",S.length||xN?' — 보낼 것 <b>'+unQ.length+'건</b>'+(unZ?' <span style="color:#5b6675">(품목 다 뺀 '+unZ+'건 제외)</span>':'')+(xN?' · 추가 줄 '+xN+'줄':''):' — 새 발주 없음');
   h+=_epNeedPanel();
   if(!S.length){h+='<div style="color:#5b6675;padding:2px 0 4px">세매에 미처리 발주가 없습니다. 매장이 세매 [매장 판매 › 입력]의 🛒 발주 바구니로 보내면 5분 안에 여기에 나옵니다. 그래도 보낼 것이 있으면 아래 <b>＋ 상품 추가</b>로 넣으세요.</div>';}
   else{
