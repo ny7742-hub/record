@@ -16539,6 +16539,24 @@ function hsClearMarks(){
 /* 홈쇼핑몰 재고 목록 표(2026-11-25 영업2팀 "코스트코처럼 리스트처럼 정렬, 이카운트재고와 각 판매사이트 재고가 보이게").
    채널 → 상품(품절 많은 순 · 재고 적은 순) → 색상 한 줄. 상품명 칸은 묶고(rowspan) 전체 품절 단추를 그 칸에 둔다.
    창고재고 = PlayMD 주희물류(품절 판단 기준, r.qty) · 이카운트 = ws/ecStock 본사(NH) 창고 · 사이트 재고는 사이트 연결 전이라 '–'. */
+/* 홈쇼핑 채널(2026-11-25 영업2팀 "롯데홈쇼핑, 현대홈쇼핑, GS홈쇼핑, 홈앤쇼핑으로 채널을 묶어주세요") —
+   상품리스트의 채널 이름이 조금 달라도(롯데아이몰·GS샵·hmall 등) 이 넷으로 모은다. 완료 체크 키는 원래 r.ch 그대로. */
+var HS_CH=[
+  {ch:"롯데홈쇼핑",re:/롯데|lotte/i,url:"https://partners.lotteimall.com/"},
+  {ch:"현대홈쇼핑",re:/현대|hmall/i,url:"https://partner.hmall.com/"},
+  {ch:"GS홈쇼핑",re:/gs/i,url:"https://partners.gsshop.com/sign-in"},
+  {ch:"홈앤쇼핑",re:/홈앤|hns/i,url:"https://partners.hnsmall.com/app/index.html"}
+];
+function _hsChGroup(ch){
+  var s=String(ch||"").trim();if(!s)return "(채널없음)";
+  for(var i=0;i<HS_CH.length;i++)if(HS_CH[i].re.test(s))return HS_CH[i].ch;
+  return s;
+}
+function _hsChRank(ck){
+  for(var i=0;i<HS_CH.length;i++)if(HS_CH[i].ch===ck)return i;
+  return ck==="(채널없음)"?99:HS_CH.length;
+}
+function _hsChInfo(ck){return HS_CH.filter(function(c){return c.ch===ck;})[0]||null;}
 function _hsListTable(chGroups,_idx,isOutQ){
   var hasEc=typeof ecStock!=="undefined"&&ecStock&&typeof _ecStockKey==="function"&&!!_ecStockKey(_ecHq());
   var ecAt=hasEc&&ecStock.at?_saipFmtAt(ecStock.at):"";
@@ -16558,9 +16576,12 @@ function _hsListTable(chGroups,_idx,isOutQ){
     +'<th style="'+TH+';text-align:center;border-top-right-radius:9px;border-right:0">할 일</th>'
     +'</tr></thead><tbody>';
   chGroups.forEach(function(g){
+    var ci=_hsChInfo(g.ch);
     h+='<tr><td colspan="9" style="background:#e8f2f4;padding:5px 10px;font-size:12.5px;font-weight:800;color:#1b6e82;border-bottom:1px solid #d5e4e8">'
-      +_escX(g.ch)+' <span style="font-size:11px;color:#5b6675;font-weight:700">'+g.prods.length+'상품 · '+g.rowN+'색'
-      +(g.out?' · <span style="color:#dc2626">품절 '+g.out+'</span>':'')+'</span></td></tr>';
+      +_escX(g.ch)+' <span style="font-size:11px;color:#5b6675;font-weight:700">'
+      +(g.prods.length?g.prods.length+'상품 · '+g.rowN+'색'+(g.out?' · <span style="color:#dc2626">품절 '+g.out+'</span>':''):'상품리스트에 이 채널 상품이 없습니다')+'</span>'
+      +(ci?' <a href="'+_escX(ci.url)+'" target="_blank" rel="noopener" title="'+_escX(ci.ch)+' 협력사 사이트 새 탭" style="margin-left:8px;font-size:11px;font-weight:700;color:#2563eb;text-decoration:none">↗ 협력사 사이트</a>':'')
+      +'</td></tr>';
     g.prods.forEach(function(p){
       var pAll=_hsProdMarked(p.rows[0].ch,p.name);
       var nm=_escX(p.name);
@@ -16634,13 +16655,17 @@ function renderStockCheckResults(){
   /* 채널 → 상품으로 묶는다. 표로 늘어놓으면 좌우가 넓어 읽기 나빠서
      상품마다 카드로 만들고 화면 폭에 맞춰 한 줄에 여러 개를 깐다. */
   var chMap={},chOrder=[];
+  var _allCh=!q&&!onlyZero;   /* 검색·필터가 없을 때만 빈 채널도 칸을 보인다 */
+  if(_allCh)HS_CH.forEach(function(c){chMap[c.ch]={ch:c.ch,pMap:{},pOrder:[]};chOrder.push(c.ch);});
   list.forEach(function(r){
-    var ck=r.ch||"(채널없음)";
+    var ck=_hsChGroup(r.ch);
     if(!chMap[ck]){chMap[ck]={ch:ck,pMap:{},pOrder:[]};chOrder.push(ck);}
     var g=chMap[ck],pk=r.name||"(이름없음)";
     if(!g.pMap[pk]){g.pMap[pk]={name:pk,url:r.url,rows:[]};g.pOrder.push(pk);}
     g.pMap[pk].rows.push(r);
   });
+  /* 정해 둔 네 채널 순서 → 그 밖의 채널 */
+  chOrder.sort(function(a,b){return _hsChRank(a)-_hsChRank(b);});
   var chGroups=chOrder.map(function(ck){
     var g=chMap[ck];
     g.prods=g.pOrder.map(function(pk){
