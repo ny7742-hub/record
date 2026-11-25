@@ -11528,8 +11528,9 @@ function _a2rMvList(k,day){
   var e=_escX,f=_a2rF,it=_saipItemOf(k,day),R=(saipReq||{})[k],act=_saipReqActive(R);
   var td='padding:2px 6px;border-top:1px solid #e2e8f0';
   var rc='<button class="a2-btn sub" '+(act?'disabled style="opacity:.55" ':'')+'onclick="event.stopPropagation();a2rSaipRecheck(\''+k+'\',\''+day+'\')">🔄 '+_a2rMd(day)+' 파일 다시 받기</button>';
-  if(!it)return '<div style="color:#5b6675">'+_a2rMd(day)+' 검사 기록이 없어 파일 내역을 모릅니다 — '+rc+'</div>';
-  if(it.status==="nofile")return '<div style="color:#5b6675">📭 원드라이브에 '+_a2rMd(day)+' 파일 없음 · '+e(_saipFmtAt(it.at||""))+' 확인 '+rc+'</div>';
+  var ecS=_a2rMvEcList(k,day,it);
+  if(!it)return '<div style="color:#5b6675">'+_a2rMd(day)+' 검사 기록이 없어 파일 내역을 모릅니다 — '+rc+'</div>'+ecS;
+  if(it.status==="nofile")return '<div style="color:#5b6675">📭 원드라이브에 '+_a2rMd(day)+' 파일 없음 · '+e(_saipFmtAt(it.at||""))+' 확인 '+rc+'</div>'+ecS;
   var hd='<div style="margin-bottom:4px;font-size:12px;color:#334155">📄 <b>'+e((it.src&&it.src.name)||"원본")+'</b>'+(it.src&&it.src.modified?' · 파일 수정 '+e(_saipFmtAt(it.src.modified)):'')+' · '+e(_saipFmtAt(it.at||""))+' 받음 &nbsp;'+rc+'</div>';
   var L=[],tq=0;
   (it.rows||[]).forEach(function(r){var q=+r.qty||0;tq+=q;var p=String(r.store||"").split(/→|->/),fr=k==="so"?"주희물류(NH)":_a2rWhLab(p[0]||"",""),to=k==="so"?r.store:_a2rWhLab((p[1]||"").trim(),"");
@@ -11537,10 +11538,28 @@ function _a2rMvList(k,day){
   (it.badRows||[]).forEach(function(b){var q=+b.qty||0;tq+=q;
     L.push('<tr style="background:#fef2f2"><td style="'+td+'">'+e(b.fromName||b.from||"")+'</td><td style="'+td+'">'+e(b.toName||b.to||"")+'</td><td style="'+td+'" title="'+e(b.prod||"")+'">'+e(b.prod||"")+'</td><td style="'+td+';color:#5b6675">'+e(b.code||"")+'</td><td style="'+td+';text-align:right">'+f(q)+'</td><td style="'+td+';color:#5b6675">'+e(b.orderNo||b.recv||b.orderer||"")+'</td><td style="'+td+';color:#b91c1c;font-weight:700">✖ '+e(b.why||"멈춤")+'</td></tr>');});
   var more=(it.bad||[]).length>(it.badRows||[]).length?'<div style="color:#b91c1c;font-size:12px">'+(it.bad||[]).filter(function(x){return !(it.badRows||[]).some(function(b){return x.indexOf(b.why||"@@")>=0;});}).slice(0,10).map(e).join("<br>")+'</div>':'';
-  if(!L.length)return hd+'<div style="color:#5b6675">읽은 줄이 없습니다</div>'+more;
-  return hd+'<div style="max-height:260px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+  if(!L.length)return hd+'<div style="color:#5b6675">읽은 줄이 없습니다 — 이 날은 품목 줄을 남기지 않았습니다. '+rc+'로 다시 받으면 품목이 보입니다</div>'+more+ecS;
+  return hd+'<div style="font-weight:800;color:#0f172a;margin:2px 0 3px">📦 품목 (원드라이브 원본 = PlayMD에 넣는 줄)</div><div style="max-height:260px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:12px">'
     +'<tr style="background:#f1f5f9;text-align:left;position:sticky;top:0"><th style="padding:2px 6px">보내는 곳</th><th style="padding:2px 6px">받는 곳</th><th style="padding:2px 6px">상품</th><th style="padding:2px 6px">코드</th><th style="padding:2px 6px;text-align:right">수량</th><th style="padding:2px 6px">'+(k==="so"?"주문번호":"수령인")+'</th><th style="padding:2px 6px">읽기</th></tr>'
-    +L.join("")+'<tr style="font-weight:800;background:#f8fafc"><td style="'+td+'" colspan="4">합계 '+L.length+'줄</td><td style="'+td+';text-align:right">'+f(tq)+'</td><td style="'+td+'" colspan="2"></td></tr></table></div>'+more;
+    +L.join("")+'<tr style="font-weight:800;background:#f8fafc"><td style="'+td+'" colspan="4">합계 '+L.length+'줄</td><td style="'+td+';text-align:right">'+f(tq)+'</td><td style="'+td+'" colspan="2"></td></tr></table></div>'+more+ecS;
+}
+/* 날짜를 펼쳤을 때 이카운트 쪽(2026-11-25 영업2팀 "있음 수량 다름 — 날짜 누르면 품목이 나왔으면") —
+   ecMoveView는 전표마다 [전표번호, 보내는 창고, 받는 창고, 수량 합계]만 있어 품목은 없다 → 경로별 수량 비교 + 그 날 전표 목록(경로가 맞는 전표 ✅) */
+function _a2rMvEcList(k,day,it){
+  var e=_escX,f=_a2rF,V=ecMoveView,td='padding:2px 6px;border-top:1px solid #e2e8f0';
+  if(!V||!V.s||!V.from||day<V.from||day>V.to)return '<div style="margin-top:6px;font-size:12px;color:#5b6675">🧮 이카운트 창고이동: 조회 기간 밖이라 전표를 모릅니다 — [🔄 세 곳 다시 확인]</div>';
+  var DL=V.s[day]||[],R=_a2rRoutes(k,it),used={},cmp=[];
+  R.forEach(function(x){var q=0,n=0;DL.forEach(function(sl,i){if(used[i])return;if(_a2rNameHit(sl[1],x.fn,"")&&_a2rNameHit(sl[2],x.tn,x.lab)){used[i]=1;q+=+sl[3]||0;n++;}});
+    var fl=k==="so"?_a2rWhLab("NH"):_a2rWhLab(x.from||"",""),tl=k==="so"?_a2rWhLab(x.to,x.lab):_a2rWhLab(x.to||"",""),df=q-x.qty;
+    cmp.push('<tr><td style="'+td+'">'+e(fl)+' → '+e(tl)+'</td><td style="'+td+';text-align:right">'+f(x.qty)+'</td><td style="'+td+';text-align:right">'+f(q)+' <span style="color:#5b6675">('+n+'장)</span></td><td style="'+td+';text-align:right;font-weight:800;color:'+(df===0?'#047857':'#b45309')+'">'+(df===0?'✅ 같음':(df>0?'+':'')+f(df))+'</td></tr>');});
+  var cmpT=cmp.length?'<div style="font-weight:800;color:#0f172a;margin:6px 0 3px">⚖️ 경로별 수량 비교</div><div style="border:1px solid #e2e8f0;border-radius:6px;background:#fff;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<tr style="background:#f1f5f9;text-align:left"><th style="padding:2px 6px">경로</th><th style="padding:2px 6px;text-align:right">원본(PlayMD)</th><th style="padding:2px 6px;text-align:right">이카운트</th><th style="padding:2px 6px;text-align:right">차이</th></tr>'+cmp.join("")+'</table></div>':'';
+  if(!DL.length)return cmpT+'<div style="margin-top:6px;font-size:12px;color:#5b6675">🧮 이카운트: '+_a2rMd(day)+' 창고이동 전표 없음</div>';
+  var tq=0,rows=DL.map(function(sl,i){tq+=+sl[3]||0;return '<tr'+(used[i]?' style="background:#f0fdf4"':'')+'><td style="'+td+';color:#5b6675">'+e(sl[0]||"")+'</td><td style="'+td+'">'+e(sl[1]||"")+'</td><td style="'+td+'">'+e(sl[2]||"")+'</td><td style="'+td+';text-align:right">'+f(sl[3])+'</td><td style="'+td+';color:'+(used[i]?'#047857;font-weight:700">✅ 이 날 경로':'#5b6675">다른 경로')+'</td></tr>';}).join("");
+  return cmpT+'<div style="font-weight:800;color:#0f172a;margin:6px 0 3px">🧮 이카운트 '+_a2rMd(day)+' 창고이동 전표 '+DL.length+'장 <span style="font-weight:600;color:#5b6675">(이카운트 조회 자료엔 품목이 없어 전표별 합계만)</span></div>'
+    +'<div style="max-height:200px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;background:#fff"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<tr style="background:#f1f5f9;text-align:left;position:sticky;top:0"><th style="padding:2px 6px">전표번호</th><th style="padding:2px 6px">보내는 창고</th><th style="padding:2px 6px">받는 창고</th><th style="padding:2px 6px;text-align:right">수량</th><th style="padding:2px 6px">대조</th></tr>'
+    +rows+'<tr style="font-weight:800;background:#f8fafc"><td style="'+td+'" colspan="3">합계 '+DL.length+'장</td><td style="'+td+';text-align:right">'+f(tq)+'</td><td style="'+td+'"></td></tr></table></div>';
 }
 function _a2rRetList(k,day,X){
   var e=_escX,f=_a2rF,P=X.P,d8=day.replace(/-/g,""),V=ecSalView,nm=(V&&V.nm)||{};
