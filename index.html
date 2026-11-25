@@ -11420,25 +11420,42 @@ function _a2rRoutes(k,it){
     if(k==="so"){var m=String(r.store||"").match(/^(.*?)\(([^)]+)\)\s*$/);f="NH";t=m?m[2]:"";lab=m?m[1]:String(r.store||"");}
     else{var p=String(r.store||"").split(/→|->/);f=(p[0]||"").trim();t=(p[1]||"").trim();}
     var key=f+"|"+t,x=g[key];
-    if(!x){x=g[key]={from:_a2rWhCode(f),to:_a2rWhCode(t),fn:_a2rWhName(f),tn:_a2rWhName(t),lab:lab,qty:0,items:[]};o.push(x);}
+    if(!x){x=g[key]={rawTo:t,from:_a2rWhCode(f),to:_a2rWhCode(t),fn:_a2rWhName(f),tn:_a2rWhName(t),lab:lab,qty:0,items:[]};o.push(x);}
     var q=Number(r.qty)||0;x.qty+=q;x.items.push({code:String(r.code||""),name:String(r.prod||r.code||""),qty:q});
   });
   return o;
 }
 /* 📦 상품 · 어디서 → 어디로(2026-11-23 영업2팀 "상품이 뭔지 어디서 어디로 가는지 보이게") — 원본 검사 줄(it.rows)을 경로별로 */
 function _a2rWhLab(c,lab){c=String(c||"").trim();var n=lab||_a2rWhName(c)||(c?_saipStoreNm(_a2rWhCode(c)):"");return n&&n!==c?n+"("+c+")":(c||"?");}
+/* 매장출고 원본 줄 고르기(2026-11-26 영업2팀 "매장출고 원본 내역에 체크한거만 매장출고 하게") — 줄 열쇠 = 받는 매장코드|상품컬러코드.
+   기본은 모두 체크, 뺀 줄만 이 PC localStorage(soOff[날짜] = {열쇠:1})에 둔다. 미리보기·저장 요청에 체크한 열쇠(only)를 실어 보내고
+   자동화(playmd-store-out --only)가 그 줄만 넣는다. 뺀 줄은 결과의 offRows로 돌아와 목록에 체크 안 된 채로 남는다 */
+function _soKey(r){var m=String(r.store||"").match(/\(([^)]+)\)\s*$/);return (m?m[1]:String(r.store||""))+"|"+String(r.code||"");}
+function _soOffAll(){try{return JSON.parse(localStorage.getItem("soOff")||"{}")||{};}catch(e){return {};}}
+function _soOffOf(date){return _soOffAll()[date]||{};}
+function a2rSoPick(date,key,on){var A=_soOffAll(),O=A[date]=A[date]||{};if(on)delete O[key];else O[key]=1;if(!Object.keys(O).length)delete A[date];
+  try{localStorage.setItem("soOff",JSON.stringify(A));}catch(e){}try{a2rRender();}catch(e){}try{renderSaipAuto();}catch(e){}}
+/* 요청에 실을 열쇠 — 뺀 줄이 없으면 null(전부) */
+function _soOnly(date){var O=_soOffOf(date);if(!Object.keys(O).length)return null;var it=_saipItemOf("so",date);
+  var all=((it&&it.rows)||[]).concat((it&&it.offRows)||[]).map(_soKey);return all.filter(function(k,i){return all.indexOf(k)===i&&!O[k];});}
 function _a2rGoods(k,it){
-  var e=_escX,R=_a2rRoutes(k,it);
+  if(k==="so"&&it&&(it.offRows||[]).length)it=Object.assign({},it,{rows:(it.rows||[]).concat(it.offRows)});
+  var e=_escX,R=_a2rRoutes(k,it),soOff=k==="so"&&it?_soOffOf(it.date):{};
   if(!R.length)return _a2rRow("📦","상품 · 어디서 → 어디로","",'<span style="color:#5b6675">'+(it&&it.status==="nofile"?"원본 없음":"[중복 검사]로 원본을 받으면 상품·경로가 보입니다")+'</span>');
   var nq=0,ni=0;R.forEach(function(x){nq+=x.qty;ni+=x.items.length;});
   var h=R.map(function(x,ix){
     var f=k==="so"?_a2rWhLab("NH"):_a2rWhLab(x.from||"",""),t=k==="so"?_a2rWhLab(x.to,x.lab):_a2rWhLab(x.to||"","");
     var g={},o=[];x.items.forEach(function(i){var key=i.code||i.name;if(!g[key]){g[key]={code:i.code,name:i.name,qty:0};o.push(key);}g[key].qty+=i.qty;});
+    if(k==="so"&&it&&it.date){var nOn=0,qOn=0;o.forEach(function(key){if(!soOff[x.rawTo+"|"+g[key].code]){nOn++;qOn+=g[key].qty;}});
+      return '<div style="padding:4px 8px'+(ix?';border-top:1px solid #e2e8f0':'')+'"><div style="font-weight:800;color:#0f172a">🚚 '+e(f)+' <span style="color:#1d4ed8">→</span> '+e(t)+' <span style="color:#475569;font-weight:700">· '+nOn+'/'+o.length+'품목 '+_a2rF(qOn)+'개 체크</span></div>'
+        +'<div style="margin-top:2px;color:#334155;line-height:1.7">'+o.map(function(key){var i=g[key],mc=i.code?_saipModelColor({code:i.code}):"",sk=x.rawTo+"|"+i.code,on=!soOff[sk];
+          return '<label title="'+e((i.name||"")+" · "+(i.code||""))+'" style="display:inline-flex;align-items:center;gap:3px;margin:0 12px 0 0;cursor:pointer'+(on?'':';color:#5b6675;text-decoration:line-through')+'"><input type="checkbox" '+(on?'checked ':'')+'data-d="'+e(it.date)+'" data-k="'+e(sk)+'" onclick="event.stopPropagation();a2rSoPick(this.dataset.d,this.dataset.k,this.checked)">'+e(mc&&mc!==i.code?mc:(i.name||i.code||"?"))+' <b>'+_a2rF(i.qty)+'</b></label>';}).join("")+'</div></div>';}
     return '<div style="padding:4px 8px'+(ix?';border-top:1px solid #e2e8f0':'')+'"><div style="font-weight:800;color:#0f172a">🚚 '+e(f)+' <span style="color:#1d4ed8">→</span> '+e(t)+' <span style="color:#475569;font-weight:700">· '+o.length+'품목 '+_a2rF(x.qty)+'개</span></div>'
       +'<div style="margin-top:2px;color:#334155;line-height:1.55">'+o.map(function(key){var i=g[key],mc=i.code?_saipModelColor({code:i.code}):"";
         return '<span title="'+e((i.name||"")+" · "+(i.code||""))+'" style="display:inline-block;margin:0 10px 0 0">'+e(mc&&mc!==i.code?mc:(i.name||i.code||"?"))+' <b>'+_a2rF(i.qty)+'</b></span>';}).join("")+'</div></div>';
   }).join("");
-  return _a2rRow("📦","상품 · 어디서 → 어디로 ("+R.length+"경로 · "+_a2rF(nq)+"개)","",'<div style="max-height:220px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;margin-top:3px">'+h+'</div>');
+  var soN=k==="so"?Object.keys(soOff).length:0;
+  return _a2rRow("📦","상품 · 어디서 → 어디로 ("+R.length+"경로 · "+_a2rF(nq)+"개)","",(k==="so"?'<div style="font-size:12px;color:'+(soN?'#b45309;font-weight:700':'#5b6675')+'">'+(soN?'☑ 체크한 줄만 매장출고합니다 — 뺀 줄 '+soN+'개(이 PC에 기억)':'☑ 체크한 줄만 매장출고합니다(체크를 풀면 그 줄은 빼고 등록)')+'</div>':'')+'<div style="max-height:220px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;margin-top:3px">'+h+'</div>');
 }
 function _a2rNameHit(nm,wn,lab){nm=_a2rNorm(nm);if(!nm)return false;if(wn&&nm===_a2rNorm(wn))return true;return !!(lab&&nm.indexOf(_a2rNorm(lab))>=0);}
 /* 이카운트 창고이동 — 그 날 경로마다 맞는 전표(보내는·받는 창고 이름)의 수량 */
@@ -29314,7 +29331,8 @@ function saipAutoGo(kind,opt){
     +"코드 매칭이 안 된 줄이 있거나, 그날 같은 매장·상품 출고가 플레이엠디에 이미 있으면 저장하지 않고 멈춥니다.\n\n"
     +"진행할까요?";
   if(!opt.confirmed&&!confirm(msg))return;
-  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"save",expect:opt.expect||"",merge:!!opt.merge};   /* merge — 날짜 칸의 [등록]: 결과를 카드의 그 날짜에만 끼운다 */
+  var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:mmdd,date:v,by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"save",expect:opt.expect||"",merge:!!opt.merge};
+  if(kind==="so"){var so1=_soOnly(v);if(so1){if(!so1.length){alert("체크한 줄이 없습니다 — 매장출고할 줄을 체크해 주세요.");return;}R.only=so1.join(",");}}   /* merge — 날짜 칸의 [등록]: 결과를 카드의 그 날짜에만 끼운다 */
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   _saipReqSet(kind,R);
   renderSaipAuto();
@@ -29344,6 +29362,7 @@ function saipConfirmGo(kind,opt){
   if(!(opt&&opt.force)&&it&&it.already&&kind!=="mv"&&!fixed&&_saipAckOf(kind,v)){renderSaipAuto();return;}   /* '확인했습니다' 체크한 날 — 창을 다시 띄우지 않음([🔍 미리보기]·[🔄 재확인]으로는 볼 수 있다) */
   if(!(opt&&opt.force)&&it&&it.mode==="preview"&&it.at&&!fixed&&Date.now()-new Date(it.at).getTime()<SAIP_CF_FRESH){_saipCfShow(kind,v);return;}
   var R={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),mmdd:v.slice(5,7)+v.slice(8,10),date:v,dates:[v],by:_saipMe(),at:new Date().toISOString(),state:"요청",mode:"preview",merge:true};
+  if(kind==="so"){var so2=_soOnly(v);if(so2){if(!so2.length){alert("체크한 줄이 없습니다 — 매장출고할 줄을 체크해 주세요.");return;}R.only=so2.join(",");}}
   if(!saipReq||typeof saipReq!=="object")saipReq={};
   _saipReqSet(kind,R);
   _saipCfWait[kind]={id:R.id,date:v,at:Date.now()};
