@@ -2488,6 +2488,15 @@ label{font-size:14px!important}
         .ep-hd a.done{border-color:#86efac;background:#dcfce7;color:#047857}
         .ep-hd a.done::before{content:"✓ "}
         .ep-hd a.on{border-color:#f59e0b;background:#fffbeb;color:#b45309}
+        /* 다른 AUTO 칸 제목 줄 단계 메뉴(2026-11-26, _a2HdSync) — 같은 칩 모양 */
+        #page-auto2 .a2-hd{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:12px;color:#475569}
+        #page-auto2 .a2-hd a{display:inline-block;padding:1px 8px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;color:#334155;font-weight:700;text-decoration:none;white-space:nowrap}
+        #page-auto2 .a2-hd a.done{border-color:#86efac;background:#dcfce7;color:#047857}
+        #page-auto2 .a2-hd a.done::before{content:"✓ "}
+        #page-auto2 .a2-hd a.on{border-color:#f59e0b;background:#fffbeb;color:#b45309}
+        #page-auto2 .a2-hd a.warn{border-color:#fcd34d;background:#fefce8;color:#a16207}
+        #page-auto2 .a2-hd a.bad{border-color:#fca5a5;background:#fef2f2;color:#b91c1c}
+        #page-auto2 .a2-hd a.bad::before{content:"❌ "}
         .ep-sh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px}
         .ep-no{width:22px;height:22px;border-radius:50%;background:#0e7490;color:#fff;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-size:12.5px;flex:none}
         .ep-step.done .ep-no{background:#16a34a}
@@ -11248,9 +11257,40 @@ function _a2rRow(n,title,st,body){
 function _a2ProgOf(card){
   var L=[],cc=card.querySelectorAll(".cc-step");
   if(cc.length)cc.forEach(function(el){var k=(el.className.match(/cc-step-(done|on|todo|skip)/)||[])[1]||"todo";
-    L.push({st:k==="done"||k==="skip"?"ok":k==="on"?"run":"",t:(el.querySelector(".cc-step-h")||el).textContent.replace(/\s*(완료|지금)\s*$/,"").trim()});});
-  else card.querySelectorAll("[data-a2st]").forEach(function(el){if(el.closest(".a2-prog"))return;L.push({st:el.getAttribute("data-a2st")||"",t:el.getAttribute("data-a2t")||""});});
+    L.push({el:el,st:k==="done"||k==="skip"?"ok":k==="on"?"run":"",t:(el.querySelector(".cc-step-h")||el).textContent.replace(/\s*(완료|지금)\s*$/,"").trim()});});
+  else card.querySelectorAll("[data-a2st]").forEach(function(el){if(el.closest(".a2-prog"))return;L.push({el:el,st:el.getAttribute("data-a2st")||"",t:el.getAttribute("data-a2t")||""});});
   return L;
+}
+/* 제목 줄 단계 메뉴(2026-11-26 영업2팀 "다른 오토 칸에도 제목 줄 단계 메뉴") — 백화점 도매 발주(.ep-hd)처럼 칸 이름·% 뒤에 단계 칩.
+   진행 바와 같은 단계 줄(_a2ProgOf)에서 만든다: ✓ 끝 초록 · ⏳ 진행 주황 · ❌ 멈춤 빨강 · ⚠️ 확인 노랑, 아직 안 끝난 첫 단계만 깜빡(.whs-blink).
+   누르면 _a2HdGo가 그 단계 줄로 내려 잠깐 주황 테두리(숨은 표시면 칸으로). class에 a2-prog를 달아 칸 내용으로 치지 않는다. 자기 메뉴(.ep-hd)가 있는 칸은 건너뛴다 */
+function _a2HdLab(t){
+  t=String(t||"").replace(/\s+/g," ").trim();
+  var m=t.match(/^([①-⑳])\s*(.*)$/),no=m?m[1]:"",r=m?m[2]:t;
+  r=r.split(/ — | \(|\(/)[0].trim();
+  if(r.length>18)r=r.slice(0,17)+"…";
+  return (no?no+" ":"")+r;
+}
+function _a2HdSync(card,h,L){
+  var box=h.querySelector(".a2-hd");
+  if(!L.length||h.querySelector(".ep-hd")){if(box)box.remove();card.__a2L=null;return;}
+  /* 번호(①…) 단 단계만 — 📦 상품 줄 같은 안내 줄은 빼고, 깜빡임은 멈춘(❌) 단계가 먼저, 없으면 안 끝난 첫 단계 */
+  var NL=L.filter(function(x){return /^\s*[①-⑳]/.test(x.t);});if(NL.length)L=NL;
+  card.__a2L=L;
+  var nx=-1;L.some(function(x,i){if(x.st==="bad"){nx=i;return true;}return false;});
+  if(nx<0)L.some(function(x,i){if(x.st!=="ok"){nx=i;return true;}return false;});
+  var html=L.map(function(x,i){var c=x.st==="ok"?"done":x.st==="bad"?"bad":x.st==="warn"?"warn":x.st==="run"?"on":"";
+    return '<a href="javascript:void(0)" class="'+c+(i===nx?' whs-blink':'')+'" onclick="_a2HdGo(this,'+i+')" title="'+_escX(x.t)+'">'+_escX(_a2HdLab(x.t))+'</a>';}).join('<span class="a2-hd-ar">→</span>');
+  if(!box){box=document.createElement("span");box.className="a2-prog a2-hd";}
+  var anc=h.querySelector(".a2-pct")||h.querySelector(":scope > b");
+  if(anc&&box.previousElementSibling!==anc)anc.insertAdjacentElement("afterend",box);
+  if(box.getAttribute("data-h")!==html){box.innerHTML=html;box.setAttribute("data-h",html);}
+}
+function _a2HdGo(a,i){
+  var card=a.closest(".a2-card"),x=card&&card.__a2L&&card.__a2L[i];if(!card)return;
+  var el=x&&x.el&&x.el.isConnected&&x.el.offsetParent!==null?x.el:card;
+  try{el.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){el.scrollIntoView();}
+  var o=el.style.boxShadow;el.style.transition="box-shadow .3s";el.style.boxShadow="0 0 0 4px rgba(234,88,12,.45)";setTimeout(function(){el.style.boxShadow=o||"";},1400);
 }
 function _a2ProgHtml(L){
   if(!L.length)return "";
@@ -11288,6 +11328,7 @@ function _a2ProgScan(){
       var h=card.querySelector(".a2-h");if(!h)return;
       var L=_a2ProgOf(card),bar=card.querySelector(":scope > .a2-prog"),html=_a2ProgHtml(L);
       _a2PctBadge(h,L);
+      _a2HdSync(card,h,L);
       if(!html){if(bar)bar.remove();return;}
       if(!bar){bar=document.createElement("div");bar.className="a2-prog";h.insertAdjacentElement("afterend",bar);}
       if(bar.getAttribute("data-h")!==html){bar.innerHTML=html;bar.setAttribute("data-h",html);}
