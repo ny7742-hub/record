@@ -3268,7 +3268,7 @@ var FB_PATH={
   "storeSalesDB":"ws/storeSales",   /* 달마다 ws/storeSales/YYYY-MM 에 따로 쓴다(_ssSave) — 여기엔 삭제 정리용으로만 둔다 */
   "popupNaverDismissed":"ws/popupNaverDismissed","quickCreds":"ws/quickCreds",
   "hsCodeMatchDB":"ws/hsCodeMatch",
-  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccSalesStatus":"ws/ccSalesStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","ecStockReq":"ws/ecStockReq","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","ecPo":"ws/ecPo","ecPoReq":"ws/ecPoReq","ecPoSent":"ws/ecPoSent","ordStoreInfo":"ws/ordStoreInfo","epStatus":"ws/epStatus","epDel":"ws/epDel","epHist":"ws/epHist","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
+  "hsSaipStatus":"ws/hsSaipStatus","dsSaipStatus":"ws/dsSaipStatus","ccSaipStatus":"ws/ccSaipStatus","ccDssStatus":"ws/ccDssStatus","ccSalesStatus":"ws/ccSalesStatus","ccOrderStatus":"ws/ccOrderStatus","ccOrderLog":"ws/ccOrderLog","ccOrderReady":"ws/ccOrderReady","ccDssStock":"ws/ccDssStock","ccCountReq":"ws/ccCountReq","plCheckReq":"ws/plCheckReq","ecConfig":"ws/ecConfig","ecOrders":"ws/ecOrders","ecReturns":"ws/ecReturns","ecStock":"ws/ecStock","ecStockReq":"ws/ecStockReq","ccDssStockReq":"ws/ccDssStockReq","portalLogin":"ws/portalLogin","orderConvSrc":"ws/orderConvSrc","wmStatus":"ws/wmStatus","ecPo":"ws/ecPo","ecPoReq":"ws/ecPoReq","ecPoSent":"ws/ecPoSent","ordStoreInfo":"ws/ordStoreInfo","epStatus":"ws/epStatus","epDel":"ws/epDel","epHist":"ws/epHist","xcSaipStatus":"ws/xcSaipStatus","mvSaipStatus":"ws/mvSaipStatus","soSaipStatus":"ws/soSaipStatus","saipReady":"ws/saipReady",
   "saipLog":"ws/saipLog","saipFix":"ws/saipFix","saipAck":"ws/saipAck","saipSeen":"ws/saipSeen","saipReq":"ws/saipReq","saipWatch":"ws/saipWatch","whMinOrder":"ws/whMinOrder","prodFirstSeen":"ws/prodFirstSeen","unshipSrc":"ws/unshipSrc","usSaipStatus":"ws/usSaipStatus",
   "retLog":"ws/retLog","hrRetStatus":"ws/hrRetStatus","crRetStatus":"ws/crRetStatus","retFix":"ws/retFix","mvFix":"ws/mvFix","soFix":"ws/soFix",   /* retFix = 미리보기 표에서 고친 코드·공급가(2026-10-19) */   /* 자동 반품등록 — 줄별 등록 기록 · 결과 (2026-09-30) */   /* 등록 기록(언제·누가) · 등록 요청 · 자동화 PC 신호 (2026-09-30) */   /* 자동 매출등록 결과 — 자동화 PC가 쓴다 */
   "ws_product_data":"ws/productData","ws_product_date":"ws/productDate","hsPreDB":"ws/hsPre",
@@ -4021,6 +4021,10 @@ function fbListen(){
     function(d){if(d&&typeof d==="object"&&d.wh)ecStock=d;},
     function(){if(typeof renderEcount==="function")renderEcount();try{var _cp=document.getElementById("page-costco");if(_cp&&_cp.style.display!=="none"&&typeof renderCostcoPage==="function")renderCostcoPage();}catch(e){}if(typeof _ecRes!=="undefined"&&_ecRes.length&&typeof ecRenderSearch==="function")ecRenderSearch();if(typeof epRender==="function")try{epRender();}catch(e){}
       try{var _hp=document.getElementById("homePsIn");if(_hp&&_hp.value.trim()&&typeof hpsSearch==="function")hpsSearch();}catch(e){}}
+  );
+  apply("ws/ccDssStockReq","ccDssStockReq",
+    function(d){if(d&&typeof d==="object")ccDssStockReq=d;},
+    function(){if(typeof ccDssPaint==="function")ccDssPaint();}
   );
   apply("ws/ecStockReq","ecStockReq",
     function(d){if(d&&typeof d==="object")ecStockReq=d;},
@@ -32983,6 +32987,23 @@ function _ccNhBtnHtmlOld(){
 function E_ccAt(a){var d=new Date(a);return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,"0")+':'+String(d.getMinutes()).padStart(2,"0");}
 function ccNhPaint(){var el=document.getElementById("ccNhRefresh");if(el)el.innerHTML=_ccNhBtnHtml();}
 function ccNhRefresh(){ecStockPullGo();ccNhPaint();}
+/* DSS 재고 [🔄 최신](2026-11-25 영업2팀 "DSS 재고 확인도 버튼 누르면 최신재고로") — ws/ccDssStockReq {id, by, at} →
+   자동화 PC saip-watch dssStockReqTick이 dss-stock.mjs로 두 DSS 창(DSS26·DSS31)의 재고 업데이트 표를 바로 다시 읽어 ws/ccDssStock에 올린다(1~2분, 읽기만).
+   ws/ccDssStock이 바뀌면 표가 다시 그려진다. 못 받았으면 버튼이 빨간 🔄 다시(마우스 → 까닭) */
+var ccDssStockReq=(function(){try{return JSON.parse(localStorage.getItem("ccDssStockReq")||"null");}catch(e){return null;}})();
+function _ccDssBtnHtml(){
+  var st0='font-size:10.5px;font-weight:700;margin-top:3px;white-space:nowrap',q=ccDssStockReq;
+  if(q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<5*60*1000)return '<span style="'+st0+';color:#fde68a" title="'+_escX(q.by||"")+'">⏳ 받는 중</span>';
+  var fail=!!(q&&q.doneAt&&/^못 받음/.test(q.note||"")&&Date.now()-new Date(q.doneAt).getTime()<30*60*1000);
+  return '<button onclick="ccDssRefresh()" title="자동화 PC가 코스트코 DSS 재고 업데이트(DSS26·DSS31)를 바로 다시 읽어 올립니다(1~2분)'+(q&&q.note?' — 지난번: '+_escX(q.note):'')+'" style="'+st0+';border:1px solid '+(fail?'#fca5a5':'#94a3b8')+';background:#fff;color:'+(fail?'#b91c1c':'#1b6e82')+';border-radius:6px;padding:1px 6px;cursor:pointer">🔄 '+(fail?'다시':'최신')+'</button>';
+}
+function ccDssPaint(){var el=document.getElementById("ccDssRefresh");if(el)el.innerHTML=_ccDssBtnHtml();}
+function ccDssRefresh(){
+  var q=ccDssStockReq;if(q&&q.at&&!q.doneAt&&Date.now()-new Date(q.at).getTime()<5*60*1000){alert("DSS 재고를 받는 중입니다 — 1~2분 뒤 표가 바뀝니다.");return;}
+  ccDssStockReq={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),by:_saipMe(),at:new Date().toISOString()};
+  wsSetItem("ccDssStockReq",JSON.stringify(ccDssStockReq));ccDssPaint();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 받습니다.");
+}
 function ccNhRefreshOld(){
   var cur=(saipReq||{}).pmw;
   if(_saipReqActive(cur)){alert("주희물류 재고를 이미 받고 있습니다("+(cur.by||"?")+").");return;}
@@ -33076,7 +33097,7 @@ function renderCostcoPage(){
   h+='<th rowspan="2" class="cc-sticky-3">색상</th>';
   h+='<th rowspan="2" class="cc-sticky-7" title="이카운트 창고별재고현황 NH(주희물류) 재고(컬러별, 사이즈 합)" style="white-space:nowrap">이카운트<br>(NH) 재고'+(typeof ecStock!=="undefined"&&ecStock&&ecStock.at?'<div style="font-size:10px;font-weight:400;color:#cbd5e1">'+E_ccAt(ecStock.at)+'</div>':'')+'<div id="ccNhRefresh">'+_ccNhBtnHtml()+'</div></th>';
   /* '코스트코 재고'(CSTC) 열은 2026-11-06 영업2팀 요청으로 뺐다 — _ccStkCell의 CSTC 쪽은 남겨 둠(다시 넣을 때) */
-  h+='<th rowspan="2" class="cc-sticky-6" title="코스트코 DSS 작업 > 재고 업데이트의 DELTA QTY(수량 − 발송완료 − 미발송 주문)" style="white-space:nowrap">DSS<br>재고'+_ccDssHeadTime()+'</th>';
+  h+='<th rowspan="2" class="cc-sticky-6" title="코스트코 DSS 작업 > 재고 업데이트의 DELTA QTY(수량 − 발송완료 − 미발송 주문)" style="white-space:nowrap">DSS<br>재고'+_ccDssHeadTime()+'<div id="ccDssRefresh">'+_ccDssBtnHtml()+'</div></th>';
   h+='<th rowspan="2" class="cc-sticky-4">단종</th>';
   if(monthKeys.length){
     monthKeys.forEach(function(k){

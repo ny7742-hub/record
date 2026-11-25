@@ -324,6 +324,8 @@
   헤더의 **`🔄 최신`**(2026-11-06 영업2팀 "버튼 누르면 최신재고로", `ccNhRefresh` · `_ccNhBtnHtml` · `ccNhPaint`): `ws/saipReq.pmw` 요청 →
   자동화 PC `saip-watch`(kind `pmw`, 등록 줄·PlayMD 줄)가 `playmd-daily.mjs --only=wh`로 **오늘 창고재고현황만** 받아 자비스에 올린다(약 1분).
   `ws/whRaw`가 바뀌면 모든 화면에서 `_ccsFromRows`가 표를 다시 그린다. 도는 동안 버튼 자리에 `⏳ 대기/받는 중`, 30분 안에 실패했으면 빨간 `🔄 다시`(마우스 → 이유).
+  **DSS 재고 머리글 `🔄 최신`**(2026-11-25 영업2팀 "DSS 재고 확인도 버튼 누르면 최신재고로", `ccDssRefresh` · `_ccDssBtnHtml` · `ccDssPaint`): `ws/ccDssStockReq {id,by,at}` →
+  자동화 PC `saip-watch dssStockReqTick`이 시간대·busy와 상관없이 바로 `dss-stock.mjs syncDssStock`(읽기만, 송장·발주 lock 중엔 건너뜀) → `ws/ccDssStock` → 표 다시 그림, 요청에 `doneAt·note`(못 받음/일부만). 도는 동안 `⏳ 받는 중`, 30분 안에 못 받았으면 빨간 `🔄 다시`. 백업 `automation/_backup-saip-watch-1125-dssreq.mjs`.
   **그 옆 `DSS 재고` 열**(2026-10-13 영업2팀, `_ccDssCell` · sticky `cc-sticky-6` / `--ccL6`): DSS **작업 > 재고 업데이트의 DELTA QTY**(= 수량 − 발송완료 − ORDERED(미발송 주문)).
   ORDERED는 Stock API 응답에 없어 **화면 표 글자를 그대로 읽는다** — 자동화 PC `automation/dss-stock.mjs`(saip-watch가 30분마다 7~21시, busy면 건너뜀)가
   두 DSS 창(9333 DSS26 · 9334 DSS31)에서 `dropship/StockUpdate`를 **새 탭으로 열어 읽고 닫는다**(저장·업로드 안 누름, 송장·발주 lock 중엔 건너뜀) → `ws/ccDssStock`.
