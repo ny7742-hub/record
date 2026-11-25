@@ -11496,16 +11496,18 @@ function _a2rX(k,day){
   else pmX={st:"",txt:"기록 없음"};
   var E2=_a2rRetEc(k,day,P),W=_a2rRetWs(k,day),ec2,ws2;
   var wait=!(P.ra<0);   /* 판매일보에 아직 반품 줄이 없음 */
-  if(E2.log)ec2={st:"ok",txt:"넣음(매출 등록 기록)"};
-  else if(E2.netEq&&!wait)ec2={st:"ok",txt:"판매·반품 합계 같음(한 전표)"};
+  /* 반품 금액이 있으면 '일부만' 대신 그 금액으로 '있음'(2026-11-25 영업2팀 "일부만 하지말고 반품 -354753원 있음으로, 이카운트도 금액으로 확인되게") —
+     PlayMD·세매는 등록 단가, 판매일보는 바뀐 판매가(예: 아말리 25,990→27,990)라 몇천 원 어긋날 수 있다 */
+  if(E2.neg!=null&&E2.neg<0)ec2={st:"ok",txt:"반품 "+_a2rF(E2.neg)+"원 있음"};
+  else if(E2.log)ec2={st:"ok",txt:"넣음(매출 등록 기록)"};
+  else if(E2.netEq&&!wait)ec2={st:"ok",txt:"판매·반품 합계 같음(한 전표"+(P.ra<0?" · 반품 "+_a2rF(P.ra)+"원":"")+")"};
   else if(E2.neg==null)ec2={st:"",txt:"확인 못 함(판매조회 기간 밖)"};
-  else if(wait)ec2=E2.neg<0?{st:"ok",txt:"반품 "+_a2rF(E2.neg)+"원 있음"}:{st:"",txt:pmX.st==="bad"?"PlayMD 등록 뒤":"판매일보에 반품 줄 대기"};
-  else if(E2.neg<=P.ra+1000)ec2={st:"ok",txt:"반품 "+_a2rF(E2.neg)+"원 있음"};
-  else ec2={st:"bad",txt:E2.neg<0?"일부만 "+_a2rF(E2.neg)+" / "+_a2rF(P.ra)+"원":"없음 ("+_a2rF(P.ra)+"원 넣을 것)"};
+  else if(wait)ec2={st:"",txt:pmX.st==="bad"?"PlayMD 등록 뒤":"판매일보에 반품 줄 대기"};
+  else ec2={st:"bad",txt:"없음 ("+_a2rF(P.ra)+"원 넣을 것)"};
   if(!W)ws2={st:"",txt:"확인 못 함(최신화 전)"};
-  else if(wait)ws2=W.r<0?{st:"ok",txt:"반품 "+_a2rF(W.r)+"원 있음"}:{st:"",txt:pmX.st==="bad"?"PlayMD 등록 뒤":"판매일보에 반품 줄 대기"};
-  else if(W.r<=P.ra+1000)ws2={st:"ok",txt:"반품 "+_a2rF(W.r)+"원 있음"};
-  else ws2={st:"bad",txt:W.r<0?"일부만 "+_a2rF(W.r)+" / "+_a2rF(P.ra)+"원":"없음 ("+_a2rF(P.ra)+"원 올릴 것)"};
+  else if(W.r<0)ws2={st:"ok",txt:"반품 "+_a2rF(W.r)+"원 있음"};
+  else if(wait)ws2={st:"",txt:pmX.st==="bad"?"PlayMD 등록 뒤":"판매일보에 반품 줄 대기"};
+  else ws2={st:"bad",txt:"없음 ("+_a2rF(P.ra)+"원 올릴 것)"};
   return {pm:pmX,ec:ec2,ws:ws2,P:P,E:E2,W:W};
 }
 function _a2rXCell(c){
