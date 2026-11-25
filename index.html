@@ -9416,8 +9416,19 @@ var epHist=(function(){try{return JSON.parse(localStorage.getItem("epHist")||"nu
 var EP_LOW=10,_epHistOpen=false,_epHistSel={};
 function _epIsDel(s,x){return !!((epDel||{})[s.key]||{})[String(x.code||"")];}
 function _epLines(s){return (s.lines||[]).filter(function(x){return !_epIsDel(s,x);});}
-function _epEcQ(code){return typeof ecStock!=="undefined"&&ecStock&&_ecStockKey(_ecHq())?ecStockQty(code,_ecHq()):null;}
-function _epStQ(wh,code){return typeof ecStock!=="undefined"&&ecStock&&wh&&_ecStockKey(wh)?ecStockQty(code,wh):null;}
+/* 이카운트 창고 재고를 컬러까지 맞춰 찾기(2026-11-25 영업2팀 "주희물류 NH와 발주한 매장(청량리면 AVE) 창고의 그 품목 재고가 컬러에 맞게") —
+   이카운트 품목코드 = 스타일+컬러+사이즈(BIW01N9DBKX). ① 코드가 그대로 있으면 그 수량 ② 사이즈가 빠진 코드(스타일+컬러)면 그 컬러의 모든 사이즈 합
+   ③ 그 창고 자료는 있는데 없으면 0. 다른 컬러로 넘어가지 않는다(ecStockQty의 '끝 글자 빼기'는 쓰지 않음) */
+function _epWhQty(code,wh){
+  if(typeof ecStock==="undefined"||!ecStock||!wh)return null;
+  var k=_ecStockKey(wh);if(!k)return null;
+  var m=ecStock.wh[k]||{},c=String(code||"").trim().toUpperCase();if(!c)return null;
+  if(m[c]!==undefined)return +m[c]||0;
+  var sum=null;Object.keys(m).forEach(function(x){if(x.length>c.length&&x.length-c.length<=3&&x.indexOf(c)===0)sum=(sum||0)+(+m[x]||0);});
+  return sum===null?0:sum;
+}
+function _epEcQ(code){return _epWhQty(code,_ecHq());}
+function _epStQ(wh,code){return _epWhQty(code,wh);}
 function _epIsLow(x){var q=_epEcQ(x.code);return q!==null&&q<EP_LOW;}
 function _epDelSave(){
   Object.keys(epDel).forEach(function(k){if(!epDel[k]||!Object.keys(epDel[k]).length)delete epDel[k];});
@@ -9459,7 +9470,7 @@ function _epHistHtml(){
       +'<div onclick="epHistToggle(\''+E(id)+'\')" style="cursor:pointer;padding:6px 10px;font-size:12.5px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>'+(op?'▴':'▾')+' '+E(_saipFmtAt(H.at))+'</b> · '+E(H.by||"")+' · '+res+' · <b>'+E(H.lines||0)+'줄 '+E(H.qty||0)+'개</b> <span style="color:#5b6675">('+E(H.stores||"")+')</span>'
       +((H.slips||[]).length?' <span style="color:#5b6675">세매 '+E((H.slips||[]).map(function(s){return s.lab;}).join(", "))+'</span>':'')+'</div>';
     if(op){
-      h+='<div style="padding:0 10px 8px;overflow:auto"><table style="border-collapse:collapse;font-size:12px;width:100%"><tr style="color:#5b6675;background:#f8fafc"><td style="padding:3px 6px">세매 발주</td><td style="padding:3px 6px">매장</td><td style="padding:3px 6px">품목코드</td><td style="padding:3px 6px">품목명</td><td style="padding:3px 6px;text-align:right">수량</td><td style="padding:3px 6px;text-align:right">이카운트 '+E(_ecHq())+'(지금)</td><td style="padding:3px 6px;text-align:right">매장 재고(지금)</td></tr>';
+      h+='<div style="padding:0 10px 8px;overflow:auto"><table style="border-collapse:collapse;font-size:12px;width:100%"><tr style="color:#5b6675;background:#f8fafc"><td style="padding:3px 6px">세매 발주</td><td style="padding:3px 6px">매장</td><td style="padding:3px 6px">품목코드</td><td style="padding:3px 6px">품목명</td><td style="padding:3px 6px;text-align:right">수량</td><td style="padding:3px 6px;text-align:right">주희물류 '+E(_ecHq())+'(지금)</td><td style="padding:3px 6px;text-align:right">매장 창고(지금)</td></tr>';
       (H.slips||[]).forEach(function(s){
         (s.lines||[]).forEach(function(x){h+='<tr style="border-top:1px dashed #e2e8f0"><td style="padding:2px 6px;white-space:nowrap">'+E(s.lab||"")+'</td><td style="padding:2px 6px">'+E(s.whNm||s.wh||"")+'</td><td style="padding:2px 6px;font-family:monospace">'+E(x.code)+'</td><td style="padding:2px 6px">'+E(_epItemName(x))+'</td><td style="padding:2px 6px;text-align:right;font-weight:700">'+E(x.qty)+'</td>'+_epStockCells(s.wh,x.code)+'</tr>';});
         (s.del||[]).forEach(function(x){h+='<tr style="border-top:1px dashed #e2e8f0;color:#5b6675;text-decoration:line-through"><td style="padding:2px 6px">'+E(s.lab||"")+'</td><td style="padding:2px 6px">'+E(s.whNm||s.wh||"")+'</td><td style="padding:2px 6px;font-family:monospace">'+E(x.code)+'</td><td style="padding:2px 6px">'+E(_epItemName(x))+' (뺌)</td><td style="padding:2px 6px;text-align:right">'+E(x.qty)+'</td><td></td><td></td></tr>';});
@@ -9945,7 +9956,7 @@ function _epSetHtml(id,h){var el=document.getElementById(id);if(el&&el.innerHTML
 function _epLineTbl(s,edit){
   var E=_esc,L=s.lines||[];
   return '<table style="border-collapse:collapse;font-size:12px;width:100%">'
-    +'<tr style="color:#5b6675"><td style="padding:2px 6px">품목코드</td><td style="padding:2px 6px">품목명</td><td style="padding:2px 6px;text-align:right">수량</td><td style="padding:2px 6px;text-align:right">이카운트 '+E(_ecHq())+'</td><td style="padding:2px 6px;text-align:right">매장 재고</td><td style="padding:2px 6px">납기</td><td style="padding:2px 6px">적요</td><td style="padding:2px 6px"></td></tr>'
+    +'<tr style="color:#5b6675"><td style="padding:2px 6px">품목코드</td><td style="padding:2px 6px">품목명</td><td style="padding:2px 6px;text-align:right">수량</td><td style="padding:2px 6px;text-align:right">주희물류 '+E(_ecHq())+'</td><td style="padding:2px 6px;text-align:right">매장 '+E(s.wh||"")+'</td><td style="padding:2px 6px">납기</td><td style="padding:2px 6px">적요</td><td style="padding:2px 6px"></td></tr>'
     +L.map(function(x){var del=edit&&_epIsDel(s,x),ck=E(String(x.code||"")),low=_epIsLow(x);
       var btn=!edit?'':del?'<a href="javascript:void(0)" onclick="epLineDel(\x27'+s.key+'\x27,\x27'+ck+'\x27,false)" style="color:#1b6e82;font-weight:700;white-space:nowrap">↩ 되돌리기</a>'
         :low?'<a href="javascript:void(0)" onclick="epLineDel(\x27'+s.key+'\x27,\x27'+ck+'\x27,true)" title="이카운트 재고 '+EP_LOW+'개 미만 — 이번 도매발주서·메일에서 뺍니다" style="color:#b91c1c;font-weight:700;white-space:nowrap">🗑 삭제</a>':'';
@@ -10024,7 +10035,7 @@ function _epRender0(){
     (function(){   /* 이카운트 재고 10개 미만 일괄 빼기 · 되돌리기 */
       var low=_epLowList(),dn=0;un.forEach(function(s){dn+=Object.keys(epDel[s.key]||{}).length;});
       h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:2px 0 6px;font-size:12.5px">'
-        +(ecStock&&_ecStockKey(_ecHq())?'<span style="color:#5b6675">재고 = 이카운트 '+E(_ecHq())+' · 매장 창고'+(ecStock.at?' ('+E(_saipFmtAt(ecStock.at))+' 기준)':'')+'</span>':'<span style="color:#b45309;font-weight:700">⚠ 이카운트 재고 자료가 없어 재고·삭제를 쓸 수 없습니다</span>')
+        +(ecStock&&_ecStockKey(_ecHq())?'<span style="color:#5b6675">재고 = 이카운트 창고재고 · 주희물류 '+E(_ecHq())+' / 발주 매장 창고(컬러별)'+(ecStock.at?' ('+E(_saipFmtAt(ecStock.at))+' 기준)':'')+'</span>':'<span style="color:#b45309;font-weight:700">⚠ 이카운트 재고 자료가 없어 재고·삭제를 쓸 수 없습니다</span>')
         +(low.length?'<button class="a2-btn" style="font-size:12px;padding:3px 10px;background:#dc2626;border-color:#dc2626" onclick="epLowDelAll()" title="이카운트 '+E(_ecHq())+' 재고가 '+EP_LOW+'개 미만인 줄을 이번 도매발주서·메일에서 모두 뺍니다">🗑 이카운트 '+EP_LOW+'개 미만 '+low.length+'줄 일괄 삭제</button>':'')
         +(dn?'<button class="a2-btn sub" style="font-size:12px;padding:3px 10px" onclick="epDelUndoAll()">↩ 뺀 줄 '+dn+'줄 모두 되돌리기</button>':'')+'</div>';
     })();
