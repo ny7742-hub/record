@@ -10597,7 +10597,7 @@ function whsRender(){
     btn.classList.toggle("whs-blink",!btn.disabled&&!all&&!fin&&!fixNeed);
     btn.title="① 파일 받기(OneDrive → 없으면 메일 · 미출고 확인) → ② 중복 검사(플레이엠디·이카운트·세매) → ③ 체크한 곳만 등록";
   }
-  if(!open){box.innerHTML=sum;return;}
+  if(!open){box.innerHTML=sum+_a2DoneMarks(3);return;}   /* 접힌 요약에도 진행 %가 나오게 숨은 단계 표시(끝난 날만 접힘) */
   /* ── ① 파일 받기 · 미출고 ── */
   var s1="",b1="";
   if(pmBusy&&!(P.it&&P.it.at&&fresh)){s1="run";b1=e(String(((saipReq||{}).hs||{}).progress||"자동화 PC가 파일을 받는 중").replace(/^▷\s*/,"").slice(0,90));}
@@ -11078,7 +11078,7 @@ function wdsRender(){
     btn.classList.toggle("whs-blink",!btn.disabled&&!all&&!fin&&!fixNeed);
     btn.title="① 파일 받기(OneDrive) → ② 중복 검사(플레이엠디·이카운트·세매) → 목록 수정·삭제 확인 → [▶ 등록] = 플레이엠디 → 세매(이카운트는 확인만)";
   }
-  if(!open){box.innerHTML=sum;return;}
+  if(!open){box.innerHTML=sum+_a2DoneMarks(3);return;}   /* 접힌 요약에도 진행 %가 나오게 숨은 단계 표시(끝난 날만 접힘) */
   /* ── ① 파일 받기 · 미출고 ── */
   var s1="",b1="";
   if(pmBusy&&!(P.it&&P.it.at&&fresh)){s1="run";b1=e(String(((saipReq||{}).ds||{}).progress||"자동화 PC가 파일을 받는 중").replace(/^▷\s*/,"").slice(0,90));}
@@ -11258,6 +11258,20 @@ function _a2ProgHtml(L){
     +'<b style="white-space:nowrap;color:'+(all?"#047857":bad?"#b91c1c":"#334155")+'">'+ok+'/'+n+' · '+p+'%</b>'
     +'<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%;color:'+(bad?"#b91c1c":run?"#b45309":"#5b6675")+';font-weight:700">'+_escX(txt)+'</span></div>';
 }
+/* 칸 이름 뒤 진행 % (2026-11-25 영업2팀 "auto탭에 있는 모두 메뉴 이름 뒤에 진행상태 %를 보이게") — 진행 바와 같은 계산.
+   class에 a2-prog를 같이 달아 innerHTML 같은 글 건너뛰기·MutationObserver가 이 표시를 칸 내용으로 치지 않게 한다 */
+function _a2PctBadge(h,L){
+  var b=h.querySelector(".a2-pct"),t=h.querySelector(":scope > b");
+  if(!L.length||!t){if(b)b.remove();return;}
+  var n=L.length,ok=0,run=0,bad=0;L.forEach(function(x){if(x.st==="ok")ok++;else if(x.st==="run")run=1;else if(x.st==="bad")bad=1;});
+  var p=Math.round((ok+(run?0.5:0))/n*100),all=ok===n;
+  var bg=all?"#dcfce7":bad?"#fee2e2":run?"#fef3c7":"#e0f2fe",fg=all?"#047857":bad?"#b91c1c":run?"#b45309":"#0e7490";
+  var html=(all?"✅ ":bad?"❌ ":run?"⏳ ":"")+p+"%",sty="font-size:12.5px;font-weight:800;border-radius:10px;padding:1px 8px;white-space:nowrap;background:"+bg+";color:"+fg;
+  if(!b){b=document.createElement("span");b.className="a2-prog a2-pct";t.insertAdjacentElement("afterend",b);}
+  else if(b.previousElementSibling!==t)t.insertAdjacentElement("afterend",b);
+  if(b.getAttribute("data-h")!==html+sty){b.textContent=html;b.style.cssText=sty;b.title=ok+"/"+n+" 단계 끝";b.setAttribute("data-h",html+sty);}
+}
+function _a2DoneMarks(n){var h="";for(var i=0;i<n;i++)h+='<div data-a2st="ok" data-a2t="단계 '+(i+1)+'" style="display:none"></div>';return h;}
 var _a2ProgBusy=false;
 function _a2ProgScan(){
   var pg=document.getElementById("page-auto2");if(!pg)return;
@@ -11265,7 +11279,8 @@ function _a2ProgScan(){
   try{
     pg.querySelectorAll(".a2-card").forEach(function(card){
       var h=card.querySelector(".a2-h");if(!h)return;
-      var bar=card.querySelector(":scope > .a2-prog"),html=_a2ProgHtml(_a2ProgOf(card));
+      var L=_a2ProgOf(card),bar=card.querySelector(":scope > .a2-prog"),html=_a2ProgHtml(L);
+      _a2PctBadge(h,L);
       if(!html){if(bar)bar.remove();return;}
       if(!bar){bar=document.createElement("div");bar.className="a2-prog";h.insertAdjacentElement("afterend",bar);}
       if(bar.getAttribute("data-h")!==html){bar.innerHTML=html;bar.setAttribute("data-h",html);}
