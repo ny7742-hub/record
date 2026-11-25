@@ -1,5 +1,7 @@
 # 🧊 3D 집기 탭 (`page-floor`, `renderFloorPage`)
 
+> **2026-11-25 영업2팀: 3D 집기·3D 집기2를 한 탭으로 합쳤다.** 탭 줄엔 `🧊 3D 집기` 하나(`fpSel()` — 지난번 고른 쪽, `localStorage.fpSel`), 화면 제목 옆 `1번`·`2번`(`.fp-seg`)으로 `page-floor`·`page-floor2`를 오간다. `tab-floor2` 버튼은 숨은 `#tabRemoved`에 있다.
+
 예전 이름 `3D 평면도`(2026-10-13, 채팅에서 만들어 GitHub에 올림) → **2026-10-14 영업2팀 요청으로 `3D 집기`로 바꾸고 넓혔다**.
 코드는 `index.html` `</body>` 바로 앞 별도 `<script>` 블록, 탭 버튼 `#tab-floor`, 페이지 `#page-floor`(`page-lossreport` 앞). `switchTab`에서 `renderFloorPage()`. **팀 공유**(2026-10-14 영업2팀): Firebase `ws/fx3d` — `cur`(현재 배치) · `plans`(저장한 배치) · `use`(체크·수량·사이즈) · `cus`(직접 추가·사진 집기) ·
 `img/<키>`(사진 집기 그림) · `photo`(예상 팝업 자리 이미지) · `meta`(마지막 배치 수정 사람·시각, 화면 `#fpShare`). localStorage는 같은 키로 사본을 둔다.
