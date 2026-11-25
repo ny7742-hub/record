@@ -144,7 +144,12 @@
     첫 사례: 11/16 `601485795776` 바르셀 코스트코 그레이 2개(주문 349090926).
     번호를 못 읽으면(`unknown`) 등록하지 않고 멈춘다. 뺀 줄은 등록 결과 항목 `unship {nos, removed, miss}`·로그에. 백업 `_backup-playmd-hs-saip-1117-unship.mjs`.
     **코스트코탭 판매현황(cc-sales-register)은 아직 미출고도 더한다** — 바꾸려면 거기에도 빼기를 넣을 것.
-  - **⑥ 세매**: `ccChainWs` — 승인 날짜의 PlayMD 사입출고(`saipLog.cc`)가 끝나고 그 뒤에 받은 판매일보(`downloads/매장판매일보_YYYYMM01-오늘.xlsx`, 매시 받기)가 있으면
+  - **⑥ 세매 먼저 → PlayMD**(2026-11-25 영업2팀 "플레이엠디는 이번달까지만 사용할거라 세매 부터 등록으로"): `playmd-hs-saip.mjs`(cc 저장)가 PlayMD에 넣기 **직전** `ccWsFirst` —
+    그 날 사입출고 줄 전체를 `logs/cc-ws-rows-MMDD.json`으로 넘겨 `wssales-upload.mjs --force --day --only=코코 온라인 --rows=…`. 판매일보와 같은 53칸으로 한 줄씩(영수증번호 0001 · 코스트코 온라인 COSO · 상품명·칼라명·원가는 `ws/productData`, 파일 `downloads/wssales-cc/세매먼저_코코온라인_YYYYMMDD.xlsx`).
+    세매는 같은 줄이 여러 개여도 다 받는다(11/24 판매일보 20줄 = 세매 20줄). 세매에 이미 그 금액이 있으면 wssales-upload가 건너뜀. 끝나면 `ccChainLog[날짜].ws·wsFirst` → 아래 `ccChainWs`는 안 돈다.
+    ⓪ 세매 체크 끔(`ccApprove.ws === false`)·`automation/cc-ws-first-off.flag`면 안 함. **실패해도 PlayMD는 이어 가고**, 그때는 아래 예전 방식(판매일보 뒤)으로 다시. 자비스 ⑥ 칸은 세매 줄이 위(`WU.rows` = 먼저 올림).
+    PlayMD를 끄고 승인한 날(`mode:'dss'`)은 playmd-hs-saip가 안 돌아 세매 먼저도 없다(예전처럼 판매일보 기다림 — PlayMD 없이는 안 들어옴). 백업 `automation/_backup-*-1125-wsfirst.mjs`.
+  - **⑥ 세매(예전 · 먼저 올리기 실패 때)**: `ccChainWs` — 승인 날짜의 PlayMD 사입출고(`saipLog.cc`)가 끝나고 그 뒤에 받은 판매일보(`downloads/매장판매일보_YYYYMM01-오늘.xlsx`, 매시 받기)가 있으면
     `saipReq.wsu {mode:'upload', only:'코코 온라인', day, chain}` → `wssales-upload.mjs --force --only=코코 온라인 --day=YYYY-MM-DD`(그 하루만, 오늘이어도 — 결과는 `ws/wssalesUpload.cc`, 그날 .done·자동화 탭 결과 칸은 안 건드림).
     매시 받기를 `wsWaitMin`(45)분 기다리고 그래도 없거나 17시 뒤면 `saipReq.pms`(지난달 1일~오늘)를 건다. 날짜마다 한 번(`ccChainLog[날짜].ws·wsPm`), 끄려면 `CC_CHAIN.wsOff=true`.
     ⑥ 칸은 PlayMD 등록 + 세매(코코 온라인) 둘 다 끝나야 완료(`wssalesUpload.cc.ok` 또는 `wssalesDays[날|코코 온라인].s==='ok'`).
