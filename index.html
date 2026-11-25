@@ -13629,7 +13629,8 @@ function fpRealSave(cv,base,msg,dl,photo){
    · 검은 테두리·타일 줄눈을 바탕색에 가깝게 옅게(선이 아니라 모서리처럼) · 배경은 비워 찍고(R3.photo → shot3d가 투명 배경으로 잘라 냄)
      따뜻한 매장 배경·가장자리 어둡게·살짝 대비를 깐다. 찍고 나면 빛·선·그림자를 모두 되돌린다.
    o = {scene, R3, sun, shot() → 캔버스, redraw()} — 두 3D 집기 탭이 같이 쓴다. 값은 FP_PHOTO에서 고친다 */
-var FP_PHOTO={amb:0.6,hemi:0.75,sun:1.45,sunPos:[-0.55,1,0.3],shadow:0.4,line:0.72,lineTo:0xe9e5de};
+/* 2026-11-25 영업2팀 "집기 출력하면 어둡습니다. 밝게" — 빛 올림(amb 0.6→0.75·hemi 0.75→0.9), 그림자 옅게(0.4→0.3), 가장자리 어둡게 거의 뺌(vig 0.24→0.06), 배경 밝게, 밝기 +10%(bright). 더 올리면 흰 집기 면이 날아간다 */
+var FP_PHOTO={amb:0.75,hemi:0.9,sun:1.25,sunPos:[-0.55,1,0.3],shadow:0.3,line:0.72,lineTo:0xe9e5de,vig:0.06,bright:1.1};
 window.fpPhotoShot=function(o){
   var T=window.THREE,sc=o.scene,P=FP_PHOTO;if(!T||!sc)return null;
   var undo=[],lineMats=new Set(),c=null;
@@ -13657,10 +13658,10 @@ window.fpPhotoShot=function(o){
   if(!c)return null;
   /* 배경 — 위는 밝고 아래로 따뜻하게 · 살짝 대비 · 가장자리 어둡게(사진 느낌) */
   var W=c.width,H=c.height,out=document.createElement("canvas");out.width=W;out.height=H;var g=out.getContext("2d");
-  var lg=g.createLinearGradient(0,0,0,H);lg.addColorStop(0,"#f3f0ea");lg.addColorStop(0.55,"#e6e1d8");lg.addColorStop(1,"#d3ccc0");g.fillStyle=lg;g.fillRect(0,0,W,H);
-  try{g.filter="contrast(1.08) saturate(1.05)";}catch(e){}
+  var lg=g.createLinearGradient(0,0,0,H);lg.addColorStop(0,"#fbfaf7");lg.addColorStop(0.55,"#f3f0ea");lg.addColorStop(1,"#e8e3da");g.fillStyle=lg;g.fillRect(0,0,W,H);
+  try{g.filter="brightness("+(P.bright||1)+") contrast(1.04) saturate(1.05)";}catch(e){}
   g.drawImage(c,0,0);g.filter="none";
-  var rg=g.createRadialGradient(W/2,H*0.48,Math.min(W,H)*0.4,W/2,H*0.5,Math.hypot(W,H)*0.6);rg.addColorStop(0,"rgba(0,0,0,0)");rg.addColorStop(1,"rgba(45,36,24,0.24)");
+  var rg=g.createRadialGradient(W/2,H*0.48,Math.min(W,H)*0.4,W/2,H*0.5,Math.hypot(W,H)*0.6);rg.addColorStop(0,"rgba(0,0,0,0)");rg.addColorStop(1,"rgba(45,36,24,"+(P.vig==null?0.24:P.vig)+")");
   g.fillStyle=rg;g.fillRect(0,0,W,H);
   return out;
 };
