@@ -11914,6 +11914,12 @@ function _a2rSaip(k,dv){
   var XS0=!L&&SAIP_XS[k]?_saipXsys(k,v):null,wsNo=!!(XS0&&(XS0.ws==null||XS0.ec==null));   /* 세매·이카운트 확인 못 함 → 승인 안 됨(2026-11-19) */
   var canReg=!!(it&&!L&&it.mode==="preview"&&it.status==="preview"&&(k==="mv"||!it.already)&&!act&&fresh&&!stale&&!wsNo);
   var ready=_saipReadyOf(k).map(function(x){return x.date;}),isReady=v&&ready.indexOf(v)>=0;
+  /* 매장출고는 이카운트 기준(2026-11-26 영업2팀 "이카운트 등록여부가 중요하고, 등록 되어있으면 확인, 안되어있으면 등록 · 플레이엠디는 선택사항") —
+     등록할 건 = 이카운트에 아직 없는 날 · 이카운트에 있으면 그 날은 끝(PlayMD는 ④ 선택) */
+  var soX=(k==="so"&&!dv&&v)?_a2rX(k,v):null,soEcOk=!!(soX&&soX.ec.st==="ok");
+  if(k==="so"&&!dv){var rs0={};ready.forEach(function(d){if(_a2rX(k,d).ec.st!=="ok")rs0[d]=1;});
+    _a2rMvDays(k).forEach(function(d){if(_a2rX(k,d).ec.st==="bad")rs0[d]=1;});
+    ready=Object.keys(rs0).sort();isReady=!!(v&&ready.indexOf(v)>=0);}
   /* ①② 원본·중복 */
   var s1="",b1="",s2="",b2="";
   if(mine&&R.mode!=="save"){s1="run";b1=e(String(R.progress||"자동화 PC가 원본을 받는 중").replace(/^▷\s*/,"").slice(0,80));}
@@ -11954,6 +11960,7 @@ function _a2rSaip(k,dv){
   /* 단추 */
   var need=!L&&!act&&!canReg&&(isReady||(!it&&false)||(it&&it.status==="preview"&&(stale||!fresh)));
   var lab=L?"✅ "+md+" 등록 완료":ack&&!act?"✅ "+md+" 확인함(이미 있음)":act?"⏳ 진행 중…":canReg?"🔍 다시 검사":need?"🚨 등록요망":"🔍 중복 검사";
+  if(soX){need=!act&&!soEcOk&&!it&&!!isReady;lab=act?"⏳ 진행 중…":soEcOk?"✅ "+md+" 이카운트 등록 확인":it?"🔍 다시 검사":need?"🚨 등록요망":"🔍 중복 검사";}
   var btns='<input type="date" id="a2rDate_'+k+'" value="'+e(v)+'" onchange="a2rDateSet(\''+k+'\')" onclick="try{if(this.showPicker)this.showPicker();}catch(e){}" style="cursor:pointer;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px">'
     +'<button class="a2-btn'+(need?' whs-blink':'')+'" '+(act?'disabled ':'')+'style="'+(L||act?'opacity:.55':'')+'" onclick="a2rSaipGo(\''+k+'\',\''+v+'\')">'+lab+'</button>'
     +(it?'<button class="a2-btn sub" onclick="a2rSaipView(\''+k+'\',\''+v+'\')">🔍 미리보기</button>':'')
@@ -11987,6 +11994,25 @@ function _a2rSaip(k,dv){
     var xc=function(c){return ({ok:"✅",bad:"❌",warn:"⚠️",na:"➖"}[c.st]||"❔")+' '+e(c.txt);};
     inner=inner.replace('@@A2R_X3@@','<div style="margin-top:3px;font-size:12.5px">이카운트 '+xc(X.ec)+' · PlayMD '+xc(X.pm)+'</div>');
     inner=_a2rXTable(k,_a2rMvDays(k),v)+inner.replace('@@A2R_GOODS@@',_a2rGoods(k,it))+_a2rRow("⑤","이카운트 창고이동 등록 (PlayMD와 따로)",s5,b5);   /* 세매 ⑥ 줄은 뺐다(2026-11-23 영업2팀 "세매는 삭제") */
+    /* 매장출고: ① 원본 → ② 이카운트 확인 → ③ 이카운트 등록 → ④ PlayMD(선택, 진행 바에선 끝으로 침) */
+    if(k==="so"){
+      var ec=X.ec,c2="",d2="",c4="",d4="";
+      if(ec.st==="ok"){c2="ok";d2='<b style="color:#047857">✅ 이카운트에 이미 있음 — 확인 완료(넣을 것 없음)</b> · '+e(ec.txt);}
+      else if(ec.st==="bad"){c2="ok";d2='<b style="color:#b91c1c">❌ 이카운트에 없음 — ③에서 등록</b> · '+e(ec.txt);}
+      else if(ec.st==="warn"){c2="warn";d2='<b style="color:#b45309">⚠ '+e(ec.txt)+'</b> — 위 표의 날짜 줄을 눌러 전표를 보고 겹치는지 확인';}
+      else if(ec.st==="na"){c2="skip";d2="원본 없음 — 확인할 것 없음";}
+      else d2='이카운트 확인 못 함 — '+e(ec.txt)+' · [🔄 세 곳 다시 확인]';
+      d2+='<div style="margin-top:3px;font-size:12.5px;color:#475569">PlayMD(선택) '+xc(X.pm)+'</div>';
+      if(!it&&!mine&&ec.st==="ok"){s1="skip";b1="이카운트에 이미 있어 원본을 받지 않아도 됩니다";}
+      if(L){c4="ok";d4='PlayMD 저장됨 · '+b4;}
+      else if(mine&&R.mode==="save"){c4="run";d4=b4;}
+      else if(s4==="bad"){c4="bad";d4=b4;}
+      else if(it&&it.already){c4="skip";d4='PlayMD에 이미 있음 — 넣지 않아도 됩니다 <a href="javascript:void(0)" onclick="a2rSaipView(\''+k+'\',\''+v+'\')">자세히</a>';}
+      else if(canReg){c4="skip";d4='<span style="color:#475569">선택 — PlayMD에도 넣으려면 승인하세요.</span> '+b3;}
+      else{c4="skip";d4='선택 — PlayMD에는 넣지 않아도 됩니다'+(b3&&!/중복이라/.test(b3)?' · '+b3:'');}
+      inner=(act?_saipProgBar(k,R):'')+_a2rXTable(k,_a2rMvDays(k),v)+_a2rRow("①","매장출고 원본 받기",s1,b1)+_a2rGoods(k,it).replace('data-a2st=""','data-a2info=""').replace('⬜ 📦','📦')   /* 상품 칸은 단계가 아니라 안내 — 진행 %에서 뺀다 */
+        +_a2rRow("②","이카운트 등록 여부 확인",c2,d2)+_a2rRow("③","이카운트 창고이동 등록",s5,b5)+_a2rRow("④","PlayMD 등록 (선택)",c4,d4);
+    }
   }
   if(dv)return {inner:inner,need:need,lab:lab,L:L,act:act,it:it,canReg:canReg};
   return _a2rCard(k,false,inner,btns);
@@ -29730,8 +29756,12 @@ function _saipCfShow(kind,date,o){
     var canReg=!L&&it.mode==="preview"&&it.status==="preview"&&(kind==="mv"||!it.already)&&!active&&fresh&&!stale;
     var when=it.at?' <span style="color:#5b6675;font-weight:600">· '+_escX(_saipFmtAt(it.at))+' 검사</span>':'';
     if(!L&&SAIP_XS[kind])h+='<div style="margin-bottom:6px;padding:6px 8px;border-radius:6px;border:1px solid #e2e8f0;font-size:13px"><b>세 곳 중복 확인</b> '+_saipXsysHtml(_saipXsys(kind,date))+'</div>';
+    if(kind==="so"&&typeof _a2rX==="function"){var XE=_a2rX("so",date).ec,eOk=XE.st==="ok";
+      h+='<div style="margin-bottom:6px;padding:7px 9px;border-radius:6px;font-size:14px;font-weight:800;border:1px solid '+(eOk?'#86efac;background:#f0fdf4;color:#047857':XE.st==="bad"?'#fca5a5;background:#fef2f2;color:#b91c1c':'#fcd34d;background:#fffbeb;color:#b45309')+'">🧮 이카운트 창고이동: '+(eOk?'✅ ':XE.st==="bad"?'❌ ':'⚠️ ')+_escX(XE.txt)
+        +(eOk?' — 확인 완료(넣을 것 없음)':XE.st==="bad"?' — AUTO 탭 매장출고 칸 ③에서 등록하세요':' — AUTO 탭 매장출고 칸에서 확인하세요')+'</div>';}
     if(L)h+='<div style="color:#047857;font-weight:700">✅ '+md+' 이미 등록됨 · '+_escX(_saipFmtAt(L.at))+' · '+_escX(_saipWho(L.by))+'</div>';
     else if(it.status==="nofile")h+='<div style="color:#5b6675;font-weight:700">📭 '+(kind==="cc"?"회신 메일":"파일")+' 없음 — 등록할 것 없음'+when+'</div>';
+    else if(it.already&&kind==="so")h+='<div style="color:#475569;font-weight:700">➖ PlayMD(선택): 이미 있습니다 — PlayMD엔 다시 넣지 않습니다'+when+'</div><div style="color:#5b6675">'+_escX(it.already)+'</div>';   /* 매장출고는 이카운트가 기준(2026-11-26) */
     else if(it.already&&kind!=="mv")h+='<div style="color:#b45309;font-weight:800">⛔ 중복 검사: 플레이엠디에 이미 있습니다 — 등록하지 마세요'+when+'</div><div style="color:#b45309">'+_escX(it.already)+'</div>';
     else if(it.status==="preview")h+='<div style="color:#047857;font-weight:800">✅ 중복 검사: 겹치는 것 없음 — 등록해도 됩니다'+when+'</div>'
       +(it.more?'<div style="color:#1d4ed8;font-weight:700">➕ '+_escX(it.more)+'</div>':'')
