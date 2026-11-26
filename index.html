@@ -4160,6 +4160,10 @@ function fbListen(){
     function(d){if(d&&typeof d==="object")drRetLog=d;},
     function(){try{drRender();}catch(e){}}
   );
+  apply("ws/drWsStatus","drWsStatus",   /* 백화점몰 반품 세매 등록 결과(dr-ws-upload.mjs, 2026-11-26) */
+    function(d){if(d&&typeof d==="object")drWsStatus=d;},
+    function(){try{drRender();}catch(e){}}
+  );
   apply("ws/drCleanStatus","drCleanStatus",   /* 백화점몰 반품 도매 탭 정리 결과(dr-sheet-clean.mjs, 2026-11-26) — 끝나면 시트를 다시 읽는다 */
     function(d){var was=drCleanStatus&&drCleanStatus.end;if(d&&typeof d==="object")drCleanStatus=d;if(d&&d.end&&d.end!==was&&was!==undefined&&d.status==="done")setTimeout(function(){try{drLoad();}catch(e){}},500);},
     function(){try{drRender();}catch(e){}}
@@ -12043,7 +12047,7 @@ function _a2rRet(k){
    올린 줄은 [✅ 세매에 올림 표시] → 팀 공유 ws/drRetLog{줄 열쇠:{d 입고일, s 매장코드, q, a, at, by}} — 다음엔 목록에서 빠진다.
    세매 대조: ws/wssalesDays[입고일|백화점].rst[세매 매장명](매장별 세매 반품 합)이 그 날 그 매장 반품 합만큼 있으면 '세매에 있음' */
 var DR_GID="1968517385",DR_STORE={"(백)롯데고양":{c:"LGY",n:"롯데아울렛 온라인 고양터미널점"},"(백)롯데본점":{c:"LTOA",n:"롯데백화점 온라인 본점"},"(백)현대천호":{c:"HDOC",n:"현대백화점 온라인 천호점"}};
-var DR_SKIP=["처리보류","확인요청","출고예정","미입고"],drRetLog={},drCleanStatus=null,_dr={rows:null,at:"",err:"",busy:false,ed:{},off:{}};
+var DR_SKIP=["처리보류","확인요청","출고예정","미입고"],drRetLog={},drCleanStatus=null,drWsStatus=null,_dr={rows:null,at:"",err:"",busy:false,ed:{},off:{}};
 var DR_PM_HEAD=['⇅','판매일자','매장구분','매장코드','매장명','영수증번호','기획구분','판매유형','팀구분','상품코드','상품명','칼라','칼라명','사이즈','사이즈명','자사바코드','판매구분','매출구분','TAG가','사전원가','평균원가','현재가','판매예정단가','판매수량','할인(T.실)%','에누리','마일리지','상품권','즉시환급','판매단가','판매금액','실판매금액','순판매(할인제외)','순판매(할인포함)','수수료','TAG가합','판매예정금액','사전원가합','평균원가합','행사구분','마진(%)','중간관리(%)','고객코드','고객명','고객등급','판매원','수취인/주문인','특이사항','특이사항2','영수증특이사항','MD Concept Story','원구매정보','입력시간'];
 function _drStoreOf(s){var t=String(s||"").replace(/\s/g,"");return DR_STORE[t]?t:"";}
 function _drYmd(v){var d=_hsrParseDate(v);if(!d||isNaN(d))return "";var p=function(n){return (n<10?"0":"")+n;};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());}
@@ -12082,37 +12086,33 @@ function drOff(key,on){_dr.off[key]=!on;drRender();}
 /* 세매 대조 — 그 날 그 매장 세매 반품 합(rst)이 이번 반품 합 이상이면 있음 */
 function _drWs(day,store){var W=(wssalesDays||{})[day+"|백화점"];if(!W||!W.rst)return null;return +W.rst[DR_STORE[store].n]||0;}
 function _drTodo(){return (_dr.rows||[]).filter(function(x){return !x.why&&!drRetLog[x.key];});}
-function drXlsx(){
-  if(typeof XLSX==="undefined"){alert("엑셀 도구(SheetJS)를 아직 못 불러왔습니다 — 잠시 뒤 다시 눌러 주세요.");return;}
+/* 판매일보 53칸 한 줄(세매가 받는 모양) — 판매일자 YYYY-MM-DD · 매장구분 백화점 · 영수증번호 0002 · 판매구분 반품 · 수량 − · 금액 − */
+function _drCells(x,by,stamp){var V=_drVal(x),p=V.p,q=-x.qty,unit=V.price,amt=unit*q,tag=_drNum(p[10])||unit,cost=_drNum(p[12]),S=DR_STORE[x.store];
+  return {'판매일자':x.inD,'매장구분':'백화점','매장코드':S.c,'매장명':S.n,'영수증번호':'0002','기획구분':'정상','판매유형':'정상판매',
+    '상품코드':String(p[1]||"").trim(),'상품명':String(p[2]||""),'칼라':String(p[3]||"").trim(),'칼라명':String(p[4]||""),'사이즈':String(p[5]||"X"),'사이즈명':String(p[6]||"ONE SIZE"),
+    '자사바코드':V.code,'판매구분':'반품','매출구분':'현금','TAG가':tag,'사전원가':cost,'평균원가':cost,'현재가':tag,'판매예정단가':tag,'판매수량':q,
+    '할인(T.실)%':tag?Math.round((1-unit/tag)*10000)/100:0,'에누리':0,'마일리지':0,'상품권':0,'즉시환급':0,'판매단가':unit,'판매금액':amt,'실판매금액':amt,
+    '순판매(할인제외)':amt,'순판매(할인포함)':amt,'수수료':0,'TAG가합':tag*q,'판매예정금액':tag*q,'사전원가합':cost*q,'평균원가합':cost*q,'행사구분':'정상','마진(%)':0,'중간관리(%)':0,
+    '판매원':by,'특이사항':'백화점몰 반품'+(x.ord?' '+x.ord:''),'특이사항2':(x.wh==="BAD"?'주희물류_불량(BAD)':'주희물류(NH)')+' · '+x.rs,'입력시간':stamp};}
+/* ③ 세매에 등록(2026-11-26 영업2팀 "양식받기는 필요없고, 세매에 등록 절차로") — 체크한 줄을 ws/drWsJob/{id}에 올리고 ws/saipReq.drw →
+   자동화 PC dr-ws-upload.mjs: 세매 반품(그 날·매장·상품·칼라명·금액)에 이미 있는 줄은 빼고 나머지를 판매일보 53칸으로 「데이터 관리」에 올림 →
+   들어간 줄(이미 있던 줄 포함)을 ws/drRetLog에 남기고 ④ 시트 정리(drc)를 이어 건다. 결과 ws/drWsStatus */
+function drWsGo(){
   var L=_drTodo().filter(function(x){return !_dr.off[x.key];}),bad=L.filter(function(x){return !_drVal(x).ok;});
-  if(!L.length){alert("받을 줄이 없습니다(체크한 줄 없음).");return;}
+  if(!L.length){alert("올릴 줄이 없습니다(체크한 줄 없음).");return;}
   if(bad.length){alert("상품코드나 결제가가 빈 줄이 "+bad.length+"개 있습니다 — 빨간 칸을 채우거나 체크를 빼 주세요.");return;}
-  var ws={},put=function(r,c,v,z){if(v===""||v==null)return;var cell=typeof v==="number"?{t:"n",v:v,z:z||"#,##0"}:{t:"s",v:String(v)};if(cell.t==="n")try{cell.w=XLSX.SSF.format(cell.z,v);}catch(e){}ws[XLSX.utils.encode_cell({r:r,c:c})]=cell;};
-  DR_PM_HEAD.forEach(function(h,c){put(0,c,h);});
+  var cur=(saipReq||{}).drw;if(_saipReqActive(cur)){alert("세매 등록이 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+" ("+(cur.by||"?")+").");return;}
+  var a=0,q=0;L.forEach(function(x){a+=_drVal(x).amt;q+=x.qty;});
+  if(!confirm("백화점몰 반품 "+L.length+"줄("+q+"개 · "+a.toLocaleString()+"원)을 세매에 등록합니다.\n\n · 세매에 이미 같은 반품이 있는 줄은 빼고 올립니다\n · 끝나면 반품리스트 「도매」 탭 정리(처리일 · 도매(완료) 이동 · 삭제)가 이어집니다\n\n등록할까요?"))return;
   var now=new Date(),p2=function(n){return (n<10?"0":"")+n;},stamp=now.getFullYear()+"-"+p2(now.getMonth()+1)+"-"+p2(now.getDate())+" "+p2(now.getHours())+":"+p2(now.getMinutes())+":"+p2(now.getSeconds()),by=_saipMe()||"";
-  L.forEach(function(x,i){var V=_drVal(x),p=V.p,q=-x.qty,unit=V.price,amt=unit*q,tag=_drNum(p[10])||unit,cost=_drNum(p[12]),S=DR_STORE[x.store];
-    var serial=(Date.UTC(+x.inD.slice(0,4),+x.inD.slice(5,7)-1,+x.inD.slice(8,10))-Date.UTC(1899,11,30))/864e5;
-    var v={'⇅':i+1,'판매일자':serial,'매장구분':'백화점','매장코드':S.c,'매장명':S.n,'영수증번호':'0002','기획구분':'정상','판매유형':'정상판매',
-      '상품코드':String(p[1]||"").trim(),'상품명':String(p[2]||""),'칼라':String(p[3]||"").trim(),'칼라명':String(p[4]||""),'사이즈':String(p[5]||"X"),'사이즈명':String(p[6]||"ONE SIZE"),
-      '자사바코드':V.code,'판매구분':'반품','매출구분':'현금','TAG가':tag,'사전원가':cost,'평균원가':cost,'현재가':tag,'판매예정단가':tag,'판매수량':q,
-      '할인(T.실)%':tag?Math.round((1-unit/tag)*10000)/100:0,'에누리':0,'마일리지':0,'상품권':0,'즉시환급':0,'판매단가':unit,'판매금액':amt,'실판매금액':amt,
-      '순판매(할인제외)':amt,'순판매(할인포함)':amt,'수수료':0,'TAG가합':tag*q,'판매예정금액':tag*q,'사전원가합':cost*q,'평균원가합':cost*q,'행사구분':'정상','마진(%)':0,'중간관리(%)':0,
-      '판매원':by,'특이사항':'백화점몰 반품'+(x.ord?' '+x.ord:''),'특이사항2':(x.wh==="BAD"?'주희물류_불량(BAD)':'주희물류(NH)')+' · '+x.rs,'입력시간':stamp};
-    DR_PM_HEAD.forEach(function(h,c){put(i+1,c,v[h],h==="판매일자"?"yyyy\\-mm\\-dd":h==="⇅"?"General":/%/.test(h)?"#,##0.00":undefined);});});
-  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:L.length,c:DR_PM_HEAD.length-1}});
-  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Sheet1");
-  var ds=L.map(function(x){return x.inD;}).sort(),f=function(d){return d.slice(2,4)+d.slice(5,7)+d.slice(8,10);};
-  XLSX.writeFile(wb,f(ds[0])+(ds[0]!==ds[ds.length-1]?"-"+f(ds[ds.length-1]).slice(2):"")+"_백화점몰 반품.xlsx");
-  _dr.dl={at:new Date().toISOString(),keys:L.map(function(x){return x.key;})};drRender();
+  var id="drw"+Date.now().toString(36);
+  var rows=L.map(function(x){return {key:x.key,prod:x.prod,ord:x.ord||"",cells:_drCells(x,by,stamp)};});
+  fbDB.ref("ws/drWsJob/"+id).set({id:id,by:by,at:now.toISOString(),rows:rows}).then(function(){
+    _saipReqSet("drw",{id:id,by:by,at:new Date().toISOString(),state:"요청",n:rows.length});drRender();
+    if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 등록합니다.");
+  }).catch(function(e){alert("팀 공유에 올리지 못했습니다: "+e.message);});
 }
-function drMark(){
-  var keys=(_dr.dl&&_dr.dl.keys)||[],R=_dr.rows||[],up={},by=_saipMe()||"",at=new Date().toISOString(),n=0,a=0;
-  keys.forEach(function(k){var x=R.filter(function(y){return y.key===k;})[0];if(!x||drRetLog[k])return;var V=_drVal(x);up[k]={d:x.inD,s:DR_STORE[x.store].c,c:V.code,q:x.qty,a:V.amt,at:at,by:by};n++;a+=V.amt;});
-  if(!n){alert("표시할 줄이 없습니다 — 먼저 양식을 받아 주세요.");return;}
-  if(!confirm("받은 양식 "+n+"줄("+a.toLocaleString()+"원)을 세매에 올렸다고 표시합니다.\n\n세매 「데이터 관리」에 올린 뒤에 눌러 주세요. 표시한 줄은 다음부터 목록에서 빠집니다."))return;
-  fbDB.ref("ws/drRetLog").update(up).then(function(){drRetLog=Object.assign({},drRetLog,up);_dr.dl=null;drClean(Object.keys(up),true);drRender();}).catch(function(e){alert("팀 공유에 저장하지 못했습니다: "+e.message);});
-}
-/* ⑤ 시트 정리(2026-11-26 영업2팀 "처리된건은 당일일자를 처리일에 기재하고, 도매탭에서 도매완료로 탭이동하고 도매탭에 삭제") — 올림 표시한 줄을
+/* ④ 시트 정리(2026-11-26 영업2팀 "처리된건은 당일일자를 처리일에 기재하고, 도매탭에서 도매완료로 탭이동하고 도매탭에 삭제") — 세매에 들어간 줄을(dr-ws-upload가 이어 걸거나 🧹 단추)
    ws/saipReq.drc → 자동화 PC dr-sheet-clean.mjs → 시트 웹 앱(sheet-cleanup.gs v5): 처리일 칸이 비면 오늘 M/D(요일) · 「도매(완료)」 맨 아래로 복사 · 「도매」에서 삭제. 결과 ws/drCleanStatus */
 function _drCleanTodo(){return (_dr.rows||[]).filter(function(x){var L=drRetLog[x.key];return L&&!L.sheet;});}
 function drClean(keys,quiet){
@@ -12157,18 +12157,19 @@ function drRender(){
         +'<tr style="background:#f1f5f9;text-align:left;position:sticky;top:0"><th></th><th style="padding:2px 6px">입고일</th><th style="padding:2px 6px">매장</th><th style="padding:2px 6px">상품</th><th style="padding:2px 6px">사유 → 창고</th><th style="padding:2px 6px">코드</th><th style="padding:2px 6px;text-align:right">수량</th><th style="padding:2px 6px;text-align:right">결제가</th><th style="padding:2px 6px;text-align:right">금액</th></tr>'
         +rows+'</table></div><div style="margin-top:3px;font-size:12px">🔎 세매 대조: '+(wsL||'–')+'</div>';}
   }
-  /* ③ 양식 받기 · ④ 올림 표시 */
-  var on=todo.filter(function(x){return !_dr.off[x.key];}),canDl=on.length&&on.every(function(x){return _drVal(x).ok;});
-  var s3=_dr.dl?"ok":todo.length?(canDl?"wait":""):_dr.rows?"ok":"",b3=todo.length?('<button class="a2-btn'+(canDl&&!_dr.dl?' whs-blink':'')+'" '+(canDl?'':'disabled style="opacity:.55" ')+'onclick="drXlsx()">📥 세매 반품 양식 받기 ('+on.length+'줄)</button>'
-    +(_dr.dl?' <span style="color:#047857">받음 '+e(_saipFmtAt(_dr.dl.at))+' · '+_dr.dl.keys.length+'줄</span>':'')+' <span style="color:#5b6675">판매일보 53칸 · 판매구분 반품 · 수량 − · 판매일자 = 입고일</span>'):(_dr.rows?'받을 줄 없음':'');
-  var s4=todo.length?(_dr.dl?"wait":""):(_dr.rows&&ok.length?"ok":""),b4=_dr.dl?('받은 파일을 <a href="https://wssales.pages.dev/" target="_blank" rel="noopener" style="color:#1b6e82;font-weight:700">세매 ↗</a> 「데이터 관리」에 올린 뒤 → <button class="a2-btn" onclick="drMark()">✅ 세매에 올림 표시</button>'):
-    todo.length?'양식을 받아 세매에 올린 뒤 표시합니다':(done.length?'<span style="color:#047857">올림 표시 '+done.length+'줄</span>':'');
+  /* ③ 세매에 등록 */
+  var on=todo.filter(function(x){return !_dr.off[x.key];}),canUp=on.length&&on.every(function(x){return _drVal(x).ok;});
+  var C3=(saipReq||{}).drw,act3=_saipReqActive(C3),W=drWsStatus,s3="",b3="";
+  var wsRes=W&&W.at?((W.status==="done"?'<span style="color:#047857">세매 등록 '+(W.up||[]).length+'줄'+((W.already||[]).length?' · 이미 있음 '+W.already.length+'줄':'')+(W.msg?' — '+e(W.msg):'')+'</span>':W.status==="check"?'대조만: 올릴 것 '+(W.up||[]).length+' · 이미 있음 '+(W.already||[]).length:'<span style="color:#b91c1c">'+e(W.error||W.status||"")+'</span>')+' <span style="color:#5b6675">· '+e(_saipFmtAt(W.end||W.at))+' · '+e(W.by||"")+'</span>'):'';
+  if(act3){s3="run";b3="⏳ "+e(C3.state)+" · "+e(C3.by||"")+" · "+(C3.n||0)+"줄"+(C3.progress?" — "+e(String(C3.progress).slice(0,90)):"");}
+  else if(todo.length){s3=W&&W.at&&(W.status==="error"||W.status==="partial")?"bad":canUp?"wait":"";b3=(s3==="bad"?wsRes+'<br>':'')+'<button class="a2-btn'+(canUp?' whs-blink':'')+'" '+(canUp?'':'disabled style="opacity:.55" ')+'onclick="drWsGo()">📤 세매에 등록 ('+on.length+'줄)</button> <span style="color:#5b6675">세매에 이미 있는 반품은 빼고 올림 · 판매일자 = 입고일</span>';}
+  else{s3=_dr.rows&&ok.length?"ok":"";b3=wsRes||(_dr.rows?(done.length?'<span style="color:#047857">세매 등록 '+done.length+'줄</span>':'등록할 줄 없음'):'');}
   var C5=(saipReq||{}).drc,act5=_saipReqActive(C5),CS=drCleanStatus,ct=_drCleanTodo(),s5="",b5="";
   if(act5){s5="run";b5="⏳ "+e(C5.state)+" · "+e(C5.by||"")+" · "+(C5.items||[]).length+"줄"+(C5.progress?" — "+e(String(C5.progress).slice(0,80)):"");}
-  else if(ct.length){s5=CS&&(CS.status==="error"||CS.status==="old"||CS.status==="off"||CS.status==="partial")?"bad":"wait";b5=(s5==="bad"?'<span style="color:#b91c1c">'+e(CS.error||CS.status)+'</span><br>':'')+'세매에 올림 표시한 '+ct.length+'줄이 아직 「도매」 탭에 있습니다 <button class="a2-btn" onclick="drClean()">🧹 시트 정리 ('+ct.length+'줄)</button>';}
+  else if(ct.length){s5=CS&&(CS.status==="error"||CS.status==="old"||CS.status==="off"||CS.status==="partial")?"bad":"wait";b5=(s5==="bad"?'<span style="color:#b91c1c">'+e(CS.error||CS.status)+'</span><br>':'')+'세매에 등록한 '+ct.length+'줄이 아직 「도매」 탭에 있습니다 <button class="a2-btn" onclick="drClean()">🧹 시트 정리 ('+ct.length+'줄)</button>';}
   else if(CS&&CS.at){s5=CS.status==="done"?"ok":CS.status==="dry"?"":"bad";b5=(CS.status==="done"?'<span style="color:#047857">도매 → 도매(완료) '+(CS.moved||0)+'줄 · 삭제 '+(CS.deleted||0)+' · 처리일 '+(CS.proc||0)+'줄 적음</span>':'<span style="color:#b91c1c">'+e(CS.error||CS.status)+'</span>')+(CS.notFound&&CS.notFound.length?' · 못 찾음 '+e(CS.notFound.join(" / ")):'')+' <span style="color:#5b6675">· '+e(_saipFmtAt(CS.end||CS.at))+' · '+e(CS.by||"")+'</span>';}
-  else b5='올림 표시하면 처리일(오늘)을 적고 「도매(완료)」로 옮긴 뒤 「도매」에서 지웁니다';
-  box.innerHTML=_a2rRow("①","반품리스트 읽기(도매 탭)",s1,b1)+_a2rRow("②","상품코드·결제가 확인 · 세매 대조",s2,b2)+_a2rRow("③","세매 반품 양식 받기",s3,b3)+_a2rRow("④","세매 「데이터 관리」에 올리고 표시",s4,b4)+_a2rRow("⑤","시트 정리 — 처리일 · 도매(완료)로 이동 · 도매에서 삭제",s5,b5);
+  else b5='세매 등록이 끝나면 처리일(오늘)을 적고 「도매(완료)」로 옮긴 뒤 「도매」에서 지웁니다';
+  box.innerHTML=_a2rRow("①","반품리스트 읽기(도매 탭)",s1,b1)+_a2rRow("②","상품코드·결제가 확인 · 세매 대조",s2,b2)+_a2rRow("③","세매에 등록",s3,b3)+_a2rRow("④","시트 정리 — 처리일 · 도매(완료)로 이동 · 도매에서 삭제",s5,b5);
 }
 function a2rRender(){
   var box=document.getElementById("auto2Reg");if(!box)return;
