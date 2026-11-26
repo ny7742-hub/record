@@ -20456,12 +20456,13 @@ function _docParseContract(lines){
       if(v)names.push(v);
     }
   });
-  /* 기간 — `2026/ 9 / 21 ~ 2026/ 10 / 4` */
-  var dm=/(\d{4})\s*\/\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*~\s*(\d{4})\s*\/\s*(\d{1,2})\s*\/\s*(\d{1,2})/.exec(flat);
+  /* 기간 — `2026/ 9 / 21 ~ 2026/ 10 / 4` · `2026. 12. 7 ~ 2026. 12. 20`(2026-11-26 D31 약정서) · `2026-12-07 ~ 12-20` · `2026년 12월 7일 ~ …`
+     구분자는 / . - 년월일 모두, 끝 날짜의 연도가 없으면 시작 연도 */
+  var dm=/(\d{4})\s*[.\/\-년]\s*(\d{1,2})\s*[.\/\-월]\s*(\d{1,2})\s*일?\s*\.?\s*[~∼～\-–]\s*(?:(\d{4})\s*[.\/\-년]\s*)?(\d{1,2})\s*[.\/\-월]\s*(\d{1,2})/.exec(flat);
   var pad=function(n){return String(n).padStart(2,"0");};
   if(dm){
     r.start=dm[1]+"."+pad(dm[2])+"."+pad(dm[3]);
-    r.end=dm[4]+"."+pad(dm[5])+"."+pad(dm[6]);
+    r.end=(dm[4]||dm[1])+"."+pad(dm[5])+"."+pad(dm[6]);
   }
   /* 금액 — 줄 이름 뒤의 ₩숫자들 */
   var pick=function(re){
@@ -25843,6 +25844,8 @@ function mgBuildNote(){
       +"수수료 ("+parseFloat((fee*100).toFixed(2))+"%) : "+Math.floor((price||sale)*fee).toLocaleString()+"원\n"
       +(deliv?("택배비 : "+deliv.toLocaleString()+"원\n"):"")
       +"마진 : 약 "+Math.round(c.profit).toLocaleString()+"원\n"
+      /* 마진 5,000원 이하면 본문에도 조율 계획을 적는다(2026-11-26 영업2팀 "쿠폰 부담금 조율 하겠다고 본문에 기재") */
+      +(c.profit<=5000?"마진이 낮아 쿠폰 부담금은 조율하겠습니다.\n":"")
       +"확인 및 검토 부탁드립니다.";
     if(c.profit<=5000)_mgNoteWarn.push(g.name+" 마진 "+Math.round(c.profit).toLocaleString()+"원 (5,000원 이하) → 업체부담금 조율 필요");
     return t;
