@@ -2543,7 +2543,7 @@ label{font-size:14px!important}
       <div style="font-size:12px;color:#5b6675;margin-bottom:6px"><b>① 파일 받기</b>(OneDrive 백화점몰.xlsx) → <b>② 중복 검사</b>(플레이엠디·이카운트·세매) → <b>③ 목록에서 수정·삭제 확인 후 [▶ 등록]</b> = 플레이엠디 → 세매 자동 등록 · 이카운트는 등록 여부만 확인. 단추는 위 하나만 누르면 됩니다. 코드·금액이 빈 줄은 빨갛게 표시하고 등록하지 않습니다.</div>
       <div id="wdsSteps" style="font-size:13px;line-height:1.55"></div></div>
     <!-- 🏬 백화점몰 반품등록 → 세매만(2026-11-26 영업2팀) — CX팀 반품리스트 「도매」 탭, drRender -->
-    <div class="a2-card" id="auto2DrCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 백화점몰 반품등록</b><span style="font-size:12px;font-weight:800;color:#1b6e82">세매만</span><span style="font-size:12.5px;color:#475569">반품리스트 「도매」 탭 · 입고일+처리일 적힌 줄 · (백)롯데고양→LGY · (백)롯데본점→LTOA · (백)현대천호→HDOC</span>
+    <div class="a2-card" id="auto2DrCard" style="grid-column:1/-1"><div class="a2-h"><b>🏬 백화점몰 반품등록</b><span style="font-size:12px;font-weight:800;color:#1b6e82">세매만</span><span style="font-size:12.5px;color:#475569">반품리스트 「도매」 탭 · 입고일·해체일·상품명·수량·사유 적힌 줄 · 단순변심→주희물류(NH) · 불량→주희물류_불량(BAD) · (백)롯데고양→LGY · (백)롯데본점→LTOA · (백)현대천호→HDOC</span>
       <a class="a2-btn sub" style="margin-left:auto;font-size:12.5px;padding:5px 11px" href="https://docs.google.com/spreadsheets/d/1Cjoo-x9lBA5pFtGoxftdAxdoKrzt770XcPGeXOidPiI/edit?gid=1968517385#gid=1968517385" target="_blank" rel="noopener">반품리스트 ↗</a>
       <a class="a2-btn sub" style="font-size:12.5px;padding:5px 11px" href="https://wssales.pages.dev/" target="_blank" rel="noopener" title="세일즈 매니지먼트를 새 탭으로 엽니다 — 받은 양식을 「데이터 관리」에 올릴 때">↗ 세매 열기</a></div>
       <div id="drSteps" style="font-size:13px;line-height:1.55"></div></div>
@@ -12003,7 +12003,7 @@ function _a2rRet(k){
   }else inner=_a2rXTable(k,days,"")+inner;
   return _a2rCard(k,true,inner,btns);
 }
-/* ── 🏬 백화점몰 반품등록 → 세매만(2026-11-26 영업2팀 "백화점몰 반품등록 만들어주세요" · 세매만 · 입고일+처리일 있어야) ──
+/* ── 🏬 백화점몰 반품등록 → 세매만(2026-11-26 영업2팀 "백화점몰 반품등록 만들어주세요" · 세매만 · 2026-11-26 조건 바꿈: 입고일·해체일·상품명·수량·사유가 적힌 줄, 사유 불량(또는 불량 칸 TRUE) → 주희물류_불량 BAD · 그 밖(단순변심 등) → 주희물류 NH) ──
    CX팀 반품리스트 「도매」 탭(gid 1968517385)의 (백) 매장 줄 → 상품코드(시트 칸, 없으면 상품명+칼라로 상품데이터에서) · 결제가 →
    세매에 올리는 PlayMD 매장판매일보 53칸 양식(판매구분 반품 · 수량 − · 판매일자 = 입고일)을 받아 사람이 세매 「데이터 관리」에 올린다.
    올린 줄은 [✅ 세매에 올림 표시] → 팀 공유 ws/drRetLog{줄 열쇠:{d 입고일, s 매장코드, q, a, at, by}} — 다음엔 목록에서 빠진다.
@@ -12027,15 +12027,16 @@ function drLoad(){
   if(_dr.busy)return;_dr.busy=true;_dr.err="";drRender();
   _retSheetRows(DR_GID).then(function(rows){
     var H=(rows[0]||[]).map(function(h){return String(h).replace(/\s/g,"");}),col=function(re,nth){var n=0;for(var i=0;i<H.length;i++)if(re.test(H[i])){if(n===(nth||0))return i;n++;}return -1;};
-    var C={in:col(/^입고일/),done:col(/^처리일/),shop:col(/^쇼핑몰/),ord:col(/^주문번호\(쇼핑몰\)|^주문번호$/),prod:col(/^상품명/),qty:col(/수량$/),price:col(/결제가/)>=0?col(/결제가/):col(/수량$/,1),res:col(/^결과/),bad:col(/^불량/),code:col(/^상품컬러코드/)};
+    var C={in:col(/^입고일/),done:col(/^해체일/),why:col(/^사유|반송사유/),shop:col(/^쇼핑몰/),ord:col(/^주문번호\(쇼핑몰\)|^주문번호$/),prod:col(/^상품명/),qty:col(/수량$/),price:col(/결제가/)>=0?col(/결제가/):col(/수량$/,1),res:col(/^결과/),bad:col(/^불량/),code:col(/^상품컬러코드/)};
     if(C.shop<0||C.prod<0||C.in<0)throw new Error("「도매」 탭에서 쇼핑몰·상품명·입고일 칸을 못 찾았습니다(머리글이 바뀌었을 수 있음)");
     var out=[],seen={};
     rows.slice(1).forEach(function(r,ri){var sh=_drStoreOf(r[C.shop]);if(!sh)return;
       var g=function(i){return i>=0?String(r[i]==null?"":r[i]).trim():"";},prod=g(C.prod),inD=_drYmd(g(C.in)),dn=_drYmd(g(C.done)),res=g(C.res);
       var base=_retFnv(inD+"|"+g(C.ord)+"|"+prod.replace(/\s/g,"")),key=base;seen[base]=(seen[base]||0)+1;if(seen[base]>1)key=base+"-"+seen[base];
-      var why=!inD?"입고일 없음":!dn?"처리일 없음":DR_SKIP.some(function(s){return res.replace(/\s/g,"").indexOf(s)>=0;})?"결과 "+res:"";
+      var rs=g(C.why),qn=Math.abs(Math.round(_drNum(g(C.qty)))),isBad=/불량/.test(rs)||/^true$/i.test(g(C.bad));
+      var why=!inD?"입고일 없음":!dn?"해체일 없음":!prod?"상품명 없음":!qn?"수량 없음":!rs?"사유 없음":DR_SKIP.some(function(s){return res.replace(/\s/g,"").indexOf(s)>=0;})?"결과 "+res:"";
       var sc=g(C.code).toUpperCase().replace(/\s/g,"");
-      out.push({key:key,row:ri+2,store:sh,inD:inD,done:dn,ord:g(C.ord),prod:prod,qty:Math.abs(Math.round(_drNum(g(C.qty))))||1,price:Math.round(_drNum(g(C.price))),res:res,bad:/^true$/i.test(g(C.bad)),code:sc||_drMatch(prod),codeSrc:sc?"시트":"상품명",why:why});});
+      out.push({key:key,row:ri+2,store:sh,inD:inD,done:dn,ord:g(C.ord),prod:prod,qty:qn||1,price:Math.round(_drNum(g(C.price))),res:res,rs:rs,bad:isBad,wh:isBad?"BAD":"NH",code:sc||_drMatch(prod),codeSrc:sc?"시트":"상품명",why:why});});
     _dr.rows=out;_dr.at=new Date().toISOString();
   }).catch(function(e){_dr.err=e.message||String(e);}).then(function(){_dr.busy=false;drRender();});
 }
@@ -12062,7 +12063,7 @@ function drXlsx(){
       '자사바코드':V.code,'판매구분':'반품','매출구분':'현금','TAG가':tag,'사전원가':cost,'평균원가':cost,'현재가':tag,'판매예정단가':tag,'판매수량':q,
       '할인(T.실)%':tag?Math.round((1-unit/tag)*10000)/100:0,'에누리':0,'마일리지':0,'상품권':0,'즉시환급':0,'판매단가':unit,'판매금액':amt,'실판매금액':amt,
       '순판매(할인제외)':amt,'순판매(할인포함)':amt,'수수료':0,'TAG가합':tag*q,'판매예정금액':tag*q,'사전원가합':cost*q,'평균원가합':cost*q,'행사구분':'정상','마진(%)':0,'중간관리(%)':0,
-      '판매원':by,'특이사항':'백화점몰 반품'+(x.ord?' '+x.ord:''),'입력시간':stamp};
+      '판매원':by,'특이사항':'백화점몰 반품'+(x.ord?' '+x.ord:''),'특이사항2':(x.wh==="BAD"?'주희물류_불량(BAD)':'주희물류(NH)')+' · '+x.rs,'입력시간':stamp};
     DR_PM_HEAD.forEach(function(h,c){put(i+1,c,v[h],h==="판매일자"?"yyyy\\-mm\\-dd":h==="⇅"?"General":/%/.test(h)?"#,##0.00":undefined);});});
   ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:L.length,c:DR_PM_HEAD.length-1}});
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Sheet1");
@@ -12083,9 +12084,9 @@ function drRender(){
   if(!_dr.rows&&!_dr.busy&&!_dr.err){var pg=document.getElementById("page-auto2");if(pg&&pg.style.display!=="none"){drLoad();return;}}
   var R=_dr.rows||[],ok=R.filter(function(x){return !x.why;}),done=ok.filter(function(x){return drRetLog[x.key];}),todo=_drTodo(),wait=R.filter(function(x){return x.why;});
   /* ① 읽기 */
-  var s1=_dr.busy?"run":_dr.err?"bad":_dr.rows?"ok":"",b1=_dr.busy?"⏳ 읽는 중…":_dr.err?'<span style="color:#b91c1c">'+e(_dr.err)+'</span>':_dr.rows?('(백) 매장 '+R.length+'줄 · <b>등록 대상 '+ok.length+'줄</b>(이미 올림 '+done.length+') · 처리일 없음 등 '+wait.length+'줄 대기 <span style="color:#5b6675">· '+e(_saipFmtAt(_dr.at))+'</span>'):'';
+  var s1=_dr.busy?"run":_dr.err?"bad":_dr.rows?"ok":"",b1=_dr.busy?"⏳ 읽는 중…":_dr.err?'<span style="color:#b91c1c">'+e(_dr.err)+'</span>':_dr.rows?('(백) 매장 '+R.length+'줄 · <b>등록 대상 '+ok.length+'줄</b>(이미 올림 '+done.length+') · 해체일 없음 등 '+wait.length+'줄 대기 <span style="color:#5b6675">· '+e(_saipFmtAt(_dr.at))+'</span>'):'';
   b1+=' <button class="a2-btn sub" style="font-size:12px;padding:3px 9px" onclick="drLoad()">🔄 다시 읽기</button>';
-  if(wait.length)b1+='<details style="margin-top:3px"><summary style="cursor:pointer;color:#5b6675">대기 줄 '+wait.length+'개 보기(입고일·처리일이 다 적혀야 등록)</summary><div style="max-height:160px;overflow:auto;font-size:12px">'
+  if(wait.length)b1+='<details style="margin-top:3px"><summary style="cursor:pointer;color:#5b6675">대기 줄 '+wait.length+'개 보기(입고일·해체일·상품명·수량·사유가 다 적혀야 등록)</summary><div style="max-height:160px;overflow:auto;font-size:12px">'
     +wait.map(function(x){return '<div>'+e(x.inD||"–")+' · '+e(x.store)+' · '+e(x.prod.slice(0,40))+' — <span style="color:#b45309">'+e(x.why)+'</span></div>';}).join("")+'</div></details>';
   /* ② 코드·결제가 + 세매 대조 */
   var s2="",b2="";
@@ -12095,7 +12096,8 @@ function drRender(){
       var rows=todo.map(function(x){var V=_drVal(x),on=!_dr.off[x.key];if(on){if(!V.ok)nb++;tq+=x.qty;ta+=V.amt;var gk=x.inD+"|"+x.store;grp[gk]=(grp[gk]||0)+V.amt;}
         var red='background:#fef2f2;border-color:#fca5a5';
         return '<tr style="'+(on?'':'opacity:.45')+'"><td style="'+td+'"><input type="checkbox" '+(on?'checked':'')+' onchange="drOff(\''+x.key+'\',this.checked)"></td><td style="'+td+'">'+e(x.inD.slice(5))+'</td><td style="'+td+'">'+e(DR_STORE[x.store].c)+'</td>'
-          +'<td style="'+td+'" title="'+e(x.prod)+(x.ord?' · '+e(x.ord):'')+'">'+e(V.p?_saipModelColor({code:V.code}):x.prod.slice(0,30))+(x.bad?' <span style="color:#b91c1c">(불량)</span>':'')+'</td>'
+          +'<td style="'+td+'" title="'+e(x.prod)+(x.ord?' · '+e(x.ord):'')+'">'+e(V.p?_saipModelColor({code:V.code}):x.prod.slice(0,30))+'</td>'
+          +'<td style="'+td+';white-space:nowrap" title="사유: '+e(x.rs)+'">'+e(x.rs)+' → <b style="color:'+(x.wh==="BAD"?'#b91c1c':'#047857')+'">'+(x.wh==="BAD"?'주희물류_불량(BAD)':'주희물류(NH)')+'</b></td>'
           +'<td style="'+td+'"><input value="'+e(V.code)+'" onchange="drEd(\''+x.key+'\',\'code\',this.value)" style="width:120px;font-size:12px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;'+(V.p?'':red)+'" title="'+(V.p?(x.codeSrc==="시트"?"시트 상품컬러코드":"상품명으로 맞춤"):"상품데이터에 없는 코드 — 고쳐 주세요")+'"></td>'
           +'<td style="'+td+';text-align:right">-'+x.qty+'</td>'
           +'<td style="'+td+';text-align:right"><input value="'+(V.price||"")+'" onchange="drEd(\''+x.key+'\',\'price\',this.value)" style="width:70px;text-align:right;font-size:12px;padding:1px 4px;border:1px solid #cbd5e1;border-radius:4px;'+(V.price>0?'':red)+'" title="시트 결제가(VAT 포함)"></td>'
@@ -12105,7 +12107,7 @@ function drRender(){
       s2=nb?"warn":"wait";
       b2=(nb?'<b style="color:#b91c1c">빨간 칸 '+nb+'줄 — 상품코드·결제가를 채우거나 체크를 빼 주세요</b>':'올릴 반품 '+todo.filter(function(x){return !_dr.off[x.key];}).length+'줄 · '+tq+'개 · '+f(ta)+'원')
         +'<div style="max-height:280px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;background:#fff;margin-top:4px"><table style="width:100%;border-collapse:collapse;font-size:12px">'
-        +'<tr style="background:#f1f5f9;text-align:left;position:sticky;top:0"><th></th><th style="padding:2px 6px">입고일</th><th style="padding:2px 6px">매장</th><th style="padding:2px 6px">상품</th><th style="padding:2px 6px">코드</th><th style="padding:2px 6px;text-align:right">수량</th><th style="padding:2px 6px;text-align:right">결제가</th><th style="padding:2px 6px;text-align:right">금액</th></tr>'
+        +'<tr style="background:#f1f5f9;text-align:left;position:sticky;top:0"><th></th><th style="padding:2px 6px">입고일</th><th style="padding:2px 6px">매장</th><th style="padding:2px 6px">상품</th><th style="padding:2px 6px">사유 → 창고</th><th style="padding:2px 6px">코드</th><th style="padding:2px 6px;text-align:right">수량</th><th style="padding:2px 6px;text-align:right">결제가</th><th style="padding:2px 6px;text-align:right">금액</th></tr>'
         +rows+'</table></div><div style="margin-top:3px;font-size:12px">🔎 세매 대조: '+(wsL||'–')+'</div>';}
   }
   /* ③ 양식 받기 · ④ 올림 표시 */
