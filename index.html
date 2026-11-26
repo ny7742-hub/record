@@ -4160,6 +4160,10 @@ function fbListen(){
     function(d){if(d&&typeof d==="object")drRetLog=d;},
     function(){try{drRender();}catch(e){}}
   );
+  apply("ws/drCleanStatus","drCleanStatus",   /* 백화점몰 반품 도매 탭 정리 결과(dr-sheet-clean.mjs, 2026-11-26) — 끝나면 시트를 다시 읽는다 */
+    function(d){var was=drCleanStatus&&drCleanStatus.end;if(d&&typeof d==="object")drCleanStatus=d;if(d&&d.end&&d.end!==was&&was!==undefined&&d.status==="done")setTimeout(function(){try{drLoad();}catch(e){}},500);},
+    function(){try{drRender();}catch(e){}}
+  );
   apply("ws/ecSalOn","ecSalOn",   /* 11/16 전 온라인 줄(청량리 11/1~11/15, PlayMD 판매유형 '온라인' — 2026-11-17) */
     function(d){if(d&&typeof d==="object")ecSalOn=d;},
     function(){try{a2sRender();}catch(e){}try{ecSalRender();}catch(e){}}
@@ -4229,7 +4233,7 @@ function fbListen(){
   );
   apply("ws/saipReq","saipReq",
     function(d){if(d&&typeof d==="object")saipReq=d;},
-    function(){if(typeof whsRender==="function")whsRender();if(typeof wdsRender==="function")wdsRender();if(typeof epRender==="function")epRender();if(typeof ccNhPaint==="function")ccNhPaint();if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();if(typeof a2sRefRender==="function")a2sRefRender();}
+    function(){if(typeof whsRender==="function")whsRender();if(typeof wdsRender==="function")wdsRender();if(typeof epRender==="function")epRender();if(typeof ccNhPaint==="function")ccNhPaint();if(typeof renderSaipAuto==="function")renderSaipAuto();if(typeof renderRetAuto==="function")renderRetAuto();if(typeof dsPmsRender==="function")dsPmsRender();if(typeof ecStkAutoRender==="function")ecStkAutoRender();if(typeof ecSalAutoRender==="function")ecSalAutoRender();if(typeof ecMoveAutoRender==="function")ecMoveAutoRender();if(typeof a2sRefRender==="function")a2sRefRender();if(typeof drRender==="function")drRender();}
   );
   /* 홈 판매조회 [🔄 최신화](2026-11-17) — 단계별 결과(ws/a2sRefresh) · 이카운트 판매조회에서 읽은 전표(ws/ecSalView) */
   apply("ws/a2sRefresh","a2sRefresh",
@@ -12009,7 +12013,7 @@ function _a2rRet(k){
    올린 줄은 [✅ 세매에 올림 표시] → 팀 공유 ws/drRetLog{줄 열쇠:{d 입고일, s 매장코드, q, a, at, by}} — 다음엔 목록에서 빠진다.
    세매 대조: ws/wssalesDays[입고일|백화점].rst[세매 매장명](매장별 세매 반품 합)이 그 날 그 매장 반품 합만큼 있으면 '세매에 있음' */
 var DR_GID="1968517385",DR_STORE={"(백)롯데고양":{c:"LGY",n:"롯데아울렛 온라인 고양터미널점"},"(백)롯데본점":{c:"LTOA",n:"롯데백화점 온라인 본점"},"(백)현대천호":{c:"HDOC",n:"현대백화점 온라인 천호점"}};
-var DR_SKIP=["처리보류","확인요청","출고예정","미입고"],drRetLog={},_dr={rows:null,at:"",err:"",busy:false,ed:{},off:{}};
+var DR_SKIP=["처리보류","확인요청","출고예정","미입고"],drRetLog={},drCleanStatus=null,_dr={rows:null,at:"",err:"",busy:false,ed:{},off:{}};
 var DR_PM_HEAD=['⇅','판매일자','매장구분','매장코드','매장명','영수증번호','기획구분','판매유형','팀구분','상품코드','상품명','칼라','칼라명','사이즈','사이즈명','자사바코드','판매구분','매출구분','TAG가','사전원가','평균원가','현재가','판매예정단가','판매수량','할인(T.실)%','에누리','마일리지','상품권','즉시환급','판매단가','판매금액','실판매금액','순판매(할인제외)','순판매(할인포함)','수수료','TAG가합','판매예정금액','사전원가합','평균원가합','행사구분','마진(%)','중간관리(%)','고객코드','고객명','고객등급','판매원','수취인/주문인','특이사항','특이사항2','영수증특이사항','MD Concept Story','원구매정보','입력시간'];
 function _drStoreOf(s){var t=String(s||"").replace(/\s/g,"");return DR_STORE[t]?t:"";}
 function _drYmd(v){var d=_hsrParseDate(v);if(!d||isNaN(d))return "";var p=function(n){return (n<10?"0":"")+n;};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());}
@@ -12076,7 +12080,20 @@ function drMark(){
   keys.forEach(function(k){var x=R.filter(function(y){return y.key===k;})[0];if(!x||drRetLog[k])return;var V=_drVal(x);up[k]={d:x.inD,s:DR_STORE[x.store].c,c:V.code,q:x.qty,a:V.amt,at:at,by:by};n++;a+=V.amt;});
   if(!n){alert("표시할 줄이 없습니다 — 먼저 양식을 받아 주세요.");return;}
   if(!confirm("받은 양식 "+n+"줄("+a.toLocaleString()+"원)을 세매에 올렸다고 표시합니다.\n\n세매 「데이터 관리」에 올린 뒤에 눌러 주세요. 표시한 줄은 다음부터 목록에서 빠집니다."))return;
-  fbDB.ref("ws/drRetLog").update(up).then(function(){_dr.dl=null;drRender();}).catch(function(e){alert("팀 공유에 저장하지 못했습니다: "+e.message);});
+  fbDB.ref("ws/drRetLog").update(up).then(function(){drRetLog=Object.assign({},drRetLog,up);_dr.dl=null;drClean(Object.keys(up),true);drRender();}).catch(function(e){alert("팀 공유에 저장하지 못했습니다: "+e.message);});
+}
+/* ⑤ 시트 정리(2026-11-26 영업2팀 "처리된건은 당일일자를 처리일에 기재하고, 도매탭에서 도매완료로 탭이동하고 도매탭에 삭제") — 올림 표시한 줄을
+   ws/saipReq.drc → 자동화 PC dr-sheet-clean.mjs → 시트 웹 앱(sheet-cleanup.gs v5): 처리일 칸이 비면 오늘 M/D(요일) · 「도매(완료)」 맨 아래로 복사 · 「도매」에서 삭제. 결과 ws/drCleanStatus */
+function _drCleanTodo(){return (_dr.rows||[]).filter(function(x){var L=drRetLog[x.key];return L&&!L.sheet;});}
+function drClean(keys,quiet){
+  var R=_dr.rows||[],L=(keys||_drCleanTodo().map(function(x){return x.key;})).map(function(k){return R.filter(function(y){return y.key===k;})[0];}).filter(Boolean);
+  if(!L.length){if(!quiet)alert("정리할 줄이 없습니다.");return;}
+  var cur=(saipReq||{}).drc;if(_saipReqActive(cur)){if(!quiet)alert("시트 정리가 이미 "+(cur.state==="처리중"?"진행 중":"요청돼 있습니다")+".");return;}
+  if(!quiet&&!confirm("반품리스트 「도매」 탭에서 "+L.length+"줄을 정리합니다.\n\n · 처리일 칸이 비어 있으면 오늘 날짜를 적고\n · 「도매(완료)」 맨 아래로 옮긴 뒤\n · 「도매」 탭에서 지웁니다.\n\n진행할까요?"))return;
+  var md=function(d){return (+d.slice(5,7))+"/"+(+d.slice(8,10));};
+  _saipReqSet("drc",{id:Date.now().toString(36)+"drc",by:_saipMe(),at:new Date().toISOString(),state:"요청",items:L.map(function(x){return {key:x.key,md:md(x.inD),prod:x.prod,orderNo:x.ord||""};})});
+  drRender();
+  if(!_saipWatchOk())alert("요청을 남겼습니다.\n\n다만 자동화 PC 신호가 없습니다. 켜지면 이어서 정리합니다.");
 }
 function drRender(){
   var box=document.getElementById("drSteps");if(!box)return;
@@ -12116,7 +12133,12 @@ function drRender(){
     +(_dr.dl?' <span style="color:#047857">받음 '+e(_saipFmtAt(_dr.dl.at))+' · '+_dr.dl.keys.length+'줄</span>':'')+' <span style="color:#5b6675">판매일보 53칸 · 판매구분 반품 · 수량 − · 판매일자 = 입고일</span>'):(_dr.rows?'받을 줄 없음':'');
   var s4=todo.length?(_dr.dl?"wait":""):(_dr.rows&&ok.length?"ok":""),b4=_dr.dl?('받은 파일을 <a href="https://wssales.pages.dev/" target="_blank" rel="noopener" style="color:#1b6e82;font-weight:700">세매 ↗</a> 「데이터 관리」에 올린 뒤 → <button class="a2-btn" onclick="drMark()">✅ 세매에 올림 표시</button>'):
     todo.length?'양식을 받아 세매에 올린 뒤 표시합니다':(done.length?'<span style="color:#047857">올림 표시 '+done.length+'줄</span>':'');
-  box.innerHTML=_a2rRow("①","반품리스트 읽기(도매 탭)",s1,b1)+_a2rRow("②","상품코드·결제가 확인 · 세매 대조",s2,b2)+_a2rRow("③","세매 반품 양식 받기",s3,b3)+_a2rRow("④","세매 「데이터 관리」에 올리고 표시",s4,b4);
+  var C5=(saipReq||{}).drc,act5=_saipReqActive(C5),CS=drCleanStatus,ct=_drCleanTodo(),s5="",b5="";
+  if(act5){s5="run";b5="⏳ "+e(C5.state)+" · "+e(C5.by||"")+" · "+(C5.items||[]).length+"줄"+(C5.progress?" — "+e(String(C5.progress).slice(0,80)):"");}
+  else if(ct.length){s5=CS&&(CS.status==="error"||CS.status==="old"||CS.status==="off"||CS.status==="partial")?"bad":"wait";b5=(s5==="bad"?'<span style="color:#b91c1c">'+e(CS.error||CS.status)+'</span><br>':'')+'세매에 올림 표시한 '+ct.length+'줄이 아직 「도매」 탭에 있습니다 <button class="a2-btn" onclick="drClean()">🧹 시트 정리 ('+ct.length+'줄)</button>';}
+  else if(CS&&CS.at){s5=CS.status==="done"?"ok":CS.status==="dry"?"":"bad";b5=(CS.status==="done"?'<span style="color:#047857">도매 → 도매(완료) '+(CS.moved||0)+'줄 · 삭제 '+(CS.deleted||0)+' · 처리일 '+(CS.proc||0)+'줄 적음</span>':'<span style="color:#b91c1c">'+e(CS.error||CS.status)+'</span>')+(CS.notFound&&CS.notFound.length?' · 못 찾음 '+e(CS.notFound.join(" / ")):'')+' <span style="color:#5b6675">· '+e(_saipFmtAt(CS.end||CS.at))+' · '+e(CS.by||"")+'</span>';}
+  else b5='올림 표시하면 처리일(오늘)을 적고 「도매(완료)」로 옮긴 뒤 「도매」에서 지웁니다';
+  box.innerHTML=_a2rRow("①","반품리스트 읽기(도매 탭)",s1,b1)+_a2rRow("②","상품코드·결제가 확인 · 세매 대조",s2,b2)+_a2rRow("③","세매 반품 양식 받기",s3,b3)+_a2rRow("④","세매 「데이터 관리」에 올리고 표시",s4,b4)+_a2rRow("⑤","시트 정리 — 처리일 · 도매(완료)로 이동 · 도매에서 삭제",s5,b5);
 }
 function a2rRender(){
   var box=document.getElementById("auto2Reg");if(!box)return;
